@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 5.4.0"
+    "version": ">= 5.4.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "production": {
@@ -10,6 +11,16 @@
     },
     "preview": {
       "distribution": "internal",
+      "developmentClient": true,
+      "ios": {
+        "resourceClass": "m-medium"
+      }
+    },
+    "internal": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://pet-grooming-api.vercel.app"
+      },
       "ios": {
         "resourceClass": "m-medium"
       }

@@ -8,6 +8,7 @@ export type Appointment = {
   notes?: string | null;
   payment_status?: string | null;
   status?: string | null;
+  amount?: number | null;
   customers?: {
     id: string;
     name?: string | null;
@@ -94,4 +95,17 @@ export async function createAppointment(payload: CreateAppointmentPayload): Prom
   };
   const { data } = await api.post<CreateAppointmentResponse>('/appointments', body);
   return data.data?.[0] || payload;
+}
+
+export async function getAppointment(id: string): Promise<Appointment> {
+  const { data } = await api.get<{ data: Appointment[] }>(`/appointments/${id}`);
+  return data.data?.[0] || (data as any).data || ({} as Appointment);
+}
+
+export async function updateAppointment(
+  id: string,
+  payload: Partial<CreateAppointmentPayload & { amount?: number | null }>,
+): Promise<Appointment> {
+  const { data } = await api.patch<{ data: Appointment[] }>(`/appointments/${id}`, payload);
+  return data.data?.[0] || (data as any).data || ({} as Appointment);
 }

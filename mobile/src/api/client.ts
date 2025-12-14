@@ -3,8 +3,27 @@ import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import { useAuthStore } from '../state/authStore';
 
-const baseUrl = Constants.expoConfig?.extra?.apiBaseUrl;
-const baseWithVersion = baseUrl ? `${baseUrl.replace(/\/$/, '')}/api/v1` : undefined;
+function resolveApiBase() {
+  // expoConfig -> dev/Expo Go, manifest/manifest2/manifestExtra -> production builds
+  const extra =
+    Constants.expoConfig?.extra ||
+    Constants.manifest?.extra ||
+    // @ts-expect-error manifest2 is undocumented but present on some builds
+    Constants.manifest2?.extra ||
+    // @ts-expect-error manifestExtra is new on SDK 54+
+    Constants.manifestExtra;
+
+  const candidate = extra?.apiBaseUrl || process.env.EXPO_PUBLIC_API_BASE_URL || null;
+  if (!candidate) {
+    console.warn(
+      '[api] API base URL ausente. Configure API_BASE_URL/EXPO_PUBLIC_API_BASE_URL para builds.'
+    );
+  }
+  return candidate ? candidate.replace(/\/$/, '') : undefined;
+}
+
+const baseUrl = resolveApiBase();
+const baseWithVersion = baseUrl ? `${baseUrl}/api/v1` : undefined;
 
 const api = axios.create({
   baseURL: baseWithVersion,

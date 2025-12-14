@@ -1,9 +1,11 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getProfile } from '../api/profile';
 import { useAuthStore } from '../state/authStore';
+import { useBrandingTheme } from '../theme/useBrandingTheme';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -22,17 +24,16 @@ function formatDate(value?: string | null) {
   }
 }
 
-function InfoPill({ label, value }: { label: string; value?: string | number | null }) {
-  return (
+export default function ProfileScreen({ navigation }: Props) {
+  const user = useAuthStore((s) => s.user);
+  const { colors } = useBrandingTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const InfoPill = ({ label, value }: { label: string; value?: string | number | null }) => (
     <View style={styles.pill}>
       <Text style={styles.pillLabel}>{label}</Text>
       <Text style={styles.pillValue}>{value ? String(value) : '—'}</Text>
     </View>
   );
-}
-
-export default function ProfileScreen({ navigation }: Props) {
-  const user = useAuthStore((s) => s.user);
 
   const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: ['profile'],
@@ -63,7 +64,7 @@ export default function ProfileScreen({ navigation }: Props) {
           </View>
         </View>
 
-        {isLoading || isRefetching ? <ActivityIndicator color="#22c55e" style={{ marginVertical: 12 }} /> : null}
+        {isLoading || isRefetching ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} /> : null}
         {error ? <Text style={styles.error}>Não foi possível buscar perfil agora.</Text> : null}
 
         <View style={styles.infoGrid}>
@@ -90,138 +91,140 @@ export default function ProfileScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  scrollContent: {
-    padding: 24,
-    paddingTop: 32,
-    paddingBottom: 40,
-  },
-  headerCard: {
-    backgroundColor: '#111827',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#1f2937',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-  },
-  avatar: {
-    height: 64,
-    width: 64,
-    borderRadius: 12,
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#22c55e',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  avatarText: {
-    color: '#22c55e',
-    fontWeight: '800',
-    fontSize: 24,
-  },
-  headerLabel: {
-    color: '#94a3b8',
-    fontSize: 12,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
-  headerTitle: {
-    color: '#e2e8f0',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  headerSubtitle: {
-    color: '#cbd5e1',
-    marginTop: 2,
-  },
-  headerMeta: {
-    color: '#94a3b8',
-    fontSize: 12,
-    marginTop: 6,
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 10,
-  },
-  error: {
-    color: '#f87171',
-    marginBottom: 8,
-  },
-  infoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginVertical: 12,
-  },
-  pill: {
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: '#27354a',
-    width: '47%',
-  },
-  pillLabel: {
-    color: '#94a3b8',
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  pillValue: {
-    color: '#e2e8f0',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  section: {
-    marginTop: 10,
-    backgroundColor: '#111827',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#1f2937',
-  },
-  sectionTitle: {
-    color: '#e2e8f0',
-    fontWeight: '700',
-    fontSize: 16,
-    marginBottom: 6,
-  },
-  sectionText: {
-    color: '#94a3b8',
-    marginBottom: 12,
-  },
-  button: {
-    backgroundColor: '#22c55e',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  buttonText: {
-    color: '#0f172a',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  secondary: {
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#22c55e',
-  },
-  buttonTextSecondary: {
-    color: '#e2e8f0',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-});
+function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    scrollContent: {
+      padding: 24,
+      paddingTop: 32,
+      paddingBottom: 40,
+    },
+    headerCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      marginBottom: 16,
+      shadowColor: colors.background,
+      shadowOpacity: 0.15,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 8 },
+    },
+    avatar: {
+      height: 64,
+      width: 64,
+      borderRadius: 12,
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 14,
+    },
+    avatarText: {
+      color: colors.primary,
+      fontWeight: '800',
+      fontSize: 24,
+    },
+    headerLabel: {
+      color: colors.muted,
+      fontSize: 12,
+      letterSpacing: 1.2,
+      textTransform: 'uppercase',
+    },
+    headerTitle: {
+      color: colors.text,
+      fontSize: 22,
+      fontWeight: '700',
+    },
+    headerSubtitle: {
+      color: colors.muted,
+      marginTop: 2,
+    },
+    headerMeta: {
+      color: colors.muted,
+      fontSize: 12,
+      marginTop: 6,
+    },
+    avatarImage: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 10,
+    },
+    error: {
+      color: colors.danger,
+      marginBottom: 8,
+    },
+    infoGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+      marginVertical: 12,
+    },
+    pill: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      width: '47%',
+    },
+    pillLabel: {
+      color: colors.muted,
+      fontSize: 12,
+      marginBottom: 4,
+    },
+    pillValue: {
+      color: colors.text,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+    section: {
+      marginTop: 10,
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontWeight: '700',
+      fontSize: 16,
+      marginBottom: 6,
+    },
+    sectionText: {
+      color: colors.muted,
+      marginBottom: 12,
+    },
+    button: {
+      backgroundColor: colors.primary,
+      borderRadius: 10,
+      paddingVertical: 12,
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    buttonText: {
+      color: colors.onPrimary,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+    secondary: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    buttonTextSecondary: {
+      color: colors.text,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+  });
+}

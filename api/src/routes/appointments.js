@@ -73,6 +73,8 @@ router.get('/', async (req, res) => {
       appointment_date,
       appointment_time,
       duration,
+      notes,
+      amount,
       payment_status,
       status,
       customers ( id, name, phone, address ),
@@ -130,6 +132,51 @@ router.post('/', async (req, res) => {
   res.status(201).json({ data })
 })
 
+// Get single appointment
+router.get('/:id', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+  const { id } = req.params
+
+  let query = supabase
+    .from('appointments')
+    .select(
+      `
+      id,
+      appointment_date,
+      appointment_time,
+      duration,
+      notes,
+      amount,
+      payment_status,
+      status,
+      customers ( id, name, phone, address ),
+      services ( id, name, price ),
+      pets ( id, name, breed, photo_url )
+    `
+    )
+    .eq('id', id)
+    .maybeSingle()
+
+  if (accountId) {
+    query = query.eq('account_id', accountId)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error('[api] get appointment error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  if (!data) {
+    return res.status(404).json({ error: 'Not found' })
+  }
+
+  res.json({ data })
+})
+
 router.patch('/:id/status', async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
@@ -150,6 +197,50 @@ router.patch('/:id/status', async (req, res) => {
 
   if (error) {
     console.error('[api] update appointment status error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.json({ data })
+})
+
+router.patch('/:id', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+  const { id } = req.params
+  const payload = req.body || {}
+
+  const allowed = [
+    'status',
+    'payment_status',
+    'notes',
+    'duration',
+    'appointment_date',
+    'appointment_time',
+    'customer_id',
+    'pet_id',
+    'service_id',
+    'amount',
+  ]
+
+  const updates = {}
+  allowed.forEach((key) => {
+    if (payload[key] !== undefined) updates[key] = payload[key]
+  })
+
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: 'No fields to update' })
+  }
+
+  let query = supabase.from('appointments').update(updates).eq('id', id)
+  if (accountId) {
+    query = query.eq('account_id', accountId)
+  }
+
+  const { data, error } = await query.select()
+
+  if (error) {
+    console.error('[api] update appointment error', error)
     return res.status(500).json({ error: error.message })
   }
 

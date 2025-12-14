@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import {
   View,
   Text,
@@ -8,11 +8,12 @@ import {
   TouchableOpacity,
   SectionList,
   Image,
+  Linking,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getAppointments, Appointment } from '../api/appointments';
-import { getBranding } from '../api/branding';
+import { useBrandingTheme } from '../theme/useBrandingTheme';
 
 type Props = NativeStackScreenProps<any>;
 type FilterMode = 'upcoming' | 'past';
@@ -59,76 +60,12 @@ function todayLocalISO() {
   return new Date().toLocaleDateString('sv-SE'); // sv-SE => 2024-07-01
 }
 
-function StatusPill({ label, type }: { label: string; type: string }) {
-  const bg = statusColor[type] || '#22c55e';
-  return (
-    <View style={[styles.pill, { backgroundColor: bg + '33', borderColor: bg }]}>
-      <Text style={[styles.pillText, { color: bg }]}>{label}</Text>
-    </View>
-  );
-}
-
-function PaymentPill({ label }: { label: string }) {
-  const paid = label === 'paid';
-  const color = paid ? '#22c55e' : '#fbbf24';
-  return (
-    <View style={[styles.pill, { backgroundColor: color + '33', borderColor: color }]}>
-      <Text style={[styles.pillText, { color }]}>{paid ? 'Pago' : 'Pendente'}</Text>
-    </View>
-  );
-}
-
-function AppointmentItem({
-  item,
-  primary,
-  surface,
-  primarySoft,
-}: {
-  item: Appointment;
-  primary: string;
-  surface: string;
-  primarySoft: string;
-}) {
-  const petInitial = item.pets?.name?.charAt(0)?.toUpperCase() || '🐾';
-  return (
-    <View style={[styles.card, { backgroundColor: surface, borderColor: primarySoft }]}>
-      <View style={[styles.petThumb, { backgroundColor: surface, borderColor: primarySoft }]}>
-        {item.pets?.photo_url ? (
-          <Image source={{ uri: item.pets.photo_url }} style={styles.petImage} />
-        ) : (
-          <Text style={[styles.petInitial, { color: primary }]}>{petInitial}</Text>
-        )}
-      </View>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={styles.cardTitle}>{formatTime(item.appointment_time)}</Text>
-        <Text style={styles.cardSubtitle}>{item.services?.name || 'Serviço'}</Text>
-        <Text style={styles.cardMeta}>
-          {item.customers?.name || 'Cliente'} • {item.pets?.name || 'Pet'}
-        </Text>
-      </View>
-      <View style={styles.badges}>
-        {item.status ? <StatusPill label={item.status} type={item.status} /> : null}
-        {item.payment_status ? <PaymentPill label={item.payment_status} /> : null}
-      </View>
-    </View>
-  );
-}
-
 export default function AppointmentsScreen({ navigation }: Props) {
   const today = todayLocalISO();
   const [filterMode, setFilterMode] = useState<FilterMode>('upcoming');
 
-  const {
-    data: brandingData,
-    isLoading: isBrandingLoading,
-    error: brandingError,
-    refetch: refetchBranding,
-    isRefetching: isBrandingRefetching,
-  } = useQuery({
-    queryKey: ['branding'],
-    queryFn: () => getBranding(),
-    staleTime: 1000 * 60 * 60 * 6, // 6h cache in-memory
-  });
+  const { branding: brandingData, colors } = useBrandingTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const {
     data: appointmentsData,
@@ -154,11 +91,87 @@ export default function AppointmentsScreen({ navigation }: Props) {
   });
 
   const appointments = (appointmentsData?.pages || []).flatMap((page) => page.items) || [];
-  const branding = brandingData;
-  const primary = branding?.brand_primary || '#22c55e';
-  const background = branding?.brand_background || '#0f172a';
-  const surface = '#1e293b';
-  const primarySoft = branding?.brand_primary_soft || `${primary}33`;
+  const primary = colors.primary;
+  const surface = colors.surface;
+  const primarySoft = colors.primarySoft;
+
+  const StatusPill = ({ label, type }: { label: string; type: string }) => {
+    const bg = statusColor[type] || colors.primary;
+    return (
+      <View style={[styles.pill, { backgroundColor: bg + '33', borderColor: bg }]}>
+        <Text style={[styles.pillText, { color: bg }]}>{label}</Text>
+      </View>
+    );
+  };
+
+  const PaymentPill = ({ label }: { label: string }) => {
+    const paid = label === 'paid';
+    const color = paid ? colors.success : colors.warning;
+    return (
+      <View style={[styles.pill, { backgroundColor: color + '33', borderColor: color }]}>
+        <Text style={[styles.pillText, { color }]}>{paid ? 'Pago' : 'Pendente'}</Text>
+      </View>
+    );
+  };
+
+  const AppointmentItem = ({ item }: { item: Appointment }) => {
+    const petInitial = item.pets?.name?.charAt(0)?.toUpperCase() || '🐾';
+    const price = item.services?.price;
+    const address = item.customers?.address;
+    const phone = item.customers?.phone;
+
+    const openMaps = () => {
+      if (!address) return;
+      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+      Linking.openURL(url).catch(() => null);
+    };
+
+    const callCustomer = () => {
+      if (!phone) return;
+      Linking.openURL(`tel:${phone}`).catch(() => null);
+    };
+
+    return (
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: surface, borderColor: primarySoft }]}
+        onPress={() => navigation.navigate('AppointmentDetail', { id: item.id })}
+      >
+        <View style={[styles.petThumb, { backgroundColor: surface, borderColor: primarySoft }]}>
+          {item.pets?.photo_url ? (
+            <Image source={{ uri: item.pets.photo_url }} style={styles.petImage} />
+          ) : (
+            <Text style={[styles.petInitial, { color: primary }]}>{petInitial}</Text>
+          )}
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={styles.cardTitle}>{formatTime(item.appointment_time)}</Text>
+          <Text style={styles.cardSubtitle}>{item.services?.name || 'Serviço'}</Text>
+          <Text style={styles.cardMeta}>
+            {item.customers?.name || 'Cliente'} • {item.pets?.name || 'Pet'}
+          </Text>
+          {price !== undefined && price !== null ? (
+            <Text style={styles.cardMeta}>Valor: € {Number(price).toFixed(2)}</Text>
+          ) : null}
+        </View>
+        <View style={styles.badges}>
+          {item.status ? <StatusPill label={item.status} type={item.status} /> : null}
+          {item.payment_status ? <PaymentPill label={item.payment_status} /> : null}
+          <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
+            {address ? (
+              <TouchableOpacity style={[styles.chip, { borderColor: primary }]} onPress={openMaps}>
+                <Text style={[styles.pillText, { color: primary }]}>Mapas</Text>
+              </TouchableOpacity>
+            ) : null}
+            {phone ? (
+              <TouchableOpacity style={[styles.chip, { borderColor: primary }]} onPress={callCustomer}>
+                <Text style={[styles.pillText, { color: primary }]}>Ligar</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const sections = useMemo(() => {
     const grouped: Record<string, Appointment[]> = {};
@@ -196,7 +209,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: background }]} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Agendamentos</Text>
@@ -215,7 +228,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
           ]}
           onPress={() => setFilterMode('upcoming')}
         >
-          <Text style={[styles.segmentText, { color: filterMode === 'upcoming' ? primary : '#e2e8f0' }]}>
+          <Text style={[styles.segmentText, { color: filterMode === 'upcoming' ? primary : colors.text }]}>
             Próximos
           </Text>
         </TouchableOpacity>
@@ -226,13 +239,13 @@ export default function AppointmentsScreen({ navigation }: Props) {
           ]}
           onPress={() => setFilterMode('past')}
         >
-          <Text style={[styles.segmentText, { color: filterMode === 'past' ? primary : '#e2e8f0' }]}>
+          <Text style={[styles.segmentText, { color: filterMode === 'past' ? primary : colors.text }]}>
             Anteriores
           </Text>
         </TouchableOpacity>
       </View>
 
-      {isLoading || isRefetching ? <ActivityIndicator color="#22c55e" style={{ marginVertical: 12 }} /> : null}
+      {isLoading || isRefetching ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} /> : null}
       {error ? (
         <Text style={styles.error}>
           Não foi possível carregar agendamentos{'\n'}
@@ -243,12 +256,10 @@ export default function AppointmentsScreen({ navigation }: Props) {
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <AppointmentItem item={item} primary={primary} surface={surface} primarySoft={primarySoft} />
-        )}
+        renderItem={({ item }) => <AppointmentItem item={item} />}
         renderSectionHeader={({ section: { title } }) => (
-          <View style={[styles.sectionChip, { backgroundColor: primarySoft, borderColor: primary }]}>
-            <Text style={[styles.sectionHeader, { color: primary }]}>{title}</Text>
+          <View style={styles.sectionChip}>
+            <Text style={styles.sectionHeader}>{title}</Text>
           </View>
         )}
         contentContainerStyle={{ paddingBottom: 24 }}
@@ -280,150 +291,160 @@ export default function AppointmentsScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    padding: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
-  },
-  title: {
-    color: '#e2e8f0',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  subtitle: {
-    color: '#94a3b8',
-    marginTop: 4,
-  },
-  primaryButton: {
-    backgroundColor: '#22c55e',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#0f172a',
-    fontWeight: '700',
-  },
-  card: {
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#27354a',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  petThumb: {
-    height: 44,
-    width: 44,
-    borderRadius: 12,
-    backgroundColor: '#111827',
-    borderWidth: 1,
-    borderColor: '#27354a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  petImage: {
-    height: '100%',
-    width: '100%',
-  },
-  petInitial: {
-    color: '#22c55e',
-    fontWeight: '800',
-  },
-  cardTitle: {
-    color: '#e2e8f0',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  cardSubtitle: {
-    color: '#94a3b8',
-    marginTop: 4,
-  },
-  cardMeta: {
-    color: '#94a3b8',
-    fontSize: 12,
-  },
-  status: {
-    color: '#22c55e',
-    fontWeight: '700',
-  },
-  badges: {
-    gap: 6,
-    alignItems: 'flex-end',
-  },
-  segment: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  segmentButton: {
-    flex: 1,
-    backgroundColor: '#111827',
-    borderWidth: 1,
-    borderColor: '#1f2937',
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  segmentText: {
-    fontWeight: '700',
-    color: '#e2e8f0',
-  },
-  error: {
-    color: '#f87171',
-    marginBottom: 10,
-  },
-  empty: {
-    color: '#94a3b8',
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  secondaryButton: {
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#22c55e',
-    marginTop: 12,
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: '#e2e8f0',
-    fontWeight: '700',
-  },
-  pill: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  pillText: {
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  sectionHeader: {
-    color: '#94a3b8',
-    fontWeight: '700',
-  },
-  sectionChip: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    marginBottom: 6,
-    marginTop: 12,
-  },
-});
+function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+      padding: 16,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+      gap: 8,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 22,
+      fontWeight: '700',
+    },
+    subtitle: {
+      color: colors.muted,
+      marginTop: 4,
+    },
+    primaryButton: {
+      backgroundColor: colors.primary,
+      borderRadius: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      alignItems: 'center',
+    },
+    primaryButtonText: {
+      color: colors.onPrimary,
+      fontWeight: '700',
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    petThumb: {
+      height: 44,
+      width: 44,
+      borderRadius: 12,
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    petImage: {
+      height: '100%',
+      width: '100%',
+    },
+    petInitial: {
+      color: colors.primary,
+      fontWeight: '800',
+    },
+    cardTitle: {
+      color: colors.text,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+    cardSubtitle: {
+      color: colors.muted,
+      marginTop: 4,
+    },
+    cardMeta: {
+      color: colors.muted,
+      fontSize: 12,
+    },
+    status: {
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    badges: {
+      gap: 6,
+      alignItems: 'flex-end',
+    },
+    chip: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+    },
+    segment: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 12,
+    },
+    segmentButton: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      paddingVertical: 10,
+      borderRadius: 10,
+      alignItems: 'center',
+    },
+    segmentText: {
+      fontWeight: '700',
+      color: colors.text,
+    },
+    error: {
+      color: colors.danger,
+      marginBottom: 10,
+    },
+    empty: {
+      color: colors.muted,
+      textAlign: 'center',
+      marginTop: 20,
+    },
+    secondaryButton: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      marginTop: 12,
+      borderRadius: 10,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    secondaryButtonText: {
+      color: colors.text,
+      fontWeight: '700',
+    },
+    pill: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+    },
+    pillText: {
+      fontWeight: '700',
+      fontSize: 12,
+    },
+    sectionHeader: {
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    sectionChip: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+      marginBottom: 6,
+      marginTop: 12,
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.primary,
+    },
+  });
+}

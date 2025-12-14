@@ -10,6 +10,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AppointmentsScreen from './src/screens/AppointmentsScreen';
 import NewAppointmentScreen from './src/screens/NewAppointmentScreen';
+import AppointmentDetailScreen from './src/screens/AppointmentDetailScreen';
 import { useAuthStore } from './src/state/authStore';
 
 const Stack = createNativeStackNavigator();
@@ -43,6 +44,7 @@ export default function App() {
                 <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Appointments" component={AppointmentsScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="NewAppointment" component={NewAppointmentScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} options={{ headerShown: false }} />
               </>
             ) : (
               <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />

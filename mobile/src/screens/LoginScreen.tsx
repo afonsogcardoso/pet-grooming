@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
@@ -8,6 +8,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { login } from '../api/auth';
 import { getBranding } from '../api/branding';
 import { useAuthStore } from '../state/authStore';
+import { useBrandingTheme } from '../theme/useBrandingTheme';
 
 const schema = z.object({
   email: z.string().email(),
@@ -22,6 +23,8 @@ export default function LoginScreen({ navigation }: Props) {
   const setTokens = useAuthStore((s) => s.setTokens);
   const setUser = useAuthStore((s) => s.setUser);
   const queryClient = useQueryClient();
+  const { colors } = useBrandingTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { control, handleSubmit } = useForm<FormValues>({
     defaultValues: { email: '', password: '' },
@@ -96,58 +99,60 @@ export default function LoginScreen({ navigation }: Props) {
       {apiError && <Text style={styles.error}>{apiError}</Text>}
 
       <TouchableOpacity style={styles.button} onPress={onSubmit} disabled={isPending}>
-        {isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Entrar</Text>}
+        {isPending ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.buttonText}>Entrar</Text>}
       </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 24,
-    backgroundColor: '#0f172a',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    marginBottom: 24,
-  },
-  field: {
-    marginBottom: 16,
-  },
-  label: {
-    color: '#94a3b8',
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: '#1e293b',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: '#e2e8f0',
-    borderWidth: 1,
-    borderColor: '#1e293b',
-  },
-  inputError: {
-    borderColor: '#f87171',
-  },
-  error: {
-    color: '#f87171',
-    marginTop: 6,
-  },
-  button: {
-    backgroundColor: '#22c55e',
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonText: {
-    color: '#0f172a',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-});
+function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 24,
+      backgroundColor: colors.background,
+      justifyContent: 'center',
+    },
+    title: {
+      fontSize: 26,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 24,
+    },
+    field: {
+      marginBottom: 16,
+    },
+    label: {
+      color: colors.muted,
+      marginBottom: 6,
+    },
+    input: {
+      backgroundColor: colors.surface,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      color: colors.text,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+    },
+    inputError: {
+      borderColor: colors.danger,
+    },
+    error: {
+      color: colors.danger,
+      marginTop: 6,
+    },
+    button: {
+      backgroundColor: colors.primary,
+      borderRadius: 10,
+      paddingVertical: 14,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    buttonText: {
+      color: colors.onPrimary,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+  });
+}

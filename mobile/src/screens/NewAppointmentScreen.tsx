@@ -17,10 +17,10 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { createAppointment } from '../api/appointments';
-import { getBranding } from '../api/branding';
 import type { Customer } from '../api/customers';
-import { getCustomers, updateCustomer } from '../api/customers';
+import { createCustomer, createPet, getCustomers, updateCustomer } from '../api/customers';
 import { getServices } from '../api/services';
+import { useBrandingTheme } from '../theme/useBrandingTheme';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -35,23 +35,23 @@ function currentLocalTime() {
   return `${hh}:${mm}`;
 }
 
-const STATUS_OPTIONS = [
-  { value: 'scheduled', label: 'Agendado' },
-  { value: 'pending', label: 'Pendente' },
-  { value: 'cancelled', label: 'Cancelado' },
-  { value: 'completed', label: 'Concluído' },
-];
-
 export default function NewAppointmentScreen({ navigation }: Props) {
   const [date, setDate] = useState(todayLocalISO());
   const [time, setTime] = useState(currentLocalTime());
-  const [status, setStatus] = useState('scheduled');
   const [duration, setDuration] = useState<number>(60);
   const [notes, setNotes] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [selectedPet, setSelectedPet] = useState('');
   const [selectedService, setSelectedService] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
+  const [mode, setMode] = useState<'existing' | 'new'>('existing');
+  const [newCustomerName, setNewCustomerName] = useState('');
+  const [newCustomerPhone, setNewCustomerPhone] = useState('');
+  const [newCustomerEmail, setNewCustomerEmail] = useState('');
+  const [newCustomerAddress, setNewCustomerAddress] = useState('');
+  const [newCustomerNif, setNewCustomerNif] = useState('');
+  const [newPetName, setNewPetName] = useState('');
+  const [newPetBreed, setNewPetBreed] = useState('');
   const [showCustomerList, setShowCustomerList] = useState(false);
   const [showServiceList, setShowServiceList] = useState(false);
   const [showPetList, setShowPetList] = useState(false);
@@ -63,12 +63,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const [customerNif, setCustomerNif] = useState('');
 
   const queryClient = useQueryClient();
-
-  const { data: branding } = useQuery({
-    queryKey: ['branding'],
-    queryFn: getBranding,
-    staleTime: 1000 * 60 * 60 * 6,
-  });
+  const { colors } = useBrandingTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { data: customersData, isLoading: loadingCustomers } = useQuery({
     queryKey: ['customers'],
@@ -82,10 +78,10 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
   const customers = customersData || [];
   const services = servicesData || [];
-  const primary = branding?.brand_primary || '#22c55e';
-  const primarySoft = branding?.brand_primary_soft || '#22c55e1a';
-  const background = branding?.brand_background || '#0f172a';
-  const surface = '#111827';
+  const primary = colors.primary;
+  const primarySoft = colors.primarySoft;
+  const background = colors.background;
+  const surface = colors.surface;
 
   const selectedCustomerData = useMemo(
     () => customers.find((c) => c.id === selectedCustomer),
@@ -99,17 +95,47 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     [services, selectedService],
   );
 
-  const effectivePhone = customerPhone || selectedCustomerData?.phone || '';
+  const effectivePhone =
+    mode === 'new'
+      ? newCustomerPhone
+      : customerPhone || selectedCustomerData?.phone || '';
   const phoneDigits = effectivePhone.replace(/\D/g, '');
   const canSendWhatsapp = phoneDigits.length > 0;
 
-  const filteredCustomers = useMemo(() => {
+  type SearchResult =
+    | { type: 'customer'; customer: Customer; label: string; subtitle?: string }
+    | { type: 'pet'; customer: Customer; pet: Pet; label: string; subtitle?: string };
+
+  const searchResults: SearchResult[] = useMemo(() => {
     const term = customerSearch.trim().toLowerCase();
-    if (!term) return customers;
-    return customers.filter((customer) => {
-      const haystack = `${customer.name} ${customer.phone ?? ''}`.toLowerCase();
-      return haystack.includes(term);
+    const results: SearchResult[] = [];
+    customers.forEach((customer) => {
+      const baseSubtitle = customer.phone || customer.email || '';
+      const customerMatch = !term
+        ? true
+        : `${customer.name} ${customer.phone ?? ''}`.toLowerCase().includes(term);
+      if (customerMatch) {
+        results.push({
+          type: 'customer',
+          customer,
+          label: customer.name,
+          subtitle: baseSubtitle,
+        });
+      }
+      (customer.pets || []).forEach((pet) => {
+        const haystack = `${pet.name} ${customer.name} ${customer.phone ?? ''}`.toLowerCase();
+        if (!term || haystack.includes(term)) {
+          results.push({
+            type: 'pet',
+            customer,
+            pet,
+            label: pet.name,
+            subtitle: customer.name,
+          });
+        }
+      });
     });
+    return results;
   }, [customerSearch, customers]);
 
   useEffect(() => {
@@ -134,8 +160,17 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   }, [parsedDate, time]);
 
   useEffect(() => {
-    setSelectedPet('');
+    const belongs =
+      selectedPet && selectedCustomerData?.pets?.some((pet) => pet.id === selectedPet);
+    if (!belongs) {
+      setSelectedPet('');
+    }
     setSendWhatsapp((prev) => prev || canSendWhatsapp);
+    if (mode === 'new') {
+      setSelectedCustomer('');
+      setSelectedPet('');
+    }
+
     if (selectedCustomerData) {
       setCustomerPhone(selectedCustomerData.phone || '');
       setCustomerAddress(selectedCustomerData.address || '');
@@ -145,7 +180,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       setCustomerAddress('');
       setCustomerNif('');
     }
-  }, [selectedCustomer, canSendWhatsapp, selectedCustomerData]);
+  }, [selectedCustomer, selectedCustomerData, selectedPet, canSendWhatsapp]);
 
   const mutation = useMutation({
     mutationFn: createAppointment,
@@ -164,8 +199,17 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   });
 
   const timeIsValid = /^\d{2}:\d{2}$/.test(time.trim());
+  const hasExistingSelection = Boolean(selectedCustomer && selectedPet);
+  const hasNewSelection = Boolean(
+    newCustomerName.trim() && newPetName.trim(),
+  );
   const canSubmit =
-    Boolean(date && timeIsValid && selectedCustomer && selectedPet && selectedService) && !mutation.isPending;
+    Boolean(
+      date &&
+        timeIsValid &&
+        selectedService &&
+        (mode === 'existing' ? hasExistingSelection : hasNewSelection),
+    ) && !mutation.isPending;
 
   const handleDateChange = (_event: any, selectedDate?: Date) => {
     if (selectedDate) {
@@ -196,7 +240,38 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       return;
     }
 
-    if (selectedCustomerData) {
+    let customerId = selectedCustomer;
+    let petId = selectedPet;
+
+    if (mode === 'new') {
+      try {
+        const createdCustomer = await createCustomer({
+          name: newCustomerName.trim(),
+          phone: newCustomerPhone.trim() || null,
+          email: newCustomerEmail.trim() || null,
+          address: newCustomerAddress.trim() || null,
+          nif: newCustomerNif.trim() || null,
+        });
+        customerId = createdCustomer.id;
+
+        const createdPet = await createPet(customerId, {
+          name: newPetName.trim(),
+          breed: newPetBreed.trim() || null,
+        });
+        petId = createdPet.id;
+
+        // Atualiza cache local para futuras buscas
+        queryClient.setQueryData(['customers'], (prev: Customer[] | undefined) => {
+          const next = prev ? [...prev] : [];
+          next.push({ ...createdCustomer, pets: [createdPet] });
+          return next;
+        });
+      } catch (err: any) {
+        const message = err?.response?.data?.error || err.message || 'Erro ao criar cliente/pet';
+        Alert.alert('Erro', message);
+        return;
+      }
+    } else if (selectedCustomerData) {
       const hasChanges =
         customerPhone.trim() !== (selectedCustomerData.phone || '') ||
         customerAddress.trim() !== (selectedCustomerData.address || '') ||
@@ -223,11 +298,11 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     await mutation.mutateAsync({
       appointment_date: date,
       appointment_time: time.trim(),
-      status,
+      status: 'scheduled',
       duration,
       notes: notes.trim() || null,
-      customer_id: selectedCustomer,
-      pet_id: selectedPet,
+      customer_id: customerId,
+      pet_id: petId,
       service_id: selectedService,
       payment_status: 'unpaid',
     });
@@ -240,9 +315,12 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       : date;
     const timeLabel = time || '—';
     const serviceName = selectedServiceData?.name;
-    const customerName = selectedCustomerData?.name;
-    const pet = petOptions.find((p) => p.id === selectedPet);
-    const address = customerAddress || selectedCustomerData?.address;
+    const customerName = mode === 'new' ? newCustomerName : selectedCustomerData?.name;
+    const pet =
+      mode === 'new'
+        ? { name: newPetName, breed: newPetBreed || '' }
+        : petOptions.find((p) => p.id === selectedPet);
+    const address = mode === 'new' ? newCustomerAddress : customerAddress || selectedCustomerData?.address;
 
     const intro = customerName
       ? `Olá ${customerName}! Confirmamos a sua marcação para ${dateLabel} às ${timeLabel}.`
@@ -285,7 +363,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   }) => (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <TouchableOpacity style={[styles.select, { borderColor: primarySoft }]} onPress={onPress}>
+      <TouchableOpacity style={[styles.select, { borderColor: colors.surfaceBorder }]} onPress={onPress}>
         <Text style={[styles.selectText, !value && styles.placeholder]}>
           {value || placeholder}
         </Text>
@@ -297,26 +375,25 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     <SafeAreaView style={[styles.container, { backgroundColor: background }]} edges={['top', 'left', 'right']}>
       <Text style={styles.title}>Nova Marcação</Text>
       <Text style={styles.subtitle}>Preenche os mesmos campos da página web.</Text>
-
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.card, { borderColor: primarySoft, backgroundColor: surface }]}>
-        <View style={styles.row}>
-          <View style={[styles.field, { flex: 1 }]}>
-            <Text style={styles.label}>Data</Text>
-            <TouchableOpacity
-              style={[styles.input, styles.pickInput, { borderColor: primarySoft }]}
-              onPress={openDatePicker}
-            >
-              <Text style={styles.selectText}>{date}</Text>
-            </TouchableOpacity>
+          <View style={styles.row}>
+            <View style={[styles.field, { flex: 1 }]}>
+              <Text style={styles.label}>Data</Text>
+              <TouchableOpacity
+                style={[styles.input, styles.pickInput, { borderColor: colors.surfaceBorder }]}
+                onPress={openDatePicker}
+              >
+                <Text style={styles.selectText}>{date}</Text>
+              </TouchableOpacity>
           </View>
           <View style={[styles.field, { flex: 1 }]}>
             <Text style={styles.label}>Hora</Text>
             <TouchableOpacity
-              style={[styles.input, styles.pickInput, { borderColor: primarySoft }]}
+              style={[styles.input, styles.pickInput, { borderColor: colors.surfaceBorder }]}
               onPress={openTimePicker}
             >
               <Text style={[styles.selectText, !time && styles.placeholder]}>
@@ -327,13 +404,13 @@ export default function NewAppointmentScreen({ navigation }: Props) {
         </View>
 
         {renderSelect({
-          label: 'Serviço',
+          label: 'Serviços',
           value: selectedServiceData?.name,
           placeholder: loadingServices ? 'A carregar serviços...' : 'Escolhe um serviço',
           onPress: () => setShowServiceList((prev) => !prev),
         })}
         {showServiceList ? (
-          <View style={[styles.dropdown, { borderColor: primarySoft }]}>
+          <View style={[styles.dropdown, { borderColor: colors.surfaceBorder }]}>
             {loadingServices ? (
               <ActivityIndicator color={primary} />
             ) : (
@@ -373,7 +450,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                   ]}
                   onPress={() => setDuration(value)}
                 >
-                  <Text style={[styles.segmentText, { color: active ? primary : '#e2e8f0' }]}>
+                  <Text style={[styles.segmentText, { color: active ? primary : colors.text }]}>
                     {value} min
                   </Text>
                 </TouchableOpacity>
@@ -382,111 +459,245 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           </View>
         </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Cliente</Text>
+        <View style={styles.segment}>
           <TouchableOpacity
-            style={[styles.select, { borderColor: primarySoft }]}
-            onPress={() => setShowCustomerList((prev) => !prev)}
+            style={[
+              styles.segmentButton,
+              mode === 'new' && { backgroundColor: primarySoft, borderColor: primary },
+            ]}
+            onPress={() => {
+              setMode('new');
+              setSelectedCustomer('');
+              setSelectedPet('');
+              setCustomerSearch('');
+              setCustomerPhone('');
+              setCustomerAddress('');
+              setCustomerNif('');
+            }}
           >
-            <Text style={[styles.selectText, !selectedCustomerData && styles.placeholder]}>
-              {selectedCustomerData?.name ||
-                (loadingCustomers ? 'A carregar clientes...' : 'Escolhe um cliente')}
-            </Text>
+            <Text style={[styles.segmentText, { color: mode === 'new' ? primary : colors.text }]}>Novo</Text>
           </TouchableOpacity>
-          {selectedCustomerData ? (
-            <View style={styles.customerCard}>
-              <Text style={styles.customerDetailLabel}>Telefone</Text>
+          <TouchableOpacity
+            style={[
+              styles.segmentButton,
+              mode === 'existing' && { backgroundColor: primarySoft, borderColor: primary },
+            ]}
+            onPress={() => {
+              setMode('existing');
+              setNewCustomerName('');
+              setNewCustomerPhone('');
+              setNewCustomerEmail('');
+              setNewCustomerAddress('');
+              setNewCustomerNif('');
+              setNewPetName('');
+              setNewPetBreed('');
+            }}
+          >
+            <Text style={[styles.segmentText, { color: mode === 'existing' ? primary : colors.text }]}>Existente</Text>
+          </TouchableOpacity>
+        </View>
+
+        {mode === 'existing' ? (
+          <>
+            <View style={styles.field}>
+              <Text style={styles.label}>Cliente</Text>
+              <TouchableOpacity
+                style={[styles.select, { borderColor: colors.surfaceBorder }]}
+                onPress={() => setShowCustomerList((prev) => !prev)}
+              >
+                <Text style={[styles.selectText, !selectedCustomerData && styles.placeholder]}>
+                  {selectedCustomerData?.name ||
+                    (loadingCustomers ? 'A carregar clientes...' : 'Escolhe um cliente')}
+                </Text>
+              </TouchableOpacity>
+              {selectedCustomerData ? (
+                <View style={[styles.customerCard, { borderColor: primarySoft }]}>
+                  <Text style={styles.customerDetailLabel}>Telefone</Text>
+                  <TextInput
+                    value={customerPhone}
+                    onChangeText={setCustomerPhone}
+                    placeholder="Telefone"
+                    placeholderTextColor={colors.muted}
+                    style={[styles.input, styles.inlineInput]}
+                    keyboardType="phone-pad"
+                  />
+                  <Text style={styles.customerDetailLabel}>Morada</Text>
+                  <TextInput
+                    value={customerAddress}
+                    onChangeText={setCustomerAddress}
+                    placeholder="Morada"
+                    placeholderTextColor={colors.muted}
+                    style={[styles.input, styles.inlineInput]}
+                  />
+                  <Text style={styles.customerDetailLabel}>NIF</Text>
+                  <TextInput
+                    value={customerNif}
+                    onChangeText={setCustomerNif}
+                    placeholder="NIF"
+                    placeholderTextColor={colors.muted}
+                    style={[styles.input, styles.inlineInput]}
+                    keyboardType="number-pad"
+                  />
+                </View>
+              ) : null}
+            </View>
+            {showCustomerList ? (
+              <View style={[styles.dropdown, { borderColor: primarySoft }]}>
+                <TextInput
+                  value={customerSearch}
+                  onChangeText={setCustomerSearch}
+                  placeholder="Pesquisar por cliente ou pet"
+                  placeholderTextColor={colors.muted}
+                  style={[styles.input, { borderColor: primarySoft, marginBottom: 10 }]}
+                />
+                <ScrollView style={{ maxHeight: 200 }}>
+                  {searchResults.map((result) => {
+                    const key =
+                      result.type === 'customer'
+                        ? `customer-${result.customer.id}`
+                        : `pet-${result.pet.id}`;
+                    return (
+                      <TouchableOpacity
+                        key={key}
+                        style={styles.option}
+                        onPress={() => {
+                          setSelectedCustomer(result.customer.id);
+                          if (result.type === 'pet') {
+                            setSelectedPet(result.pet.id);
+                          }
+                          setShowCustomerList(false);
+                          setShowPetList(false);
+                        }}
+                      >
+                        <Text style={styles.optionTitle}>
+                          {result.label}
+                          {result.type === 'pet' ? ' (pet)' : ''}
+                        </Text>
+                        {result.subtitle ? <Text style={styles.optionSubtitle}>{result.subtitle}</Text> : null}
+                        {result.type === 'pet' && result.customer.phone ? (
+                          <Text style={styles.optionSubtitle}>{result.customer.phone}</Text>
+                        ) : null}
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {!loadingCustomers && searchResults.length === 0 ? (
+                    <Text style={styles.optionSubtitle}>Nenhum resultado</Text>
+                  ) : null}
+                </ScrollView>
+              </View>
+            ) : null}
+
+            {renderSelect({
+              label: 'Animal',
+              value: petOptions.find((p) => p.id === selectedPet)?.name,
+              placeholder: selectedCustomer ? 'Escolhe um pet' : 'Seleciona primeiro o cliente',
+              onPress: () => {
+                if (!selectedCustomer) return;
+                setShowPetList((prev) => !prev);
+              },
+            })}
+            {showPetList ? (
+              <View style={[styles.dropdown, { borderColor: primarySoft }]}>
+                {petOptions.length === 0 ? (
+                  <Text style={styles.optionSubtitle}>Este cliente não tem pets registados.</Text>
+                ) : (
+                  <ScrollView style={{ maxHeight: 160 }}>
+                    {petOptions.map((pet) => (
+                      <TouchableOpacity
+                        key={pet.id}
+                        style={styles.option}
+                        onPress={() => {
+                          setSelectedPet(pet.id);
+                          setShowPetList(false);
+                        }}
+                      >
+                        <Text style={styles.optionTitle}>{pet.name}</Text>
+                        {pet.breed ? <Text style={styles.optionSubtitle}>{pet.breed}</Text> : null}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <View style={styles.field}>
+              <Text style={styles.label}>Cliente novo</Text>
               <TextInput
-                value={customerPhone}
-                onChangeText={setCustomerPhone}
+                value={newCustomerName}
+                onChangeText={setNewCustomerName}
+                placeholder="Nome do cliente"
+                placeholderTextColor={colors.muted}
+                style={[styles.input, { borderColor: colors.surfaceBorder }]}
+              />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>Telefone</Text>
+              <TextInput
+                value={newCustomerPhone}
+                onChangeText={setNewCustomerPhone}
                 placeholder="Telefone"
-                placeholderTextColor="#64748b"
-                style={[styles.input, styles.inlineInput]}
+                placeholderTextColor={colors.muted}
+                style={[styles.input, { borderColor: colors.surfaceBorder }]}
                 keyboardType="phone-pad"
               />
-              <Text style={styles.customerDetailLabel}>Morada</Text>
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>Email</Text>
               <TextInput
-                value={customerAddress}
-                onChangeText={setCustomerAddress}
-                placeholder="Morada"
-                placeholderTextColor="#64748b"
-                style={[styles.input, styles.inlineInput]}
+                value={newCustomerEmail}
+                onChangeText={setNewCustomerEmail}
+                placeholder="email@dominio.com"
+                placeholderTextColor={colors.muted}
+                style={[styles.input, { borderColor: colors.surfaceBorder }]}
+                keyboardType="email-address"
               />
-              <Text style={styles.customerDetailLabel}>NIF</Text>
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>Morada</Text>
               <TextInput
-                value={customerNif}
-                onChangeText={setCustomerNif}
+                value={newCustomerAddress}
+                onChangeText={setNewCustomerAddress}
+                placeholder="Morada"
+                placeholderTextColor={colors.muted}
+                style={[styles.input, { borderColor: colors.surfaceBorder }]}
+              />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>NIF</Text>
+              <TextInput
+                value={newCustomerNif}
+                onChangeText={setNewCustomerNif}
                 placeholder="NIF"
-                placeholderTextColor="#64748b"
-                style={[styles.input, styles.inlineInput]}
+                placeholderTextColor={colors.muted}
+                style={[styles.input, { borderColor: colors.surfaceBorder }]}
                 keyboardType="number-pad"
               />
             </View>
-          ) : null}
-        </View>
-        {showCustomerList ? (
-          <View style={[styles.dropdown, { borderColor: primarySoft }]}>
-            <TextInput
-              value={customerSearch}
-              onChangeText={setCustomerSearch}
-              placeholder="Pesquisar por nome/telefone"
-              placeholderTextColor="#64748b"
-              style={[styles.input, { borderColor: primarySoft, marginBottom: 10 }]}
-            />
-            <ScrollView style={{ maxHeight: 200 }}>
-              {filteredCustomers.map((customer: Customer) => (
-                <TouchableOpacity
-                  key={customer.id}
-                  style={styles.option}
-                  onPress={() => {
-                    setSelectedCustomer(customer.id);
-                    setShowCustomerList(false);
-                    setShowPetList(false);
-                  }}
-                >
-                  <Text style={styles.optionTitle}>{customer.name}</Text>
-                  <Text style={styles.optionSubtitle}>{customer.phone || 'Sem telefone'}</Text>
-                </TouchableOpacity>
-              ))}
-              {!loadingCustomers && filteredCustomers.length === 0 ? (
-                <Text style={styles.optionSubtitle}>Nenhum cliente encontrado</Text>
-              ) : null}
-            </ScrollView>
-          </View>
-        ) : null}
 
-        {renderSelect({
-          label: 'Animal',
-          value: petOptions.find((p) => p.id === selectedPet)?.name,
-          placeholder: selectedCustomer ? 'Escolhe um pet' : 'Seleciona primeiro o cliente',
-          onPress: () => {
-            if (!selectedCustomer) return;
-            setShowPetList((prev) => !prev);
-          },
-        })}
-        {showPetList ? (
-          <View style={[styles.dropdown, { borderColor: primarySoft }]}>
-            {petOptions.length === 0 ? (
-              <Text style={styles.optionSubtitle}>Este cliente não tem pets registados.</Text>
-            ) : (
-              <ScrollView style={{ maxHeight: 160 }}>
-                {petOptions.map((pet) => (
-                  <TouchableOpacity
-                    key={pet.id}
-                    style={styles.option}
-                    onPress={() => {
-                      setSelectedPet(pet.id);
-                      setShowPetList(false);
-                    }}
-                  >
-                    <Text style={styles.optionTitle}>{pet.name}</Text>
-                    {pet.breed ? <Text style={styles.optionSubtitle}>{pet.breed}</Text> : null}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        ) : null}
+            <View style={styles.field}>
+              <Text style={styles.label}>Animal</Text>
+              <TextInput
+                value={newPetName}
+                onChangeText={setNewPetName}
+                placeholder="Nome do animal"
+                placeholderTextColor={colors.muted}
+                style={[styles.input, { borderColor: colors.surfaceBorder }]}
+              />
+            </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>Raça (opcional)</Text>
+              <TextInput
+                value={newPetBreed}
+                onChangeText={setNewPetBreed}
+                placeholder="Raça"
+                placeholderTextColor={colors.muted}
+                style={[styles.input, { borderColor: colors.surfaceBorder }]}
+              />
+            </View>
+          </>
+        )}
 
         <View style={styles.field}>
           <Text style={styles.label}>Notas</Text>
@@ -494,9 +705,12 @@ export default function NewAppointmentScreen({ navigation }: Props) {
             value={notes}
             onChangeText={setNotes}
             placeholder="Notas para a equipa"
-            placeholderTextColor="#64748b"
+            placeholderTextColor={colors.muted}
             multiline
-            style={[styles.input, { borderColor: primarySoft, minHeight: 80, textAlignVertical: 'top' }]}
+            style={[
+              styles.input,
+              { borderColor: colors.surfaceBorder, minHeight: 80, textAlignVertical: 'top' },
+            ]}
           />
         </View>
 
@@ -511,32 +725,9 @@ export default function NewAppointmentScreen({ navigation }: Props) {
             value={sendWhatsapp && canSendWhatsapp}
             onValueChange={setSendWhatsapp}
             disabled={!canSendWhatsapp}
-            trackColor={{ false: '#475569', true: primary }}
-            thumbColor="#0f172a"
+            trackColor={{ false: colors.surfaceBorder, true: primary }}
+            thumbColor={colors.onPrimary}
           />
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Status</Text>
-          <View style={styles.segment}>
-            {STATUS_OPTIONS.map((entry) => {
-              const active = status === entry.value;
-              return (
-                <TouchableOpacity
-                  key={entry.value}
-                  style={[
-                    styles.segmentButton,
-                    active && { backgroundColor: primarySoft, borderColor: primary },
-                  ]}
-                  onPress={() => setStatus(entry.value)}
-                >
-                  <Text style={[styles.segmentText, { color: active ? primary : '#e2e8f0' }]}>
-                    {entry.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
         </View>
 
         <TouchableOpacity
@@ -545,7 +736,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           disabled={!canSubmit}
         >
           {mutation.isPending ? (
-            <ActivityIndicator color="#0f172a" />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text style={styles.buttonText}>Criar marcação</Text>
           )}
@@ -602,199 +793,212 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#e2e8f0',
-  },
-  subtitle: {
-    color: '#94a3b8',
-    marginBottom: 16,
-  },
-  card: {
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-  },
-  scrollContent: {
-    paddingBottom: 32,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  field: {
-    marginBottom: 14,
-  },
-  label: {
-    color: '#cbd5e1',
-    marginBottom: 6,
-    fontWeight: '700',
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#e2e8f0',
-    backgroundColor: '#0f172a',
-  },
-  pickInput: {
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  select: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    backgroundColor: '#0f172a',
-  },
-  selectText: {
-    color: '#e2e8f0',
-    fontWeight: '600',
-  },
-  placeholder: {
-    color: '#94a3b8',
-    fontWeight: '400',
-  },
-  dropdown: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 10,
-    backgroundColor: '#0f172a',
-    marginBottom: 12,
-  },
-  option: {
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1e293b',
-  },
-  optionTitle: {
-    color: '#e2e8f0',
-    fontWeight: '700',
-  },
-  optionSubtitle: {
-    color: '#94a3b8',
-    marginTop: 2,
-  },
-  segment: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  segmentButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#1f2937',
-    borderRadius: 10,
-    alignItems: 'center',
-    backgroundColor: '#0f172a',
-  },
-  segmentText: {
-    fontWeight: '700',
-    color: '#e2e8f0',
-  },
-  button: {
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  buttonText: {
-    color: '#0f172a',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  secondary: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  secondaryText: {
-    color: '#e2e8f0',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalCard: {
-    backgroundColor: '#0f172a',
-    paddingBottom: 16,
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    width: '90%',
-    maxWidth: 380,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    paddingVertical: 8,
-  },
-  modalButton: {
-    color: '#e2e8f0',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalButtonPrimary: {
-    color: '#22c55e',
-  },
-  modalPicker: {
-    backgroundColor: '#0f172a',
-    alignSelf: 'center',
-  },
-  modalPickerContainer: {
-    alignItems: 'center',
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#1f2937',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#0f172a',
-    marginBottom: 12,
-  },
-  helperText: {
-    color: '#94a3b8',
-    fontSize: 12,
-  },
-  customerCard: {
-    marginTop: 8,
-    padding: 10,
-    borderRadius: 12,
-    backgroundColor: '#0b1220',
-    borderWidth: 1,
-    borderColor: '#1f2937',
-  },
-  customerDetail: {
-    color: '#cbd5e1',
-    marginBottom: 4,
-    fontSize: 14,
-  },
-  customerDetailLabel: {
-    color: '#94a3b8',
-    fontSize: 12,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  inlineInput: {
-    marginBottom: 4,
-  },
-});
+function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 20,
+      backgroundColor: colors.background,
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    subtitle: {
+      color: colors.muted,
+      marginBottom: 16,
+    },
+    card: {
+      borderWidth: 1,
+      borderRadius: 16,
+      padding: 16,
+      borderColor: colors.primarySoft,
+      backgroundColor: colors.surface,
+    },
+    scrollContent: {
+      paddingBottom: 32,
+    },
+    row: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    field: {
+      marginBottom: 14,
+    },
+    label: {
+      color: colors.text,
+      marginBottom: 6,
+      fontWeight: '700',
+    },
+    input: {
+      borderWidth: 1,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      color: colors.text,
+      backgroundColor: colors.surface,
+      borderColor: colors.surfaceBorder,
+    },
+    pickInput: {
+      minHeight: 48,
+      justifyContent: 'center',
+    },
+    select: {
+      borderWidth: 1,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      backgroundColor: colors.surface,
+      borderColor: colors.primarySoft,
+    },
+    selectText: {
+      color: colors.text,
+      fontWeight: '600',
+    },
+    placeholder: {
+      color: colors.muted,
+      fontWeight: '400',
+    },
+    dropdown: {
+      borderWidth: 1,
+      borderRadius: 12,
+      padding: 10,
+      backgroundColor: colors.surface,
+      marginBottom: 12,
+      borderColor: colors.primarySoft,
+    },
+    option: {
+      paddingVertical: 10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.surfaceBorder,
+    },
+    optionTitle: {
+      color: colors.text,
+      fontWeight: '700',
+    },
+    optionSubtitle: {
+      color: colors.muted,
+      marginTop: 2,
+    },
+    segment: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    segmentButton: {
+      flex: 1,
+      paddingVertical: 10,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 10,
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+    },
+    segmentText: {
+      fontWeight: '700',
+      color: colors.text,
+    },
+    button: {
+      borderRadius: 10,
+      paddingVertical: 12,
+      alignItems: 'center',
+      marginTop: 6,
+      backgroundColor: colors.primary,
+    },
+    buttonText: {
+      color: colors.onPrimary,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+    secondary: {
+      borderWidth: 1,
+      borderRadius: 10,
+      paddingVertical: 12,
+      alignItems: 'center',
+      marginTop: 12,
+      backgroundColor: colors.surface,
+      borderColor: colors.primary,
+    },
+    secondaryText: {
+      color: colors.text,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.45)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalCard: {
+      backgroundColor: colors.surface,
+      paddingBottom: 16,
+      borderRadius: 18,
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      width: '90%',
+      maxWidth: 380,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: 4,
+      paddingVertical: 8,
+    },
+    modalButton: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    modalButtonPrimary: {
+      color: colors.primary,
+    },
+    modalPicker: {
+      backgroundColor: colors.surface,
+      alignSelf: 'center',
+    },
+    modalPickerContainer: {
+      alignItems: 'center',
+    },
+    toggleRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.primarySoft,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      backgroundColor: colors.surface,
+      marginBottom: 12,
+    },
+    helperText: {
+      color: colors.muted,
+      fontSize: 12,
+    },
+    customerCard: {
+      marginTop: 8,
+      padding: 10,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.primarySoft,
+    },
+    customerDetail: {
+      color: colors.text,
+      marginBottom: 4,
+      fontSize: 14,
+    },
+    customerDetailLabel: {
+      color: colors.muted,
+      fontSize: 12,
+      marginTop: 8,
+      marginBottom: 4,
+    },
+    inlineInput: {
+      marginBottom: 4,
+    },
+  });
+}
