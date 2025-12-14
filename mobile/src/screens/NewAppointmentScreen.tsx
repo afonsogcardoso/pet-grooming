@@ -17,7 +17,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRoute } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { createAppointment } from '../api/appointments';
+import { createAppointment, updateAppointment, getAppointment } from '../api/appointments';
 import type { Customer, Pet } from '../api/customers';
 import { createCustomer, createPet, getCustomers, updateCustomer } from '../api/customers';
 import { getServices } from '../api/services';
@@ -54,18 +54,39 @@ function currentLocalTime() {
   return `${hh}:${mm}`;
 }
 
+function formatHHMM(value?: string | null) {
+  if (!value) return '';
+  const safe = value.trim();
+  // Handles formats like "10:00" or "10:00:00"
+  const parts = safe.split(':');
+  if (parts.length >= 2) {
+    const hh = `${parts[0]}`.padStart(2, '0');
+    const mm = `${parts[1]}`.padStart(2, '0');
+    return `${hh}:${mm}`;
+  }
+  return safe.slice(0, 5);
+}
+
 export default function NewAppointmentScreen({ navigation }: Props) {
   const route = useRoute<Props['route']>();
   const initialDateParam = route.params?.date as string | undefined;
+  const initialTimeParam = route.params?.time as string | undefined;
+  const editAppointmentId = route.params?.editId as string | undefined;
+  const isEditMode = !!editAppointmentId;
+  
   const [date, setDate] = useState(initialDateParam || todayLocalISO());
-  const [time, setTime] = useState(currentLocalTime());
+  const [time, setTime] = useState(formatHHMM(initialTimeParam) || currentLocalTime());
   const [duration, setDuration] = useState<number>(60);
   const [notes, setNotes] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState('');
-  const [selectedPet, setSelectedPet] = useState('');
+  const [selectedPet, setSelectedPetState] = useState('');
+  
+  const setSelectedPet = (value: string) => {
+    setSelectedPetState(value);
+  };
   const [selectedService, setSelectedService] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
-  const [mode, setMode] = useState<'existing' | 'new'>('new');
+  const [mode, setMode] = useState<'existing' | 'new'>(isEditMode ? 'existing' : 'new');
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
   const [newCustomerEmail, setNewCustomerEmail] = useState('');
@@ -95,6 +116,44 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
+  // Load appointment data if in edit mode
+  const { data: appointmentData, isLoading: loadingAppointment } = useQuery({
+    queryKey: ['appointment', editAppointmentId],
+    queryFn: () => getAppointment(editAppointmentId!),
+    enabled: isEditMode,
+  });
+
+  // Load appointment data into form when available
+  const appointmentDataRef = useRef(appointmentData);
+  
+  useEffect(() => {
+    appointmentDataRef.current = appointmentData;
+  }, [appointmentData]);
+
+  useEffect(() => {
+    if (appointmentData && isEditMode) {
+      setDate(appointmentData.appointment_date || todayLocalISO());
+      setTime(formatHHMM(appointmentData.appointment_time) || currentLocalTime());
+      setDuration(appointmentData.duration || 60);
+      setNotes(appointmentData.notes || '');
+      setSelectedService(appointmentData.services?.id || '');
+      
+      // Set customer and pet IDs
+      const customerId = appointmentData.customers?.id || '';
+      const petId = appointmentData.pets?.id || '';
+      
+      setSelectedCustomer(customerId);
+      setSelectedPet(petId);
+      setMode('existing');
+      
+      // Set customer details
+      setCustomerSearch(appointmentData.customers?.name || '');
+      setCustomerPhone(appointmentData.customers?.phone || '');
+      setCustomerAddress(appointmentData.customers?.address || '');
+      setCustomerNif(appointmentData.customers?.nif || '');
+    }
+  }, [appointmentData, isEditMode]);
+
   const { data: customersData, isLoading: loadingCustomers } = useQuery({
     queryKey: ['customers'],
     queryFn: getCustomers,
@@ -115,16 +174,35 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const addressPlaceholder = 'Comece a digitar uma morada';
 
   const selectedCustomerData = useMemo(
-    () => customers.find((c) => c.id === selectedCustomer),
-    [customers, selectedCustomer],
+    () => {
+      const found = customers.find((c) => c.id === selectedCustomer);
+      
+      // Fallback: se não encontrar na lista mas estamos em modo de edição,
+      // usar os dados do appointment que já foram carregados
+      if (!found && isEditMode && appointmentDataRef.current?.customers) {
+        return appointmentDataRef.current.customers as any;
+      }
+      
+      return found;
+    },
+    [customers, selectedCustomer, isEditMode, appointmentData?.customers?.id],
   );
 
-  const petOptions = useMemo(() => selectedCustomerData?.pets || [], [selectedCustomerData]);
+  const petOptions = useMemo(() => {
+    const pets = selectedCustomerData?.pets || [];
+    
+    // Fallback: se estamos em modo de edição e não temos pets mas temos dados da marcação,
+    // usar os pets da marcação
+    if (pets.length === 0 && isEditMode && appointmentDataRef.current?.pets && selectedPet) {
+      return [appointmentDataRef.current.pets];
+    }
+    
+    return pets;
+  }, [selectedCustomerData, isEditMode, selectedPet, appointmentData?.pets?.id]);
 
-  const selectedServiceData = useMemo(
-    () => services.find((s) => s.id === selectedService),
-    [services, selectedService],
-  );
+  const selectedServiceData = useMemo(() => {
+    return services.find((s) => s.id === selectedService);
+  }, [services, selectedService]);
 
   const effectivePhone =
     mode === 'new'
@@ -194,16 +272,17 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     if (initialDateParam) {
       setDate(initialDateParam);
     }
-    const belongs =
-      selectedPet && selectedCustomerData?.pets?.some((pet) => pet.id === selectedPet);
-    if (!belongs) {
-      setSelectedPet('');
-    }
-    setSendWhatsapp((prev) => prev || canSendWhatsapp);
+    
+    // Only reset pet if changing customer and pet doesn't belong to new customer (new appointments only)
     if (mode === 'new') {
-      setSelectedCustomer('');
-      setSelectedPet('');
+      const belongs =
+        selectedPet && selectedCustomerData?.pets?.some((pet: Pet) => pet.id === selectedPet);
+      if (!belongs) {
+        setSelectedPet('');
+      }
     }
+    
+    setSendWhatsapp((prev) => prev || canSendWhatsapp);
 
     if (selectedCustomerData) {
       setCustomerPhone(selectedCustomerData.phone || '');
@@ -214,30 +293,46 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       setCustomerAddress('');
       setCustomerNif('');
     }
-  }, [selectedCustomer, selectedCustomerData, selectedPet, canSendWhatsapp]);
+  }, [selectedCustomer, selectedCustomerData, selectedPet, canSendWhatsapp, mode]);
+
+  // Reset customer/pet when toggling to new appointment mode
+  useEffect(() => {
+    if (mode === 'new') {
+      setSelectedCustomer('');
+      setSelectedPet('');
+    }
+  }, [mode]);
 
   const mutation = useMutation({
-    mutationFn: createAppointment,
-    onSuccess: async (createdAppointment) => {
+    mutationFn: async (payload: any) => {
+      if (isEditMode && editAppointmentId) {
+        return updateAppointment(editAppointmentId, payload);
+      }
+      return createAppointment(payload);
+    },
+    onSuccess: async (savedAppointment) => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] }).catch(() => null);
-      if (sendWhatsapp && canSendWhatsapp) {
+      if (isEditMode) {
+        queryClient.invalidateQueries({ queryKey: ['appointment', editAppointmentId] }).catch(() => null);
+      }
+      if (sendWhatsapp && canSendWhatsapp && !isEditMode) {
         await openWhatsapp();
       }
-      // Navega para os detalhes da marcação criada
-      if (createdAppointment?.id) {
-        navigation.replace('AppointmentDetail', { id: createdAppointment.id });
+      // Navega para os detalhes da marcação
+      if (savedAppointment?.id) {
+        navigation.replace('AppointmentDetail', { id: savedAppointment.id });
       } else {
-        Alert.alert('Sucesso', 'Marcação criada.');
+        Alert.alert('Sucesso', isEditMode ? 'Marcação atualizada.' : 'Marcação criada.');
         navigation.goBack();
       }
     },
     onError: (err: any) => {
-      const message = err?.response?.data?.error || err.message || 'Erro ao criar marcação';
+      const message = err?.response?.data?.error || err.message || (isEditMode ? 'Erro ao atualizar marcação' : 'Erro ao criar marcação');
       Alert.alert('Erro', message);
     },
   });
 
-  const timeIsValid = /^\d{2}:\d{2}$/.test(time.trim());
+  const timeIsValid = /^\d{2}:\d{2}$/.test(formatHHMM(time).trim());
   const hasExistingSelection = Boolean(selectedCustomer && selectedPet);
   const hasNewSelection = Boolean(
     newCustomerName.trim() && newPetName.trim(),
@@ -336,14 +431,13 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
     await mutation.mutateAsync({
       appointment_date: date,
-      appointment_time: time.trim(),
+      appointment_time: formatHHMM(time).trim(),
       status: 'scheduled',
       duration,
       notes: notes.trim() || null,
       customer_id: customerId,
       pet_id: petId,
       service_id: selectedService,
-      payment_status: 'unpaid',
     });
   };
 
@@ -358,7 +452,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     const pet =
       mode === 'new'
         ? { name: newPetName, breed: newPetBreed || '' }
-        : petOptions.find((p) => p.id === selectedPet);
+        : petOptions.find((p: Pet) => p.id === selectedPet);
     const address = mode === 'new' ? newCustomerAddress : customerAddress || selectedCustomerData?.address;
 
     const intro = customerName
@@ -393,8 +487,10 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     <SafeAreaView style={[styles.container, { backgroundColor: background }]} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>✨ Nova Marcação</Text>
-          <Text style={styles.subtitle}>Cria rapidamente uma nova marcação</Text>
+          <Text style={styles.title}>{isEditMode ? '✏️ Editar Marcação' : '✨ Nova Marcação'}</Text>
+          <Text style={styles.subtitle}>
+            {isEditMode ? 'Atualiza os dados da marcação' : 'Cria rapidamente uma nova marcação'}
+          </Text>
         </View>
       </View>
       <KeyboardAvoidingView
@@ -606,7 +702,9 @@ export default function NewAppointmentScreen({ navigation }: Props) {
             {mutation.isPending ? (
               <ActivityIndicator color={colors.onPrimary} />
             ) : (
-              <Text style={styles.buttonText}>✨ Criar Marcação</Text>
+              <Text style={styles.buttonText}>
+                {isEditMode ? '✅ Guardar Alterações' : '✨ Criar Marcação'}
+              </Text>
             )}
           </TouchableOpacity>
 

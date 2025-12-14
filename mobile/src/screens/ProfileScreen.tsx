@@ -41,9 +41,7 @@ export default function ProfileScreen({ navigation }: Props) {
     retry: 1,
   });
 
-  const displayEmail = data?.email || user?.email || 'sem email';
-  const displayName = data?.displayName || user?.email || 'Perfil';
-  const avatarFallback = displayName?.charAt(0)?.toUpperCase() || '👤';
+  const avatarFallback = data?.displayName ? data.displayName.charAt(0).toUpperCase() : '';
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -58,8 +56,8 @@ export default function ProfileScreen({ navigation }: Props) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerLabel}>Perfil</Text>
-            <Text style={styles.headerTitle}>{displayName}</Text>
-            <Text style={styles.headerSubtitle}>{displayEmail}</Text>
+            <Text style={styles.headerTitle}>{data?.displayName}</Text>
+            <Text style={styles.headerSubtitle}>{data?.email}</Text>
             <Text style={styles.headerMeta}>Último login: {formatDate(data?.lastLoginAt)}</Text>
           </View>
         </View>

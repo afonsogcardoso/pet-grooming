@@ -15,7 +15,7 @@ function formatDateTime(date?: string | null, time?: string | null) {
     safeDate && !Number.isNaN(safeDate.getTime())
       ? safeDate.toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit', month: 'short' })
       : date || 'Sem data';
-  const timeLabel = time || '—';
+  const timeLabel = time ? time.slice(0, 5) : '—';
   return `${dateLabel} às ${timeLabel}`;
 }
 
@@ -109,6 +109,10 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const togglePayment = () => {
     const next = paymentStatus === 'paid' ? 'unpaid' : 'paid';
     mutation.mutate({ payment_status: next });
+  };
+
+  const handleEditAppointment = () => {
+    navigation.navigate('NewAppointment', { editId: appointmentId });
   };
 
   const pickImage = async (type: 'before' | 'after') => {
@@ -218,13 +222,22 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                   onPress={togglePayment}
                 >
                   <Text style={[styles.paymentBadgeText, paymentStatus === 'paid' && styles.paymentBadgeTextPaid]}>
-                    {paymentStatus === 'paid' ? '✓ Pago' : '⏱ Pendente'}
+                    {paymentStatus === 'paid' ? '✓ Pago' : '⏱ Por pagar'}
                   </Text>
                 </TouchableOpacity>
               </View>
               
               <Text style={styles.heroTitle}>{service?.name || 'Serviço'}</Text>
-              <Text style={styles.heroSubtitle}>📅 {formatDateTime(appointment.appointment_date, appointment.appointment_time)}</Text>
+              
+              <View style={styles.dateTimeRow}>
+                <Text style={styles.heroSubtitle}>📅 {formatDateTime(appointment.appointment_date, appointment.appointment_time)}</Text>
+                <TouchableOpacity 
+                  style={styles.editButton}
+                  onPress={handleEditAppointment}
+                >
+                  <Text style={styles.editButtonText}>✏️ Editar</Text>
+                </TouchableOpacity>
+              </View>
               
               <View style={styles.heroDetails}>
                 {service?.price ? (
@@ -451,7 +464,25 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontSize: 16,
       color: colors.muted,
       fontWeight: '500',
+    },
+    dateTimeRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
       marginBottom: 20,
+    },
+    editButton: {
+      backgroundColor: colors.primarySoft,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    editButtonText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.primary,
     },
     heroDetails: {
       flexDirection: 'row',

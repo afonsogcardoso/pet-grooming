@@ -43,6 +43,7 @@ export default function App() {
                 <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Appointments" component={AppointmentsScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="Customers" component={require('./src/screens/CustomersScreen').default} options={{ headerShown: false }} />
                 <Stack.Screen name="NewAppointment" component={NewAppointmentScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} options={{ headerShown: false }} />
               </>

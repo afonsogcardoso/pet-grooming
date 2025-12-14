@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Pressable } from 'react-native';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import type { Appointment } from '../../api/appointments';
 
@@ -7,7 +7,7 @@ type DayViewProps = {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
   onAppointmentPress: (appointment: Appointment) => void;
-  onNewAppointment: (date?: string) => void;
+  onNewAppointment: (date?: string, time?: string) => void;
   onRefresh: () => void;
   isRefreshing: boolean;
 };
@@ -24,14 +24,56 @@ function formatTime(value?: string | null) {
 
 function formatDateLabel(date: Date) {
   try {
-    return date.toLocaleDateString('pt-PT', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
+    const label = date.toLocaleDateString('pt-PT', {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
     });
+    // Capitaliza a primeira letra para melhor legibilidade
+    return label.charAt(0).toUpperCase() + label.slice(1);
   } catch {
     return date.toLocaleDateString('sv-SE');
   }
+}
+
+const HOUR_HEIGHT = 60; // height per hour slot
+const START_HOUR = 7;
+const END_HOUR = 21;
+
+function getTimeFromString(time?: string | null): { hour: number; minute: number } | null {
+  if (!time) return null;
+  const match = String(time).match(/(\d{1,2}):(\d{2})/);
+  if (match) {
+    return { hour: parseInt(match[1], 10), minute: parseInt(match[2], 10) };
+  }
+  return null;
+}
+
+function calculatePosition(appointmentTime?: string | null): number {
+  const time = getTimeFromString(appointmentTime);
+  if (!time) return 0;
+  const hourOffset = time.hour - START_HOUR;
+  const minuteOffset = time.minute / 60;
+  return (hourOffset + minuteOffset) * HOUR_HEIGHT;
+}
+
+function toMinutes(time?: string | null): number | null {
+  const parsed = getTimeFromString(time);
+  if (!parsed) return null;
+  return parsed.hour * 60 + parsed.minute;
+}
+
+function isSlotFree(dayAppointments: Appointment[], startMinutes: number, durationMinutes: number): boolean {
+  const slotStart = startMinutes;
+  const slotEnd = startMinutes + durationMinutes;
+  return dayAppointments.every((apt) => {
+    const aptStart = toMinutes(apt.appointment_time);
+    const aptDuration = apt.duration ?? 60;
+    if (aptStart === null) return true;
+    const aptEnd = aptStart + aptDuration;
+    return slotEnd <= aptStart || slotStart >= aptEnd;
+  });
 }
 
 export function DayView({ 
@@ -51,13 +93,7 @@ export function DayView({
     onDateChange(date);
   };
 
-  const goToToday = () => {
-    onDateChange(new Date());
-  };
-
   const selectedDateStr = selectedDate.toLocaleDateString('sv-SE');
-  const todayStr = new Date().toLocaleDateString('sv-SE');
-  const isToday = selectedDateStr === todayStr;
 
   const styles = StyleSheet.create({
     container: {
@@ -67,12 +103,17 @@ export function DayView({
     dateNav: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 20,
+      paddingHorizontal: 16,
       paddingVertical: 12,
       backgroundColor: colors.surface,
       borderBottomWidth: 1,
       borderBottomColor: colors.surfaceBorder,
+    },
+    navButtonWrap: {
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     navButton: {
       width: 40,
@@ -90,7 +131,9 @@ export function DayView({
     dateInfo: {
       flex: 1,
       alignItems: 'center',
-      paddingHorizontal: 12,
+      justifyContent: 'center',
+      paddingHorizontal: 8,
+      pointerEvents: 'none',
     },
     dateLabel: {
       fontSize: 16,
@@ -98,84 +141,68 @@ export function DayView({
       color: colors.text,
       textTransform: 'capitalize',
     },
-    todayButton: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 8,
-      backgroundColor: colors.primarySoft,
-    },
-    todayButtonText: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: colors.primary,
-    },
-    timeline: {
+    gridContainer: {
       flex: 1,
     },
-    scrollContent: {
-      padding: 20,
-    },
-    timeSlot: {
+    gridContent: {
       flexDirection: 'row',
-      marginBottom: 12,
     },
-    timeLabel: {
+    timeColumn: {
       width: 60,
+      paddingTop: 0,
+    },
+    hourRow: {
+      height: HOUR_HEIGHT,
+      justifyContent: 'flex-start',
       paddingTop: 4,
+      paddingRight: 4,
     },
-    timeText: {
-      fontSize: 14,
-      fontWeight: '600',
+    hourText: {
+      fontSize: 10,
       color: colors.muted,
+      textAlign: 'right',
     },
-    slotContent: {
+    dayColumn: {
       flex: 1,
+      borderLeftWidth: 1,
+      borderLeftColor: colors.surfaceBorder,
+      position: 'relative',
     },
-    appointmentCard: {
+    hourLine: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      height: 1,
+      backgroundColor: colors.surfaceBorder,
+    },
+    appointmentBlock: {
+      position: 'absolute',
+      left: 4,
+      right: 4,
       backgroundColor: colors.surface,
-      borderRadius: 12,
-      padding: 14,
+      borderRadius: 6,
+      padding: 6,
       borderLeftWidth: 4,
-      borderLeftColor: colors.primary,
-      marginBottom: 8,
+      overflow: 'hidden',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.08,
-      shadowRadius: 4,
+      shadowRadius: 2,
       elevation: 2,
     },
     appointmentTime: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: colors.primary,
-      marginBottom: 4,
-    },
-    appointmentTitle: {
-      fontSize: 15,
+      fontSize: 10,
       fontWeight: '700',
       color: colors.text,
-      marginBottom: 2,
     },
-    appointmentMeta: {
-      fontSize: 13,
-      color: colors.muted,
-      marginBottom: 4,
-    },
-    appointmentService: {
-      fontSize: 12,
-      color: colors.muted,
-      fontWeight: '600',
-    },
-    statusBadge: {
-      alignSelf: 'flex-start',
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 8,
-      marginTop: 6,
-    },
-    statusText: {
+    appointmentTitle: {
       fontSize: 11,
       fontWeight: '700',
+      color: colors.text,
+    },
+    appointmentService: {
+      fontSize: 10,
+      color: colors.muted,
     },
     emptySlot: {
       paddingVertical: 20,
@@ -192,84 +219,105 @@ export function DayView({
   });
 
   // Filter appointments for the selected day
-  const dayAppointments = appointments.filter(apt => apt.appointment_date === selectedDateStr);
-  
-  const sortedAppointments = [...dayAppointments].sort((a, b) => 
-    (a.appointment_time || '').localeCompare(b.appointment_time || '')
-  );
+  const dayAppointments = appointments
+    .filter((apt) => apt.appointment_date === selectedDateStr)
+    .sort((a, b) => (a.appointment_time || '').localeCompare(b.appointment_time || ''));
 
-  const getStatusColor = (status?: string | null) => {
-    switch (status) {
-      case 'completed': return colors.success;
-      case 'cancelled': return '#f87171';
-      case 'scheduled': return colors.primary;
-      default: return colors.warning;
+  const handleCreateAtPosition = (offsetY: number) => {
+    const totalMinutes = Math.min(
+      Math.max(Math.floor((offsetY / HOUR_HEIGHT) * 60) + START_HOUR * 60, START_HOUR * 60),
+      END_HOUR * 60 - 30,
+    );
+    const minutesRounded = totalMinutes - (totalMinutes % 30);
+    const hh = `${Math.floor(minutesRounded / 60)}`.padStart(2, '0');
+    const mm = `${minutesRounded % 60}`.padStart(2, '0');
+    const timeStr = `${hh}:${mm}`;
+
+    if (!isSlotFree(dayAppointments, minutesRounded, 60)) {
+      Alert.alert('Indisponível', 'Já existe uma marcação neste horário.');
+      return;
     }
+
+    onNewAppointment(selectedDateStr, timeStr);
   };
 
-  const getStatusLabel = (status?: string | null) => {
-    switch (status) {
-      case 'completed': return '✓ Concluído';
-      case 'cancelled': return '✕ Cancelado';
-      case 'scheduled': return '📅 Agendado';
-      default: return '⏱ Pendente';
-    }
-  };
+  const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
 
   return (
     <View style={styles.container}>
       <View style={styles.dateNav}>
-        <TouchableOpacity style={styles.navButton} onPress={() => navigateDay('prev')}>
-          <Text style={styles.navButtonText}>←</Text>
-        </TouchableOpacity>
-        
+        <View style={styles.navButtonWrap}>
+          <TouchableOpacity style={styles.navButton} onPress={() => navigateDay('prev')}>
+            <Text style={styles.navButtonText}>←</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.dateInfo}>
           <Text style={styles.dateLabel}>{formatDateLabel(selectedDate)}</Text>
         </View>
 
-        {!isToday ? (
-          <TouchableOpacity style={styles.todayButton} onPress={goToToday}>
-            <Text style={styles.todayButtonText}>Hoje</Text>
+        <View style={styles.navButtonWrap}>
+          <TouchableOpacity style={styles.navButton} onPress={() => navigateDay('next')}>
+            <Text style={styles.navButtonText}>→</Text>
           </TouchableOpacity>
-        ) : <View style={{ width: 60 }} />}
-        
-        <TouchableOpacity style={styles.navButton} onPress={() => navigateDay('next')}>
-          <Text style={styles.navButtonText}>→</Text>
-        </TouchableOpacity>
+        </View>
       </View>
 
-      <ScrollView style={styles.timeline} contentContainerStyle={styles.scrollContent}>
-        {sortedAppointments.length === 0 ? (
-          <View style={styles.emptySlot}>
-            <Text style={styles.emptyIcon}>☀️</Text>
-            <Text style={styles.emptyText}>Nenhuma marcação para este dia</Text>
-          </View>
-        ) : (
-          sortedAppointments.map((appointment) => (
-            <TouchableOpacity
-              key={appointment.id}
-              style={styles.appointmentCard}
-              onPress={() => onAppointmentPress(appointment)}
-            >
-              <Text style={styles.appointmentTime}>
-                {formatTime(appointment.appointment_time)} • {appointment.duration || 60} min
-              </Text>
-              <Text style={styles.appointmentTitle}>
-                {appointment.customers?.name} • {appointment.pets?.name}
-              </Text>
-              <Text style={styles.appointmentService}>{appointment.services?.name}</Text>
-              {appointment.customers?.address ? (
-                <Text style={styles.appointmentMeta}>📍 {appointment.customers.address}</Text>
-              ) : null}
-              
-              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status) + '22' }]}>
-                <Text style={[styles.statusText, { color: getStatusColor(appointment.status) }]}>
-                  {getStatusLabel(appointment.status)}
-                </Text>
+      <ScrollView style={styles.gridContainer}>
+        <View style={styles.gridContent}>
+          {/* Time column */}
+          <View style={styles.timeColumn}>
+            {hours.map((hour) => (
+              <View key={hour} style={styles.hourRow}>
+                <Text style={styles.hourText}>{`${hour}:00`}</Text>
               </View>
-            </TouchableOpacity>
-          ))
-        )}
+            ))}
+          </View>
+
+          {/* Day column */}
+          <Pressable style={styles.dayColumn} onPress={(e) => handleCreateAtPosition(e.nativeEvent.locationY)}>
+            {hours.map((hour, index) => (
+              <View key={hour} style={[styles.hourLine, { top: index * HOUR_HEIGHT }]} />
+            ))}
+
+            {dayAppointments.map((appointment) => {
+              const topPosition = calculatePosition(appointment.appointment_time);
+              const duration = appointment.duration || 60;
+              const height = (duration / 60) * HOUR_HEIGHT - 4;
+              return (
+                <TouchableOpacity
+                  key={appointment.id}
+                  style={[
+                    styles.appointmentBlock,
+                    {
+                      top: topPosition,
+                      height: Math.max(height, 32),
+                      borderLeftColor: colors.primary,
+                    },
+                  ]}
+                  onPress={() => onAppointmentPress(appointment)}
+                >
+                  <Text style={styles.appointmentTime} numberOfLines={1}>
+                    {formatTime(appointment.appointment_time)}
+                  </Text>
+                  <Text style={styles.appointmentTitle} numberOfLines={1}>
+                    {appointment.pets?.name}
+                  </Text>
+                  <Text style={styles.appointmentService} numberOfLines={1}>
+                    {appointment.services?.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+
+            {dayAppointments.length === 0 ? (
+              <View style={styles.emptySlot}>
+                <Text style={styles.emptyIcon}>☀️</Text>
+                <Text style={styles.emptyText}>Nenhuma marcação para este dia</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        </View>
       </ScrollView>
     </View>
   );

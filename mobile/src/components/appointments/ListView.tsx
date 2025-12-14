@@ -5,9 +5,9 @@ import type { Appointment } from '../../api/appointments';
 
 type ListViewProps = {
   appointments: Appointment[];
-  filterMode: 'upcoming' | 'past';
+  filterMode: 'upcoming' | 'past' | 'unpaid';
   onAppointmentPress: (appointment: Appointment) => void;
-  onNewAppointment: (date?: string) => void;
+  onNewAppointment: (date?: string, time?: string) => void;
   onRefresh: () => void;
   isRefreshing: boolean;
 };
@@ -59,15 +59,23 @@ export function ListView({
 
   // Group appointments by day
   const sections = React.useMemo(() => {
+    const source =
+      filterMode === 'unpaid'
+        ? appointments.filter((a) => (a.payment_status || 'unpaid') !== 'paid')
+        : appointments;
+
     const grouped: Record<string, Appointment[]> = {};
-    for (const item of appointments) {
-      const key = toDayKey(item.appointment_date) || item.appointment_date || 'Sem data';
-      grouped[key] = grouped[key] ? [...grouped[key], item] : [item];
+    for (const item of source) {
+      // Normalize date to YYYY-MM-DD format
+      const dayKey = toDayKey(item.appointment_date);
+      if (dayKey) {
+        grouped[dayKey] = grouped[dayKey] ? [...grouped[dayKey], item] : [item];
+      }
     }
+    
     const todayKey = today;
-    const entries = Object.entries(grouped).map(([rawKey, items]) => {
-      const dayKey = toDayKey(rawKey) || rawKey;
-      const titleLabel = dayKey === todayKey ? 'Hoje' : formatDateLabel(rawKey);
+    const entries = Object.entries(grouped).map(([dayKey, items]) => {
+      const titleLabel = dayKey === todayKey ? 'Hoje' : formatDateLabel(dayKey);
       return {
         dayKey,
         title: titleLabel,
@@ -75,18 +83,25 @@ export function ListView({
       };
     });
 
-    const todaySection = entries.filter((entry) => entry.dayKey === todayKey);
-    const future = entries
-      .filter((entry) => entry.dayKey !== todayKey)
-      .sort((a, b) => {
-        if (a.dayKey && b.dayKey) return a.dayKey.localeCompare(b.dayKey);
-        if (a.dayKey) return -1;
-        if (b.dayKey) return 1;
-        return 0;
-      });
+    // Filter and sort based on mode
+    let filtered: typeof entries;
+    
+    if (filterMode === 'upcoming') {
+      // Show today and future dates, sorted ascending
+      filtered = entries
+        .filter((entry) => entry.dayKey >= todayKey)
+        .sort((a, b) => a.dayKey.localeCompare(b.dayKey));
+    } else if (filterMode === 'past') {
+      // Show past dates only, sorted descending (most recent first)
+      filtered = entries
+        .filter((entry) => entry.dayKey < todayKey)
+        .sort((a, b) => b.dayKey.localeCompare(a.dayKey));
+    } else {
+      // Unpaid: show all sorted ascending
+      filtered = entries.sort((a, b) => a.dayKey.localeCompare(b.dayKey));
+    }
 
-    const ordered = [...todaySection, ...future];
-    return filterMode === 'past' ? ordered.reverse() : ordered;
+    return filtered;
   }, [appointments, filterMode, today]);
 
   const PaymentPill = ({ label }: { label: string }) => {
@@ -94,7 +109,7 @@ export function ListView({
     const color = paid ? colors.success : colors.warning;
     return (
       <View style={[styles.pill, { backgroundColor: color + '33', borderColor: color }]}>
-        <Text style={[styles.pillText, { color }]}>{paid ? '✓ Pago' : '⏱ Pendente'}</Text>
+        <Text style={[styles.pillText, { color }]}>{paid ? '✓ Pago' : '⏱ Por pagar'}</Text>
       </View>
     );
   };

@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Alert, Pressable } from 'react-native';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import type { Appointment } from '../../api/appointments';
 
@@ -7,7 +7,7 @@ type WeekViewProps = {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
   onAppointmentPress: (appointment: Appointment) => void;
-  onNewAppointment: (date?: string) => void;
+  onNewAppointment: (date?: string, time?: string) => void;
   onRefresh: () => void;
   isRefreshing: boolean;
 };
@@ -49,6 +49,24 @@ function calculatePosition(appointmentTime?: string | null): number {
   return (hourOffset + minuteOffset) * HOUR_HEIGHT;
 }
 
+function toMinutes(time?: string | null): number | null {
+  const parsed = getTimeFromString(time);
+  if (!parsed) return null;
+  return parsed.hour * 60 + parsed.minute;
+}
+
+function isSlotFree(dayAppointments: Appointment[], startMinutes: number, durationMinutes: number): boolean {
+  const slotStart = startMinutes;
+  const slotEnd = startMinutes + durationMinutes;
+  return dayAppointments.every((apt) => {
+    const aptStart = toMinutes(apt.appointment_time);
+    const aptDuration = apt.duration ?? 60;
+    if (aptStart === null) return true;
+    const aptEnd = aptStart + aptDuration;
+    return slotEnd <= aptStart || slotStart >= aptEnd;
+  });
+}
+
 export function WeekView({ 
   appointments, 
   selectedDate, 
@@ -71,10 +89,6 @@ export function WeekView({
     onDateChange(date);
   };
 
-  const goToToday = () => {
-    onDateChange(new Date());
-  };
-
   // Group appointments by day
   const appointmentsByDay = weekDays.reduce((acc, day) => {
     const dayStr = day.toLocaleDateString('sv-SE');
@@ -82,6 +96,26 @@ export function WeekView({
       .sort((a, b) => (a.appointment_time || '').localeCompare(b.appointment_time || ''));
     return acc;
   }, {} as Record<string, Appointment[]>);
+
+  const handleCreateAtPosition = (dayStr: string, dayAppointments: Appointment[], offsetY: number) => {
+    const totalMinutes = Math.min(
+      Math.max(Math.floor(offsetY / HOUR_HEIGHT * 60) + START_HOUR * 60, START_HOUR * 60),
+      END_HOUR * 60 - 30,
+    );
+
+    const minutesRounded = totalMinutes - (totalMinutes % 30); // snap to 30min blocks
+    const hh = `${Math.floor(minutesRounded / 60)}`.padStart(2, '0');
+    const mm = `${minutesRounded % 60}`.padStart(2, '0');
+    const timeStr = `${hh}:${mm}`;
+
+    // Avoid creating over an existing appointment (using default 60m duration)
+    if (!isSlotFree(dayAppointments, minutesRounded, 60)) {
+      Alert.alert('Indisponível', 'Já existe uma marcação neste horário.');
+      return;
+    }
+
+    onNewAppointment(dayStr, timeStr);
+  };
 
   const getStatusColor = (status?: string | null) => {
     switch (status) {
@@ -94,8 +128,6 @@ export function WeekView({
 
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
 
-  const isCurrentWeek = weekDays.some(day => day.toLocaleDateString('sv-SE') === today);
-
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -104,12 +136,17 @@ export function WeekView({
     weekNav: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 16,
+      paddingHorizontal: 12,
       paddingVertical: 12,
       backgroundColor: colors.surface,
       borderBottomWidth: 1,
       borderBottomColor: colors.surfaceBorder,
+    },
+    navButtonWrap: {
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     navButton: {
       width: 36,
@@ -127,23 +164,14 @@ export function WeekView({
     weekInfo: {
       flex: 1,
       alignItems: 'center',
-      paddingHorizontal: 12,
+      justifyContent: 'center',
+      paddingHorizontal: 8,
+      pointerEvents: 'none',
     },
     weekLabel: {
       fontSize: 14,
       fontWeight: '700',
       color: colors.text,
-    },
-    todayButton: {
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderRadius: 6,
-      backgroundColor: colors.primarySoft,
-    },
-    todayButtonText: {
-      fontSize: 11,
-      fontWeight: '700',
-      color: colors.primary,
     },
     weekHeader: {
       flexDirection: 'row',
@@ -254,29 +282,36 @@ export function WeekView({
 
   const weekStart = weekDays[0];
   const weekEnd = weekDays[6];
-  const weekLabel = `${weekStart.getDate()} - ${weekEnd.getDate()} ${weekEnd.toLocaleDateString('pt-PT', { month: 'short' })}`;
+  const sameYear = weekStart.getFullYear() === weekEnd.getFullYear();
+  const formatDayLabel = (d: Date, withYear: boolean) =>
+    d.toLocaleDateString('pt-PT', {
+      day: '2-digit',
+      month: 'short',
+      year: withYear ? 'numeric' : undefined,
+    });
+  const weekLabel = sameYear
+    ? `${formatDayLabel(weekStart, false)} - ${formatDayLabel(weekEnd, true)}`
+    : `${formatDayLabel(weekStart, true)} - ${formatDayLabel(weekEnd, true)}`;
 
   return (
     <View style={styles.container}>
       {/* Navigation Header */}
       <View style={styles.weekNav}>
-        <TouchableOpacity style={styles.navButton} onPress={() => navigateWeek('prev')}>
-          <Text style={styles.navButtonText}>←</Text>
-        </TouchableOpacity>
+        <View style={styles.navButtonWrap}>
+          <TouchableOpacity style={styles.navButton} onPress={() => navigateWeek('prev')}>
+            <Text style={styles.navButtonText}>←</Text>
+          </TouchableOpacity>
+        </View>
         
         <View style={styles.weekInfo}>
           <Text style={styles.weekLabel}>{weekLabel}</Text>
         </View>
 
-        {!isCurrentWeek ? (
-          <TouchableOpacity style={styles.todayButton} onPress={goToToday}>
-            <Text style={styles.todayButtonText}>Hoje</Text>
+        <View style={styles.navButtonWrap}>
+          <TouchableOpacity style={styles.navButton} onPress={() => navigateWeek('next')}>
+            <Text style={styles.navButtonText}>→</Text>
           </TouchableOpacity>
-        ) : <View style={{ width: 50 }} />}
-        
-        <TouchableOpacity style={styles.navButton} onPress={() => navigateWeek('next')}>
-          <Text style={styles.navButtonText}>→</Text>
-        </TouchableOpacity>
+        </View>
       </View>
 
       {/* Days of Week Header */}
@@ -323,7 +358,11 @@ export function WeekView({
               const dayAppointments = appointmentsByDay[dayStr] || [];
 
               return (
-                <View key={dayStr} style={styles.dayColumn}>
+                <Pressable
+                  key={dayStr}
+                  style={styles.dayColumn}
+                  onPress={(e) => handleCreateAtPosition(dayStr, dayAppointments, e.nativeEvent.locationY)}
+                >
                   {/* Hour Lines */}
                   {hours.map((hour, index) => (
                     <View 
@@ -366,7 +405,7 @@ export function WeekView({
                       </TouchableOpacity>
                     );
                   })}
-                </View>
+                </Pressable>
               );
             })}
           </View>

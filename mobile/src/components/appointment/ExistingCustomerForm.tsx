@@ -148,24 +148,95 @@ export function ExistingCustomerForm({
     inlineInput: {
       marginBottom: 4,
     },
+    changeButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      marginTop: 8,
+      backgroundColor: colors.primarySoft,
+      borderRadius: 8,
+    },
+    changeButtonText: {
+      color: colors.primary,
+      fontWeight: '600',
+      fontSize: 13,
+    },
   });
 
   return (
     <>
       <View style={styles.field}>
         <Text style={styles.label}>Cliente</Text>
-        <TouchableOpacity
-          style={styles.select}
-          onPress={() => setShowCustomerList(!showCustomerList)}
-        >
-          <Text style={[styles.selectText, !selectedCustomerData && styles.placeholder]}>
-            {selectedCustomerData?.name ||
-              (loadingCustomers ? 'A carregar...' : '🔍 Pesquisar cliente ou pet')}
-          </Text>
-        </TouchableOpacity>
         
-        {selectedCustomerData ? (
+        {!selectedCustomerData ? (
+          // Modo de pesquisa: mostrar sempre a caixa de pesquisa
+          <>
+            <TouchableOpacity
+              style={styles.select}
+              onPress={() => setShowCustomerList(!showCustomerList)}
+            >
+              <Text style={[styles.selectText, styles.placeholder]}>
+                {loadingCustomers ? 'A carregar...' : '🔍 Pesquisar cliente ou pet'}
+              </Text>
+            </TouchableOpacity>
+
+            {showCustomerList ? (
+              <View style={[styles.dropdown, { borderColor: primarySoft }]}>
+                <TextInput
+                  value={customerSearch}
+                  onChangeText={setCustomerSearch}
+                  placeholder="Pesquisar por cliente ou pet"
+                  placeholderTextColor={colors.muted}
+                  style={[styles.input, { borderColor: primarySoft, marginBottom: 10 }]}
+                  autoFocus
+                />
+                <ScrollView style={{ maxHeight: 200 }}>
+                  {searchResults.map((result) => {
+                    const key =
+                      result.type === 'customer'
+                        ? `customer-${result.customer.id}`
+                        : `pet-${result.pet.id}`;
+                    return (
+                      <TouchableOpacity
+                        key={key}
+                        style={styles.option}
+                        onPress={() => {
+                          setSelectedCustomer(result.customer.id);
+                          if (result.type === 'pet') {
+                            setSelectedPet(result.pet.id);
+                          }
+                          setShowCustomerList(false);
+                          setShowPetList(false);
+                          setCustomerSearch('');
+                        }}
+                      >
+                        <Text style={styles.optionTitle}>
+                          {result.label}
+                          {result.type === 'pet' ? ' (pet)' : ''}
+                        </Text>
+                        {result.subtitle ? <Text style={styles.optionSubtitle}>{result.subtitle}</Text> : null}
+                        {result.type === 'pet' && result.customer.phone ? (
+                          <Text style={styles.optionSubtitle}>{result.customer.phone}</Text>
+                        ) : null}
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {!loadingCustomers && searchResults.length === 0 ? (
+                    <Text style={styles.optionSubtitle}>Nenhum resultado</Text>
+                  ) : null}
+                </ScrollView>
+              </View>
+            ) : null}
+          </>
+        ) : (
+          // Modo selecionado: mostrar dados do cliente com opção de trocar
           <View style={styles.customerCard}>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={styles.selectText}>{selectedCustomerData.name}</Text>
+              <Text style={[styles.optionSubtitle, { marginTop: 4 }]}>
+                {selectedCustomerData.phone}
+              </Text>
+            </View>
+
             <Text style={styles.customerDetailLabel}>📱 Telefone</Text>
             <TextInput
               value={customerPhone}
@@ -190,55 +261,66 @@ export function ExistingCustomerForm({
               style={[styles.input, styles.inlineInput]}
               keyboardType="number-pad"
             />
-          </View>
-        ) : null}
-      </View>
 
-      {showCustomerList ? (
-        <View style={[styles.dropdown, { borderColor: primarySoft }]}>
-          <TextInput
-            value={customerSearch}
-            onChangeText={setCustomerSearch}
-            placeholder="Pesquisar por cliente ou pet"
-            placeholderTextColor={colors.muted}
-            style={[styles.input, { borderColor: primarySoft, marginBottom: 10 }]}
-          />
-          <ScrollView style={{ maxHeight: 200 }}>
-            {searchResults.map((result) => {
-              const key =
-                result.type === 'customer'
-                  ? `customer-${result.customer.id}`
-                  : `pet-${result.pet.id}`;
-              return (
-                <TouchableOpacity
-                  key={key}
-                  style={styles.option}
-                  onPress={() => {
-                    setSelectedCustomer(result.customer.id);
-                    if (result.type === 'pet') {
-                      setSelectedPet(result.pet.id);
-                    }
-                    setShowCustomerList(false);
-                    setShowPetList(false);
-                  }}
-                >
-                  <Text style={styles.optionTitle}>
-                    {result.label}
-                    {result.type === 'pet' ? ' (pet)' : ''}
-                  </Text>
-                  {result.subtitle ? <Text style={styles.optionSubtitle}>{result.subtitle}</Text> : null}
-                  {result.type === 'pet' && result.customer.phone ? (
-                    <Text style={styles.optionSubtitle}>{result.customer.phone}</Text>
+            <TouchableOpacity
+              style={styles.changeButton}
+              onPress={() => {
+                setShowCustomerList(!showCustomerList);
+              }}
+            >
+              <Text style={styles.changeButtonText}>🔄 Trocar cliente</Text>
+            </TouchableOpacity>
+
+            {showCustomerList ? (
+              <View style={[styles.dropdown, { borderColor: primarySoft, marginTop: 12 }]}>
+                <TextInput
+                  value={customerSearch}
+                  onChangeText={setCustomerSearch}
+                  placeholder="Pesquisar por cliente ou pet"
+                  placeholderTextColor={colors.muted}
+                  style={[styles.input, { borderColor: primarySoft, marginBottom: 10 }]}
+                  autoFocus
+                />
+                <ScrollView style={{ maxHeight: 200 }}>
+                  {searchResults.map((result) => {
+                    const key =
+                      result.type === 'customer'
+                        ? `customer-${result.customer.id}`
+                        : `pet-${result.pet.id}`;
+                    return (
+                      <TouchableOpacity
+                        key={key}
+                        style={styles.option}
+                        onPress={() => {
+                          setSelectedCustomer(result.customer.id);
+                          if (result.type === 'pet') {
+                            setSelectedPet(result.pet.id);
+                          }
+                          setShowCustomerList(false);
+                          setShowPetList(false);
+                          setCustomerSearch('');
+                        }}
+                      >
+                        <Text style={styles.optionTitle}>
+                          {result.label}
+                          {result.type === 'pet' ? ' (pet)' : ''}
+                        </Text>
+                        {result.subtitle ? <Text style={styles.optionSubtitle}>{result.subtitle}</Text> : null}
+                        {result.type === 'pet' && result.customer.phone ? (
+                          <Text style={styles.optionSubtitle}>{result.customer.phone}</Text>
+                        ) : null}
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {!loadingCustomers && searchResults.length === 0 ? (
+                    <Text style={styles.optionSubtitle}>Nenhum resultado</Text>
                   ) : null}
-                </TouchableOpacity>
-              );
-            })}
-            {!loadingCustomers && searchResults.length === 0 ? (
-              <Text style={styles.optionSubtitle}>Nenhum resultado</Text>
+                </ScrollView>
+              </View>
             ) : null}
-          </ScrollView>
-        </View>
-      ) : null}
+          </View>
+        )}
+      </View>
 
       <View style={styles.field}>
         <Text style={styles.label}>Animal</Text>

@@ -18,6 +18,8 @@ export default function HomeScreen({ navigation }: Props) {
   const primarySoft = colors.primarySoft;
   const background = colors.background;
   const accountName = branding?.account_name || 'Pet Grooming';
+  const displayName = user?.displayName || user?.email?.split('@')[0] || 'Utilizador';
+  const avatarUrl = user?.avatarUrl || null;
   const heroImage = branding?.portal_image_url || branding?.logo_url || null;
 
   const logout = async () => {
@@ -31,7 +33,7 @@ export default function HomeScreen({ navigation }: Props) {
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Olá! 👋</Text>
-          <Text style={styles.userName}>{user?.email?.split('@')[0] || 'Visitante'}</Text>
+          <Text style={styles.userName}>{displayName}</Text>
         </View>
         {brandingLoading ? (
           <ActivityIndicator color={primary} />
@@ -40,7 +42,13 @@ export default function HomeScreen({ navigation }: Props) {
             style={[styles.profileButton, { borderColor: primarySoft }]}
             onPress={() => navigation.navigate('Profile')}
           >
-            <Text style={styles.profileIcon}>👤</Text>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.profileImage} />
+            ) : (
+              <View style={[styles.initialsCircle, { backgroundColor: colors.surface }]}> 
+                <Text style={styles.initialsText}>{String(displayName).slice(0,1).toUpperCase()}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         )}
       </View>
@@ -93,11 +101,11 @@ export default function HomeScreen({ navigation }: Props) {
 
           <TouchableOpacity 
             style={styles.secondaryAction}
-            onPress={() => navigation.navigate('Profile')}
+            onPress={() => navigation.navigate('Customers')}
           >
-            <Text style={styles.secondaryActionIcon}>⚙️</Text>
-            <Text style={styles.secondaryActionTitle}>Perfil</Text>
-            <Text style={styles.secondaryActionSubtitle}>Minha conta</Text>
+            <Text style={styles.secondaryActionIcon}>👥</Text>
+            <Text style={styles.secondaryActionTitle}>Clientes</Text>
+            <Text style={styles.secondaryActionSubtitle}>Gerir clientes e animais</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -153,6 +161,23 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     profileIcon: {
       fontSize: 24,
+    },
+    profileImage: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+    },
+    initialsCircle: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    initialsText: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.text,
     },
     heroCard: {
       marginHorizontal: 20,

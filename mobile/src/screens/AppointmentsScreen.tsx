@@ -19,7 +19,7 @@ import { MonthView } from '../components/appointments/MonthView';
 
 type Props = NativeStackScreenProps<any>;
 type ViewMode = 'list' | 'day' | 'week' | 'month';
-type FilterMode = 'upcoming' | 'past';
+type FilterMode = 'upcoming' | 'past' | 'unpaid';
 
 function todayLocalISO() {
   // YYYY-MM-DD usando timezone local (evita “pular” para amanhã em UTC)
@@ -100,12 +100,17 @@ export default function AppointmentsScreen({ navigation }: Props) {
   const surface = colors.surface;
   const primarySoft = colors.primarySoft;
 
+  const handleViewChange = (nextView: ViewMode) => {
+    setSelectedDate(new Date());
+    setViewMode(nextView);
+  };
+
   const handleAppointmentPress = (appointment: Appointment) => {
     navigation.navigate('AppointmentDetail', { id: appointment.id });
   };
 
-  const handleNewAppointment = (date?: string) => {
-    navigation.navigate('NewAppointment', { date });
+  const handleNewAppointment = (date?: string, time?: string) => {
+    navigation.navigate('NewAppointment', { date, time });
   };
 
   return (
@@ -124,7 +129,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
       </View>
 
       {/* View Mode Selector */}
-      <ViewSelector viewMode={viewMode} onViewChange={setViewMode} />
+      <ViewSelector currentView={viewMode} onViewChange={handleViewChange} />
 
       {/* Filter for List view only */}
       {viewMode === 'list' && (
@@ -149,6 +154,17 @@ export default function AppointmentsScreen({ navigation }: Props) {
           >
             <Text style={[styles.segmentText, { color: filterMode === 'past' ? primary : colors.text }]}>
               Anteriores
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.segmentButton,
+              filterMode === 'unpaid' && { backgroundColor: primarySoft, borderColor: primary },
+            ]}
+            onPress={() => setFilterMode('unpaid')}
+          >
+            <Text style={[styles.segmentText, { color: filterMode === 'unpaid' ? primary : colors.text }]}>
+              Por pagar
             </Text>
           </TouchableOpacity>
         </View>

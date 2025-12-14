@@ -70,19 +70,16 @@ export function MonthView({
   const monthDays = getMonthDays(selectedDate);
   const today = new Date().toLocaleDateString('sv-SE');
   
-  const monthLabel = selectedDate.toLocaleDateString('pt-PT', { 
+  const monthLabelRaw = selectedDate.toLocaleDateString('pt-PT', { 
     month: 'long', 
     year: 'numeric' 
   });
+  const monthLabel = monthLabelRaw.charAt(0).toUpperCase() + monthLabelRaw.slice(1);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     const newDate = new Date(selectedDate);
     newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
     onDateChange(newDate);
-  };
-
-  const goToToday = () => {
-    onDateChange(new Date());
   };
 
   const appointmentsByDay = appointments.reduce((acc, apt) => {
@@ -100,12 +97,17 @@ export function MonthView({
     monthNav: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 20,
+      paddingHorizontal: 16,
       paddingVertical: 12,
       backgroundColor: colors.surface,
       borderBottomWidth: 1,
       borderBottomColor: colors.surfaceBorder,
+    },
+    navButtonWrap: {
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     navButton: {
       width: 40,
@@ -123,24 +125,14 @@ export function MonthView({
     monthInfo: {
       flex: 1,
       alignItems: 'center',
-      paddingHorizontal: 12,
+      justifyContent: 'center',
+      paddingHorizontal: 8,
     },
     monthLabel: {
       fontSize: 16,
       fontWeight: '700',
       color: colors.text,
       textTransform: 'capitalize',
-    },
-    todayButton: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 8,
-      backgroundColor: colors.primarySoft,
-    },
-    todayButtonText: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: colors.primary,
     },
     calendar: {
       padding: 20,
@@ -258,29 +250,24 @@ export function MonthView({
 
   const weekDayLabels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
-  const isCurrentMonth = selectedDate.getMonth() === new Date().getMonth() && 
-                         selectedDate.getFullYear() === new Date().getFullYear();
-
   return (
     <View style={styles.container}>
       <View style={styles.monthNav}>
-        <TouchableOpacity style={styles.navButton} onPress={() => navigateMonth('prev')}>
-          <Text style={styles.navButtonText}>←</Text>
-        </TouchableOpacity>
-        
-        <View style={styles.monthInfo}>
+        <View style={styles.navButtonWrap}>
+          <TouchableOpacity style={styles.navButton} onPress={() => navigateMonth('prev')}>
+            <Text style={styles.navButtonText}>←</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.monthInfo} pointerEvents="none">
           <Text style={styles.monthLabel}>{monthLabel}</Text>
         </View>
 
-        {!isCurrentMonth ? (
-          <TouchableOpacity style={styles.todayButton} onPress={goToToday}>
-            <Text style={styles.todayButtonText}>Hoje</Text>
+        <View style={styles.navButtonWrap}>
+          <TouchableOpacity style={styles.navButton} onPress={() => navigateMonth('next')}>
+            <Text style={styles.navButtonText}>→</Text>
           </TouchableOpacity>
-        ) : <View style={{ width: 60 }} />}
-        
-        <TouchableOpacity style={styles.navButton} onPress={() => navigateMonth('next')}>
-          <Text style={styles.navButtonText}>→</Text>
-        </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.calendar}>

@@ -16,6 +16,7 @@ export type Appointment = {
     name?: string | null;
     phone?: string | null;
     address?: string | null;
+    nif?: string | null;
   } | null;
   services?: {
     id: string;
