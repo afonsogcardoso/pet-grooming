@@ -1,0 +1,836 @@
+{
+  "app": {
+    "title": "🐾 Gestor de Banhos e Tosquias",
+    "description": "Organiza a agenda do serviço móvel",
+    "nav": {
+      "appointments": "Agendamentos",
+      "customers": "Clientes",
+      "services": "Serviços",
+      "settings": "Configurações",
+      "menu": "Menu",
+      "close": "Fechar"
+    },
+    "logoAlt": "Logótipo de {{name}}",
+    "profile": {
+      "viewProfile": "Ver perfil"
+    },
+    "tenantSwitch": {
+      "label": "Conta"
+    }
+  },
+  "language": {
+    "label": "Idioma",
+    "options": {
+      "en": "Inglês",
+      "pt": "Português (Portugal)"
+    }
+  },
+  "appointmentsPage": {
+    "headingWithCount": "Agendamentos ({{count}})",
+    "newButton": "Novo agendamento",
+    "loading": "A carregar agendamentos...",
+    "confirmDiscard": "Tens um agendamento por guardar. Queres descartar as alterações?",
+    "confirmDelete": "Eliminar este agendamento?",
+    "errors": {
+      "load": "Erro ao carregar agendamentos: {{message}}",
+      "create": "Erro ao criar agendamento: {{message}}",
+      "update": "Erro ao atualizar agendamento: {{message}}",
+      "updateStatus": "Erro ao atualizar o estado: {{message}}",
+      "delete": "Erro ao eliminar agendamento: {{message}}",
+      "photoUpload": "Erro ao carregar fotografia: {{message}}"
+    },
+    "loaders": {
+      "calendar": "A carregar calendário...",
+      "list": "A carregar agendamentos...",
+      "form": "A preparar formulário..."
+    }
+  },
+  "compactAppointmentsPage": {
+    "badge": "Vista compacta",
+    "title": "Semana completa sem scroll",
+    "count": "{{count}} marcações",
+    "viewLabel": "Vista",
+    "views": {
+      "calendar": "Calendário",
+      "list": "Lista"
+    },
+    "stats": {
+      "upcoming": "Próximos",
+      "completed": "Concluídos",
+      "unpaid": "Por pagar"
+    },
+    "actions": {
+      "new": "Nova marcação",
+      "openClassic": "Abrir vista anterior"
+    },
+    "filters": {
+      "title": "Filtro rápido",
+      "helper": "Mostra apenas os agendamentos que precisas agora."
+    },
+    "calendar": {
+      "pill": "Calendário semanal",
+      "title": "Semana sem scroll",
+      "helper": "{{count}} marcações visíveis nesta semana",
+      "week": "Navegação"
+    }
+  },
+  "viewToggle": {
+    "list": "Vista em lista",
+    "calendar": "Vista semanal"
+  },
+  "filterButtons": {
+    "all": "Todos",
+    "upcoming": "Próximos",
+    "completed": "Concluídos"
+  },
+  "appointmentList": {
+    "emptyAllTitle": "Ainda não tens agendamentos",
+    "emptyFilteredTitle": "Sem agendamentos {{filter}}",
+    "emptyAllDescription": "Clica em “Novo agendamento” para começar!",
+    "emptyFilteredDescription": "Experimenta alterar o filtro acima"
+  },
+  "appointmentCard": {
+    "addressLink": "📍 Mapa",
+    "addressMissing": "Sem morada",
+    "statusCompleted": "Concluído",
+    "labels": {
+      "pet": "🐕 Animal",
+      "phone": "📱 Telefone",
+      "service": "✂️ Serviço",
+      "date": "📅 Data",
+      "address": "📍 Morada",
+      "notes": "📝 Notas",
+      "petPhotoAlt": "Fotografia de {{pet}}",
+      "beforeAfter": "Antes e Depois",
+      "before": "Antes",
+      "after": "Depois",
+      "whatsappSent": "WhatsApp enviado",
+      "confirmationOpened": "Cliente abriu o link"
+    },
+    "dateTime": "{{date}} às {{time}}",
+    "buttons": {
+      "edit": "Editar",
+      "complete": "Concluir",
+      "delete": "Eliminar",
+      "markPaid": "Marcar como pago",
+      "markUnpaid": "Marcar por pagar",
+      "markPaidShort": "Pago",
+      "markUnpaidShort": "Por pagar",
+      "share": "Enviar por WhatsApp",
+      "shareShort": "WhatsApp"
+    },
+    "share": {
+      "messageWithName": "Olá {{customer}}!\n\nConfirmamos a sua marcação para {{date}} às {{time}}.",
+      "messageNoName": "Olá! Confirmamos a sua marcação para {{date}} às {{time}}.",
+      "service": "Serviço: {{service}}",
+      "pet": "Pet: {{pet}}",
+      "address": "Morada: {{address}}",
+      "link": "Ver detalhes e confirmar: {{url}}"
+    },
+    "payment": {
+      "paid": "Pago",
+      "unpaid": "Por pagar"
+    },
+    "unknownCustomer": "Cliente desconhecido",
+    "unknownPet": "Animal desconhecido",
+    "unknownService": "Serviço"
+  },
+  "confirmationPage": {
+    "header": "Confirmação de marcação",
+    "title": "Olá {{customer}}, a sua reserva está confirmada",
+    "titleNoName": "A sua reserva está confirmada",
+    "subtitle": "Guarde este link para voltar a ver os detalhes quando quiser.",
+    "labels": {
+      "date": "Data",
+      "time": "Hora",
+      "service": "Serviço",
+      "pet": "Pet",
+      "address": "Morada",
+      "notes": "Notas",
+      "payment": "Estado do pagamento",
+      "duration": "Duração",
+      "petPhoto": "Fotografia do pet"
+    },
+    "durationMinutes": "{{duration}} minutos",
+    "payment": {
+      "paid": "Pago",
+      "unpaid": "Por pagar"
+    },
+    "notFound": "Não encontrámos esta marcação. Verifique o link ou peça-nos uma nova confirmação.",
+    "missing": {
+      "generic": "Não fornecido"
+    },
+    "footer": {
+      "confirmed": "Tudo preparado para a sua visita.",
+      "update": "Precisa de alterar? Responda à mensagem que recebeu.",
+      "homeLink": "Voltar ao início",
+      "cancellation": {
+        "title": "POLÍTICA DE CANCELAMENTO",
+        "line1": "Os cancelamentos devem ser comunicados com, pelo menos, 24h de antecedência.",
+        "line2": "Cancelamentos no próprio dia poderão estar sujeitos à taxa de serviço de 20€."
+      }
+    },
+    "actions": {
+      "qr": "Mostre este QR no local",
+      "addToCalendar": "Adicionar ao calendário",
+      "addToCalendarHelper": "Faça download do ficheiro .ics e adicione ao seu calendário.",
+      "addToCalendarButton": "Adicionar ao calendário",
+      "photoError": "Falhou o envio da foto. Tente novamente.",
+      "photoEmpty": "Carregue aqui a fotografia do pet",
+      "photoPlaceholder": "Remover fotografia"
+    }
+  },
+  "appointmentForm": {
+    "title": {
+      "new": "Novo agendamento",
+      "edit": "Editar agendamento"
+    },
+    "actions": {
+      "close": "Fechar"
+    },
+    "fields": {
+      "search": "Pesquisa cliente ou animal",
+      "customer": "Cliente *",
+      "pet": "Animal *",
+      "service": "Serviço *",
+      "duration": "Duração *",
+      "payment": "Pagamento",
+      "phone": "Telefone",
+      "date": "Data *",
+      "time": "Hora *",
+      "notes": "Notas",
+      "sendWhatsapp": "Enviar confirmação por WhatsApp após gravar"
+    },
+    "labels": {
+      "beforePhoto": "Foto antes",
+      "afterPhoto": "Foto depois",
+      "address": "Morada"
+    },
+    "sections": {
+      "beforeAfter": "Fotos de antes e depois"
+    },
+    "placeholders": {
+      "search": "Escreve o nome do animal ou da pessoa...",
+      "selectCustomer": "Escolhe um cliente...",
+      "selectPet": "Escolhe um animal...",
+      "selectService": "Escolhe um serviço...",
+      "selectTime": "Escolhe uma hora...",
+      "selectCustomerFirst": "Escolhe primeiro um cliente",
+      "date": "AAAA-MM-DD",
+      "address": "Morada (opcional)",
+      "phone": "Preenche automaticamente pelo cliente",
+      "notes": "Instruções ou notas especiais...",
+      "noServices": "Ainda não existem serviços. Adiciona um abaixo."
+    },
+    "loaders": {
+      "customers": "A carregar clientes...",
+      "pets": "A carregar animais...",
+      "services": "A carregar serviços..."
+    },
+    "tooltips": {
+      "addCustomer": "Adicionar novo cliente",
+      "addPet": "Adicionar novo animal",
+      "addService": "Adicionar novo serviço"
+    },
+    "search": {
+      "loading": "A preparar lista de clientes e animais...",
+      "noResults": "Sem resultados. Tenta outro nome.",
+      "noPhone": "sem telefone",
+      "instructions": "💡 Escreve o nome do animal ou do dono para preencher o resto automaticamente."
+    },
+    "helpers": {
+      "beforePhoto": "Adiciona uma foto \"antes\" do animal.",
+      "afterPhoto": "Adiciona uma foto \"depois\" após terminares."
+    },
+    "payment": {
+      "paid": "Pago",
+      "unpaid": "Por pagar",
+      "helper": "Usa isto para registares rapidamente se este serviço já foi pago."
+    },
+    "buttons": {
+      "searchExisting": "Procurar",
+      "newEntry": "Novo",
+      "add": "+ Novo",
+      "save": "💾 Guardar agendamento",
+      "update": "💾 Atualizar agendamento",
+      "saving": "A gravar...",
+      "removePhoto": "Remover foto",
+      "markCompleted": "✅ Marcar como completo",
+      "completed": "✅ Completo",
+      "delete": "🗑 Apagar agendamento",
+      "share": "Enviar por WhatsApp"
+    },
+    "durationOptions": {
+      "minutes30": "30 minutos",
+      "hour": "1 hora (padrão)",
+      "hourThirty": "1 hora e 30 minutos"
+    },
+    "messages": {
+      "selectCustomerFirst": "Escolhe primeiro um cliente",
+      "newCustomerPetRequired": "Preenche o nome/telefone do cliente e o nome do animal.",
+      "noShareToken": "Ainda não podes partilhar esta marcação. Guarda-a primeiro.",
+      "createCustomerError": "Erro a criar cliente: {{message}}",
+      "createPetError": "Erro a criar animal: {{message}}",
+      "updateCustomerError": "Erro a atualizar cliente: {{message}}",
+      "newFlowHint": "Preenche para criares um novo cliente e animal."
+    },
+    "sharePreview": {
+      "title": "Revê a mensagem de WhatsApp",
+      "helper": "Confirma antes de enviar ao cliente.",
+      "confirm": "Enviar por WhatsApp",
+      "cancel": "Fechar"
+    }
+  },
+  "servicesForm": {
+    "modalTitle": "Adicionar serviço",
+    "titleNew": "Adicionar serviço",
+    "titleEdit": "Editar serviço",
+    "labels": {
+      "name": "Nome do serviço *",
+      "description": "Descrição",
+      "duration": "Duração padrão",
+      "price": "Preço (opcional)",
+      "active": "Serviço disponível para marcações"
+    },
+    "placeholders": {
+      "name": "ex: Grooming completo",
+      "description": "Descreve o que está incluído...",
+      "price": "40.00"
+    },
+    "durationOption": "{{minutes}} minutos",
+    "buttons": {
+      "save": "💾 Guardar serviço",
+      "update": "💾 Atualizar serviço",
+      "cancel": "Cancelar"
+    },
+    "errors": {
+      "create": "Erro ao criar serviço: {{message}}"
+    }
+  },
+  "servicesPage": {
+    "headingWithCount": "Serviços ({{count}})",
+    "loading": "A carregar serviços...",
+    "searchPlaceholder": "Procura por nome ou descrição...",
+    "buttons": {
+      "new": "+ Novo serviço",
+      "cancelForm": "✕ Cancelar",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "disable": "Desativar",
+      "enable": "Ativar"
+    },
+    "labels": {
+      "price": "Preço",
+      "priceUnset": "Sem preço"
+    },
+    "badges": {
+      "active": "Ativo",
+      "inactive": "Inativo"
+    },
+    "durationLabel": "{{minutes}} min",
+    "emptyTitle": "Ainda não tens serviços",
+    "emptyDescription": "Usa “Novo serviço” para adicionar a primeira oferta.",
+    "emptySearchTitle": "Sem resultados",
+    "emptySearchDescription": "Tenta outro termo.",
+    "confirmDelete": "Eliminar {{name}}? Esta ação não pode ser desfeita.",
+    "errors": {
+      "load": "Erro ao carregar serviços: {{message}}",
+      "create": "Erro ao criar serviço: {{message}}",
+      "update": "Erro ao atualizar serviço: {{message}}",
+      "delete": "Erro ao eliminar serviço: {{message}}"
+    }
+  },
+  "customerForm": {
+    "title": {
+      "new": "Novo cliente",
+      "edit": "Editar cliente"
+    },
+    "labels": {
+      "name": "Nome do cliente *",
+      "phone": "Telefone *",
+      "nif": "NIF",
+      "email": "Email",
+      "address": "Morada (local do serviço)",
+      "notes": "Notas"
+    },
+    "placeholders": {
+      "name": "João Silva",
+      "phone": "+351 912 345 678",
+      "nif": "Número de contribuinte (opcional)",
+      "email": "joao@example.com",
+      "address": "Morada completa ou link do Google Maps",
+      "notes": "Notas importantes sobre este cliente..."
+    },
+    "helpers": {
+      "address": "Opcional, mas ajuda se precisares de navegar até ao cliente."
+    },
+    "buttons": {
+      "save": "💾 Guardar cliente",
+      "update": "💾 Atualizar cliente",
+      "cancel": "Cancelar",
+      "delete": "Apagar cliente"
+    },
+    "errors": {
+      "create": "Erro ao criar cliente: {{message}}"
+    }
+  },
+  "petForm": {
+    "title": {
+      "new": "🐾 Adicionar novo animal",
+      "edit": "✏️ Editar animal"
+    },
+    "labels": {
+      "name": "Nome do animal *",
+      "breed": "Raça",
+      "age": "Idade (anos)",
+      "weight": "Peso (kg)",
+      "medicalNotes": "Notas médicas",
+      "photo": "Fotografia",
+      "photoAlt": "Foto de {{name}}",
+      "photoPreview": "Pré-visualização do animal"
+    },
+    "placeholders": {
+      "name": "Max",
+      "breed": "Golden Retriever",
+      "age": "5 anos",
+      "weight": "25 kg",
+      "medicalNotes": "Alergias, medicação, necessidades especiais..."
+    },
+    "helpers": {
+      "photo": "Imagens quadradas até 5 MB funcionam melhor."
+    },
+    "buttons": {
+      "save": "💾 Guardar animal",
+      "update": "💾 Atualizar animal",
+      "cancel": "Cancelar",
+      "delete": "Apagar animal",
+      "removePhoto": "Remover fotografia"
+    },
+    "errors": {
+      "create": "Erro ao criar animal: {{message}}"
+    }
+  },
+  "customersPage": {
+    "headingWithCount": "Clientes ({{count}})",
+    "loading": "A carregar clientes...",
+    "searchPlaceholder": "Procura por nome, telefone ou NIF...",
+    "search": "Pesquisar",
+    "clear": "Limpar",
+    "buttons": {
+      "new": "+ Novo cliente",
+      "cancelForm": "✕ Cancelar",
+      "close": "Fechar"
+    },
+    "empty": {
+      "title": "Ainda não tens clientes",
+      "description": "Clica em “Novo cliente” para começar!"
+    },
+    "selected": {
+      "notes": "Notas:",
+      "pets": "Animais",
+      "appointments": "Agendamentos",
+      "lastVisit": "Última visita",
+      "never": "Nunca",
+      "editHint": "Clique para editar"
+    },
+    "history": {
+      "heading": "Histórico de agendamentos",
+      "loading": "A carregar...",
+      "empty": "Sem agendamentos",
+      "dateTime": "{{date}} às {{time}}",
+      "labels": {
+        "dateTime": "Data / hora"
+      }
+    },
+    "cards": {
+      "petBadge": "🐾 {{count}} animais",
+      "appointmentBadge": "📅 {{count}} agendamentos",
+      "viewDetails": "Ver detalhes"
+    },
+    "confirmDelete": "Eliminar {{name}} e todos os respetivos animais/agendamentos? Não é possível desfazer.",
+    "errors": {
+      "load": "Erro ao carregar clientes: {{message}}",
+      "search": "Erro na pesquisa de clientes: {{message}}",
+      "create": "Erro ao criar cliente: {{message}}",
+      "update": "Erro ao atualizar cliente: {{message}}",
+      "delete": "Erro ao eliminar cliente: {{message}}"
+    }
+  },
+  "petManager": {
+    "title": "🐾 Animais de {{name}}",
+    "loading": "A carregar animais...",
+    "empty": "Ainda não há animais. Adiciona um acima!",
+    "buttons": {
+      "add": "+ Adicionar animal",
+      "cancelForm": "✕ Cancelar"
+    },
+    "labels": {
+      "breed": "Raça",
+      "age": "Idade",
+      "years": "anos",
+      "weight": "Peso",
+      "medicalNotes": "Notas médicas"
+    },
+    "confirmDelete": "Eliminar {{name}}? Esta ação não pode ser desfeita.",
+    "errors": {
+      "load": "Erro ao carregar animais: {{message}}",
+      "create": "Erro ao criar animal: {{message}}",
+      "update": "Erro ao atualizar animal: {{message}}",
+      "delete": "Erro ao eliminar animal: {{message}}",
+      "photoUpload": "Erro ao carregar fotografia: {{message}}"
+    }
+  },
+  "account": {
+    "status": {
+      "loading": "A carregar a sua conta...",
+      "subtext": "Estamos a verificar as suas associações.",
+      "error": "Não foi possível carregar os dados da conta.",
+      "retry": "Tentar novamente"
+    },
+    "empty": {
+      "title": "Sem acesso a contas",
+      "description": "Peça a um administrador para o convidar ou crie um tenant no Supabase."
+    },
+    "select": {
+      "title": "Escolha uma conta",
+      "description": "Selecione o workspace que pretende gerir agora.",
+      "plan": "Plano {{plan}}",
+      "activeBadge": "Ativa",
+      "untitled": "Conta sem nome"
+    },
+    "actions": {
+      "logout": "Terminar sessão"
+    }
+  },
+  "login": {
+    "title": "Iniciar sessão",
+    "description": "Aceda ao seu workspace com as credenciais do Supabase.",
+    "fields": {
+      "email": "Email",
+      "password": "Palavra-passe"
+    },
+    "placeholders": {
+      "email": "teu-email@empresa.com",
+      "password": "••••••••"
+    },
+    "actions": {
+      "submit": "Entrar",
+      "loading": "A autenticar..."
+    },
+    "success": "Login efetuado! A redirecionar...",
+    "help": {
+      "noAccount": "Precisa de acesso?",
+      "contact": "Contacte um administrador"
+    },
+    "mobile": {
+      "ctaTitle": "Sempre em movimento",
+      "ctaText": "Guarda as credenciais para entrares mais rápido no telemóvel."
+    }
+  },
+  "settings": {
+    "auth": {
+      "required": "Tem de iniciar sessão para gerir esta área.",
+      "noAccess": "Não tem permissões para gerir esta conta.",
+      "hint": "Apenas owners ou admins podem alterar branding e convidar colegas."
+    },
+    "branding": {
+      "title": "Branding e tema",
+      "description": "Personalize o aspeto desta conta em toda a aplicação.",
+      "fields": {
+        "accountName": "Nome da conta",
+        "accountNamePlaceholder": "ex.: Paws & Co",
+        "logo": "URL do logo",
+        "portalImage": "Imagem do login do portal",
+        "portalImageHelper": "Mostrada por baixo da descrição no portal do tenant.",
+        "supportEmail": "Email de suporte",
+        "supportEmailPlaceholder": "ola@suaempresa.com",
+        "supportPhone": "WhatsApp / telefone",
+        "supportPhonePlaceholder": "+351 912 345 678",
+        "supportPhoneHelper": "Utilizado no botão de contacto (WhatsApp) do portal.",
+        "primary": "Cor primária",
+        "primarySoft": "Cor primária suave",
+        "accent": "Cor de destaque",
+        "accentSoft": "Cor de destaque suave",
+        "background": "Cor de fundo",
+        "gradient": "Gradiente principal"
+      },
+      "logoUploading": "A carregar logo...",
+      "logoUploaded": "Logo atualizado!",
+      "save": "Guardar branding",
+      "saving": "A guardar...",
+      "success": "Branding atualizado!"
+    },
+    "members": {
+      "title": "Membros da conta",
+      "description": "Convide colegas e defina as respetivas permissões.",
+      "fields": {
+        "email": "Email",
+        "password": "Password temporária (opcional)",
+        "passwordPlaceholder": "Deixe em branco para gerar automaticamente",
+        "role": "Função"
+      },
+      "roles": {
+        "owner": "Owner",
+        "admin": "Admin",
+        "member": "Membro"
+      },
+      "invite": "Enviar convite",
+      "inviting": "A convidar...",
+      "inviteSuccess": "Convite enviado e membro criado.",
+      "loading": "A carregar membros...",
+      "empty": "Ainda não existem membros. Convide alguém acima.",
+      "status": {
+        "accepted": "Aceite",
+        "pending": "Pendente",
+        "invited": "Convidado"
+      }
+    },
+    "domains": {
+      "title": "Domínios personalizados",
+      "description": "Liga domínios como {{example}} ao teu slug {{slug}}. Mantemos o estado pending/active/error e o token TXT.",
+      "fields": {
+        "domain": "Domínio / subdomínio",
+        "domainPlaceholder": "portal.exemplo.com",
+        "recordType": "Tipo de registo",
+        "recordTypeOptions": {
+          "txt": "TXT + CNAME",
+          "cname": "Apenas CNAME"
+        }
+      },
+      "buttons": {
+        "add": "Adicionar domínio",
+        "adding": "A guardar...",
+        "verify": "Verificar domínio",
+        "verifying": "A verificar...",
+        "verified": "Verificado",
+        "remove": "Remover"
+      },
+      "loading": "A carregar domínios...",
+      "empty": "Ainda não tens domínios configurados.",
+      "slugLabel": "Slug alvo: {{slug}}",
+      "status": {
+        "pending": "Pendente",
+        "active": "Ativo",
+        "error": "Erro",
+        "disabled": "Inativo"
+      },
+      "steps": {
+        "cname": "1. Cria um registo CNAME a apontar o teu subdomínio para o domínio do deploy.",
+        "txt": "2. Adiciona o TXT abaixo e aguarda propagação. Depois faz \"verify\" na dashboard."
+      },
+      "labels": {
+        "host": "Host",
+        "value": "Valor",
+        "error": "Erro: {{message}}",
+        "verifiedAt": "Verificado em {{date}}"
+      },
+      "instructions": {
+        "title": "Instruções rápidas",
+        "step1": "Aponta o subdomínio (ex.: portal.tuaempresa.com) via CNAME para o domínio onde esta app está alojada.",
+        "step2": "Adiciona o registo TXT _verify.<subdomínio> com o valor verify=<token>.",
+        "step3": "Usa o botão “Verificar domínio” assim que o DNS propagar.",
+        "note": "Nota: domínios raiz requerem ALIAS/ANAME ou Cloudflare com CNAME flattening."
+      },
+      "errors": {
+        "required": "O domínio é obrigatório.",
+        "create": "Não foi possível adicionar o domínio.",
+        "delete": "Não foi possível remover o domínio.",
+        "verify": "Não foi possível verificar o domínio."
+      },
+      "messages": {
+        "created": "Domínio criado. Configura o DNS e verifica quando estiver pronto.",
+        "deleted": "Domínio removido.",
+        "verified": "Domínio verificado com sucesso.",
+        "verificationMissing": "Registo TXT não encontrado."
+      },
+      "confirmations": {
+        "delete": "Remover este domínio personalizado?"
+      }
+    }
+  },
+  "calendar": {
+    "previous": "Anterior",
+    "next": "Seguinte",
+    "today": "Voltar a esta semana",
+    "currentWeek": "Semana corrente",
+    "instructions": "💡 Clica num horário vazio para criar um agendamento ou num existente para editar",
+    "timeColumn": "Hora",
+    "mapLink": "📍 Mapa",
+    "add": "+ Adicionar",
+    "overlap": "Conflito",
+    "legend": {
+      "scheduled": "Agendado",
+      "completed": "Concluído",
+      "available": "Disponível (clica para marcar)"
+    }
+  },
+  "common": {
+    "errors": {
+      "requestFailed": "Pedido falhou. Tenta novamente."
+    }
+  },
+  "profile": {
+    "form": {
+      "displayNameLabel": "Nome a apresentar",
+      "displayNamePlaceholder": "Ex.: Maria Silva",
+      "phoneLabel": "Telefone",
+      "phonePlaceholder": "(+351) ...",
+      "localeLabel": "Idioma",
+      "localeHelper": "Escolhe o idioma predefinido da tua conta.",
+      "avatarLabel": "Fotografia de perfil",
+      "avatarHelper": "Clica na imagem para alterar.",
+      "localeOptions": {
+        "pt": "Português (Portugal)",
+        "en": "Inglês"
+      },
+      "errors": {
+        "update": "Falha ao atualizar o perfil."
+      },
+      "success": "Perfil atualizado.",
+      "saving": "A guardar...",
+      "save": "Guardar alterações"
+    },
+    "passwordForm": {
+      "errors": {
+        "length": "A password deve ter pelo menos 8 caracteres.",
+        "mismatch": "As passwords não coincidem.",
+        "update": "Falha ao atualizar a password."
+      },
+      "success": "Password atualizada.",
+      "labels": {
+        "new": "Nova password",
+        "confirm": "Confirmar password"
+      },
+      "placeholders": {
+        "password": "********"
+      },
+      "buttons": {
+        "saving": "A atualizar...",
+        "submit": "Atualizar password"
+      }
+    },
+    "page": {
+      "title": "Perfil",
+      "requiresAuth": "Precisas de iniciar sessão para veres o teu perfil.",
+      "sectionLabel": "Perfil",
+      "lastLogin": "Último login {{value}}"
+    },
+    "tabs": {
+      "profile": "Perfil",
+      "security": "Segurança",
+      "memberships": "Associações"
+    },
+    "common": {
+      "notAvailable": "—"
+    },
+    "basics": {
+      "title": "Dados básicos",
+      "labels": {
+        "id": "ID",
+        "email": "Email",
+        "createdAt": "Criado em"
+      }
+    },
+    "metadata": {
+      "title": "Metadata",
+      "user": "user_metadata",
+      "app": "app_metadata",
+      "empty": "Sem metadata."
+    },
+    "editSection": {
+      "title": "Editar perfil",
+      "description": "Atualiza o teu nome e telefone para partilhar com a equipa."
+    },
+    "passwordSection": {
+      "title": "Password",
+      "description": "Define uma nova password segura."
+    },
+    "memberships": {
+      "title": "Associações",
+      "empty": "Este utilizador ainda não pertence a nenhuma conta.",
+      "headers": {
+        "account": "Conta",
+        "role": "Função",
+        "status": "Estado",
+        "since": "Desde"
+      },
+      "fallbackAccount": "Conta",
+      "roles": {
+        "owner": "Owner",
+        "admin": "Admin",
+        "member": "Membro"
+      },
+      "status": {
+        "accepted": "Aceite",
+        "pending": "Pendente",
+        "invited": "Convidado"
+      }
+    }
+  },
+  "portal": {
+    "login": {
+      "heading": "Backoffice",
+      "title": "{{name}}",
+      "description": "Usa as credenciais da tua equipa para aceder à área privada.",
+      "fields": {
+        "email": "Email",
+        "password": "Password"
+      },
+      "placeholders": {
+        "email": "teu-nome@empresa.com",
+        "password": "••••••••"
+      },
+      "success": "Login efetuado com sucesso.",
+      "submit": "Entrar no portal",
+      "submitting": "A entrar..."
+    },
+    "landing": {
+      "logoAlt": "Logo de {{name}}",
+      "badge": "Portal de reservas",
+      "description": "Reserva grooming, banho e serviços especiais com a equipa de {{name}}. Escolhe o melhor horário e acompanha o agendamento num portal personalizado.",
+      "cta": "Entrar / Reservar",
+      "ctaAuthenticated": "Abrir agenda",
+      "contactTeam": "Falar com a equipa",
+      "contactWhatsApp": "Enviar WhatsApp",
+      "cards": {
+        "team": {
+          "title": "Equipa dedicada",
+          "text": "Profissionais certificados que conhecem o teu pet."
+        },
+        "schedule": {
+          "title": "Horários flexíveis",
+          "text": "Agenda em minutos a partir de qualquer dispositivo."
+        },
+        "updates": {
+          "title": "Atualizações em tempo real",
+          "text": "Recebe confirmações e lembretes por email ou SMS."
+        }
+      },
+      "securityBadge": "🔐 Portal seguro • {{name}}",
+      "nav": {
+        "title": "Acesso rápido",
+        "subtitle": "Volta ao teu workspace",
+        "description": "Escolhe a área principal da operação logo após entrar.",
+        "appointments": {
+          "title": "Agendamentos",
+          "description": "Consulta e gere a rota diária."
+        },
+        "customers": {
+          "title": "Clientes",
+          "description": "Atualiza dados e animais em segundos."
+        },
+        "services": {
+          "title": "Serviços",
+          "description": "Revê preços e tempos de cada serviço."
+        }
+      }
+    },
+    "loginPage": {
+      "badge": "Portal booking",
+      "description": "Entra no portal para gerir agendamentos, clientes e branding desta unidade. Este login é exclusivo para a equipa de {{name}}.",
+      "slugLabel": "Slug",
+      "supportPrefix": "Precisas de ajuda? fala com",
+      "imageAlt": "Imagem do portal de {{name}}"
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "template": "vet_clinic",
+  "label": "Clínica Veterinária",
+  "description": "Consultas, vacinação e exames rápidos para clínicas veterinárias que precisam de agenda centralizada.",
+  "branding": {
+    "brand_primary": "#4d7cfe",
+    "brand_accent": "#6ddccf",
+    "emoji": "🐶"
+  },
+  "services": [
+    {
+      "name": "Consulta Geral",
+      "description": "Avaliação clínica completa com histórico e notas de prescrição.",
+      "price": 35,
+      "duration": 30
+    },
+    {
+      "name": "Vacinação",
+      "description": "Slot reservado para plano vacinal com alertas automáticos.",
+      "price": 25,
+      "duration": 20
+    },
+    {
+      "name": "Check-up Sénior",
+      "description": "Exames de rotina para animais seniores com relatório PDF incluído.",
+      "price": 60,
+      "duration": 60
+    },
+    {
+      "name": "Exame Laboratorial",
+      "description": "Coleta e envio de amostras com integração a laboratórios externos.",
+      "price": 30,
+      "duration": 30
+    }
+  ],
+  "automations": [
+    "alert_when_vaccine_due",
+    "daily_case_summary"
+  ],
+  "notes": [
+    "Pré-carrega formulários de consentimento e anexos PDF",
+    "Ativa campos customizados para peso, medicação e histórico"
+  ]
+}

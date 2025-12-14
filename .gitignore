@@ -1,0 +1,21 @@
+# Node/JS build artifacts
+**/node_modules
+**/.next
+**/.turbo
+**/dist
+**/build
+
+# Expo/Metro caches
+**/.expo
+**/.expo-shared
+
+# Env and secrets
+**/.env
+**/.env.*
+
+# Local backups
+.git_backup_pet_app/
+
+# OS/Junk
+**/.DS_Store
+**/Thumbs.db

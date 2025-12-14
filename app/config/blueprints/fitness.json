@@ -1,0 +1,45 @@
+{
+  "template": "fitness_studio",
+  "label": "Fitness & PT",
+  "description": "Agenda para estúdios de personal training e aulas de grupo com planos pré-definidos.",
+  "branding": {
+    "brand_primary": "#f97316",
+    "brand_accent": "#fed7aa",
+    "emoji": "🏋️"
+  },
+  "services": [
+    {
+      "name": "PT 1:1",
+      "description": "Sessão individual com plano personalizado e acompanhamento.",
+      "price": 40,
+      "duration": 60
+    },
+    {
+      "name": "Aula de Grupo",
+      "description": "Treino funcional para até 8 pessoas, inclui warm-up e cool down.",
+      "price": 15,
+      "duration": 45
+    },
+    {
+      "name": "Avaliação Física",
+      "description": "Medições iniciais, objetivos e relatório automático.",
+      "price": 25,
+      "duration": 45
+    },
+    {
+      "name": "Pacote Mensal",
+      "description": "Bundle com 4 sessões PT + 4 aulas de grupo.",
+      "price": 140,
+      "duration": 240,
+      "type": "package"
+    }
+  ],
+  "automations": [
+    "reminder_day_before",
+    "plan_progress_check"
+  ],
+  "notes": [
+    "Inclui campos customizados para IMC, metas e notas nutricionais",
+    "Integração prevista com apps de wearables via webhooks"
+  ]
+}

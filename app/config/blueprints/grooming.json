@@ -1,0 +1,45 @@
+{
+  "template": "grooming_basic",
+  "label": "Pet Grooming",
+  "description": "Estúdio de grooming pronto a usar com serviços, branding e add-ons clássicos.",
+  "branding": {
+    "brand_primary": "#4fafa9",
+    "brand_accent": "#f4d58d",
+    "emoji": "🐾"
+  },
+  "services": [
+    {
+      "name": "Banho & Secagem",
+      "description": "Banho completo com produtos hipoalergénicos, secagem suave e perfume.",
+      "price": 25,
+      "duration": 60
+    },
+    {
+      "name": "Grooming Completo",
+      "description": "Corte, styling, banho e trim de unhas para qualquer raça.",
+      "price": 45,
+      "duration": 90
+    },
+    {
+      "name": "Trim de Unhas",
+      "description": "Serviço expresso de corte e polimento das unhas.",
+      "price": 12,
+      "duration": 15
+    },
+    {
+      "name": "Spa Upgrade",
+      "description": "Add-on com massagem relaxante e máscara nutritiva.",
+      "price": 18,
+      "duration": 20,
+      "type": "addon"
+    }
+  ],
+  "automations": [
+    "email_followup_after_first_visit",
+    "reminder_before_appointment"
+  ],
+  "notes": [
+    "Inclui fluxo de check-list para raça/ficha clínica",
+    "Ativa o bucket de fotos para partilhar antes/depois"
+  ]
+}

@@ -1,0 +1,836 @@
+{
+  "app": {
+    "title": "🐾 Pet Grooming Manager",
+    "description": "Manage your mobile grooming schedule",
+    "nav": {
+      "appointments": "Appointments",
+      "customers": "Customers",
+      "services": "Services",
+      "settings": "Settings",
+      "menu": "Menu",
+      "close": "Close"
+    },
+    "logoAlt": "Logo for {{name}}",
+    "profile": {
+      "viewProfile": "View profile"
+    },
+    "tenantSwitch": {
+      "label": "Workspace"
+    }
+  },
+  "language": {
+    "label": "Language",
+    "options": {
+      "en": "English",
+      "pt": "Português (Portugal)"
+    }
+  },
+  "appointmentsPage": {
+    "headingWithCount": "Appointments ({{count}})",
+    "newButton": "New Appointment",
+    "loading": "Loading appointments...",
+    "confirmDiscard": "You have an unsaved appointment. Discard the changes?",
+    "confirmDelete": "Delete this appointment?",
+    "errors": {
+      "load": "Error loading appointments: {{message}}",
+      "create": "Error creating appointment: {{message}}",
+      "update": "Error updating appointment: {{message}}",
+      "updateStatus": "Error updating appointment status: {{message}}",
+      "delete": "Error deleting appointment: {{message}}",
+      "photoUpload": "Error uploading photo: {{message}}"
+    },
+    "loaders": {
+      "calendar": "Loading calendar...",
+      "list": "Loading appointments...",
+      "form": "Preparing form..."
+    }
+  },
+  "compactAppointmentsPage": {
+    "badge": "Compact view",
+    "title": "Full week, no scroll",
+    "count": "{{count}} bookings",
+    "viewLabel": "View",
+    "views": {
+      "calendar": "Calendar",
+      "list": "List"
+    },
+    "stats": {
+      "upcoming": "Upcoming",
+      "completed": "Completed",
+      "unpaid": "Unpaid"
+    },
+    "actions": {
+      "new": "New booking",
+      "openClassic": "Open previous view"
+    },
+    "filters": {
+      "title": "Quick filter",
+      "helper": "Show only the appointments you need right now."
+    },
+    "calendar": {
+      "pill": "Weekly calendar",
+      "title": "Week without scroll",
+      "helper": "{{count}} bookings visible this week",
+      "week": "Navigation"
+    }
+  },
+  "viewToggle": {
+    "list": "List View",
+    "calendar": "Week View"
+  },
+  "filterButtons": {
+    "all": "All",
+    "upcoming": "Upcoming",
+    "completed": "Completed"
+  },
+  "appointmentList": {
+    "emptyAllTitle": "No appointments yet",
+    "emptyFilteredTitle": "No {{filter}} appointments",
+    "emptyAllDescription": "Click “New Appointment” to get started!",
+    "emptyFilteredDescription": "Try changing the filter above"
+  },
+  "appointmentCard": {
+    "addressLink": "📍 Map",
+    "addressMissing": "No address",
+    "statusCompleted": "Completed",
+    "labels": {
+      "pet": "🐕 Pet",
+      "phone": "📱 Phone",
+      "service": "✂️ Service",
+      "date": "📅 Date",
+      "address": "📍 Address",
+      "notes": "📝 Notes",
+      "petPhotoAlt": "Photo of {{pet}}",
+      "beforeAfter": "Before & After",
+      "before": "Before",
+      "after": "After",
+      "whatsappSent": "WhatsApp sent",
+      "confirmationOpened": "Client opened link"
+    },
+    "dateTime": "{{date}} at {{time}}",
+    "buttons": {
+      "edit": "Edit",
+      "complete": "Complete",
+      "delete": "Delete",
+      "markPaid": "Mark as paid",
+      "markUnpaid": "Mark as unpaid",
+      "markPaidShort": "Paid",
+      "markUnpaidShort": "Unpaid",
+      "share": "Send via WhatsApp",
+      "shareShort": "WhatsApp"
+    },
+    "share": {
+      "messageWithName": "Hi {{customer}}!\n\nYour appointment is confirmed for {{date}} at {{time}}.",
+      "messageNoName": "Hi! Your appointment is confirmed for {{date}} at {{time}}.",
+      "service": "Service: {{service}}",
+      "pet": "Pet: {{pet}}",
+      "address": "Address: {{address}}",
+      "link": "See details and confirm: {{url}}"
+    },
+    "payment": {
+      "paid": "Paid",
+      "unpaid": "Unpaid"
+    },
+    "unknownCustomer": "Unknown customer",
+    "unknownPet": "Unknown pet",
+    "unknownService": "Unknown service"
+  },
+  "confirmationPage": {
+    "header": "Appointment confirmed",
+    "title": "Hi {{customer}}, your booking is confirmed",
+    "titleNoName": "Your booking is confirmed",
+    "subtitle": "Save this link to check your appointment details anytime.",
+    "labels": {
+      "date": "Date",
+      "time": "Time",
+      "service": "Service",
+      "pet": "Pet",
+      "address": "Address",
+      "notes": "Notes",
+      "payment": "Payment status",
+      "duration": "Duration",
+      "petPhoto": "Pet photo"
+    },
+    "durationMinutes": "{{duration}} minutes",
+    "payment": {
+      "paid": "Paid",
+      "unpaid": "Unpaid"
+    },
+    "notFound": "We could not find this booking. Check the link or ask us for a new confirmation.",
+    "missing": {
+      "generic": "Not provided"
+    },
+    "footer": {
+      "confirmed": "Everything is set for your visit.",
+      "update": "Need to change something? Reply to the message you received.",
+      "homeLink": "Back to homepage",
+      "cancellation": {
+        "title": "Cancellation policy",
+        "line1": "Cancellations must be communicated at least 24h in advance.",
+        "line2": "Same-day cancellations may incur a €20 service fee."
+      }
+    },
+    "actions": {
+      "qr": "Show this QR at the venue",
+      "addToCalendar": "Add to calendar",
+      "addToCalendarHelper": "Download an .ics file and add it to your calendar app.",
+      "addToCalendarButton": "Add to calendar",
+      "photoError": "Failed to upload the photo. Try again.",
+      "photoEmpty": "Tap to upload a pet photo",
+      "photoPlaceholder": "Remove photo"
+    }
+  },
+  "appointmentForm": {
+    "title": {
+      "new": "New Appointment",
+      "edit": "Edit Appointment"
+    },
+    "actions": {
+      "close": "Close"
+    },
+    "fields": {
+      "search": "Search client or pet",
+      "customer": "Customer *",
+      "pet": "Pet *",
+      "service": "Service *",
+      "duration": "Duration *",
+      "payment": "Payment",
+      "phone": "Phone Number",
+      "date": "Date *",
+      "time": "Time *",
+      "notes": "Notes",
+      "sendWhatsapp": "Send WhatsApp confirmation after saving"
+    },
+    "labels": {
+      "beforePhoto": "Before photo",
+      "afterPhoto": "After photo",
+      "address": "Address"
+    },
+    "sections": {
+      "beforeAfter": "Before & After photos"
+    },
+    "placeholders": {
+      "search": "Type a pet or client name...",
+      "selectCustomer": "Select a customer...",
+      "selectPet": "Select a pet...",
+      "selectService": "Select a service...",
+      "selectTime": "Select a time...",
+      "selectCustomerFirst": "Select a customer first",
+      "date": "YYYY-MM-DD",
+      "address": "Address (optional)",
+      "phone": "Will autofill from customer",
+      "notes": "Any special requests or notes...",
+      "noServices": "No services available. Add one below."
+    },
+    "search": {
+      "loading": "Loading pet & client index...",
+      "noResults": "No matches. Try another name.",
+      "noPhone": "no phone",
+      "instructions": "💡 Start typing a pet or client name to fill the fields automatically."
+    },
+    "helpers": {
+      "beforePhoto": "Add a “before” photo of the pet.",
+      "afterPhoto": "Add an “after” photo once the session is complete."
+    },
+    "payment": {
+      "paid": "Paid",
+      "unpaid": "Unpaid",
+      "helper": "Use this to track if the visit is paid."
+    },
+    "loaders": {
+      "customers": "Loading customers...",
+      "pets": "Loading pets...",
+      "services": "Loading services..."
+    },
+    "tooltips": {
+      "addCustomer": "Add new customer",
+      "addPet": "Add new pet",
+      "addService": "Add new service"
+    },
+    "buttons": {
+      "searchExisting": "Search",
+      "newEntry": "New",
+      "add": "+ New",
+      "save": "💾 Save Appointment",
+      "update": "💾 Update Appointment",
+      "saving": "Saving...",
+      "removePhoto": "Remove photo",
+      "markCompleted": "✅ Mark as completed",
+      "completed": "✅ Completed",
+      "delete": "🗑 Delete Appointment",
+      "share": "Send via WhatsApp"
+    },
+    "durationOptions": {
+      "minutes30": "30 minutes",
+      "hour": "1 hour (default)",
+      "hourThirty": "1 hour 30 minutes"
+    },
+    "messages": {
+      "selectCustomerFirst": "Please select a customer first",
+      "newCustomerPetRequired": "Please fill customer name/phone and pet name to create new records.",
+      "noShareToken": "This appointment cannot be shared yet. Save it first.",
+      "createCustomerError": "Error creating customer: {{message}}",
+      "createPetError": "Error creating pet: {{message}}",
+      "updateCustomerError": "Error updating customer: {{message}}",
+      "newFlowHint": "Fill the form to create a new customer and pet."
+    },
+    "sharePreview": {
+      "title": "Review WhatsApp message",
+      "helper": "Confirm before sending to the client.",
+      "confirm": "Send via WhatsApp",
+      "cancel": "Close"
+    }
+  },
+  "servicesForm": {
+    "modalTitle": "Add Service",
+    "titleNew": "Add Service",
+    "titleEdit": "Edit Service",
+    "labels": {
+      "name": "Service Name *",
+      "description": "Description",
+      "duration": "Default Duration",
+      "price": "Price (optional)",
+      "active": "Service available for booking"
+    },
+    "placeholders": {
+      "name": "e.g. Full Groom",
+      "description": "Describe what’s included...",
+      "price": "40.00"
+    },
+    "durationOption": "{{minutes}} minutes",
+    "buttons": {
+      "save": "💾 Save Service",
+      "update": "💾 Update Service",
+      "cancel": "Cancel"
+    },
+    "errors": {
+      "create": "Error creating service: {{message}}"
+    }
+  },
+  "servicesPage": {
+    "headingWithCount": "Services ({{count}})",
+    "loading": "Loading services...",
+    "searchPlaceholder": "Search services by name or description...",
+    "buttons": {
+      "new": "+ New Service",
+      "cancelForm": "✕ Cancel",
+      "edit": "Edit",
+      "delete": "Delete",
+      "disable": "Disable",
+      "enable": "Enable"
+    },
+    "labels": {
+      "price": "Price",
+      "priceUnset": "Not set"
+    },
+    "badges": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "durationLabel": "{{minutes}} min slot",
+    "emptyTitle": "No services yet",
+    "emptyDescription": "Use “New Service” to add your first offering.",
+    "emptySearchTitle": "No matches",
+    "emptySearchDescription": "Try a different search term.",
+    "confirmDelete": "Delete {{name}}? This cannot be undone.",
+    "errors": {
+      "load": "Error loading services: {{message}}",
+      "create": "Error creating service: {{message}}",
+      "update": "Error updating service: {{message}}",
+      "delete": "Error deleting service: {{message}}"
+    }
+  },
+  "customerForm": {
+    "title": {
+      "new": "New Customer",
+      "edit": "Edit Customer"
+    },
+    "labels": {
+      "name": "Customer Name *",
+      "phone": "Phone Number *",
+      "nif": "NIF",
+      "email": "Email",
+      "address": "Address (service location)",
+      "notes": "Notes"
+    },
+    "placeholders": {
+      "name": "John Doe",
+      "phone": "+351 912 345 678",
+      "nif": "Portuguese tax ID (optional)",
+      "email": "john@example.com",
+      "address": "Full address or Google Maps link",
+      "notes": "Any special notes about this customer..."
+    },
+    "helpers": {
+      "address": "Optional, but helps if you need to navigate later."
+    },
+    "buttons": {
+      "save": "💾 Save Customer",
+      "update": "💾 Update Customer",
+      "cancel": "Cancel",
+      "delete": "Delete Customer"
+    },
+    "errors": {
+      "create": "Error creating customer: {{message}}"
+    }
+  },
+  "petForm": {
+    "title": {
+      "new": "🐾 Add New Pet",
+      "edit": "✏️ Edit Pet"
+    },
+    "labels": {
+      "name": "Pet Name *",
+      "breed": "Breed",
+      "age": "Age (years)",
+      "weight": "Weight (kg)",
+      "medicalNotes": "Medical Notes",
+      "photo": "Photo",
+      "photoAlt": "Photo of {{name}}",
+      "photoPreview": "Pet preview"
+    },
+    "placeholders": {
+      "name": "Max",
+      "breed": "Golden Retriever",
+      "age": "5 yrs",
+      "weight": "25.5 kg",
+      "medicalNotes": "Allergies, medications, special needs..."
+    },
+    "helpers": {
+      "photo": "Square images up to 5MB look best."
+    },
+    "buttons": {
+      "save": "💾 Save Pet",
+      "update": "💾 Update Pet",
+      "cancel": "Cancel",
+      "delete": "Delete Pet",
+      "removePhoto": "Remove photo"
+    },
+    "errors": {
+      "create": "Error creating pet: {{message}}"
+    }
+  },
+  "customersPage": {
+    "headingWithCount": "Customers ({{count}})",
+    "loading": "Loading customers...",
+    "searchPlaceholder": "Search by name, phone or NIF...",
+    "search": "Search",
+    "clear": "Clear",
+    "buttons": {
+      "new": "+ New Customer",
+      "cancelForm": "✕ Cancel",
+      "close": "Close"
+    },
+    "empty": {
+      "title": "No customers yet",
+      "description": "Click “New Customer” to get started!"
+    },
+    "selected": {
+      "notes": "Notes:",
+      "pets": "Pets",
+      "appointments": "Appointments",
+      "lastVisit": "Last Visit",
+      "never": "Never",
+      "editHint": "Click to edit"
+    },
+    "history": {
+      "heading": "Appointment History",
+      "loading": "Loading...",
+      "empty": "No appointments yet",
+      "dateTime": "{{date}} at {{time}}",
+      "labels": {
+        "dateTime": "Date / time"
+      }
+    },
+    "cards": {
+      "petBadge": "🐾 {{count}} pets",
+      "appointmentBadge": "📅 {{count}} appts",
+      "viewDetails": "View details"
+    },
+    "confirmDelete": "Delete {{name}} and all their pets/appointments? This cannot be undone.",
+    "errors": {
+      "load": "Error loading customers: {{message}}",
+      "search": "Error searching customers: {{message}}",
+      "create": "Error creating customer: {{message}}",
+      "update": "Error updating customer: {{message}}",
+      "delete": "Error deleting customer: {{message}}"
+    }
+  },
+  "petManager": {
+    "title": "🐾 Pets for {{name}}",
+    "loading": "Loading pets...",
+    "empty": "No pets yet. Add one above!",
+    "buttons": {
+      "add": "+ Add Pet",
+      "cancelForm": "✕ Cancel"
+    },
+    "labels": {
+      "breed": "Breed",
+      "age": "Age",
+      "years": "years",
+      "weight": "Weight",
+      "medicalNotes": "Medical Notes"
+    },
+    "confirmDelete": "Delete {{name}}? This action cannot be undone.",
+    "errors": {
+      "load": "Error loading pets: {{message}}",
+      "create": "Error creating pet: {{message}}",
+      "update": "Error updating pet: {{message}}",
+      "delete": "Error deleting pet: {{message}}",
+      "photoUpload": "Error uploading photo: {{message}}"
+    }
+  },
+  "account": {
+    "status": {
+      "loading": "Loading your workspace...",
+      "subtext": "Hang tight while we check your memberships.",
+      "error": "We couldn't load your account data.",
+      "retry": "Try again"
+    },
+    "empty": {
+      "title": "No account access yet",
+      "description": "Ask an administrator to invite you or create a tenant in Supabase."
+    },
+    "select": {
+      "title": "Choose an account",
+      "description": "Select which workspace you want to manage right now.",
+      "plan": "{{plan}} plan",
+      "activeBadge": "Active",
+      "untitled": "Untitled account"
+    },
+    "actions": {
+      "logout": "Sign out"
+    }
+  },
+  "login": {
+    "title": "Sign in",
+    "description": "Access your grooming workspace with your Supabase credentials.",
+    "fields": {
+      "email": "Email address",
+      "password": "Password"
+    },
+    "placeholders": {
+      "email": "you@example.com",
+      "password": "••••••••"
+    },
+    "actions": {
+      "submit": "Login",
+      "loading": "Signing you in..."
+    },
+    "success": "Login successful! Redirecting...",
+    "help": {
+      "noAccount": "Need access?",
+      "contact": "Contact an administrator"
+    },
+    "mobile": {
+      "ctaTitle": "Stay productive on the go",
+      "ctaText": "Save your credentials to sign in faster on your phone."
+    }
+  },
+  "settings": {
+    "auth": {
+      "required": "You must be signed in to manage this area.",
+      "noAccess": "You don't have permission to manage this account.",
+      "hint": "Only owners or admins can change branding and invite teammates."
+    },
+    "branding": {
+      "title": "Branding & Theme",
+      "description": "Customize how this account looks across the entire app.",
+      "fields": {
+        "accountName": "Account name",
+        "accountNamePlaceholder": "e.g. Paws & Co",
+        "logo": "Logo URL",
+        "portalImage": "Portal login image URL",
+        "portalImageHelper": "Shown under the login description on the tenant portal.",
+        "supportEmail": "Support email",
+        "supportEmailPlaceholder": "hello@yourbrand.com",
+        "supportPhone": "WhatsApp / phone",
+        "supportPhonePlaceholder": "+351 912 345 678",
+        "supportPhoneHelper": "Used for the WhatsApp contact button on the portal.",
+        "primary": "Primary color",
+        "primarySoft": "Primary soft color",
+        "accent": "Accent color",
+        "accentSoft": "Accent soft color",
+        "background": "Background color",
+        "gradient": "Hero gradient"
+      },
+      "logoUploading": "Uploading logo...",
+      "logoUploaded": "Logo updated!",
+      "save": "Save branding",
+      "saving": "Saving...",
+      "success": "Branding updated!"
+    },
+    "members": {
+      "title": "Account members",
+      "description": "Invite teammates and manage their permissions.",
+      "fields": {
+        "email": "Email",
+        "password": "Temporary password (optional)",
+        "passwordPlaceholder": "Leave blank to auto-generate",
+        "role": "Role"
+      },
+      "roles": {
+        "owner": "Owner",
+        "admin": "Admin",
+        "member": "Member"
+      },
+      "invite": "Send invite",
+      "inviting": "Inviting...",
+      "inviteSuccess": "Invite sent and membership created.",
+      "loading": "Loading members...",
+      "empty": "No members yet. Invite someone above.",
+      "status": {
+        "accepted": "Accepted",
+        "pending": "Pending",
+        "invited": "Invited"
+      }
+    },
+    "domains": {
+      "title": "Custom domains",
+      "description": "Connect domains like {{example}} to your slug {{slug}}. We track pending/active/error states and the TXT token.",
+      "fields": {
+        "domain": "Domain / subdomain",
+        "domainPlaceholder": "portal.example.com",
+        "recordType": "Record type",
+        "recordTypeOptions": {
+          "txt": "TXT + CNAME",
+          "cname": "CNAME only"
+        }
+      },
+      "buttons": {
+        "add": "Add domain",
+        "adding": "Saving...",
+        "verify": "Verify domain",
+        "verifying": "Verifying...",
+        "verified": "Verified",
+        "remove": "Remove"
+      },
+      "loading": "Loading domains...",
+      "empty": "No domains configured yet.",
+      "slugLabel": "Target slug: {{slug}}",
+      "status": {
+        "pending": "Pending",
+        "active": "Active",
+        "error": "Error",
+        "disabled": "Disabled"
+      },
+      "steps": {
+        "cname": "1. Create a CNAME record pointing your subdomain to the deployment.",
+        "txt": "2. Add the TXT record below and wait for DNS to propagate, then click verify."
+      },
+      "labels": {
+        "host": "Host",
+        "value": "Value",
+        "error": "Error: {{message}}",
+        "verifiedAt": "Verified on {{date}}"
+      },
+      "instructions": {
+        "title": "Quick instructions",
+        "step1": "Point the subdomain (e.g. portal.yourbrand.com) via CNAME to the domain hosting this app.",
+        "step2": "Add the TXT record _verify.<subdomain> with the value verify=<token>.",
+        "step3": "Use the “Verify domain” button once DNS has propagated.",
+        "note": "Note: root domains require ALIAS/ANAME or Cloudflare with CNAME flattening."
+      },
+      "errors": {
+        "required": "Domain is required.",
+        "create": "Could not add domain.",
+        "delete": "Could not remove domain.",
+        "verify": "We couldn't verify the domain."
+      },
+      "messages": {
+        "created": "Domain created. Configure DNS and click verify once ready.",
+        "deleted": "Domain removed.",
+        "verified": "Domain verified successfully.",
+        "verificationMissing": "TXT record not found."
+      },
+      "confirmations": {
+        "delete": "Remove this custom domain?"
+      }
+    }
+  },
+  "calendar": {
+    "previous": "Previous",
+    "next": "Next",
+    "today": "Back to This Week",
+    "currentWeek": "Current week",
+    "instructions": "💡 Click an empty time slot to create a new appointment, or click an existing one to edit it",
+    "timeColumn": "Time",
+    "mapLink": "📍 Map",
+    "add": "+ Add",
+    "overlap": "Overlap",
+    "legend": {
+      "scheduled": "Scheduled",
+      "completed": "Completed",
+      "available": "Available (click to book)"
+    }
+  },
+  "common": {
+    "errors": {
+      "requestFailed": "Request failed. Please try again."
+    }
+  },
+  "profile": {
+    "form": {
+      "displayNameLabel": "Display name",
+      "displayNamePlaceholder": "e.g. Maria Silva",
+      "phoneLabel": "Phone",
+      "phonePlaceholder": "(+351) ...",
+      "localeLabel": "Language",
+      "localeHelper": "Choose the default language for your account.",
+      "avatarLabel": "Profile photo",
+      "avatarHelper": "Click on the image to load a new one.",
+      "localeOptions": {
+        "pt": "Português (Portugal)",
+        "en": "English"
+      },
+      "errors": {
+        "update": "Failed to update profile."
+      },
+      "success": "Profile updated.",
+      "saving": "Saving...",
+      "save": "Save changes"
+    },
+    "passwordForm": {
+      "errors": {
+        "length": "Password must be at least 8 characters.",
+        "mismatch": "Passwords do not match.",
+        "update": "Failed to update password."
+      },
+      "success": "Password updated.",
+      "labels": {
+        "new": "New password",
+        "confirm": "Confirm password"
+      },
+      "placeholders": {
+        "password": "********"
+      },
+      "buttons": {
+        "saving": "Updating...",
+        "submit": "Update password"
+      }
+    },
+    "page": {
+      "title": "Profile",
+      "requiresAuth": "You need to sign in to view your profile.",
+      "sectionLabel": "Profile",
+      "lastLogin": "Last login {{value}}"
+    },
+    "tabs": {
+      "profile": "Profile",
+      "security": "Security",
+      "memberships": "Memberships"
+    },
+    "common": {
+      "notAvailable": "—"
+    },
+    "basics": {
+      "title": "Basic details",
+      "labels": {
+        "id": "ID",
+        "email": "Email",
+        "createdAt": "Created on"
+      }
+    },
+    "metadata": {
+      "title": "Metadata",
+      "user": "user_metadata",
+      "app": "app_metadata",
+      "empty": "No metadata yet."
+    },
+    "editSection": {
+      "title": "Edit profile",
+      "description": "Update your display name and phone number for the team."
+    },
+    "passwordSection": {
+      "title": "Password",
+      "description": "Set a new secure password."
+    },
+    "memberships": {
+      "title": "Memberships",
+      "empty": "This user is not part of any account yet.",
+      "headers": {
+        "account": "Account",
+        "role": "Role",
+        "status": "Status",
+        "since": "Member since"
+      },
+      "fallbackAccount": "Account",
+      "roles": {
+        "owner": "Owner",
+        "admin": "Admin",
+        "member": "Member"
+      },
+      "status": {
+        "accepted": "Accepted",
+        "pending": "Pending",
+        "invited": "Invited"
+      }
+    }
+  },
+  "portal": {
+    "login": {
+      "heading": "Backoffice",
+      "title": "{{name}}",
+      "description": "Use your team credentials to access the private workspace.",
+      "fields": {
+        "email": "Email",
+        "password": "Password"
+      },
+      "placeholders": {
+        "email": "your-name@company.com",
+        "password": "••••••••"
+      },
+      "success": "Login successful.",
+      "submit": "Sign in",
+      "submitting": "Signing in..."
+    },
+    "landing": {
+      "logoAlt": "{{name}} logo",
+      "badge": "Booking portal",
+      "description": "Book grooming, baths, and special services with the {{name}} team. Pick the best slot and track your appointment in a personalized portal.",
+      "cta": "Sign in / Book",
+      "ctaAuthenticated": "Open schedule",
+      "contactTeam": "Contact the team",
+      "contactWhatsApp": "Chat on WhatsApp",
+      "cards": {
+        "team": {
+          "title": "Dedicated team",
+          "text": "Certified professionals who know your pet."
+        },
+        "schedule": {
+          "title": "Flexible schedules",
+          "text": "Book in minutes from any device."
+        },
+        "updates": {
+          "title": "Live updates",
+          "text": "Get confirmations and reminders by email or SMS."
+        }
+      },
+      "securityBadge": "🔐 Secure portal • {{name}}",
+      "nav": {
+        "title": "Quick navigation",
+        "subtitle": "Jump back into your workspace",
+        "description": "Access the main areas immediately after signing in.",
+        "appointments": {
+          "title": "Appointments",
+          "description": "View and manage your daily route."
+        },
+        "customers": {
+          "title": "Customers",
+          "description": "Update client details and pets in seconds."
+        },
+        "services": {
+          "title": "Services",
+          "description": "Review prices and durations for each service."
+        }
+      }
+    },
+    "loginPage": {
+      "badge": "Booking portal",
+      "description": "Sign in to manage appointments, clients, and branding for this unit. This login is exclusive to the {{name}} team.",
+      "slugLabel": "Slug",
+      "supportPrefix": "Need help? Contact",
+      "imageAlt": "Portal preview for {{name}}"
+    }
+  }
+}

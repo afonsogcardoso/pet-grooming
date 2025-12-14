@@ -1,0 +1,45 @@
+{
+  "template": "coaching_practice",
+  "label": "Coaching & Mentoria",
+  "description": "Setup para coaches de carreira/vida com sessões, pacotes e notas privadas.",
+  "branding": {
+    "brand_primary": "#8b5cf6",
+    "brand_accent": "#c4b5fd",
+    "emoji": "🧭"
+  },
+  "services": [
+    {
+      "name": "Sessão Individual",
+      "description": "1h focada em objetivos e plano de ação.",
+      "price": 70,
+      "duration": 60
+    },
+    {
+      "name": "Pacote Sprint (4 sessões)",
+      "description": "Pack intensivo para virar objetivos em 4 semanas.",
+      "price": 250,
+      "duration": 240,
+      "type": "package"
+    },
+    {
+      "name": "Workshop de Equipa",
+      "description": "Sessão de 2h para equipas até 10 pessoas, com follow-up.",
+      "price": 180,
+      "duration": 120
+    },
+    {
+      "name": "Acompanhamento Mensal",
+      "description": "Check-ins assíncronos + 1 sessão mensal para accountability.",
+      "price": 120,
+      "duration": 60
+    }
+  ],
+  "automations": [
+    "send_post_session_notes",
+    "monthly_goal_reminder"
+  ],
+  "notes": [
+    "Ativa campos privados para notas sensíveis",
+    "Inclui template de contrato PDF para onboarding"
+  ]
+}
