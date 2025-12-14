@@ -54,8 +54,18 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const photoMutation = useMutation({
     mutationFn: ({ type, file }: { type: 'before' | 'after'; file: { uri: string; name: string; type: string } }) =>
       uploadAppointmentPhoto(appointmentId, type, file),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] }).catch(() => null);
+    onSuccess: async (data, variables) => {
+      // Atualiza o cache local imediatamente com a URL da foto
+      const photoUrl = data?.url;
+      if (photoUrl && appointment) {
+        const updatedAppointment = {
+          ...appointment,
+          [variables.type === 'before' ? 'before_photo_url' : 'after_photo_url']: photoUrl,
+        };
+        queryClient.setQueryData(['appointment', appointmentId], updatedAppointment);
+      }
+      // Refetch para garantir sincronização
+      await queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
       Alert.alert('Sucesso', 'Foto enviada.');
     },
     onError: (err: any) => {
@@ -184,146 +194,169 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {isLoading && !isRefetching ? (
-          <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} />
+          <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} size="large" />
         ) : null}
         {error ? (
-          <Text style={styles.error}>Erro ao carregar marcação.</Text>
+          <View style={styles.errorCard}>
+            <Text style={styles.errorText}>⚠️ Erro ao carregar marcação</Text>
+          </View>
         ) : null}
 
         {appointment ? (
           <>
-            <View style={styles.card}>
-              <Text style={styles.title}>{service?.name || 'Serviço'}</Text>
-              <Text style={styles.subtitle}>{formatDateTime(appointment.appointment_date, appointment.appointment_time)}</Text>
-              {service?.price !== undefined && service?.price !== null ? (
-                <Text style={styles.meta}>Valor: € {Number(service.price).toFixed(2)}</Text>
-              ) : null}
-              <Text style={styles.meta}>Duração: {appointment.duration ? `${appointment.duration} min` : '—'}</Text>
-              <Text style={styles.meta}>Estado: {statusLabels[displayStatus] || displayStatus}</Text>
-              <View style={styles.inlineActions}>
-                <TouchableOpacity style={[styles.chip, { borderColor: colors.primary }]} onPress={togglePayment}>
-                  <Text style={[styles.chipText, { color: colors.primary }]}>
-                    Pagamento: {paymentStatus === 'paid' ? 'Pago' : 'Pendente'}
+            {/* Hero Card - Serviço */}
+            <View style={styles.heroCard}>
+              <View style={styles.heroHeader}>
+                <View style={styles.statusBadge}>
+                  <View style={[styles.statusDot, { backgroundColor: displayStatus === 'completed' ? '#10b981' : displayStatus === 'cancelled' ? '#ef4444' : colors.primary }]} />
+                  <Text style={styles.statusBadgeText}>{statusLabels[displayStatus]}</Text>
+                </View>
+                <TouchableOpacity 
+                  style={[styles.paymentBadge, paymentStatus === 'paid' && styles.paymentBadgePaid]}
+                  onPress={togglePayment}
+                >
+                  <Text style={[styles.paymentBadgeText, paymentStatus === 'paid' && styles.paymentBadgeTextPaid]}>
+                    {paymentStatus === 'paid' ? '✓ Pago' : '⏱ Pendente'}
                   </Text>
                 </TouchableOpacity>
               </View>
+              
+              <Text style={styles.heroTitle}>{service?.name || 'Serviço'}</Text>
+              <Text style={styles.heroSubtitle}>📅 {formatDateTime(appointment.appointment_date, appointment.appointment_time)}</Text>
+              
+              <View style={styles.heroDetails}>
+                {service?.price ? (
+                  <View style={styles.heroDetailItem}>
+                    <Text style={styles.heroDetailLabel}>Valor</Text>
+                    <Text style={styles.heroDetailValue}>€{Number(service.price).toFixed(2)}</Text>
+                  </View>
+                ) : null}
+                <View style={styles.heroDetailItem}>
+                  <Text style={styles.heroDetailLabel}>Duração</Text>
+                  <Text style={styles.heroDetailValue}>{appointment.duration ? `${appointment.duration} min` : '—'}</Text>
+                </View>
+              </View>
             </View>
 
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Cliente</Text>
-              <Text style={styles.meta}>{customer?.name || 'Sem cliente'}</Text>
-              {customer?.phone ? <Text style={styles.meta}>{customer.phone}</Text> : null}
-              {customer?.address ? <Text style={styles.meta}>{customer.address}</Text> : null}
-              <View style={styles.inlineActions}>
-                {customer?.address ? (
-                  <TouchableOpacity style={[styles.chip, { borderColor: colors.primary }]} onPress={openMaps}>
-                    <Text style={styles.chipText}>Ver nos mapas</Text>
-                  </TouchableOpacity>
-                ) : null}
+            {/* Cliente & Pet em Grid */}
+            <View style={styles.gridRow}>
+              <View style={[styles.compactCard, styles.petCard, { flex: 1 }]}>
+                <Text style={styles.compactCardTitle}>👤 Cliente</Text>
+                <Text style={styles.compactCardName}>{customer?.name || 'Sem cliente'}</Text>
                 {customer?.phone ? (
-                  <TouchableOpacity style={[styles.chip, { borderColor: colors.primary }]} onPress={callCustomer}>
-                    <Text style={styles.chipText}>Ligar</Text>
+                  <TouchableOpacity style={styles.compactAction} onPress={callCustomer}>
+                    <Text style={styles.compactActionText}>📞 Ligar</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
+
+              {pet ? (
+                <View style={[styles.compactCard, styles.petCard, { flex: 1 }]}>
+                  <Text style={styles.compactCardTitle}>🐾 Pet</Text>
+                  {pet.photo_url ? (
+                    <Image source={{ uri: pet.photo_url }} style={styles.petThumbnail} />
+                  ) : null}
+                  <Text style={styles.compactCardName}>{pet.name}</Text>
+                  {pet.breed ? <Text style={styles.compactCardBreed}>{pet.breed}</Text> : null}
+                </View>
+              ) : null}
             </View>
 
-            {pet ? (
-              <View style={styles.card}>
-                <Text style={styles.sectionTitle}>Pet</Text>
-                <Text style={styles.meta}>{pet.name || 'Pet'}</Text>
-                {pet.breed ? <Text style={styles.meta}>{pet.breed}</Text> : null}
-                {pet.photo_url ? (
-                  <Image source={{ uri: pet.photo_url }} style={styles.petImage} />
-                ) : null}
-              </View>
+            {customer?.address ? (
+              <TouchableOpacity style={styles.mapCard} onPress={openMaps}>
+                <Text style={styles.mapIcon}>📍</Text>
+                <View style={styles.mapContent}>
+                  <Text style={styles.mapTitle}>Morada</Text>
+                  <Text style={styles.mapAddress}>{customer.address}</Text>
+                </View>
+                <Text style={styles.mapArrow}>›</Text>
+              </TouchableOpacity>
             ) : null}
 
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Fotos do serviço</Text>
-              <View style={styles.photoRow}>
-                <View style={styles.photoContainer}>
-                  <Text style={styles.photoLabel}>Antes</Text>
-                  {appointment?.before_photo_url ? (
-                    <Image source={{ uri: appointment.before_photo_url }} style={styles.servicePhoto} />
-                  ) : (
-                    <View style={[styles.photoPlaceholder, { borderColor: colors.surfaceBorder }]}>
-                      <Text style={styles.placeholderText}>Sem foto</Text>
-                    </View>
-                  )}
+            {/* Fotos Antes/Depois */}
+            <View style={styles.photosCard}>
+              <Text style={styles.photosCardTitle}>📸 Fotos do Serviço</Text>
+              <View style={styles.photosGrid}>
+                <View style={styles.photoItem}>
+                  <Text style={styles.photoItemLabel}>Antes</Text>
                   <TouchableOpacity
-                    style={[styles.photoButton, { borderColor: colors.primary }]}
                     onPress={() => pickImage('before')}
                     disabled={photoMutation.isPending}
+                    activeOpacity={0.7}
                   >
-                    <Text style={[styles.photoButtonText, { color: colors.primary }]}>
-                      {appointment?.before_photo_url ? 'Alterar' : 'Adicionar'}
-                    </Text>
+                    {appointment?.before_photo_url ? (
+                      <Image source={{ uri: appointment.before_photo_url }} style={styles.photoItemImage} />
+                    ) : (
+                      <View style={styles.photoItemPlaceholder}>
+                        <Text style={styles.photoItemPlaceholderText}>+</Text>
+                        <Text style={styles.photoItemPlaceholderLabel}>Toca para adicionar</Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.photoContainer}>
-                  <Text style={styles.photoLabel}>Depois</Text>
-                  {appointment?.after_photo_url ? (
-                    <Image source={{ uri: appointment.after_photo_url }} style={styles.servicePhoto} />
-                  ) : (
-                    <View style={[styles.photoPlaceholder, { borderColor: colors.surfaceBorder }]}>
-                      <Text style={styles.placeholderText}>Sem foto</Text>
-                    </View>
-                  )}
+                <View style={styles.photoItem}>
+                  <Text style={styles.photoItemLabel}>Depois</Text>
                   <TouchableOpacity
-                    style={[styles.photoButton, { borderColor: colors.primary }]}
                     onPress={() => pickImage('after')}
                     disabled={photoMutation.isPending}
+                    activeOpacity={0.7}
                   >
-                    <Text style={[styles.photoButtonText, { color: colors.primary }]}>
-                      {appointment?.after_photo_url ? 'Alterar' : 'Adicionar'}
-                    </Text>
+                    {appointment?.after_photo_url ? (
+                      <Image source={{ uri: appointment.after_photo_url }} style={styles.photoItemImage} />
+                    ) : (
+                      <View style={styles.photoItemPlaceholder}>
+                        <Text style={styles.photoItemPlaceholderText}>+</Text>
+                        <Text style={styles.photoItemPlaceholderLabel}>Toca para adicionar</Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>
               {photoMutation.isPending ? (
-                <ActivityIndicator color={colors.primary} style={{ marginTop: 12 }} />
+                <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} />
               ) : null}
             </View>
 
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Estado da marcação</Text>
-              <View style={styles.segment}>
+            {/* Estado - Buttons Modernos */}
+            <View style={styles.statusCard}>
+              <Text style={styles.statusCardTitle}>Alterar Estado</Text>
+              <View style={styles.statusGrid}>
                 {['scheduled', 'pending', 'completed', 'cancelled'].map((value) => {
                   const active = displayStatus === value;
+                  const emoji = value === 'scheduled' ? '📅' : value === 'pending' ? '⏳' : value === 'completed' ? '✅' : '❌';
                   return (
                     <TouchableOpacity
                       key={value}
                       style={[
-                        styles.segmentButton,
-                        active && { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+                        styles.statusButton,
+                        active && { backgroundColor: colors.primary, borderColor: colors.primary },
                       ]}
                       onPress={() => saveStatus(value)}
                     >
+                      <Text style={styles.statusButtonEmoji}>{emoji}</Text>
                       <Text
                         style={[
-                          styles.segmentText,
-                          { color: active ? colors.primary : colors.text },
+                          styles.statusButtonText,
+                          { color: active ? '#fff' : colors.text },
                         ]}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
                       >
-                        {statusLabels[value] || value}
+                        {statusLabels[value]}
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
-              {mutation.isPending ? <ActivityIndicator color={colors.primary} style={{ marginTop: 8 }} /> : null}
+              {mutation.isPending ? <ActivityIndicator color={colors.primary} style={{ marginTop: 12 }} /> : null}
             </View>
 
+            {/* Notas */}
             {appointment.notes ? (
-              <View style={styles.card}>
-                <Text style={styles.sectionTitle}>Notas</Text>
-                <Text style={styles.meta}>{appointment.notes}</Text>
+              <View style={styles.notesCard}>
+                <Text style={styles.notesTitle}>📝 Notas</Text>
+                <Text style={styles.notesText}>{appointment.notes}</Text>
               </View>
             ) : null}
           </>
@@ -341,129 +374,320 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     scrollContent: {
       padding: 16,
-      paddingBottom: 32,
-      gap: 12,
+      paddingBottom: 40,
+      gap: 16,
     },
-    title: {
-      fontSize: 22,
-      fontWeight: '700',
-      color: colors.text,
+    errorCard: {
+      backgroundColor: '#fee2e2',
+      borderRadius: 16,
+      padding: 16,
+      alignItems: 'center',
     },
-    subtitle: {
-      color: colors.muted,
-      marginTop: 4,
+    errorText: {
+      color: '#dc2626',
+      fontWeight: '600',
+      fontSize: 15,
     },
-    meta: {
-      color: colors.muted,
-      marginTop: 4,
-    },
-    card: {
+    // Hero Card - Destaque do Serviço
+    heroCard: {
       backgroundColor: colors.surface,
-      borderRadius: 12,
-      padding: 14,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      gap: 4,
+      borderRadius: 20,
+      padding: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      elevation: 3,
     },
-    sectionTitle: {
-      color: colors.text,
-      fontWeight: '700',
-      marginBottom: 6,
-    },
-    error: {
-      color: colors.danger,
-      textAlign: 'center',
-      marginVertical: 12,
-    },
-    segment: {
+    heroHeader: {
       flexDirection: 'row',
-      gap: 8,
-      marginTop: 8,
-    },
-    segmentButton: {
-      flex: 1,
-      paddingVertical: 12,
-      borderRadius: 10,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
+      justifyContent: 'space-between',
       alignItems: 'center',
-      justifyContent: 'center',
+      marginBottom: 16,
     },
-    segmentText: {
-      fontWeight: '700',
-      color: colors.text,
-      textAlign: 'center',
-      paddingHorizontal: 4,
-      minWidth: '100%',
-    },
-    inlineActions: {
+    statusBadge: {
       flexDirection: 'row',
-      gap: 8,
-      marginTop: 10,
-      flexWrap: 'wrap',
-    },
-    chip: {
+      alignItems: 'center',
+      backgroundColor: colors.background,
       paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 999,
-      borderWidth: 1,
+      paddingVertical: 6,
+      borderRadius: 20,
+      gap: 6,
     },
-    chipText: {
+    statusDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    statusBadgeText: {
       color: colors.text,
+      fontSize: 13,
       fontWeight: '700',
     },
-    petImage: {
-      width: '100%',
-      height: 160,
-      borderRadius: 12,
-      marginTop: 8,
+    paymentBadge: {
+      backgroundColor: '#fef3c7',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 20,
     },
-    photoRow: {
+    paymentBadgePaid: {
+      backgroundColor: '#d1fae5',
+    },
+    paymentBadgeText: {
+      color: '#92400e',
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    paymentBadgeTextPaid: {
+      color: '#065f46',
+    },
+    heroTitle: {
+      fontSize: 26,
+      fontWeight: '800',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    heroSubtitle: {
+      fontSize: 16,
+      color: colors.muted,
+      fontWeight: '500',
+      marginBottom: 20,
+    },
+    heroDetails: {
+      flexDirection: 'row',
+      gap: 16,
+    },
+    heroDetailItem: {
+      flex: 1,
+      backgroundColor: colors.background,
+      padding: 12,
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    heroDetailLabel: {
+      fontSize: 12,
+      color: colors.muted,
+      marginBottom: 4,
+      fontWeight: '500',
+    },
+    heroDetailValue: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    // Grid Row para Cliente/Pet
+    gridRow: {
       flexDirection: 'row',
       gap: 12,
-      marginTop: 8,
     },
-    photoContainer: {
-      flex: 1,
+    compactCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    petCard: {
       alignItems: 'center',
     },
-    photoLabel: {
-      color: colors.text,
+    compactCardTitle: {
+      fontSize: 13,
+      color: colors.muted,
+      marginBottom: 8,
+      fontWeight: '600',
+    },
+    compactCardName: {
+      fontSize: 17,
       fontWeight: '700',
-      marginBottom: 8,
-      fontSize: 14,
+      color: colors.text,
+      marginBottom: 4,
+      textAlign: 'center',
     },
-    servicePhoto: {
-      width: '100%',
-      height: 140,
-      borderRadius: 12,
+    compactCardBreed: {
+      fontSize: 13,
+      color: colors.muted,
       marginBottom: 8,
+      textAlign: 'center',
     },
-    photoPlaceholder: {
-      width: '100%',
-      height: 140,
+    compactAction: {
+      marginTop: 8,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      backgroundColor: colors.primarySoft,
+      borderRadius: 8,
+      alignSelf: 'flex-start',
+    },
+    compactActionText: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    petThumbnail: {
+      width: 60,
+      height: 60,
       borderRadius: 12,
-      borderWidth: 2,
-      borderStyle: 'dashed',
-      justifyContent: 'center',
-      alignItems: 'center',
       marginBottom: 8,
       backgroundColor: colors.background,
     },
-    placeholderText: {
-      color: colors.muted,
-      fontSize: 12,
-    },
-    photoButton: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 8,
-      borderWidth: 1,
+    // Map Card
+    mapCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
       backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 16,
+      gap: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
     },
-    photoButtonText: {
+    mapIcon: {
+      fontSize: 28,
+    },
+    mapContent: {
+      flex: 1,
+    },
+    mapTitle: {
+      fontSize: 12,
+      color: colors.muted,
+      marginBottom: 4,
       fontWeight: '600',
+    },
+    mapAddress: {
+      fontSize: 15,
+      color: colors.text,
+      fontWeight: '500',
+    },
+    mapArrow: {
+      fontSize: 24,
+      color: colors.muted,
+    },
+    // Fotos Antes/Depois
+    photosCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      padding: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      elevation: 3,
+    },
+    photosCardTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 16,
+    },
+    photosGrid: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    photoItem: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    photoItemLabel: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 10,
+    },
+    photoItemImage: {
+      width: '100%',
+      aspectRatio: 3 / 4,
+      borderRadius: 16,
+      marginBottom: 10,
+      backgroundColor: colors.background,
+    },
+    photoItemPlaceholder: {
+      width: '100%',
+      aspectRatio: 3 / 4,
+      borderRadius: 16,
+      backgroundColor: colors.background,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 10,
+      borderWidth: 2,
+      borderColor: colors.surfaceBorder,
+      borderStyle: 'dashed',
+    },
+    photoItemPlaceholderText: {
+      fontSize: 48,
+      color: colors.muted,
+      fontWeight: '200',
+    },
+    photoItemPlaceholderLabel: {
+      fontSize: 11,
+      color: colors.muted,
+      marginTop: 8,
+      fontWeight: '500',
+    },
+    // Status Card
+    statusCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      padding: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      elevation: 3,
+    },
+    statusCardTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 16,
+    },
+    statusGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    statusButton: {
+      width: '48%',
+      backgroundColor: colors.background,
+      borderWidth: 2,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 14,
+      padding: 14,
+      alignItems: 'center',
+      gap: 6,
+    },
+    statusButtonEmoji: {
+      fontSize: 24,
+    },
+    statusButtonText: {
       fontSize: 13,
+      fontWeight: '700',
+    },
+    // Notas
+    notesCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      padding: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      elevation: 3,
+    },
+    notesTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 12,
+    },
+    notesText: {
+      fontSize: 15,
+      color: colors.muted,
+      lineHeight: 22,
     },
   });
 }

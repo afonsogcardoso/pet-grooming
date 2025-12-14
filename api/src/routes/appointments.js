@@ -77,6 +77,8 @@ router.get('/', async (req, res) => {
       notes,
       payment_status,
       status,
+      before_photo_url,
+      after_photo_url,
       customers ( id, name, phone, address ),
       services ( id, name, price ),
       pets ( id, name, breed, photo_url )
@@ -150,6 +152,8 @@ router.get('/:id', async (req, res) => {
       notes,
       payment_status,
       status,
+      before_photo_url,
+      after_photo_url,
       customers ( id, name, phone, address ),
       services ( id, name, price ),
       pets ( id, name, breed, photo_url )
