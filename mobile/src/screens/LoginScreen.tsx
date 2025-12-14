@@ -36,7 +36,9 @@ export default function LoginScreen({ navigation }: Props) {
     mutationFn: login,
     onSuccess: async (data) => {
       setApiError(null);
+      // First store tokens temporarily to make authenticated requests
       await setTokens({ token: data.token, refreshToken: data.refreshToken });
+      
       // Fetch profile to get displayName and avatarUrl
       try {
         const profile = await queryClient.fetchQuery({ queryKey: ['profile'], queryFn: getProfile });
@@ -44,9 +46,10 @@ export default function LoginScreen({ navigation }: Props) {
       } catch {
         setUser({ email: data.email });
       }
-      // Prefetch branding right after login so telas já carregam com tema.
-      queryClient.prefetchQuery({ queryKey: ['branding'], queryFn: getBranding }).catch(() => null);
-      navigation.replace('Home');
+      
+      // Wait for branding before navigating - app will show loading during this
+      await queryClient.fetchQuery({ queryKey: ['branding'], queryFn: getBranding }).catch(() => null);
+      // Navigation happens automatically when token is set (already set above)
     },
     onError: (err: any) => {
       const message =
@@ -63,50 +66,83 @@ export default function LoginScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Entrar</Text>
+      <View style={styles.headerSection}>
+        <View style={styles.iconCircle}>
+          <Text style={styles.iconText}>🐾</Text>
+        </View>
+        <Text style={styles.welcomeText}>Bem-vindo de volta</Text>
+        <Text style={styles.subtitle}>Entre para gerir os seus agendamentos</Text>
+      </View>
 
-      <Controller
-        control={control}
-        name="email"
-        render={({ field: { onChange, value }, fieldState: { error } }) => (
-          <View style={styles.field}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={[styles.input, error ? styles.inputError : null]}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={value}
-              onChangeText={onChange}
-              placeholder="seu@email.com"
-            />
-            {error && <Text style={styles.error}>{error.message}</Text>}
+      <View style={styles.formCard}>
+        <Controller
+          control={control}
+          name="email"
+          render={({ field: { onChange, value }, fieldState: { error } }) => (
+            <View style={styles.field}>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputIcon}>📧</Text>
+                <TextInput
+                  style={[styles.input, error ? styles.inputError : null]}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  value={value}
+                  onChangeText={onChange}
+                  placeholder="Email"
+                  placeholderTextColor={colors.muted}
+                />
+              </View>
+              {error && <Text style={styles.error}>{error.message}</Text>}
+            </View>
+          )}
+        />
+
+        <Controller
+          control={control}
+          name="password"
+          render={({ field: { onChange, value }, fieldState: { error } }) => (
+            <View style={styles.field}>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputIcon}>🔒</Text>
+                <TextInput
+                  style={[styles.input, error ? styles.inputError : null]}
+                  secureTextEntry
+                  value={value}
+                  onChangeText={onChange}
+                  placeholder="Senha"
+                  placeholderTextColor={colors.muted}
+                />
+              </View>
+              {error && <Text style={styles.error}>{error.message}</Text>}
+            </View>
+          )}
+        />
+
+        {apiError && (
+          <View style={styles.errorCard}>
+            <Text style={styles.errorText}>{apiError}</Text>
           </View>
         )}
-      />
 
-      <Controller
-        control={control}
-        name="password"
-        render={({ field: { onChange, value }, fieldState: { error } }) => (
-          <View style={styles.field}>
-            <Text style={styles.label}>Senha</Text>
-            <TextInput
-              style={[styles.input, error ? styles.inputError : null]}
-              secureTextEntry
-              value={value}
-              onChangeText={onChange}
-              placeholder="••••••••"
-            />
-            {error && <Text style={styles.error}>{error.message}</Text>}
-          </View>
-        )}
-      />
+        <TouchableOpacity 
+          style={[styles.button, isPending && styles.buttonDisabled]} 
+          onPress={onSubmit} 
+          disabled={isPending}
+        >
+          {isPending ? (
+            <View style={styles.buttonContent}>
+              <ActivityIndicator color="#fff" size="small" />
+              <Text style={styles.buttonText}>A carregar...</Text>
+            </View>
+          ) : (
+            <Text style={styles.buttonText}>Entrar →</Text>
+          )}
+        </TouchableOpacity>
+      </View>
 
-      {apiError && <Text style={styles.error}>{apiError}</Text>}
-
-      <TouchableOpacity style={styles.button} onPress={onSubmit} disabled={isPending}>
-        {isPending ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.buttonText}>Entrar</Text>}
-      </TouchableOpacity>
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Pet Grooming App</Text>
+      </View>
     </View>
   );
 }
@@ -115,50 +151,136 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
   return StyleSheet.create({
     container: {
       flex: 1,
-      padding: 24,
       backgroundColor: colors.background,
-      justifyContent: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 40,
     },
-    title: {
-      fontSize: 26,
-      fontWeight: '700',
-      color: colors.text,
+    headerSection: {
+      alignItems: 'center',
+      paddingTop: 60,
+      paddingHorizontal: 24,
+    },
+    iconCircle: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
       marginBottom: 24,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.3,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    iconText: {
+      fontSize: 38,
+    },
+    welcomeText: {
+      fontSize: 32,
+      fontWeight: '800',
+      color: colors.text,
+      marginBottom: 8,
+      textAlign: 'center',
+    },
+    subtitle: {
+      fontSize: 16,
+      color: colors.muted,
+      textAlign: 'center',
+      fontWeight: '500',
+    },
+    formCard: {
+      paddingHorizontal: 24,
+      paddingVertical: 8,
     },
     field: {
-      marginBottom: 16,
+      marginBottom: 20,
     },
-    label: {
-      color: colors.muted,
-      marginBottom: 6,
+    inputWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      borderWidth: 1.5,
+      borderColor: colors.surfaceBorder,
+      paddingHorizontal: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    inputIcon: {
+      fontSize: 20,
+      marginRight: 12,
     },
     input: {
-      backgroundColor: colors.surface,
-      borderRadius: 10,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
+      flex: 1,
+      paddingVertical: 16,
       color: colors.text,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
+      fontSize: 16,
+      fontWeight: '500',
     },
     inputError: {
       borderColor: colors.danger,
+      borderWidth: 2,
     },
     error: {
       color: colors.danger,
-      marginTop: 6,
+      marginTop: 8,
+      marginLeft: 16,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    errorCard: {
+      backgroundColor: '#fef2f2',
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.danger,
+    },
+    errorText: {
+      color: colors.danger,
+      fontSize: 14,
+      fontWeight: '600',
+      textAlign: 'center',
     },
     button: {
       backgroundColor: colors.primary,
-      borderRadius: 10,
-      paddingVertical: 14,
+      borderRadius: 16,
+      paddingVertical: 18,
       alignItems: 'center',
-      marginTop: 8,
+      marginTop: 12,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.4,
+      shadowRadius: 12,
+      elevation: 6,
+    },
+    buttonDisabled: {
+      opacity: 0.7,
+    },
+    buttonContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
     },
     buttonText: {
-      color: colors.onPrimary,
+      color: '#fff',
       fontWeight: '700',
-      fontSize: 16,
+      fontSize: 17,
+      letterSpacing: 0.5,
+    },
+    footer: {
+      alignItems: 'center',
+      paddingBottom: 20,
+    },
+    footerText: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '600',
     },
   });
 }

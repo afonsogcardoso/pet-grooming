@@ -48,28 +48,29 @@ export function useBrandingTheme() {
   const query = useQuery({
     queryKey: ['branding'],
     queryFn: () => getBranding(),
-    staleTime: 1000 * 60 * 60 * 6,
+    staleTime: 1000 * 60 * 5,
+    refetchOnMount: false,
   });
 
   const colors: ThemeColors = useMemo(() => {
     const branding = query.data as Branding | undefined;
-    const background = branding?.brand_background || '#f8fafc';
+    const background = branding?.brand_background || '#ffffff';
     const backgroundIsLight = isLightColor(background);
 
-    const primary = branding?.brand_primary || '#22c55e';
-    const primarySoft = branding?.brand_primary_soft || withAlpha(primary, 0.12);
-    const accent = branding?.brand_accent || '#f97316';
+    const primary = branding?.brand_primary || '#1e40af';
+    const primarySoft = branding?.brand_primary_soft || withAlpha(primary, 0.08);
+    const accent = branding?.brand_accent || '#0891b2';
 
     const surface = branding?.brand_primary_soft
       ? branding.brand_primary_soft
       : backgroundIsLight
-        ? '#ffffff'
+        ? '#f9fafb'
         : '#111827';
 
-    const surfaceBorder = backgroundIsLight ? '#e5e7eb' : '#1f2937';
-    const text = backgroundIsLight ? '#0f172a' : '#e2e8f0';
-    const muted = backgroundIsLight ? '#4b5563' : '#94a3b8';
-    const onPrimary = isLightColor(primary) ? '#0f172a' : '#f8fafc';
+    const surfaceBorder = backgroundIsLight ? '#d1d5db' : '#1f2937';
+    const text = backgroundIsLight ? '#111827' : '#e2e8f0';
+    const muted = backgroundIsLight ? '#6b7280' : '#94a3b8';
+    const onPrimary = isLightColor(primary) ? '#111827' : '#ffffff';
 
     return {
       primary,
@@ -81,9 +82,9 @@ export function useBrandingTheme() {
       text,
       muted,
       onPrimary,
-      danger: '#ef4444',
-      warning: '#fbbf24',
-      success: '#22c55e',
+      danger: '#dc2626',
+      warning: '#d97706',
+      success: '#059669',
     };
   }, [query.data]);
 

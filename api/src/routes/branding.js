@@ -8,11 +8,11 @@ const BRANDING_BUCKET = 'account-branding'
 
 const DEFAULT_BRANDING = {
   account_name: 'Pet Grooming',
-  brand_primary: '#22c55e',
-  brand_primary_soft: '#22c55e1a',
-  brand_accent: '#f97316',
-  brand_accent_soft: '#f973161a',
-  brand_background: '#0f172a',
+  brand_primary: '#1e40af',
+  brand_primary_soft: 'rgba(30, 64, 175, 0.08)',
+  brand_accent: '#0891b2',
+  brand_accent_soft: 'rgba(8, 145, 178, 0.08)',
+  brand_background: '#ffffff',
   brand_gradient: null,
   logo_url: null,
   portal_image_url: null,

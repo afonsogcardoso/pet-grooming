@@ -193,6 +193,12 @@ export default function ProfileScreen({ navigation }: Props) {
               <TouchableOpacity style={[styles.button, styles.secondary]} onPress={() => navigation.goBack()}>
                 <Text style={styles.buttonTextSecondary}>Voltar</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, styles.danger]} onPress={async () => {
+                await useAuthStore.getState().clear();
+                navigation.replace('Login');
+              }}>
+                <Text style={styles.buttonText}>🚪 Terminar Sessão</Text>
+              </TouchableOpacity>
             </>
           )}
         </View>
@@ -362,6 +368,10 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.text,
       fontWeight: '700',
       fontSize: 16,
+    },
+    danger: {
+      backgroundColor: '#ef4444',
+      marginTop: 20,
     },
   });
 }

@@ -9,7 +9,6 @@ type Props = NativeStackScreenProps<any>;
 
 export default function HomeScreen({ navigation }: Props) {
   const token = useAuthStore((s) => s.token);
-  const clear = useAuthStore((s) => s.clear);
   const user = useAuthStore((s) => s.user);
   const { branding, colors, isLoading: brandingLoading } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -21,11 +20,6 @@ export default function HomeScreen({ navigation }: Props) {
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'Utilizador';
   const avatarUrl = user?.avatarUrl || null;
   const heroImage = branding?.portal_image_url || branding?.logo_url || null;
-
-  const logout = async () => {
-    await clear();
-    navigation.replace('Login');
-  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: background }]} edges={['top', 'left', 'right']}>
@@ -109,11 +103,6 @@ export default function HomeScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Logout Button */}
-      <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-        <Text style={styles.logoutText}>🚪 Terminar Sessão</Text>
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -309,21 +298,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.muted,
       textAlign: 'center',
       fontWeight: '500',
-    },
-    logoutButton: {
-      marginHorizontal: 20,
-      marginVertical: 20,
-      paddingVertical: 16,
-      borderRadius: 16,
-      backgroundColor: colors.surface,
-      borderWidth: 1.5,
-      borderColor: colors.surfaceBorder,
-      alignItems: 'center',
-    },
-    logoutText: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: colors.text,
     },
   });
 }
