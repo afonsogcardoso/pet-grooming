@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { useMemo, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Image, TextInput, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { getProfile } from '../api/profile';
+import * as ImagePicker from 'expo-image-picker';
+import { getProfile, updateProfile, uploadAvatar } from '../api/profile';
 import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 
@@ -25,9 +26,15 @@ function formatDate(value?: string | null) {
 }
 
 export default function ProfileScreen({ navigation }: Props) {
-  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const queryClient = useQueryClient();
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [editDisplayName, setEditDisplayName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+
   const InfoPill = ({ label, value }: { label: string; value?: string | number | null }) => (
     <View style={styles.pill}>
       <Text style={styles.pillLabel}>{label}</Text>
@@ -41,24 +48,105 @@ export default function ProfileScreen({ navigation }: Props) {
     retry: 1,
   });
 
+  const updateMutation = useMutation({
+    mutationFn: updateProfile,
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['profile'], updated);
+      setUser({ email: updated.email, displayName: updated.displayName, avatarUrl: updated.avatarUrl });
+      setIsEditing(false);
+      Alert.alert('Sucesso', 'Perfil atualizado');
+    },
+    onError: () => Alert.alert('Erro', 'Não foi possível atualizar o perfil'),
+  });
+
+  const pickImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permissão necessária', 'Precisamos de acesso às fotos para atualizar a imagem de perfil');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      const formData = new FormData();
+      formData.append('file', {
+        uri: asset.uri,
+        type: asset.mimeType || 'image/jpeg',
+        name: asset.fileName || 'avatar.jpg',
+      } as any);
+
+      try {
+        const { url } = await uploadAvatar(formData);
+        await updateMutation.mutateAsync({ avatarUrl: url });
+      } catch {
+        Alert.alert('Erro', 'Não foi possível fazer upload da imagem');
+      }
+    }
+  };
+
+  const handleSave = () => {
+    updateMutation.mutate({
+      displayName: editDisplayName.trim() || null,
+      phone: editPhone.trim() || null,
+    });
+  };
+
+  const handleEdit = () => {
+    setEditDisplayName(data?.displayName || '');
+    setEditPhone(data?.phone || '');
+    setIsEditing(true);
+  };
+
   const avatarFallback = data?.displayName ? data.displayName.charAt(0).toUpperCase() : '';
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerCard}>
-          <View style={styles.avatar}>
+          <TouchableOpacity style={styles.avatar} onPress={pickImage} disabled={updateMutation.isPending}>
             {data?.avatarUrl ? (
               <Image source={{ uri: data.avatarUrl }} style={styles.avatarImage} />
             ) : (
               <Text style={styles.avatarText}>{avatarFallback}</Text>
             )}
-          </View>
+            <View style={styles.avatarBadge}>
+              <Text style={styles.avatarBadgeText}>📷</Text>
+            </View>
+          </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerLabel}>Perfil</Text>
-            <Text style={styles.headerTitle}>{data?.displayName}</Text>
-            <Text style={styles.headerSubtitle}>{data?.email}</Text>
-            <Text style={styles.headerMeta}>Último login: {formatDate(data?.lastLoginAt)}</Text>
+            {isEditing ? (
+              <>
+                <TextInput
+                  style={styles.editInput}
+                  value={editDisplayName}
+                  onChangeText={setEditDisplayName}
+                  placeholder="Nome"
+                  placeholderTextColor={colors.muted}
+                />
+                <TextInput
+                  style={styles.editInput}
+                  value={editPhone}
+                  onChangeText={setEditPhone}
+                  placeholder="Telefone"
+                  keyboardType="phone-pad"
+                  placeholderTextColor={colors.muted}
+                />
+              </>
+            ) : (
+              <>
+                <Text style={styles.headerTitle}>{data?.displayName}</Text>
+                <Text style={styles.headerSubtitle}>{data?.email}</Text>
+                <Text style={styles.headerMeta}>Último login: {formatDate(data?.lastLoginAt)}</Text>
+              </>
+            )}
           </View>
         </View>
 
@@ -73,16 +161,40 @@ export default function ProfileScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sessão</Text>
-          <Text style={styles.sectionText}>
-            Token carregado no app, protegido via SecureStore. Recarregue o perfil para validar sessão.
-          </Text>
-          <TouchableOpacity style={styles.button} onPress={() => refetch()}>
-            <Text style={styles.buttonText}>Recarregar perfil</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.secondary]} onPress={() => navigation.goBack()}>
-            <Text style={styles.buttonTextSecondary}>Voltar</Text>
-          </TouchableOpacity>
+          <Text style={styles.sectionTitle}>Ações</Text>
+          {isEditing ? (
+            <>
+              <TouchableOpacity 
+                style={styles.button} 
+                onPress={handleSave}
+                disabled={updateMutation.isPending}
+              >
+                {updateMutation.isPending ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Guardar alterações</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.button, styles.secondary]} 
+                onPress={() => setIsEditing(false)}
+              >
+                <Text style={styles.buttonTextSecondary}>Cancelar</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity style={styles.button} onPress={handleEdit}>
+                <Text style={styles.buttonText}>Editar perfil</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, styles.secondary]} onPress={() => refetch()}>
+                <Text style={styles.buttonTextSecondary}>Recarregar perfil</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, styles.secondary]} onPress={() => navigation.goBack()}>
+                <Text style={styles.buttonTextSecondary}>Voltar</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -154,6 +266,33 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       width: '100%',
       height: '100%',
       borderRadius: 10,
+    },
+    avatarBadge: {
+      position: 'absolute',
+      bottom: -4,
+      right: -4,
+      backgroundColor: colors.primary,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.surface,
+    },
+    avatarBadgeText: {
+      fontSize: 12,
+    },
+    editInput: {
+      backgroundColor: colors.background,
+      borderColor: colors.surfaceBorder,
+      borderWidth: 1,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      color: colors.text,
+      marginTop: 4,
+      fontSize: 14,
     },
     error: {
       color: colors.danger,

@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { login } from '../api/auth';
 import { getBranding } from '../api/branding';
+import { getProfile } from '../api/profile';
 import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 
@@ -36,7 +37,13 @@ export default function LoginScreen({ navigation }: Props) {
     onSuccess: async (data) => {
       setApiError(null);
       await setTokens({ token: data.token, refreshToken: data.refreshToken });
-      setUser({ email: data.email });
+      // Fetch profile to get displayName and avatarUrl
+      try {
+        const profile = await queryClient.fetchQuery({ queryKey: ['profile'], queryFn: getProfile });
+        setUser({ email: profile.email, displayName: profile.displayName, avatarUrl: profile.avatarUrl });
+      } catch {
+        setUser({ email: data.email });
+      }
       // Prefetch branding right after login so telas já carregam com tema.
       queryClient.prefetchQuery({ queryKey: ['branding'], queryFn: getBranding }).catch(() => null);
       navigation.replace('Home');
@@ -52,7 +59,6 @@ export default function LoginScreen({ navigation }: Props) {
 
   const onSubmit = handleSubmit(async (values) => {
     await mutateAsync(values);
-    setUser({ email: values.email });
   });
 
   return (

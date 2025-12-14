@@ -5,9 +5,9 @@ type AuthState = {
   token: string | null;
   refreshToken: string | null;
   hydrated: boolean;
-  user: { email?: string | null } | null;
+  user: { email?: string | null; displayName?: string | null; avatarUrl?: string | null } | null;
   setTokens: (params: { token: string; refreshToken?: string | null }) => Promise<void>;
-  setUser: (user: { email?: string | null } | null) => void;
+  setUser: (user: { email?: string | null; displayName?: string | null; avatarUrl?: string | null } | null) => void;
   clear: () => Promise<void>;
   hydrate: () => Promise<void>;
 };
