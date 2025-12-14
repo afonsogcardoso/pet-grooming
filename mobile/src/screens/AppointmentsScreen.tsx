@@ -95,15 +95,6 @@ export default function AppointmentsScreen({ navigation }: Props) {
   const surface = colors.surface;
   const primarySoft = colors.primarySoft;
 
-  const StatusPill = ({ label, type }: { label: string; type: string }) => {
-    const bg = statusColor[type] || colors.primary;
-    return (
-      <View style={[styles.pill, { backgroundColor: bg + '33', borderColor: bg }]}>
-        <Text style={[styles.pillText, { color: bg }]}>{label}</Text>
-      </View>
-    );
-  };
-
   const PaymentPill = ({ label }: { label: string }) => {
     const paid = label === 'paid';
     const color = paid ? colors.success : colors.warning;
@@ -154,7 +145,6 @@ export default function AppointmentsScreen({ navigation }: Props) {
           ) : null}
         </View>
         <View style={styles.badges}>
-          {item.status ? <StatusPill label={item.status} type={item.status} /> : null}
           {item.payment_status ? <PaymentPill label={item.payment_status} /> : null}
           <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
             {address ? (
@@ -209,7 +199,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Agendamentos</Text>
@@ -245,7 +235,9 @@ export default function AppointmentsScreen({ navigation }: Props) {
         </TouchableOpacity>
       </View>
 
-      {isLoading || isRefetching ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} /> : null}
+      {isLoading && !isRefetching ? (
+        <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} />
+      ) : null}
       {error ? (
         <Text style={styles.error}>
           Não foi possível carregar agendamentos{'\n'}
@@ -257,12 +249,26 @@ export default function AppointmentsScreen({ navigation }: Props) {
         sections={sections}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <AppointmentItem item={item} />}
-        renderSectionHeader={({ section: { title } }) => (
-          <View style={styles.sectionChip}>
-            <Text style={styles.sectionHeader}>{title}</Text>
-          </View>
-        )}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        renderSectionHeader={({ section }) => {
+          const isPast = filterMode === 'past';
+          const today = todayLocalISO();
+          const sectionIsPast = section.dayKey && section.dayKey < today;
+          const canCreate = !isPast && !sectionIsPast;
+          return (
+            <View style={styles.sectionChip}>
+              <Text style={styles.sectionHeader}>{section.title}</Text>
+              {canCreate ? (
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={() => navigation.navigate('NewAppointment', { date: section.dayKey })}
+                >
+                  <Text style={styles.addButtonText}>+</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          );
+        }}
+        contentContainerStyle={{ paddingBottom: 40 }}
         SectionSeparatorComponent={() => <View style={{ height: 8 }} />}
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         ListEmptyComponent={
@@ -276,17 +282,18 @@ export default function AppointmentsScreen({ navigation }: Props) {
             fetchNextPage();
           }
         }}
+        onRefresh={() => refetch()}
+        refreshing={isRefetching}
         ListFooterComponent={
           isFetchingNextPage ? <ActivityIndicator color={primary} style={{ marginVertical: 12 }} /> : null
         }
       />
 
-      <TouchableOpacity style={[styles.secondaryButton, { borderColor: primary }]} onPress={() => refetch()}>
-        <Text style={styles.secondaryButtonText}>Recarregar</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={[styles.secondaryButton, { borderColor: primary }]} onPress={() => navigation.goBack()}>
-        <Text style={styles.secondaryButtonText}>Voltar</Text>
-      </TouchableOpacity>
+      <View style={{ paddingBottom: 8 }}>
+        <TouchableOpacity style={[styles.secondaryButton, { borderColor: primary }]} onPress={() => navigation.goBack()}>
+          <Text style={styles.secondaryButtonText}>Voltar</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -296,7 +303,9 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     container: {
       flex: 1,
       backgroundColor: colors.background,
-      padding: 16,
+      paddingHorizontal: 16,
+      paddingTop: 16,
+      paddingBottom: 24,
     },
     header: {
       flexDirection: 'row',
@@ -435,16 +444,34 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.primary,
       fontWeight: '700',
     },
-    sectionChip: {
-      alignSelf: 'flex-start',
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 999,
-      borderWidth: 1,
-      marginBottom: 6,
-      marginTop: 12,
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.primary,
-    },
+  sectionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginBottom: 6,
+    marginTop: 12,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+    gap: 8,
+  },
+  addButton: {
+    height: 24,
+    width: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+  },
+  addButtonText: {
+    color: colors.text,
+    fontWeight: '700',
+    fontSize: 14,
+  },
   });
 }

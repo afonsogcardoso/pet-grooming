@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Linking, Alert, Image } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -25,16 +25,23 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<string | null>(null);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isRefetching, error } = useQuery({
     queryKey: ['appointment', appointmentId],
     queryFn: () => getAppointment(appointmentId),
+    placeholderData: (prev) => prev,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
 
   const mutation = useMutation({
-    mutationFn: (payload: { status?: string | null }) => updateAppointment(appointmentId, payload),
+    mutationFn: (payload: { status?: string | null; payment_status?: string | null }) =>
+      updateAppointment(appointmentId, payload),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] }).catch(() => null);
-      queryClient.setQueryData(['appointment', appointmentId], updated);
+      queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] }).catch(() => null);
+      if (updated) {
+        queryClient.setQueryData(['appointment', appointmentId], updated);
+      }
       Alert.alert('Sucesso', 'Marcação atualizada.');
     },
     onError: (err: any) => {
@@ -47,6 +54,15 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const displayStatus = status ?? appointment?.status ?? 'scheduled';
   const customer = appointment?.customers;
   const service = appointment?.services;
+  const pet = appointment?.pets;
+  const paymentStatus = appointment?.payment_status || 'unpaid';
+
+  const statusLabels: Record<string, string> = {
+    scheduled: 'Agendado',
+    pending: 'Em progresso',
+    completed: 'Concluído',
+    cancelled: 'Cancelado',
+  };
 
   const openMaps = () => {
     const address = customer?.address;
@@ -66,10 +82,21 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     mutation.mutate({ status: next });
   };
 
+  const togglePayment = () => {
+    const next = paymentStatus === 'paid' ? 'unpaid' : 'paid';
+    mutation.mutate({ payment_status: next });
+  };
+
+  const addPhoto = (type: 'before' | 'after') => {
+    Alert.alert('Em breve', `Upload de foto (${type}) requer endpoint de upload.`);
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {isLoading ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} /> : null}
+        {isLoading && !isRefetching ? (
+          <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} />
+        ) : null}
         {error ? (
           <Text style={styles.error}>Erro ao carregar marcação.</Text>
         ) : null}
@@ -83,7 +110,14 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                 <Text style={styles.meta}>Valor: € {Number(service.price).toFixed(2)}</Text>
               ) : null}
               <Text style={styles.meta}>Duração: {appointment.duration ? `${appointment.duration} min` : '—'}</Text>
-              <Text style={styles.meta}>Estado: {displayStatus}</Text>
+              <Text style={styles.meta}>Estado: {statusLabels[displayStatus] || displayStatus}</Text>
+              <View style={styles.inlineActions}>
+                <TouchableOpacity style={[styles.chip, { borderColor: colors.primary }]} onPress={togglePayment}>
+                  <Text style={[styles.chipText, { color: colors.primary }]}>
+                    Pagamento: {paymentStatus === 'paid' ? 'Pago' : 'Pendente'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.card}>
@@ -105,6 +139,25 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
               </View>
             </View>
 
+            {pet ? (
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Pet</Text>
+                <Text style={styles.meta}>{pet.name || 'Pet'}</Text>
+                {pet.breed ? <Text style={styles.meta}>{pet.breed}</Text> : null}
+                {pet.photo_url ? (
+                  <Image source={{ uri: pet.photo_url }} style={styles.petImage} />
+                ) : null}
+                <View style={styles.inlineActions}>
+                  <TouchableOpacity style={[styles.chip, { borderColor: colors.primary }]} onPress={() => addPhoto('before')}>
+                    <Text style={styles.chipText}>Foto antes</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.chip, { borderColor: colors.primary }]} onPress={() => addPhoto('after')}>
+                    <Text style={styles.chipText}>Foto depois</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
+
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Estado da marcação</Text>
               <View style={styles.segment}>
@@ -119,8 +172,15 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                       ]}
                       onPress={() => saveStatus(value)}
                     >
-                      <Text style={[styles.segmentText, { color: active ? colors.primary : colors.text }]}>
-                        {value}
+                      <Text
+                        style={[
+                          styles.segmentText,
+                          { color: active ? colors.primary : colors.text },
+                        ]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {statusLabels[value] || value}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -191,15 +251,19 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     segmentButton: {
       flex: 1,
-      paddingVertical: 10,
+      paddingVertical: 12,
       borderRadius: 10,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
       alignItems: 'center',
+      justifyContent: 'center',
     },
     segmentText: {
       fontWeight: '700',
       color: colors.text,
+      textAlign: 'center',
+      paddingHorizontal: 4,
+      minWidth: '100%',
     },
     inlineActions: {
       flexDirection: 'row',
@@ -216,6 +280,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     chipText: {
       color: colors.text,
       fontWeight: '700',
+    },
+    petImage: {
+      width: '100%',
+      height: 160,
+      borderRadius: 12,
+      marginTop: 8,
     },
   });
 }

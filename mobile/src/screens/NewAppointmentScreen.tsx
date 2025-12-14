@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useRoute } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { createAppointment } from '../api/appointments';
@@ -23,6 +24,19 @@ import { getServices } from '../api/services';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 
 type Props = NativeStackScreenProps<any>;
+
+function isHexLight(color?: string) {
+  if (!color || typeof color !== 'string' || !color.startsWith('#')) return false;
+  const hex = color.replace('#', '');
+  const expanded = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
+  if (expanded.length !== 6) return false;
+  const r = parseInt(expanded.slice(0, 2), 16);
+  const g = parseInt(expanded.slice(2, 4), 16);
+  const b = parseInt(expanded.slice(4, 6), 16);
+  if ([r, g, b].some((v) => Number.isNaN(v))) return false;
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.65;
+}
 
 function todayLocalISO() {
   return new Date().toLocaleDateString('sv-SE');
@@ -36,7 +50,9 @@ function currentLocalTime() {
 }
 
 export default function NewAppointmentScreen({ navigation }: Props) {
-  const [date, setDate] = useState(todayLocalISO());
+  const route = useRoute<Props['route']>();
+  const initialDateParam = route.params?.date as string | undefined;
+  const [date, setDate] = useState(initialDateParam || todayLocalISO());
   const [time, setTime] = useState(currentLocalTime());
   const [duration, setDuration] = useState<number>(60);
   const [notes, setNotes] = useState('');
@@ -82,6 +98,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const primarySoft = colors.primarySoft;
   const background = colors.background;
   const surface = colors.surface;
+  const pickerTheme = isHexLight(colors.background) ? 'light' : 'dark';
 
   const selectedCustomerData = useMemo(
     () => customers.find((c) => c.id === selectedCustomer),
@@ -160,6 +177,9 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   }, [parsedDate, time]);
 
   useEffect(() => {
+    if (initialDateParam) {
+      setDate(initialDateParam);
+    }
     const belongs =
       selectedPet && selectedCustomerData?.pets?.some((pet) => pet.id === selectedPet);
     if (!belongs) {
@@ -387,7 +407,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                 style={[styles.input, styles.pickInput, { borderColor: colors.surfaceBorder }]}
                 onPress={openDatePicker}
               >
-                <Text style={styles.selectText}>{date}</Text>
+                <Text style={styles.pickText}>{date}</Text>
               </TouchableOpacity>
           </View>
           <View style={[styles.field, { flex: 1 }]}>
@@ -396,7 +416,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
               style={[styles.input, styles.pickInput, { borderColor: colors.surfaceBorder }]}
               onPress={openTimePicker}
             >
-              <Text style={[styles.selectText, !time && styles.placeholder]}>
+              <Text style={[styles.pickText, !time && styles.placeholder]}>
                 {time || 'Seleciona'}
               </Text>
             </TouchableOpacity>
@@ -771,6 +791,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                     mode="date"
                     display="spinner"
                     onChange={handleDateChange}
+                    themeVariant={pickerTheme}
+                    textColor={colors.text}
                     style={styles.modalPicker}
                   />
                 ) : null}
@@ -781,6 +803,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                     display="spinner"
                     onChange={handleTimeChange}
                     is24Hour
+                    themeVariant={pickerTheme}
+                    textColor={colors.text}
                     style={styles.modalPicker}
                   />
                 ) : null}
@@ -852,13 +876,19 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       backgroundColor: colors.surface,
       borderColor: colors.primarySoft,
     },
+    pickText: {
+      color: colors.text,
+      fontWeight: '700',
+      fontSize: 16,
+    },
     selectText: {
       color: colors.text,
-      fontWeight: '600',
+      fontWeight: '700',
+      fontSize: 15,
     },
     placeholder: {
       color: colors.muted,
-      fontWeight: '400',
+      fontWeight: '500',
     },
     dropdown: {
       borderWidth: 1,

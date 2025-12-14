@@ -186,12 +186,29 @@ router.patch('/:id/status', async (req, res) => {
     return res.status(400).json({ error: 'Missing status' })
   }
 
-  let query = supabase.from('appointments').update({ status }).eq('id', id)
+  let query = supabase
+    .from('appointments')
+    .update({ status })
+    .eq('id', id)
+    .select(
+      `
+      id,
+      appointment_date,
+      appointment_time,
+      duration,
+      notes,
+      payment_status,
+      status,
+      customers ( id, name, phone, address ),
+      services ( id, name, price ),
+      pets ( id, name, breed, photo_url )
+    `
+    )
   if (accountId) {
     query = query.eq('account_id', accountId)
   }
 
-  const { data, error } = await query.select()
+  const { data, error } = await query
 
   if (error) {
     console.error('[api] update appointment status error', error)
@@ -234,7 +251,20 @@ router.patch('/:id', async (req, res) => {
     query = query.eq('account_id', accountId)
   }
 
-  const { data, error } = await query.select()
+  const { data, error } = await query.select(
+    `
+    id,
+    appointment_date,
+    appointment_time,
+    duration,
+    notes,
+    payment_status,
+    status,
+    customers ( id, name, phone, address ),
+    services ( id, name, price ),
+    pets ( id, name, breed, photo_url )
+  `
+  )
 
   if (error) {
     console.error('[api] update appointment error', error)
