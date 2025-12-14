@@ -1,0 +1,343 @@
+import React from 'react';
+import { View, Text, TouchableOpacity, SectionList, Image, StyleSheet, Linking } from 'react-native';
+import { useBrandingTheme } from '../../theme/useBrandingTheme';
+import type { Appointment } from '../../api/appointments';
+
+type ListViewProps = {
+  appointments: Appointment[];
+  filterMode: 'upcoming' | 'past';
+  onAppointmentPress: (appointment: Appointment) => void;
+  onNewAppointment: (date?: string) => void;
+  onRefresh: () => void;
+  isRefreshing: boolean;
+};
+
+function formatTime(value?: string | null) {
+  if (!value) return '—';
+  const match = String(value).match(/(\d{1,2}):(\d{2})/);
+  if (match) {
+    const [, hh, mm] = match;
+    return `${hh.padStart(2, '0')}:${mm}`;
+  }
+  return value;
+}
+
+function formatDateLabel(value?: string | null) {
+  if (!value) return 'Sem data';
+  try {
+    return new Date(value + 'T00:00:00').toLocaleDateString('pt-PT', {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+    });
+  } catch {
+    return value;
+  }
+}
+
+function toDayKey(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value + 'T00:00:00');
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+function todayLocalISO() {
+  return new Date().toLocaleDateString('sv-SE');
+}
+
+export function ListView({ 
+  appointments, 
+  filterMode,
+  onAppointmentPress,
+  onNewAppointment,
+  onRefresh,
+  isRefreshing,
+}: ListViewProps) {
+  const { colors } = useBrandingTheme();
+  const today = todayLocalISO();
+
+  // Group appointments by day
+  const sections = React.useMemo(() => {
+    const grouped: Record<string, Appointment[]> = {};
+    for (const item of appointments) {
+      const key = toDayKey(item.appointment_date) || item.appointment_date || 'Sem data';
+      grouped[key] = grouped[key] ? [...grouped[key], item] : [item];
+    }
+    const todayKey = today;
+    const entries = Object.entries(grouped).map(([rawKey, items]) => {
+      const dayKey = toDayKey(rawKey) || rawKey;
+      const titleLabel = dayKey === todayKey ? 'Hoje' : formatDateLabel(rawKey);
+      return {
+        dayKey,
+        title: titleLabel,
+        data: items.sort((x, y) => (x.appointment_time || '').localeCompare(y.appointment_time || '')),
+      };
+    });
+
+    const todaySection = entries.filter((entry) => entry.dayKey === todayKey);
+    const future = entries
+      .filter((entry) => entry.dayKey !== todayKey)
+      .sort((a, b) => {
+        if (a.dayKey && b.dayKey) return a.dayKey.localeCompare(b.dayKey);
+        if (a.dayKey) return -1;
+        if (b.dayKey) return 1;
+        return 0;
+      });
+
+    const ordered = [...todaySection, ...future];
+    return filterMode === 'past' ? ordered.reverse() : ordered;
+  }, [appointments, filterMode, today]);
+
+  const PaymentPill = ({ label }: { label: string }) => {
+    const paid = label === 'paid';
+    const color = paid ? colors.success : colors.warning;
+    return (
+      <View style={[styles.pill, { backgroundColor: color + '33', borderColor: color }]}>
+        <Text style={[styles.pillText, { color }]}>{paid ? '✓ Pago' : '⏱ Pendente'}</Text>
+      </View>
+    );
+  };
+
+  const styles = StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 16,
+      flexDirection: 'row',
+      gap: 14,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    petThumb: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: colors.primarySoft,
+      borderWidth: 2,
+      borderColor: colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      overflow: 'hidden',
+    },
+    petImage: {
+      width: '100%',
+      height: '100%',
+    },
+    petInitial: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    content: {
+      flex: 1,
+      gap: 4,
+    },
+    time: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    service: {
+      fontSize: 15,
+      color: colors.text,
+      fontWeight: '600',
+    },
+    meta: {
+      fontSize: 13,
+      color: colors.muted,
+      fontWeight: '500',
+    },
+    badges: {
+      gap: 8,
+      alignItems: 'flex-end',
+    },
+    pill: {
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 12,
+      borderWidth: 1,
+    },
+    pillText: {
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    actions: {
+      flexDirection: 'row',
+      gap: 6,
+      marginTop: 4,
+    },
+    actionButton: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.surface,
+    },
+    actionText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 60,
+    },
+    emptyIcon: {
+      fontSize: 64,
+      marginBottom: 16,
+    },
+    emptyText: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    emptySubtext: {
+      fontSize: 14,
+      color: colors.muted,
+      textAlign: 'center',
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+      marginBottom: 8,
+      marginTop: 12,
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.primary,
+      gap: 8,
+    },
+    sectionHeaderText: {
+      color: colors.primary,
+      fontWeight: '700',
+      fontSize: 13,
+    },
+    addButton: {
+      height: 20,
+      width: 20,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+    },
+    addButtonText: {
+      color: colors.primary,
+      fontWeight: '700',
+      fontSize: 12,
+      lineHeight: 14,
+    },
+  });
+
+  const renderAppointmentItem = ({ item }: { item: Appointment }) => {
+    const petInitial = item.pets?.name?.charAt(0)?.toUpperCase() || '🐾';
+    const price = item.services?.price;
+    const address = item.customers?.address;
+    const phone = item.customers?.phone;
+
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => onAppointmentPress(item)}
+      >
+            <View style={styles.petThumb}>
+              {item.pets?.photo_url ? (
+                <Image source={{ uri: item.pets.photo_url }} style={styles.petImage} />
+              ) : (
+                <Text style={styles.petInitial}>{petInitial}</Text>
+              )}
+            </View>
+
+            <View style={styles.content}>
+              <Text style={styles.time}>{formatTime(item.appointment_time)}</Text>
+              <Text style={styles.service}>{item.services?.name || 'Serviço'}</Text>
+              <Text style={styles.meta}>
+                {item.customers?.name} • {item.pets?.name}
+              </Text>
+              {price !== undefined && price !== null ? (
+                <Text style={styles.meta}>€ {Number(price).toFixed(2)}</Text>
+              ) : null}
+              
+              <View style={styles.actions}>
+                {address ? (
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => {
+                      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+                      Linking.openURL(url).catch(() => null);
+                    }}
+                  >
+                    <Text style={styles.actionText}>📍 Mapas</Text>
+                  </TouchableOpacity>
+                ) : null}
+                {phone ? (
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => Linking.openURL(`tel:${phone}`).catch(() => null)}
+                  >
+                    <Text style={styles.actionText}>📞 Ligar</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+
+        <View style={styles.badges}>
+          {item.payment_status ? <PaymentPill label={item.payment_status} /> : null}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderSectionHeader = ({ section }: { section: typeof sections[0] }) => {
+    const isPast = filterMode === 'past';
+    const sectionIsPast = section.dayKey && section.dayKey < today;
+    const canCreate = !isPast && !sectionIsPast;
+
+    return (
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionHeaderText}>{section.title}</Text>
+        {canCreate ? (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => onNewAppointment(section.dayKey)}
+          >
+            <Text style={styles.addButtonText}>+</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    );
+  };
+
+  return (
+    <SectionList
+      sections={sections}
+      keyExtractor={(item) => item.id}
+      renderItem={renderAppointmentItem}
+      renderSectionHeader={renderSectionHeader}
+      contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
+      SectionSeparatorComponent={() => <View style={{ height: 8 }} />}
+      ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+      ListEmptyComponent={
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>📭</Text>
+          <Text style={styles.emptyText}>Nenhuma marcação</Text>
+          <Text style={styles.emptySubtext}>Não há agendamentos neste período</Text>
+        </View>
+      }
+      onRefresh={onRefresh}
+      refreshing={isRefreshing}
+    />
+  );
+}

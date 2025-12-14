@@ -8,23 +8,25 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  Modal,
   Linking,
   Switch,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRoute } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import { createAppointment } from '../api/appointments';
-import type { Customer } from '../api/customers';
+import type { Customer, Pet } from '../api/customers';
 import { createCustomer, createPet, getCustomers, updateCustomer } from '../api/customers';
 import { getServices } from '../api/services';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
+import { AddressAutocomplete } from '../components/appointment/AddressAutocomplete';
+import { NewCustomerForm } from '../components/appointment/NewCustomerForm';
+import { ExistingCustomerForm } from '../components/appointment/ExistingCustomerForm';
+import { ServiceSelector } from '../components/appointment/ServiceSelector';
+import { DateTimePickerModal } from '../components/appointment/DateTimePickerModal';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -372,141 +374,6 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     return [intro, '', ...lines].join('\n');
   };
 
-
-
-  const AddressAutocomplete = ({
-    value,
-    onSelect,
-    placeholder,
-  }: {
-    value: string;
-    onSelect: (val: string) => void;
-    placeholder: string;
-  }) => {
-    const autocompleteRef = useRef<any>(null);
-
-    // Atualiza o texto quando o valor externo muda
-    useEffect(() => {
-      if (autocompleteRef.current && value) {
-        autocompleteRef.current.setAddressText(value);
-      }
-    }, [value]);
-
-    if (!placesKey) {
-      return (
-        <TextInput
-          value={value}
-          onChangeText={onSelect}
-          placeholder={placeholder}
-          placeholderTextColor={colors.muted}
-          style={[styles.input, { borderColor: colors.surfaceBorder }]}
-        />
-      );
-    }
-
-    return (
-      <View ref={addressFieldRef} style={{ zIndex: 1000, marginBottom: 8 }}>
-        <GooglePlacesAutocomplete
-          ref={autocompleteRef}
-          placeholder={placeholder}
-          fetchDetails={true}
-          enablePoweredByContainer={false}
-          minLength={2}
-          listViewDisplayed="auto"
-          debounce={300}
-          disableScroll={true}
-          renderRow={(data) => (
-            <View style={{ padding: 12 }}>
-              <Text style={{ color: colors.text, fontSize: 13 }}>
-                {data.description}
-              </Text>
-            </View>
-          )}
-          flatListProps={{
-            scrollEnabled: false,
-            nestedScrollEnabled: true,
-          }}
-          textInputProps={{
-            placeholderTextColor: colors.muted,
-            autoCorrect: false,
-            returnKeyType: 'done',
-          }}
-          query={{
-            key: placesKey,
-            language: 'pt',
-            components: 'country:pt',
-          }}
-          onPress={(data, details = null) => {
-            const address = details?.formatted_address || data.description || '';
-            onSelect(address);
-            // Atualiza o texto no input após seleção
-            if (autocompleteRef.current) {
-              autocompleteRef.current.setAddressText(address);
-            }
-          }}
-          onFail={(error) => console.log('Places error:', error)}
-          onNotFound={() => console.log('No results')}
-          styles={{
-            container: {
-              flex: 0,
-              width: '100%',
-            },
-            textInputContainer: {
-              paddingHorizontal: 0,
-              backgroundColor: 'transparent',
-            },
-            textInput: {
-              backgroundColor: colors.surface,
-              borderRadius: 10,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              borderWidth: 1,
-              borderColor: colors.surfaceBorder,
-              color: colors.text,
-              fontWeight: '600',
-              fontSize: 14,
-              height: 44,
-            },
-            listView: {
-              backgroundColor: colors.surface,
-              borderWidth: 1,
-              borderColor: colors.primarySoft,
-              borderRadius: 12,
-              marginTop: 6,
-              maxHeight: 200,
-              elevation: 5,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.25,
-              shadowRadius: 3.84,
-            },
-            row: {
-              padding: 12,
-              minHeight: 44,
-              borderBottomWidth: StyleSheet.hairlineWidth,
-              borderBottomColor: colors.surfaceBorder,
-              backgroundColor: colors.surface,
-            },
-            description: {
-              color: colors.text,
-              fontSize: 13,
-            },
-            separator: {
-              height: StyleSheet.hairlineWidth,
-              backgroundColor: colors.surfaceBorder,
-            },
-            poweredContainer: {
-              display: 'none',
-            },
-            powered: {
-              display: 'none',
-            },
-          }}
-        />
-      </View>
-    );
-  };
-
   const openWhatsapp = async () => {
     if (!canSendWhatsapp) {
       Alert.alert('WhatsApp', 'Cliente sem número válido.');
@@ -522,31 +389,14 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     await Linking.openURL(url);
   };
 
-  const renderSelect = ({
-    label,
-    value,
-    placeholder,
-    onPress,
-  }: {
-    label: string;
-    value?: string;
-    placeholder: string;
-    onPress: () => void;
-  }) => (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      <TouchableOpacity style={[styles.select, { borderColor: colors.surfaceBorder }]} onPress={onPress}>
-        <Text style={[styles.selectText, !value && styles.placeholder]}>
-          {value || placeholder}
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: background }]} edges={['top', 'left', 'right']}>
-      <Text style={styles.title}>Nova Marcação</Text>
-      <Text style={styles.subtitle}>Preenche os mesmos campos da página web.</Text>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>✨ Nova Marcação</Text>
+          <Text style={styles.subtitle}>Cria rapidamente uma nova marcação</Text>
+        </View>
+      </View>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
@@ -560,417 +410,224 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           keyboardDismissMode="on-drag"
           automaticallyAdjustKeyboardInsets={true}
         >
-        <View style={[styles.card, { borderColor: primarySoft, backgroundColor: surface }]}>
-          <View style={styles.row}>
-            <View style={[styles.field, { flex: 1 }]}>
-              <Text style={styles.label}>Data</Text>
-              <TouchableOpacity
-                style={[styles.input, styles.pickInput, { borderColor: colors.surfaceBorder }]}
-                onPress={openDatePicker}
-              >
-                <Text style={styles.pickText}>{date}</Text>
-              </TouchableOpacity>
-          </View>
-          <View style={[styles.field, { flex: 1 }]}>
-            <Text style={styles.label}>Hora</Text>
-            <TouchableOpacity
-              style={[styles.input, styles.pickInput, { borderColor: colors.surfaceBorder }]}
-              onPress={openTimePicker}
-            >
-              <Text style={[styles.pickText, !time && styles.placeholder]}>
-                {time || 'Seleciona'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {renderSelect({
-          label: 'Serviços',
-          value: selectedServiceData?.name,
-          placeholder: loadingServices ? 'A carregar serviços...' : 'Escolhe um serviço',
-          onPress: () => setShowServiceList((prev) => !prev),
-        })}
-        {showServiceList ? (
-          <View style={[styles.dropdown, { borderColor: colors.surfaceBorder }]}>
-            {loadingServices ? (
-              <ActivityIndicator color={primary} />
-            ) : (
-              <ScrollView style={{ maxHeight: 180 }}>
-                {services.map((service) => (
-                  <TouchableOpacity
-                    key={service.id}
-                    style={styles.option}
-                    onPress={() => {
-                      setSelectedService(service.id);
-                      setShowServiceList(false);
-                      if (service.default_duration) setDuration(service.default_duration);
-                    }}
-                  >
-                    <Text style={styles.optionTitle}>{service.name}</Text>
-                    {service.description ? (
-                      <Text style={styles.optionSubtitle}>{service.description}</Text>
-                    ) : null}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        ) : null}
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Duração</Text>
-          <View style={styles.segment}>
-            {[30, 60, 90].map((value) => {
-              const active = duration === value;
-              return (
+        <View style={styles.content}>
+          {/* Seção: Quando e O Quê */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>📅 Quando e O Quê</Text>
+            
+            <View style={styles.row}>
+              <View style={[styles.field, { flex: 1 }]}>
+                <Text style={styles.label}>Data</Text>
                 <TouchableOpacity
-                  key={value}
-                  style={[
-                    styles.segmentButton,
-                    active && { backgroundColor: primarySoft, borderColor: primary },
-                  ]}
-                  onPress={() => setDuration(value)}
+                  style={[styles.input, styles.pickInput]}
+                  onPress={openDatePicker}
                 >
-                  <Text style={[styles.segmentText, { color: active ? primary : colors.text }]}>
-                    {value} min
+                  <Text style={styles.pickText}>{date}</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={[styles.field, { flex: 1 }]}>
+                <Text style={styles.label}>Hora</Text>
+                <TouchableOpacity
+                  style={[styles.input, styles.pickInput]}
+                  onPress={openTimePicker}
+                >
+                  <Text style={[styles.pickText, !time && styles.placeholder]}>
+                    {time || 'Hora'}
                   </Text>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
+              </View>
+            </View>
 
-        <View style={styles.segment}>
-          <TouchableOpacity
-            style={[
-              styles.segmentButton,
-              mode === 'new' && { backgroundColor: primarySoft, borderColor: primary },
-            ]}
-            onPress={() => {
-              setMode('new');
-              setSelectedCustomer('');
-              setSelectedPet('');
-              setCustomerSearch('');
-              setCustomerPhone('');
-              setCustomerAddress('');
-              setCustomerNif('');
-            }}
-          >
-            <Text style={[styles.segmentText, { color: mode === 'new' ? primary : colors.text }]}>Novo</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.segmentButton,
-              mode === 'existing' && { backgroundColor: primarySoft, borderColor: primary },
-            ]}
-            onPress={() => {
-              setMode('existing');
-              setNewCustomerName('');
-              setNewCustomerPhone('');
-              setNewCustomerEmail('');
-              setNewCustomerAddress('');
-              setNewCustomerNif('');
-              setNewPetName('');
-              setNewPetBreed('');
-            }}
-          >
-            <Text style={[styles.segmentText, { color: mode === 'existing' ? primary : colors.text }]}>Existente</Text>
-          </TouchableOpacity>
-        </View>
+            <ServiceSelector
+              selectedService={selectedService}
+              selectedServiceData={selectedServiceData}
+              services={services}
+              loadingServices={loadingServices}
+              showServiceList={showServiceList}
+              setShowServiceList={setShowServiceList}
+              setSelectedService={setSelectedService}
+              setDuration={setDuration}
+            />
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Duração</Text>
+              <View style={styles.segment}>
+                {[30, 60, 90].map((value) => {
+                  const active = duration === value;
+                  return (
+                    <TouchableOpacity
+                      key={value}
+                      style={[
+                        styles.segmentButton,
+                        active && { backgroundColor: primarySoft, borderColor: primary, borderWidth: 1.5 },
+                      ]}
+                      onPress={() => setDuration(value)}
+                    >
+                      <Text style={[styles.segmentText, { color: active ? primary : colors.text }]}>
+                        {value} min
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          </View>
+
+          {/* Seção: Para Quem */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>🐾 Para Quem</Text>
+            
+            <View style={styles.segment}>
+              <TouchableOpacity
+                style={[
+                  styles.segmentButton,
+                  mode === 'new' && { backgroundColor: primarySoft, borderColor: primary, borderWidth: 1.5 },
+                ]}
+                onPress={() => {
+                  setMode('new');
+                  setSelectedCustomer('');
+                  setSelectedPet('');
+                  setCustomerSearch('');
+                  setCustomerPhone('');
+                  setCustomerAddress('');
+                  setCustomerNif('');
+                }}
+              >
+                <Text style={[styles.segmentText, { color: mode === 'new' ? primary : colors.text }]}>➕ Novo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.segmentButton,
+                  mode === 'existing' && { backgroundColor: primarySoft, borderColor: primary, borderWidth: 1.5 },
+                ]}
+                onPress={() => {
+                  setMode('existing');
+                  setNewCustomerName('');
+                  setNewCustomerPhone('');
+                  setNewCustomerEmail('');
+                  setNewCustomerAddress('');
+                  setNewCustomerNif('');
+                  setNewPetName('');
+                  setNewPetBreed('');
+                }}
+              >
+                <Text style={[styles.segmentText, { color: mode === 'existing' ? primary : colors.text }]}>📋 Existente</Text>
+              </TouchableOpacity>
+            </View>
 
         {mode === 'existing' ? (
-          <>
-            <View style={styles.field}>
-              <Text style={styles.label}>Cliente</Text>
-              <TouchableOpacity
-                style={[styles.select, { borderColor: colors.surfaceBorder }]}
-                onPress={() => setShowCustomerList((prev) => !prev)}
-              >
-                <Text style={[styles.selectText, !selectedCustomerData && styles.placeholder]}>
-                  {selectedCustomerData?.name ||
-                    (loadingCustomers ? 'A carregar clientes...' : 'Escolhe um cliente')}
-                </Text>
-              </TouchableOpacity>
-            {selectedCustomerData ? (
-              <View style={[styles.customerCard, { borderColor: primarySoft }]}>
-                <Text style={styles.customerDetailLabel}>Telefone</Text>
-                <TextInput
-                  value={customerPhone}
-                  onChangeText={setCustomerPhone}
-                  placeholder="Telefone"
-                  placeholderTextColor={colors.muted}
-                  style={[styles.input, styles.inlineInput]}
-                  keyboardType="phone-pad"
-                />
-                <Text style={styles.customerDetailLabel}>Morada</Text>
-                <AddressAutocomplete
-                  value={customerAddress}
-                  onSelect={setCustomerAddress}
-                  placeholder={addressPlaceholder}
-                />
-                <Text style={styles.customerDetailLabel}>NIF</Text>
-                <TextInput
-                  value={customerNif}
-                  onChangeText={setCustomerNif}
-                  placeholder="NIF"
-                  placeholderTextColor={colors.muted}
-                  style={[styles.input, styles.inlineInput]}
-                  keyboardType="number-pad"
-                />
-              </View>
-            ) : null}
-            </View>
-            {showCustomerList ? (
-              <View style={[styles.dropdown, { borderColor: primarySoft }]}>
-                <TextInput
-                  value={customerSearch}
-                  onChangeText={setCustomerSearch}
-                  placeholder="Pesquisar por cliente ou pet"
-                  placeholderTextColor={colors.muted}
-                  style={[styles.input, { borderColor: primarySoft, marginBottom: 10 }]}
-                />
-                <ScrollView style={{ maxHeight: 200 }}>
-                  {searchResults.map((result) => {
-                    const key =
-                      result.type === 'customer'
-                        ? `customer-${result.customer.id}`
-                        : `pet-${result.pet.id}`;
-                    return (
-                      <TouchableOpacity
-                        key={key}
-                        style={styles.option}
-                        onPress={() => {
-                          setSelectedCustomer(result.customer.id);
-                          if (result.type === 'pet') {
-                            setSelectedPet(result.pet.id);
-                          }
-                          setShowCustomerList(false);
-                          setShowPetList(false);
-                        }}
-                      >
-                        <Text style={styles.optionTitle}>
-                          {result.label}
-                          {result.type === 'pet' ? ' (pet)' : ''}
-                        </Text>
-                        {result.subtitle ? <Text style={styles.optionSubtitle}>{result.subtitle}</Text> : null}
-                        {result.type === 'pet' && result.customer.phone ? (
-                          <Text style={styles.optionSubtitle}>{result.customer.phone}</Text>
-                        ) : null}
-                      </TouchableOpacity>
-                    );
-                  })}
-                  {!loadingCustomers && searchResults.length === 0 ? (
-                    <Text style={styles.optionSubtitle}>Nenhum resultado</Text>
-                  ) : null}
-                </ScrollView>
-              </View>
-            ) : null}
-
-            {renderSelect({
-              label: 'Animal',
-              value: petOptions.find((p) => p.id === selectedPet)?.name,
-              placeholder: selectedCustomer ? 'Escolhe um pet' : 'Seleciona primeiro o cliente',
-              onPress: () => {
-                if (!selectedCustomer) return;
-                setShowPetList((prev) => !prev);
-              },
-            })}
-            {showPetList ? (
-              <View style={[styles.dropdown, { borderColor: primarySoft }]}>
-                {petOptions.length === 0 ? (
-                  <Text style={styles.optionSubtitle}>Este cliente não tem pets registados.</Text>
-                ) : (
-                  <ScrollView style={{ maxHeight: 160 }}>
-                    {petOptions.map((pet) => (
-                      <TouchableOpacity
-                        key={pet.id}
-                        style={styles.option}
-                        onPress={() => {
-                          setSelectedPet(pet.id);
-                          setShowPetList(false);
-                        }}
-                      >
-                        <Text style={styles.optionTitle}>{pet.name}</Text>
-                        {pet.breed ? <Text style={styles.optionSubtitle}>{pet.breed}</Text> : null}
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                )}
-              </View>
-            ) : null}
-          </>
-        ) : (
-          <>
-            <View style={styles.field}>
-              <Text style={styles.label}>Cliente novo</Text>
-              <TextInput
-                value={newCustomerName}
-                onChangeText={setNewCustomerName}
-                placeholder="Nome do cliente"
-                placeholderTextColor={colors.muted}
-                style={[styles.input, { borderColor: colors.surfaceBorder }]}
-              />
-            </View>
-            <View style={styles.field}>
-              <Text style={styles.label}>Telefone</Text>
-              <TextInput
-                value={newCustomerPhone}
-                onChangeText={setNewCustomerPhone}
-                placeholder="Telefone"
-                placeholderTextColor={colors.muted}
-                style={[styles.input, { borderColor: colors.surfaceBorder }]}
-                keyboardType="phone-pad"
-              />
-            </View>
-            <View style={styles.field}>
-              <Text style={styles.label}>Email</Text>
-              <TextInput
-                value={newCustomerEmail}
-                onChangeText={setNewCustomerEmail}
-                placeholder="email@dominio.com"
-                placeholderTextColor={colors.muted}
-                style={[styles.input, { borderColor: colors.surfaceBorder }]}
-                keyboardType="email-address"
-              />
-            </View>
-            <View style={styles.field}>
-              <Text style={styles.label}>Morada</Text>
-              <AddressAutocomplete
-                value={newCustomerAddress}
-                onSelect={setNewCustomerAddress}
-                placeholder={addressPlaceholder}
-              />
-            </View>
-            <View style={styles.field}>
-              <Text style={styles.label}>NIF</Text>
-              <TextInput
-                value={newCustomerNif}
-                onChangeText={setNewCustomerNif}
-                placeholder="NIF"
-                placeholderTextColor={colors.muted}
-                style={[styles.input, { borderColor: colors.surfaceBorder }]}
-                keyboardType="number-pad"
-              />
-            </View>
-
-            <View style={styles.field}>
-              <Text style={styles.label}>Animal</Text>
-              <TextInput
-                value={newPetName}
-                onChangeText={setNewPetName}
-                placeholder="Nome do animal"
-                placeholderTextColor={colors.muted}
-                style={[styles.input, { borderColor: colors.surfaceBorder }]}
-              />
-            </View>
-            <View style={styles.field}>
-              <Text style={styles.label}>Raça (opcional)</Text>
-              <TextInput
-                value={newPetBreed}
-                onChangeText={setNewPetBreed}
-                placeholder="Raça"
-                placeholderTextColor={colors.muted}
-                style={[styles.input, { borderColor: colors.surfaceBorder }]}
-              />
-            </View>
-          </>
-        )}
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Notas</Text>
-          <TextInput
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Notas para a equipa"
-            placeholderTextColor={colors.muted}
-            multiline
-            style={[
-              styles.input,
-              { borderColor: colors.surfaceBorder, minHeight: 80, textAlignVertical: 'top' },
-            ]}
+          <ExistingCustomerForm
+            customerSearch={customerSearch}
+            setCustomerSearch={setCustomerSearch}
+            showCustomerList={showCustomerList}
+            setShowCustomerList={setShowCustomerList}
+            searchResults={searchResults}
+            loadingCustomers={loadingCustomers}
+            selectedCustomer={selectedCustomer}
+            setSelectedCustomer={setSelectedCustomer}
+            setSelectedPet={setSelectedPet}
+            setShowPetList={setShowPetList}
+            selectedCustomerData={selectedCustomerData}
+            customerPhone={customerPhone}
+            setCustomerPhone={setCustomerPhone}
+            customerAddress={customerAddress}
+            setCustomerAddress={setCustomerAddress}
+            customerNif={customerNif}
+            setCustomerNif={setCustomerNif}
+            addressPlaceholder={addressPlaceholder}
+            showPetList={showPetList}
+            selectedPet={selectedPet}
+            petOptions={petOptions}
+            primarySoft={primarySoft}
           />
-        </View>
-
-        <View style={styles.toggleRow}>
-          <View>
-            <Text style={styles.label}>Enviar por WhatsApp</Text>
-            {!canSendWhatsapp ? (
-              <Text style={styles.helperText}>Seleciona um cliente com número válido.</Text>
-            ) : null}
+        ) : (
+          <NewCustomerForm
+            customerName={newCustomerName}
+            setCustomerName={setNewCustomerName}
+            customerPhone={newCustomerPhone}
+            setCustomerPhone={setNewCustomerPhone}
+            customerEmail={newCustomerEmail}
+            setCustomerEmail={setNewCustomerEmail}
+            customerAddress={newCustomerAddress}
+            setCustomerAddress={setNewCustomerAddress}
+            customerNif={newCustomerNif}
+            setCustomerNif={setNewCustomerNif}
+            petName={newPetName}
+            setPetName={setNewPetName}
+            petBreed={newPetBreed}
+            setPetBreed={setNewPetBreed}
+            addressPlaceholder={addressPlaceholder}
+          />
+        )}
           </View>
-          <Switch
+
+          {/* Seção: Notas */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>📝 Informações Adicionais</Text>
+            
+            <View style={styles.field}>
+              <Text style={styles.label}>Notas</Text>
+              <TextInput
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="Adiciona notas para a equipa (opcional)"
+                placeholderTextColor={colors.muted}
+                multiline
+                style={[
+                  styles.input,
+                  { minHeight: 100, textAlignVertical: 'top' },
+                ]}
+              />
+            </View>
+
+            <View style={styles.toggleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>💬 Enviar por WhatsApp</Text>
+                {!canSendWhatsapp ? (
+                  <Text style={styles.helperText}>Adiciona um número de telefone</Text>
+                ) : null}
+              </View>
+              <Switch
             value={sendWhatsapp && canSendWhatsapp}
             onValueChange={setSendWhatsapp}
             disabled={!canSendWhatsapp}
             trackColor={{ false: colors.surfaceBorder, true: primary }}
             thumbColor={colors.onPrimary}
-          />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: primary, opacity: canSubmit ? 1 : 0.5 }]}
-          onPress={handleSubmit}
-          disabled={!canSubmit}
-        >
-          {mutation.isPending ? (
-            <ActivityIndicator color={colors.onPrimary} />
-          ) : (
-            <Text style={styles.buttonText}>Criar marcação</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.secondary, { borderColor: primary }]} onPress={() => navigation.goBack()}>
-          <Text style={styles.secondaryText}>Cancelar</Text>
-        </TouchableOpacity>
-      </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-      {showDatePicker || showTimePicker ? (
-        <Modal
-          visible
-          transparent
-          animationType="fade"
-          onRequestClose={closePickers}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <View style={styles.modalHeader}>
-                <TouchableOpacity onPress={closePickers}>
-                  <Text style={styles.modalButton}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={closePickers}>
-                  <Text style={[styles.modalButton, styles.modalButtonPrimary]}>OK</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.modalPickerContainer}>
-                {showDatePicker ? (
-                  <DateTimePicker
-                    value={parsedDate}
-                    mode="date"
-                    display="spinner"
-                    onChange={handleDateChange}
-                    themeVariant={pickerTheme}
-                    textColor={colors.text}
-                    style={styles.modalPicker}
-                  />
-                ) : null}
-                {showTimePicker ? (
-                  <DateTimePicker
-                    value={parsedTime}
-                    mode="time"
-                    display="spinner"
-                    onChange={handleTimeChange}
-                    is24Hour
-                    themeVariant={pickerTheme}
-                    textColor={colors.text}
-                    style={styles.modalPicker}
-                  />
-                ) : null}
-              </View>
+              />
             </View>
           </View>
-        </Modal>
-      ) : null}
+
+          {/* Botões de Ação */}
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: primary, opacity: canSubmit ? 1 : 0.5 }]}
+            onPress={handleSubmit}
+            disabled={!canSubmit}
+          >
+            {mutation.isPending ? (
+              <ActivityIndicator color={colors.onPrimary} />
+            ) : (
+              <Text style={styles.buttonText}>✨ Criar Marcação</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.secondary} onPress={() => navigation.goBack()}>
+            <Text style={styles.secondaryText}>Cancelar</Text>
+          </TouchableOpacity>
+        </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+      
+      <DateTimePickerModal
+        visible={showDatePicker || showTimePicker}
+        onClose={closePickers}
+        showDatePicker={showDatePicker}
+        showTimePicker={showTimePicker}
+        parsedDate={parsedDate}
+        parsedTime={parsedTime}
+        onDateChange={handleDateChange}
+        onTimeChange={handleTimeChange}
+        pickerTheme={pickerTheme}
+      />
     </SafeAreaView>
   );
 }
@@ -979,69 +636,100 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
   return StyleSheet.create({
     container: {
       flex: 1,
-      padding: 20,
       backgroundColor: colors.background,
     },
+    header: {
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 16,
+    },
     title: {
-      fontSize: 24,
-      fontWeight: '700',
+      fontSize: 28,
+      fontWeight: '800',
       color: colors.text,
+      marginBottom: 4,
     },
     subtitle: {
+      fontSize: 15,
       color: colors.muted,
-      marginBottom: 16,
+      fontWeight: '500',
     },
-    card: {
-      borderWidth: 1,
-      borderRadius: 16,
-      padding: 16,
-      borderColor: colors.primarySoft,
-      backgroundColor: colors.surface,
+    keyboardAvoid: {
+      flex: 1,
+    },
+    content: {
+      paddingHorizontal: 20,
+      paddingTop: 4,
     },
     scrollContent: {
       paddingBottom: 400,
+    },
+    sectionCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 18,
+      marginBottom: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    sectionTitle: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 14,
     },
     row: {
       flexDirection: 'row',
       gap: 12,
     },
     field: {
-      marginBottom: 14,
+      marginBottom: 16,
     },
     label: {
       color: colors.text,
-      marginBottom: 6,
-      fontWeight: '700',
+      marginBottom: 8,
+      fontWeight: '600',
+      fontSize: 15,
     },
     input: {
       borderWidth: 1,
-      borderRadius: 10,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
       color: colors.text,
       backgroundColor: colors.surface,
       borderColor: colors.surfaceBorder,
+      fontSize: 15,
+      fontWeight: '500',
     },
     pickInput: {
-      minHeight: 48,
+      minHeight: 52,
       justifyContent: 'center',
     },
     select: {
       borderWidth: 1,
-      borderRadius: 10,
-      paddingHorizontal: 12,
-      paddingVertical: 12,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
       backgroundColor: colors.surface,
-      borderColor: colors.primarySoft,
+      borderColor: colors.surfaceBorder,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
     },
     pickText: {
       color: colors.text,
-      fontWeight: '700',
+      fontWeight: '600',
       fontSize: 16,
     },
     selectText: {
       color: colors.text,
-      fontWeight: '700',
+      fontWeight: '600',
       fontSize: 15,
     },
     placeholder: {
@@ -1051,10 +739,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     dropdown: {
       borderWidth: 1,
       borderRadius: 12,
-      padding: 10,
+      padding: 12,
       backgroundColor: colors.surface,
       marginBottom: 12,
       borderColor: colors.primarySoft,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
     },
     option: {
       paddingVertical: 10,
@@ -1072,121 +765,74 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     segment: {
       flexDirection: 'row',
       gap: 8,
+      marginBottom: 20,
     },
     segmentButton: {
       flex: 1,
-      paddingVertical: 10,
-      borderWidth: 1,
+      paddingVertical: 12,
+      borderWidth: 1.5,
       borderColor: colors.surfaceBorder,
-      borderRadius: 10,
+      borderRadius: 12,
       alignItems: 'center',
       backgroundColor: colors.surface,
     },
     segmentText: {
       fontWeight: '700',
+      fontSize: 15,
       color: colors.text,
     },
     button: {
-      borderRadius: 10,
-      paddingVertical: 12,
+      borderRadius: 16,
+      paddingVertical: 16,
       alignItems: 'center',
-      marginTop: 6,
+      marginTop: 8,
       backgroundColor: colors.primary,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 4,
     },
     buttonText: {
       color: colors.onPrimary,
       fontWeight: '700',
-      fontSize: 16,
+      fontSize: 17,
     },
     secondary: {
-      borderWidth: 1,
-      borderRadius: 10,
-      paddingVertical: 12,
+      borderWidth: 1.5,
+      borderRadius: 16,
+      paddingVertical: 16,
       alignItems: 'center',
       marginTop: 12,
       backgroundColor: colors.surface,
       borderColor: colors.primary,
     },
     secondaryText: {
-      color: colors.text,
-      fontWeight: '700',
-      fontSize: 16,
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.45)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    modalCard: {
-      backgroundColor: colors.surface,
-      paddingBottom: 16,
-      borderRadius: 18,
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      width: '90%',
-      maxWidth: 380,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      paddingHorizontal: 4,
-      paddingVertical: 8,
-    },
-    modalButton: {
-      color: colors.text,
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    modalButtonPrimary: {
       color: colors.primary,
-    },
-    modalPicker: {
-      backgroundColor: colors.surface,
-      alignSelf: 'center',
-    },
-    modalPickerContainer: {
-      alignItems: 'center',
+      fontWeight: '700',
+      fontSize: 17,
     },
     toggleRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       borderWidth: 1,
-      borderColor: colors.primarySoft,
+      borderColor: colors.surfaceBorder,
       borderRadius: 12,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
       backgroundColor: colors.surface,
-      marginBottom: 12,
+      marginBottom: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
     },
     helperText: {
       color: colors.muted,
-      fontSize: 12,
-    },
-    customerCard: {
-      marginTop: 8,
-      padding: 10,
-      borderRadius: 12,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.primarySoft,
-    },
-    customerDetail: {
-      color: colors.text,
-      marginBottom: 4,
-      fontSize: 14,
-    },
-    customerDetailLabel: {
-      color: colors.muted,
-      fontSize: 12,
-      marginTop: 8,
-      marginBottom: 4,
-    },
-    inlineInput: {
-      marginBottom: 4,
+      fontSize: 13,
+      marginTop: 4,
     },
   });
 }

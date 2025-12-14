@@ -17,10 +17,8 @@ export default function HomeScreen({ navigation }: Props) {
   const primary = colors.primary;
   const primarySoft = colors.primarySoft;
   const background = colors.background;
-  const accent = colors.accent;
   const accountName = branding?.account_name || 'Pet Grooming';
   const heroImage = branding?.portal_image_url || branding?.logo_url || null;
-  const screenWidth = Dimensions.get('window').width;
 
   const logout = async () => {
     await clear();
@@ -29,131 +27,278 @@ export default function HomeScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: background }]} edges={['top', 'left', 'right']}>
-      <View style={[styles.hero, { borderColor: primarySoft }]}>
+      {/* Header Section */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.greeting}>Olá! 👋</Text>
+          <Text style={styles.userName}>{user?.email?.split('@')[0] || 'Visitante'}</Text>
+        </View>
+        {brandingLoading ? (
+          <ActivityIndicator color={primary} />
+        ) : (
+          <TouchableOpacity 
+            style={[styles.profileButton, { borderColor: primarySoft }]}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            <Text style={styles.profileIcon}>👤</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Hero Card */}
+      <View style={[styles.heroCard, { backgroundColor: primary }]}>
         {heroImage ? (
           <Image
             source={{ uri: heroImage }}
-            style={[styles.heroImage, { width: screenWidth - 40, borderColor: primarySoft }]}
+            style={styles.heroImage}
             resizeMode="cover"
           />
         ) : null}
-        <View style={styles.heroContent}>
-          <View style={[styles.badge, { backgroundColor: primarySoft }]}>
-            <Text style={[styles.badgeText, { color: primary }]}>Conta</Text>
+        <View style={styles.heroOverlay}>
+          <View style={[styles.heroBadge, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
+            <Text style={styles.heroBadgeText}>✨ {accountName}</Text>
           </View>
-          <Text style={styles.heroTitle}>{accountName}</Text>
-          <Text style={styles.heroSubtitle}>Bem-vindo {user?.email ?? 'visitante'}</Text>
-          <Text style={[styles.heroMeta, { color: accent }]}>
-            {token ? 'Sessão ativa' : 'Sem sessão'}
-          </Text>
-          {brandingLoading ? <ActivityIndicator color={primary} style={{ marginTop: 10 }} /> : null}
+          <Text style={styles.heroTitle}>Bem-vindo de volta!</Text>
+          <Text style={styles.heroSubtitle}>Gerencie seus agendamentos com facilidade</Text>
         </View>
       </View>
 
-      <View style={styles.actions}>
-        <TouchableOpacity style={[styles.card, { borderColor: primarySoft }]} onPress={() => navigation.navigate('NewAppointment')}>
-          <Text style={styles.cardTitle}>Nova marcação</Text>
-          <Text style={styles.cardSubtitle}>Criar uma marcação rápida</Text>
+      {/* Quick Actions */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Ações Rápidas</Text>
+        
+        <TouchableOpacity 
+          style={[styles.primaryAction, { backgroundColor: primary }]}
+          onPress={() => navigation.navigate('NewAppointment')}
+        >
+          <View style={styles.actionIcon}>
+            <Text style={styles.actionIconText}>✨</Text>
+          </View>
+          <View style={styles.actionContent}>
+            <Text style={styles.actionTitle}>Nova Marcação</Text>
+            <Text style={styles.actionSubtitle}>Criar agendamento rápido</Text>
+          </View>
+          <Text style={styles.actionArrow}>→</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.card, { borderColor: primarySoft }]} onPress={() => navigation.navigate('Appointments')}>
-          <Text style={styles.cardTitle}>Agendamentos</Text>
-          <Text style={styles.cardSubtitle}>Ver e gerir marcações</Text>
-        </TouchableOpacity>
+        <View style={styles.secondaryActions}>
+          <TouchableOpacity 
+            style={styles.secondaryAction}
+            onPress={() => navigation.navigate('Appointments')}
+          >
+            <Text style={styles.secondaryActionIcon}>📅</Text>
+            <Text style={styles.secondaryActionTitle}>Agendamentos</Text>
+            <Text style={styles.secondaryActionSubtitle}>Ver marcações</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.card, { borderColor: primarySoft }]} onPress={() => navigation.navigate('Profile')}>
-          <Text style={styles.cardTitle}>Perfil</Text>
-          <Text style={styles.cardSubtitle}>Dados da conta e sessão</Text>
-        </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.secondaryAction}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            <Text style={styles.secondaryActionIcon}>⚙️</Text>
+            <Text style={styles.secondaryActionTitle}>Perfil</Text>
+            <Text style={styles.secondaryActionSubtitle}>Minha conta</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <TouchableOpacity style={[styles.button, { backgroundColor: primary }]} onPress={logout}>
-        <Text style={styles.buttonText}>Sair</Text>
+      {/* Logout Button */}
+      <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+        <Text style={styles.logoutText}>🚪 Terminar Sessão</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+  const screenWidth = Dimensions.get('window').width;
+  
   return StyleSheet.create({
     container: {
       flex: 1,
-      padding: 20,
       backgroundColor: colors.background,
     },
-    hero: {
-      borderWidth: 1,
-      borderRadius: 16,
-      padding: 16,
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 20,
+    },
+    greeting: {
+      fontSize: 16,
+      color: colors.muted,
+      fontWeight: '500',
+    },
+    userName: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: colors.text,
+      marginTop: 2,
+    },
+    profileButton: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
       backgroundColor: colors.surface,
-      marginBottom: 16,
+      borderWidth: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    profileIcon: {
+      fontSize: 24,
+    },
+    heroCard: {
+      marginHorizontal: 20,
+      borderRadius: 20,
+      height: 180,
       overflow: 'hidden',
+      marginBottom: 24,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.2,
+      shadowRadius: 12,
+      elevation: 8,
     },
     heroImage: {
-      height: 160,
-      borderRadius: 12,
-      borderWidth: 1,
+      position: 'absolute',
+      width: '100%',
+      height: '100%',
+      opacity: 0.3,
+    },
+    heroOverlay: {
+      flex: 1,
+      padding: 20,
+      justifyContent: 'flex-end',
+    },
+    heroBadge: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 20,
       marginBottom: 12,
     },
-    heroContent: {
-      gap: 4,
-    },
-    badge: {
-      alignSelf: 'flex-start',
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 999,
-      marginBottom: 10,
-      backgroundColor: colors.primarySoft,
-    },
-    badgeText: {
+    heroBadgeText: {
+      color: '#fff',
       fontWeight: '700',
-      color: colors.primary,
+      fontSize: 13,
     },
     heroTitle: {
       fontSize: 26,
-      fontWeight: '700',
-      color: colors.text,
+      fontWeight: '800',
+      color: '#fff',
+      marginBottom: 4,
     },
     heroSubtitle: {
-      color: colors.muted,
-      marginTop: 6,
+      fontSize: 15,
+      color: 'rgba(255,255,255,0.9)',
+      fontWeight: '500',
     },
-    heroMeta: {
-      marginTop: 8,
+    section: {
+      paddingHorizontal: 20,
+      flex: 1,
+    },
+    sectionTitle: {
+      fontSize: 20,
       fontWeight: '700',
-      color: colors.accent,
+      color: colors.text,
+      marginBottom: 16,
     },
-    actions: {
+    primaryAction: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderRadius: 16,
+      padding: 18,
+      marginBottom: 16,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    actionIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 14,
+    },
+    actionIconText: {
+      fontSize: 24,
+    },
+    actionContent: {
+      flex: 1,
+    },
+    actionTitle: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: '#fff',
+      marginBottom: 2,
+    },
+    actionSubtitle: {
+      fontSize: 14,
+      color: 'rgba(255,255,255,0.85)',
+      fontWeight: '500',
+    },
+    actionArrow: {
+      fontSize: 24,
+      color: '#fff',
+      fontWeight: '700',
+    },
+    secondaryActions: {
+      flexDirection: 'row',
       gap: 12,
     },
-    card: {
-      borderWidth: 1,
-      borderColor: colors.primarySoft,
-      borderRadius: 14,
-      padding: 14,
+    secondaryAction: {
+      flex: 1,
       backgroundColor: colors.surface,
-    },
-    cardTitle: {
-      color: colors.text,
-      fontWeight: '700',
-      fontSize: 16,
-    },
-    cardSubtitle: {
-      color: colors.muted,
-      marginTop: 4,
-    },
-    button: {
-      backgroundColor: colors.primary,
-      borderRadius: 10,
-      paddingVertical: 12,
+      borderRadius: 16,
+      padding: 18,
       alignItems: 'center',
-      marginTop: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 3,
     },
-    buttonText: {
-      color: colors.onPrimary,
+    secondaryActionIcon: {
+      fontSize: 32,
+      marginBottom: 10,
+    },
+    secondaryActionTitle: {
+      fontSize: 15,
       fontWeight: '700',
+      color: colors.text,
+      marginBottom: 4,
+    },
+    secondaryActionSubtitle: {
+      fontSize: 12,
+      color: colors.muted,
+      textAlign: 'center',
+      fontWeight: '500',
+    },
+    logoutButton: {
+      marginHorizontal: 20,
+      marginVertical: 20,
+      paddingVertical: 16,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 1.5,
+      borderColor: colors.surfaceBorder,
+      alignItems: 'center',
+    },
+    logoutText: {
       fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
     },
   });
 }

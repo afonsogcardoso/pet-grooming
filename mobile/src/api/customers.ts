@@ -13,6 +13,7 @@ export type Customer = {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
+  nif?: string | null;
   pet_count?: number | null;
   pets?: Pet[] | null;
 };
