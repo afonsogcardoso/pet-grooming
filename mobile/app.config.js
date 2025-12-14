@@ -23,6 +23,7 @@ export default {
     infoPlist: {
       NSPhotoLibraryUsageDescription: 'Precisamos de acesso às fotos para anexar imagens do pet.',
       NSCameraUsageDescription: 'Precisamos de acesso à câmara para tirar fotos do pet.',
+      ITSAppUsesNonExemptEncryption: false
     },
   },
   android: {
@@ -39,5 +40,8 @@ export default {
   plugins: ['expo-secure-store'],
   extra: {
     apiBaseUrl: process.env.API_BASE_URL,
+    eas: {
+      projectId: 'a6b7307b-0759-4b16-a535-4a3b45619adf',
+    },
   },
 };
