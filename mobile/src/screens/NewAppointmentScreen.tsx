@@ -216,13 +216,18 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
   const mutation = useMutation({
     mutationFn: createAppointment,
-    onSuccess: async () => {
+    onSuccess: async (createdAppointment) => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] }).catch(() => null);
       if (sendWhatsapp && canSendWhatsapp) {
         await openWhatsapp();
       }
-      Alert.alert('Sucesso', 'Marcação criada.');
-      navigation.goBack();
+      // Navega para os detalhes da marcação criada
+      if (createdAppointment?.id) {
+        navigation.replace('AppointmentDetail', { id: createdAppointment.id });
+      } else {
+        Alert.alert('Sucesso', 'Marcação criada.');
+        navigation.goBack();
+      }
     },
     onError: (err: any) => {
       const message = err?.response?.data?.error || err.message || 'Erro ao criar marcação';

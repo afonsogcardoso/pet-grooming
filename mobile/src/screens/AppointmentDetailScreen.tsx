@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Linking, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Linking, Alert, Image, ActionSheetIOS, Platform } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getAppointment, updateAppointment } from '../api/appointments';
+import * as ImagePicker from 'expo-image-picker';
+import { getAppointment, updateAppointment, uploadAppointmentPhoto } from '../api/appointments';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 
 type Props = NativeStackScreenProps<any>;
@@ -50,6 +51,19 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     },
   });
 
+  const photoMutation = useMutation({
+    mutationFn: ({ type, file }: { type: 'before' | 'after'; file: { uri: string; name: string; type: string } }) =>
+      uploadAppointmentPhoto(appointmentId, type, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] }).catch(() => null);
+      Alert.alert('Sucesso', 'Foto enviada.');
+    },
+    onError: (err: any) => {
+      const message = err?.response?.data?.error || err.message || 'Erro ao enviar foto';
+      Alert.alert('Erro', message);
+    },
+  });
+
   const appointment = data;
   const displayStatus = status ?? appointment?.status ?? 'scheduled';
   const customer = appointment?.customers;
@@ -87,8 +101,85 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     mutation.mutate({ payment_status: next });
   };
 
-  const addPhoto = (type: 'before' | 'after') => {
-    Alert.alert('Em breve', `Upload de foto (${type}) requer endpoint de upload.`);
+  const pickImage = async (type: 'before' | 'after') => {
+    const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+    const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (cameraStatus !== 'granted' && libraryStatus !== 'granted') {
+      Alert.alert('Permissão necessária', 'Precisamos de permissão para aceder à câmara ou galeria.');
+      return;
+    }
+
+    const showOptions = () => {
+      if (Platform.OS === 'ios') {
+        ActionSheetIOS.showActionSheetWithOptions(
+          {
+            options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
+            cancelButtonIndex: 0,
+          },
+          async (buttonIndex) => {
+            if (buttonIndex === 1) {
+              await launchCamera(type);
+            } else if (buttonIndex === 2) {
+              await launchLibrary(type);
+            }
+          },
+        );
+      } else {
+        Alert.alert(
+          'Escolher foto',
+          'Como deseja adicionar a foto?',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Tirar foto', onPress: () => launchCamera(type) },
+            { text: 'Escolher da galeria', onPress: () => launchLibrary(type) },
+          ],
+        );
+      }
+    };
+
+    showOptions();
+  };
+
+  const launchCamera = async (type: 'before' | 'after') => {
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      await uploadPhoto(type, result.assets[0].uri);
+    }
+  };
+
+  const launchLibrary = async (type: 'before' | 'after') => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      await uploadPhoto(type, result.assets[0].uri);
+    }
+  };
+
+  const uploadPhoto = async (type: 'before' | 'after', uri: string) => {
+    const filename = uri.split('/').pop() || `${type}-${Date.now()}.jpg`;
+    const match = /\.(\w+)$/.exec(filename);
+    const fileType = match ? `image/${match[1]}` : 'image/jpeg';
+
+    photoMutation.mutate({
+      type,
+      file: {
+        uri,
+        name: filename,
+        type: fileType,
+      },
+    });
   };
 
   return (
@@ -147,16 +238,56 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                 {pet.photo_url ? (
                   <Image source={{ uri: pet.photo_url }} style={styles.petImage} />
                 ) : null}
-                <View style={styles.inlineActions}>
-                  <TouchableOpacity style={[styles.chip, { borderColor: colors.primary }]} onPress={() => addPhoto('before')}>
-                    <Text style={styles.chipText}>Foto antes</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Fotos do serviço</Text>
+              <View style={styles.photoRow}>
+                <View style={styles.photoContainer}>
+                  <Text style={styles.photoLabel}>Antes</Text>
+                  {appointment?.before_photo_url ? (
+                    <Image source={{ uri: appointment.before_photo_url }} style={styles.servicePhoto} />
+                  ) : (
+                    <View style={[styles.photoPlaceholder, { borderColor: colors.surfaceBorder }]}>
+                      <Text style={styles.placeholderText}>Sem foto</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={[styles.photoButton, { borderColor: colors.primary }]}
+                    onPress={() => pickImage('before')}
+                    disabled={photoMutation.isPending}
+                  >
+                    <Text style={[styles.photoButtonText, { color: colors.primary }]}>
+                      {appointment?.before_photo_url ? 'Alterar' : 'Adicionar'}
+                    </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.chip, { borderColor: colors.primary }]} onPress={() => addPhoto('after')}>
-                    <Text style={styles.chipText}>Foto depois</Text>
+                </View>
+
+                <View style={styles.photoContainer}>
+                  <Text style={styles.photoLabel}>Depois</Text>
+                  {appointment?.after_photo_url ? (
+                    <Image source={{ uri: appointment.after_photo_url }} style={styles.servicePhoto} />
+                  ) : (
+                    <View style={[styles.photoPlaceholder, { borderColor: colors.surfaceBorder }]}>
+                      <Text style={styles.placeholderText}>Sem foto</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={[styles.photoButton, { borderColor: colors.primary }]}
+                    onPress={() => pickImage('after')}
+                    disabled={photoMutation.isPending}
+                  >
+                    <Text style={[styles.photoButtonText, { color: colors.primary }]}>
+                      {appointment?.after_photo_url ? 'Alterar' : 'Adicionar'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
-            ) : null}
+              {photoMutation.isPending ? (
+                <ActivityIndicator color={colors.primary} style={{ marginTop: 12 }} />
+              ) : null}
+            </View>
 
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Estado da marcação</Text>
@@ -286,6 +417,53 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       height: 160,
       borderRadius: 12,
       marginTop: 8,
+    },
+    photoRow: {
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 8,
+    },
+    photoContainer: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    photoLabel: {
+      color: colors.text,
+      fontWeight: '700',
+      marginBottom: 8,
+      fontSize: 14,
+    },
+    servicePhoto: {
+      width: '100%',
+      height: 140,
+      borderRadius: 12,
+      marginBottom: 8,
+    },
+    photoPlaceholder: {
+      width: '100%',
+      height: 140,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderStyle: 'dashed',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 8,
+      backgroundColor: colors.background,
+    },
+    placeholderText: {
+      color: colors.muted,
+      fontSize: 12,
+    },
+    photoButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      backgroundColor: colors.surface,
+    },
+    photoButtonText: {
+      fontWeight: '600',
+      fontSize: 13,
     },
   });
 }

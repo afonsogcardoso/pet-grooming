@@ -9,6 +9,8 @@ export type Appointment = {
   payment_status?: string | null;
   status?: string | null;
   amount?: number | null;
+  before_photo_url?: string | null;
+  after_photo_url?: string | null;
   customers?: {
     id: string;
     name?: string | null;
@@ -108,4 +110,29 @@ export async function updateAppointment(
 ): Promise<Appointment> {
   const { data } = await api.patch<{ data: Appointment[] }>(`/appointments/${id}`, payload);
   return data.data?.[0] || (data as any).data || ({} as Appointment);
+}
+
+export async function uploadAppointmentPhoto(
+  appointmentId: string,
+  type: 'before' | 'after',
+  file: { uri: string; name: string; type: string },
+): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append('file', {
+    uri: file.uri,
+    name: file.name,
+    type: file.type,
+  } as any);
+  formData.append('type', type);
+
+  const { data } = await api.post<{ url: string }>(
+    `/appointments/${appointmentId}/photos`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    },
+  );
+  return data;
 }

@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import multer from 'multer'
+import crypto from 'crypto'
 import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../authClient.js'
 
 const router = Router()
@@ -403,6 +404,69 @@ router.post('/pet-photo', upload.single('file'), async (req, res) => {
   }
 
   return res.json({ ok: true, url: publicUrl })
+})
+
+// Upload before/after photos for appointment
+router.post('/:id/photos', upload.single('file'), async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase || !accountId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { id } = req.params
+  const { type } = req.body // 'before' or 'after'
+  const file = req.file
+
+  if (!file || !type || !['before', 'after'].includes(type)) {
+    return res.status(400).json({ error: 'Missing file or invalid type' })
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    return res.status(400).json({ error: 'File too large (max 5MB)' })
+  }
+
+  // Verify appointment belongs to account
+  const { data: appointment } = await supabase
+    .from('appointments')
+    .select('id, pet_id, account_id')
+    .eq('id', id)
+    .eq('account_id', accountId)
+    .maybeSingle()
+
+  if (!appointment) {
+    return res.status(404).json({ error: 'Appointment not found' })
+  }
+
+  const ext = (file.originalname?.split('.').pop() || 'jpg').toLowerCase()
+  const safeExt = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) ? ext : 'jpg'
+  const uniqueId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`
+  const path = `appointments/${id}/${type}-${uniqueId}.${safeExt}`
+
+  const { error: uploadError } = await supabase.storage
+    .from(PET_PHOTO_BUCKET)
+    .upload(path, file.buffer, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.mimetype || 'image/jpeg'
+    })
+
+  if (uploadError) {
+    console.error('[api] appointment photo upload error', uploadError)
+    return res.status(500).json({ error: 'Upload failed' })
+  }
+
+  const { data: publicUrlData } = supabase.storage.from(PET_PHOTO_BUCKET).getPublicUrl(path)
+  const publicUrl = publicUrlData?.publicUrl || null
+
+  if (publicUrl) {
+    const column = type === 'before' ? 'before_photo_url' : 'after_photo_url'
+    await supabase
+      .from('appointments')
+      .update({ [column]: publicUrl })
+      .eq('id', id)
+      .eq('account_id', accountId)
+  }
+
+  return res.json({ url: publicUrl })
 })
 
 export default router
