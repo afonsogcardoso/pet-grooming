@@ -74,7 +74,6 @@ router.get('/', async (req, res) => {
       appointment_time,
       duration,
       notes,
-      amount,
       payment_status,
       status,
       customers ( id, name, phone, address ),
@@ -148,7 +147,6 @@ router.get('/:id', async (req, res) => {
       appointment_time,
       duration,
       notes,
-      amount,
       payment_status,
       status,
       customers ( id, name, phone, address ),
@@ -220,7 +218,6 @@ router.patch('/:id', async (req, res) => {
     'customer_id',
     'pet_id',
     'service_id',
-    'amount',
   ]
 
   const updates = {}
