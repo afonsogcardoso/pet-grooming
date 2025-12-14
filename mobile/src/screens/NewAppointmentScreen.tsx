@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,15 @@ import {
   Modal,
   Linking,
   Switch,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRoute } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import { createAppointment } from '../api/appointments';
 import type { Customer } from '../api/customers';
 import { createCustomer, createPet, getCustomers, updateCustomer } from '../api/customers';
@@ -60,7 +63,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const [selectedPet, setSelectedPet] = useState('');
   const [selectedService, setSelectedService] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
-  const [mode, setMode] = useState<'existing' | 'new'>('existing');
+  const [mode, setMode] = useState<'existing' | 'new'>('new');
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
   const [newCustomerEmail, setNewCustomerEmail] = useState('');
@@ -77,8 +80,16 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerNif, setCustomerNif] = useState('');
+  const placesKey = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || process.env.GOOGLE_PLACES_KEY;
+  const scrollViewRef = useRef<ScrollView>(null);
+  const addressFieldRef = useRef<View>(null);
 
   const queryClient = useQueryClient();
+
+  // Debug: verificar se a chave está carregada
+  useEffect(() => {
+    console.log('Google Places Key:', placesKey ? 'Configurada ✓' : 'NÃO CONFIGURADA ✗');
+  }, []);
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -99,6 +110,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const background = colors.background;
   const surface = colors.surface;
   const pickerTheme = isHexLight(colors.background) ? 'light' : 'dark';
+  const addressPlaceholder = 'Comece a digitar uma morada';
 
   const selectedCustomerData = useMemo(
     () => customers.find((c) => c.id === selectedCustomer),
@@ -355,6 +367,141 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     return [intro, '', ...lines].join('\n');
   };
 
+
+
+  const AddressAutocomplete = ({
+    value,
+    onSelect,
+    placeholder,
+  }: {
+    value: string;
+    onSelect: (val: string) => void;
+    placeholder: string;
+  }) => {
+    const autocompleteRef = useRef<any>(null);
+
+    // Atualiza o texto quando o valor externo muda
+    useEffect(() => {
+      if (autocompleteRef.current && value) {
+        autocompleteRef.current.setAddressText(value);
+      }
+    }, [value]);
+
+    if (!placesKey) {
+      return (
+        <TextInput
+          value={value}
+          onChangeText={onSelect}
+          placeholder={placeholder}
+          placeholderTextColor={colors.muted}
+          style={[styles.input, { borderColor: colors.surfaceBorder }]}
+        />
+      );
+    }
+
+    return (
+      <View ref={addressFieldRef} style={{ zIndex: 1000, marginBottom: 8 }}>
+        <GooglePlacesAutocomplete
+          ref={autocompleteRef}
+          placeholder={placeholder}
+          fetchDetails={true}
+          enablePoweredByContainer={false}
+          minLength={2}
+          listViewDisplayed="auto"
+          debounce={300}
+          disableScroll={true}
+          renderRow={(data) => (
+            <View style={{ padding: 12 }}>
+              <Text style={{ color: colors.text, fontSize: 13 }}>
+                {data.description}
+              </Text>
+            </View>
+          )}
+          flatListProps={{
+            scrollEnabled: false,
+            nestedScrollEnabled: true,
+          }}
+          textInputProps={{
+            placeholderTextColor: colors.muted,
+            autoCorrect: false,
+            returnKeyType: 'done',
+          }}
+          query={{
+            key: placesKey,
+            language: 'pt',
+            components: 'country:pt',
+          }}
+          onPress={(data, details = null) => {
+            const address = details?.formatted_address || data.description || '';
+            onSelect(address);
+            // Atualiza o texto no input após seleção
+            if (autocompleteRef.current) {
+              autocompleteRef.current.setAddressText(address);
+            }
+          }}
+          onFail={(error) => console.log('Places error:', error)}
+          onNotFound={() => console.log('No results')}
+          styles={{
+            container: {
+              flex: 0,
+              width: '100%',
+            },
+            textInputContainer: {
+              paddingHorizontal: 0,
+              backgroundColor: 'transparent',
+            },
+            textInput: {
+              backgroundColor: colors.surface,
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              borderWidth: 1,
+              borderColor: colors.surfaceBorder,
+              color: colors.text,
+              fontWeight: '600',
+              fontSize: 14,
+              height: 44,
+            },
+            listView: {
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.primarySoft,
+              borderRadius: 12,
+              marginTop: 6,
+              maxHeight: 200,
+              elevation: 5,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 3.84,
+            },
+            row: {
+              padding: 12,
+              minHeight: 44,
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              borderBottomColor: colors.surfaceBorder,
+              backgroundColor: colors.surface,
+            },
+            description: {
+              color: colors.text,
+              fontSize: 13,
+            },
+            separator: {
+              height: StyleSheet.hairlineWidth,
+              backgroundColor: colors.surfaceBorder,
+            },
+            poweredContainer: {
+              display: 'none',
+            },
+            powered: {
+              display: 'none',
+            },
+          }}
+        />
+      </View>
+    );
+  };
+
   const openWhatsapp = async () => {
     if (!canSendWhatsapp) {
       Alert.alert('WhatsApp', 'Cliente sem número válido.');
@@ -395,10 +542,19 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     <SafeAreaView style={[styles.container, { backgroundColor: background }]} edges={['top', 'left', 'right']}>
       <Text style={styles.title}>Nova Marcação</Text>
       <Text style={styles.subtitle}>Preenche os mesmos campos da página web.</Text>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
+        <ScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets={true}
+        >
         <View style={[styles.card, { borderColor: primarySoft, backgroundColor: surface }]}>
           <View style={styles.row}>
             <View style={[styles.field, { flex: 1 }]}>
@@ -530,36 +686,34 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                     (loadingCustomers ? 'A carregar clientes...' : 'Escolhe um cliente')}
                 </Text>
               </TouchableOpacity>
-              {selectedCustomerData ? (
-                <View style={[styles.customerCard, { borderColor: primarySoft }]}>
-                  <Text style={styles.customerDetailLabel}>Telefone</Text>
-                  <TextInput
-                    value={customerPhone}
-                    onChangeText={setCustomerPhone}
-                    placeholder="Telefone"
-                    placeholderTextColor={colors.muted}
-                    style={[styles.input, styles.inlineInput]}
-                    keyboardType="phone-pad"
-                  />
-                  <Text style={styles.customerDetailLabel}>Morada</Text>
-                  <TextInput
-                    value={customerAddress}
-                    onChangeText={setCustomerAddress}
-                    placeholder="Morada"
-                    placeholderTextColor={colors.muted}
-                    style={[styles.input, styles.inlineInput]}
-                  />
-                  <Text style={styles.customerDetailLabel}>NIF</Text>
-                  <TextInput
-                    value={customerNif}
-                    onChangeText={setCustomerNif}
-                    placeholder="NIF"
-                    placeholderTextColor={colors.muted}
-                    style={[styles.input, styles.inlineInput]}
-                    keyboardType="number-pad"
-                  />
-                </View>
-              ) : null}
+            {selectedCustomerData ? (
+              <View style={[styles.customerCard, { borderColor: primarySoft }]}>
+                <Text style={styles.customerDetailLabel}>Telefone</Text>
+                <TextInput
+                  value={customerPhone}
+                  onChangeText={setCustomerPhone}
+                  placeholder="Telefone"
+                  placeholderTextColor={colors.muted}
+                  style={[styles.input, styles.inlineInput]}
+                  keyboardType="phone-pad"
+                />
+                <Text style={styles.customerDetailLabel}>Morada</Text>
+                <AddressAutocomplete
+                  value={customerAddress}
+                  onSelect={setCustomerAddress}
+                  placeholder={addressPlaceholder}
+                />
+                <Text style={styles.customerDetailLabel}>NIF</Text>
+                <TextInput
+                  value={customerNif}
+                  onChangeText={setCustomerNif}
+                  placeholder="NIF"
+                  placeholderTextColor={colors.muted}
+                  style={[styles.input, styles.inlineInput]}
+                  keyboardType="number-pad"
+                />
+              </View>
+            ) : null}
             </View>
             {showCustomerList ? (
               <View style={[styles.dropdown, { borderColor: primarySoft }]}>
@@ -676,12 +830,10 @@ export default function NewAppointmentScreen({ navigation }: Props) {
             </View>
             <View style={styles.field}>
               <Text style={styles.label}>Morada</Text>
-              <TextInput
+              <AddressAutocomplete
                 value={newCustomerAddress}
-                onChangeText={setNewCustomerAddress}
-                placeholder="Morada"
-                placeholderTextColor={colors.muted}
-                style={[styles.input, { borderColor: colors.surfaceBorder }]}
+                onSelect={setNewCustomerAddress}
+                placeholder={addressPlaceholder}
               />
             </View>
             <View style={styles.field}>
@@ -766,7 +918,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           <Text style={styles.secondaryText}>Cancelar</Text>
         </TouchableOpacity>
       </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
       {showDatePicker || showTimePicker ? (
         <Modal
           visible
@@ -841,7 +994,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       backgroundColor: colors.surface,
     },
     scrollContent: {
-      paddingBottom: 32,
+      paddingBottom: 400,
     },
     row: {
       flexDirection: 'row',

@@ -78,6 +78,27 @@ router.get('/:id/pets', async (req, res) => {
   res.json({ data: data || [] })
 })
 
+router.post('/:id/pets', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+  if (!accountId) return res.status(400).json({ error: 'accountId is required' })
+
+  const { id } = req.params
+  const payload = sanitizeBody(req.body || {})
+  payload.customer_id = id
+  payload.account_id = accountId
+
+  const { data, error } = await supabase.from('pets').insert([payload]).select()
+
+  if (error) {
+    console.error('[api] create pet error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.status(201).json({ data })
+})
+
 router.patch('/:id', async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)

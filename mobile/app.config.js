@@ -40,6 +40,7 @@ export default {
   plugins: ['expo-secure-store'],
   extra: {
     apiBaseUrl: process.env.API_BASE_URL,
+    googlePlacesKey: process.env.GOOGLE_PLACES_KEY,
     eas: {
       projectId: 'a6b7307b-0759-4b16-a535-4a3b45619adf',
     },
