@@ -5,6 +5,7 @@ export type Appointment = {
   appointment_date?: string | null;
   appointment_time?: string | null;
   duration?: number | null;
+  notes?: string | null;
   payment_status?: string | null;
   status?: string | null;
   customers?: {
@@ -35,7 +36,13 @@ type AppointmentsResponse = {
 
 export type CreateAppointmentPayload = {
   appointment_date: string;
-  appointment_time?: string | null;
+  appointment_time: string;
+  customer_id: string;
+  pet_id: string;
+  service_id: string;
+  duration?: number | null;
+  notes?: string | null;
+  payment_status?: string | null;
   status?: string | null;
 };
 
@@ -79,6 +86,12 @@ export async function getAppointments(params?: {
 }
 
 export async function createAppointment(payload: CreateAppointmentPayload): Promise<Appointment> {
-  const { data } = await api.post<CreateAppointmentResponse>('/appointments', payload);
+  const body = {
+    payment_status: 'unpaid',
+    ...payload,
+    duration: payload.duration ?? null,
+    notes: payload.notes ?? null,
+  };
+  const { data } = await api.post<CreateAppointmentResponse>('/appointments', body);
   return data.data?.[0] || payload;
 }
