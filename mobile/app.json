@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "pet-grooming-mobile",
+    "name": "Pet Grooming",
     "slug": "pet-grooming-mobile",
-    "version": "1.0.0",
+    "version": "0.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,7 +13,13 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "com.petgrooming.app",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Precisamos de acesso às fotos para anexar imagens do pet.",
+        "NSCameraUsageDescription": "Precisamos de acesso à câmara para tirar fotos do pet."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -28,6 +34,9 @@
     },
     "plugins": [
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "apiBaseUrl": "${API_BASE_URL}"
+    }
   }
 }
