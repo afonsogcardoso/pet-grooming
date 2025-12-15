@@ -99,6 +99,27 @@ router.post('/:id/pets', async (req, res) => {
   res.status(201).json({ data })
 })
 
+router.delete('/:customerId/pets/:petId', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+  const { customerId, petId } = req.params
+
+  let query = supabase.from('pets').delete().eq('id', petId).eq('customer_id', customerId)
+  if (accountId) {
+    query = query.eq('account_id', accountId)
+  }
+
+  const { error } = await query
+
+  if (error) {
+    console.error('[api] delete pet error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.status(204).send()
+})
+
 router.patch('/:id', async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)

@@ -279,6 +279,27 @@ router.patch('/:id', async (req, res) => {
   res.json({ data })
 })
 
+router.delete('/:id', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+  const { id } = req.params
+
+  let query = supabase.from('appointments').delete().eq('id', id)
+  if (accountId) {
+    query = query.eq('account_id', accountId)
+  }
+
+  const { error } = await query
+
+  if (error) {
+    console.error('[api] delete appointment error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.status(204).send()
+})
+
 // Public: mark confirmation opened
 router.post('/confirm-open', async (req, res) => {
   const { id, token } = req.body || {}
