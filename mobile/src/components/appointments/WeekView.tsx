@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Alert, Pressable } from 'react-native';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import type { Appointment } from '../../api/appointments';
+import { getStatusColor } from '../../utils/appointmentStatus';
 
 type WeekViewProps = {
   appointments: Appointment[];
@@ -115,15 +116,6 @@ export function WeekView({
     }
 
     onNewAppointment(dayStr, timeStr);
-  };
-
-  const getStatusColor = (status?: string | null) => {
-    switch (status) {
-      case 'completed': return colors.success;
-      case 'cancelled': return '#f87171';
-      case 'scheduled': return colors.primary;
-      default: return colors.warning;
-    }
   };
 
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);

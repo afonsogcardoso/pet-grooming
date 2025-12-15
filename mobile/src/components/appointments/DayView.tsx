@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Pressable } from 'react-native';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import type { Appointment } from '../../api/appointments';
+import { getStatusColor } from '../../utils/appointmentStatus';
 
 type DayViewProps = {
   appointments: Appointment[];
@@ -292,7 +293,7 @@ export function DayView({
                     {
                       top: topPosition,
                       height: Math.max(height, 32),
-                      borderLeftColor: colors.primary,
+                      borderLeftColor: getStatusColor(appointment.status),
                     },
                   ]}
                   onPress={() => onAppointmentPress(appointment)}

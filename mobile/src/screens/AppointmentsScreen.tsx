@@ -16,6 +16,7 @@ import { ListView } from '../components/appointments/ListView';
 import { DayView } from '../components/appointments/DayView';
 import { WeekView } from '../components/appointments/WeekView';
 import { MonthView } from '../components/appointments/MonthView';
+import { ScreenHeader } from '../components/ScreenHeader';
 
 type Props = NativeStackScreenProps<any>;
 type ViewMode = 'list' | 'day' | 'week' | 'month';
@@ -115,17 +116,19 @@ export default function AppointmentsScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Agendamentos</Text>
-          <Text style={styles.subtitle}>Múltiplas visões para melhor organização</Text>
-        </View>
-        <TouchableOpacity 
-          style={[styles.primaryButton, { backgroundColor: primary }]} 
-          onPress={() => handleNewAppointment()}
-        >
-          <Text style={styles.primaryButtonText}>Nova</Text>
-        </TouchableOpacity>
+      <ScreenHeader 
+        title="Marcações"
+        rightElement={
+          <TouchableOpacity 
+            onPress={() => handleNewAppointment()}
+            style={[styles.actionButton, { backgroundColor: colors.primary }]}
+          >
+            <Text style={{ fontSize: 20, color: colors.onPrimary }}>➕</Text>
+          </TouchableOpacity>
+        }
+      />
+      <View style={styles.headerInfo}>
+        <Text style={styles.subtitle}>Múltiplas visões para melhor organização</Text>
       </View>
 
       {/* View Mode Selector */}
@@ -236,15 +239,6 @@ export default function AppointmentsScreen({ navigation }: Props) {
           )}
         </>
       )}
-
-      <View style={{ paddingBottom: 8, paddingTop: 12 }}>
-        <TouchableOpacity 
-          style={[styles.secondaryButton, { borderColor: primary }]} 
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.secondaryButtonText}>Voltar</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -254,48 +248,28 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     container: {
       flex: 1,
       backgroundColor: colors.background,
-      paddingHorizontal: 16,
-      paddingTop: 16,
-      paddingBottom: 24,
     },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
+    actionButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       alignItems: 'center',
-      marginBottom: 16,
-      gap: 8,
+      justifyContent: 'center',
     },
-    title: {
-      color: colors.text,
-      fontSize: 24,
-      fontWeight: '700',
+    headerInfo: {
+      paddingHorizontal: 16,
+      paddingTop: 8,
+      paddingBottom: 8,
     },
     subtitle: {
       color: colors.muted,
-      marginTop: 4,
       fontSize: 13,
-    },
-    primaryButton: {
-      backgroundColor: colors.primary,
-      borderRadius: 12,
-      paddingVertical: 10,
-      paddingHorizontal: 16,
-      alignItems: 'center',
-      shadowColor: colors.primary,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.2,
-      shadowRadius: 8,
-      elevation: 4,
-    },
-    primaryButtonText: {
-      color: colors.onPrimary,
-      fontWeight: '700',
-      fontSize: 15,
     },
     segment: {
       flexDirection: 'row',
       gap: 8,
       marginBottom: 12,
+      paddingHorizontal: 16,
     },
     segmentButton: {
       flex: 1,

@@ -137,3 +137,7 @@ export async function uploadAppointmentPhoto(
   );
   return data;
 }
+
+export async function deleteAppointment(id: string): Promise<void> {
+  await api.delete(`/appointments/${id}`);
+}

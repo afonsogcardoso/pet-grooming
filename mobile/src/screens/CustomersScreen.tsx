@@ -1,26 +1,109 @@
 import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { useAuthStore } from '../state/authStore';
-import { getCustomers, getPetsByCustomer, createCustomer, createPet, type Customer, type Pet } from '../api/customers';
+import { getCustomers, type Customer } from '../api/customers';
+import { ScreenHeader } from '../components/ScreenHeader';
+import { Input } from '../components/common/Input';
+import { Button } from '../components/common/Button';
+import { EmptyState } from '../components/common/EmptyState';
+import { CustomerCard } from '../components/customers/CustomerCard';
 
 type Props = NativeStackScreenProps<any>;
 
 export default function CustomersScreen({ navigation }: Props) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const { data: customers = [], isLoading } = useQuery({
+    queryKey: ['customers'],
+    queryFn: getCustomers,
+  });
+
+  const filteredCustomers = useMemo(() => {
+    if (!searchQuery.trim()) return customers;
+    const query = searchQuery.toLowerCase();
+    return customers.filter(
+      (c) =>
+        c.name?.toLowerCase().includes(query) ||
+        c.phone?.toLowerCase().includes(query) ||
+        c.email?.toLowerCase().includes(query)
+    );
+  }, [customers, searchQuery]);
+
+  const handleAddCustomer = () => {
+    navigation.navigate('CustomerForm', { mode: 'create' });
+  };
+
+  const handleCustomerPress = (customer: Customer) => {
+    navigation.navigate('CustomerDetail', { customerId: customer.id });
+  };
 
   return (
-    <SafeAreaView style={[styles.container]} edges={['top', 'left', 'right']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Clientes</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.back}>← Voltar</Text></TouchableOpacity>
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.placeholder}>Em desenvolvimento</Text>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <ScreenHeader
+        title="Clientes"
+        showBack={true}
+        rightElement={
+          <Button
+            title="Adicionar"
+            onPress={handleAddCustomer}
+            variant="primary"
+            size="small"
+            icon="+"
+          />
+        }
+      />
+
+      <View style={styles.content}>
+        {/* Search Bar */}
+        <View style={styles.searchSection}>
+          <Input
+            placeholder="Buscar por nome, telefone ou email..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            leftIcon="🔍"
+          />
+        </View>
+
+        {/* Customer List */}
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : filteredCustomers.length === 0 ? (
+          <EmptyState
+            icon={searchQuery ? "🔍" : "👥"}
+            title={searchQuery ? "Nenhum resultado" : "Nenhum cliente"}
+            description={
+              searchQuery
+                ? "Não encontramos clientes com esse critério"
+                : "Adicione seu primeiro cliente para começar"
+            }
+            actionLabel={!searchQuery ? "Adicionar Cliente" : undefined}
+            onAction={!searchQuery ? handleAddCustomer : undefined}
+          />
+        ) : (
+          <>
+            <View style={styles.statsBar}>
+              <Text style={styles.statsText}>
+                {filteredCustomers.length} {filteredCustomers.length === 1 ? 'cliente' : 'clientes'}
+              </Text>
+            </View>
+            <FlatList
+              data={filteredCustomers}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <CustomerCard customer={item} onPress={() => handleCustomerPress(item)} />
+              )}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+            />
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -32,42 +115,29 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       flex: 1,
       backgroundColor: colors.background,
     },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+    content: {
+      flex: 1,
       paddingHorizontal: 20,
-      paddingVertical: 16,
     },
-    title: {
-      fontSize: 22,
-      fontWeight: '800',
-      color: colors.text,
+    searchSection: {
+      paddingTop: 16,
+      paddingBottom: 8,
     },
-    back: {
-      fontSize: 16,
-      color: colors.muted,
+    statsBar: {
+      paddingVertical: 12,
+    },
+    statsText: {
+      fontSize: 14,
       fontWeight: '600',
+      color: colors.muted,
     },
-    section: {
-      paddingHorizontal: 20,
+    loadingContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    listContent: {
       paddingBottom: 20,
-    },
-    sectionTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: colors.text,
-      marginBottom: 10,
-    },
-    sectionSubtitle: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: colors.text,
-      marginTop: 10,
-      marginBottom: 6,
-    },
-    placeholder: {
-      fontSize: 18,
       fontWeight: '700',
       color: colors.muted,
       textAlign: 'center',

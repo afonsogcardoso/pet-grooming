@@ -3,10 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Image, TextInput, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import * as ImagePicker from 'expo-image-picker';
 import { getProfile, updateProfile, uploadAvatar } from '../api/profile';
 import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
+import { ScreenHeader } from '../components/ScreenHeader';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -60,34 +60,41 @@ export default function ProfileScreen({ navigation }: Props) {
   });
 
   const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Permissão necessária', 'Precisamos de acesso às fotos para atualizar a imagem de perfil');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      const formData = new FormData();
-      formData.append('file', {
-        uri: asset.uri,
-        type: asset.mimeType || 'image/jpeg',
-        name: asset.fileName || 'avatar.jpg',
-      } as any);
-
-      try {
-        const { url } = await uploadAvatar(formData);
-        await updateMutation.mutateAsync({ avatarUrl: url });
-      } catch {
-        Alert.alert('Erro', 'Não foi possível fazer upload da imagem');
+    try {
+      // Lazy load expo-image-picker
+      const ImagePicker = await import('expo-image-picker');
+      
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permissão necessária', 'Precisamos de acesso às fotos para atualizar a imagem de perfil');
+        return;
       }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const formData = new FormData();
+        formData.append('file', {
+          uri: asset.uri,
+          type: asset.mimeType || 'image/jpeg',
+          name: asset.fileName || 'avatar.jpg',
+        } as any);
+
+        try {
+          const { url } = await uploadAvatar(formData);
+          await updateMutation.mutateAsync({ avatarUrl: url });
+        } catch {
+          Alert.alert('Erro', 'Não foi possível fazer upload da imagem');
+        }
+      }
+    } catch (error) {
+      Alert.alert('Erro', 'Módulo de imagem não disponível');
     }
   };
 
@@ -108,6 +115,7 @@ export default function ProfileScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <ScreenHeader title="Perfil" />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerCard}>
           <TouchableOpacity style={styles.avatar} onPress={pickImage} disabled={updateMutation.isPending}>
@@ -189,9 +197,6 @@ export default function ProfileScreen({ navigation }: Props) {
               </TouchableOpacity>
               <TouchableOpacity style={[styles.button, styles.secondary]} onPress={() => refetch()}>
                 <Text style={styles.buttonTextSecondary}>Recarregar perfil</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, styles.secondary]} onPress={() => navigation.goBack()}>
-                <Text style={styles.buttonTextSecondary}>Voltar</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.button, styles.danger]} onPress={async () => {
                 await useAuthStore.getState().clear();

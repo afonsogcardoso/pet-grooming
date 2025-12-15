@@ -27,6 +27,7 @@ import { NewCustomerForm } from '../components/appointment/NewCustomerForm';
 import { ExistingCustomerForm } from '../components/appointment/ExistingCustomerForm';
 import { ServiceSelector } from '../components/appointment/ServiceSelector';
 import { DateTimePickerModal } from '../components/appointment/DateTimePickerModal';
+import { ScreenHeader } from '../components/ScreenHeader';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -485,13 +486,11 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: background }]} edges={['top', 'left', 'right']}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>{isEditMode ? '✏️ Editar Marcação' : '✨ Nova Marcação'}</Text>
-          <Text style={styles.subtitle}>
-            {isEditMode ? 'Atualiza os dados da marcação' : 'Cria rapidamente uma nova marcação'}
-          </Text>
-        </View>
+      <ScreenHeader title={isEditMode ? 'Editar Marcação' : 'Nova Marcação'} />
+      <View style={styles.headerInfo}>
+        <Text style={styles.subtitle}>
+          {isEditMode ? 'Atualiza os dados da marcação' : 'Cria rapidamente uma nova marcação'}
+        </Text>
       </View>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -736,21 +735,14 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       flex: 1,
       backgroundColor: colors.background,
     },
-    header: {
+    headerInfo: {
       paddingHorizontal: 20,
-      paddingTop: 12,
-      paddingBottom: 16,
-    },
-    title: {
-      fontSize: 28,
-      fontWeight: '800',
-      color: colors.text,
-      marginBottom: 4,
+      paddingTop: 8,
+      paddingBottom: 8,
     },
     subtitle: {
-      fontSize: 15,
+      fontSize: 14,
       color: colors.muted,
-      fontWeight: '500',
     },
     keyboardAvoid: {
       flex: 1,
@@ -760,7 +752,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       paddingTop: 4,
     },
     scrollContent: {
-      paddingBottom: 400,
+      paddingBottom: 40,
     },
     sectionCard: {
       backgroundColor: colors.surface,

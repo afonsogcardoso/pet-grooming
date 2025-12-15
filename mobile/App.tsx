@@ -11,6 +11,10 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import AppointmentsScreen from './src/screens/AppointmentsScreen';
 import NewAppointmentScreen from './src/screens/NewAppointmentScreen';
 import AppointmentDetailScreen from './src/screens/AppointmentDetailScreen';
+import CustomersScreen from './src/screens/CustomersScreen';
+import CustomerDetailScreen from './src/screens/CustomerDetailScreen';
+import CustomerFormScreen from './src/screens/CustomerFormScreen';
+import PetFormScreen from './src/screens/PetFormScreen';
 import { useAuthStore } from './src/state/authStore';
 
 const Stack = createNativeStackNavigator();
@@ -48,9 +52,12 @@ export default function App() {
                 <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="Appointments" component={AppointmentsScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="Customers" component={require('./src/screens/CustomersScreen').default} options={{ headerShown: false }} />
                 <Stack.Screen name="NewAppointment" component={NewAppointmentScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="Customers" component={CustomersScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="CustomerDetail" component={CustomerDetailScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="CustomerForm" component={CustomerFormScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="PetForm" component={PetFormScreen} options={{ headerShown: false }} />
               </>
             ) : (
               <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />

@@ -27,6 +27,7 @@ export default {
     },
   },
   android: {
+    package: 'com.petgrooming.app',
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',

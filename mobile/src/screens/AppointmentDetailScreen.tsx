@@ -3,9 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import * as ImagePicker from 'expo-image-picker';
-import { getAppointment, updateAppointment, uploadAppointmentPhoto } from '../api/appointments';
+import { getAppointment, updateAppointment, uploadAppointmentPhoto, deleteAppointment } from '../api/appointments';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
+import { ScreenHeader } from '../components/ScreenHeader';
+import { getStatusColor, getStatusLabel } from '../utils/appointmentStatus';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -43,7 +44,6 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       if (updated) {
         queryClient.setQueryData(['appointment', appointmentId], updated);
       }
-      Alert.alert('Sucesso', 'Marcação atualizada.');
     },
     onError: (err: any) => {
       const message = err?.response?.data?.error || err.message || 'Erro ao atualizar marcação';
@@ -81,13 +81,6 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const pet = appointment?.pets;
   const paymentStatus = appointment?.payment_status || 'unpaid';
 
-  const statusLabels: Record<string, string> = {
-    scheduled: 'Agendado',
-    pending: 'Em progresso',
-    completed: 'Concluído',
-    cancelled: 'Cancelado',
-  };
-
   const openMaps = () => {
     const address = customer?.address;
     if (!address) return;
@@ -115,14 +108,43 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     navigation.navigate('NewAppointment', { editId: appointmentId });
   };
 
-  const pickImage = async (type: 'before' | 'after') => {
-    const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
-    const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  const handleDelete = () => {
+    Alert.alert(
+      'Apagar Marcação',
+      'Esta ação é irreversível. Tem a certeza que deseja apagar esta marcação?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Apagar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAppointment(appointmentId);
+              queryClient.invalidateQueries({ queryKey: ['appointments'] }).catch(() => null);
+              Alert.alert('Sucesso', 'Marcação apagada.', [
+                { text: 'OK', onPress: () => navigation.goBack() },
+              ]);
+            } catch (error) {
+              Alert.alert('Erro', 'Não foi possível apagar a marcação.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
-    if (cameraStatus !== 'granted' && libraryStatus !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos de permissão para aceder à câmara ou galeria.');
-      return;
-    }
+  const pickImage = async (type: 'before' | 'after') => {
+    try {
+      // Lazy load expo-image-picker
+      const ImagePicker = await import('expo-image-picker');
+      
+      const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+      const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (cameraStatus !== 'granted' && libraryStatus !== 'granted') {
+        Alert.alert('Permissão necessária', 'Precisamos de permissão para aceder à câmara ou galeria.');
+        return;
+      }
 
     const showOptions = () => {
       if (Platform.OS === 'ios') {
@@ -152,32 +174,45 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       }
     };
 
-    showOptions();
+      showOptions();
+    } catch (error) {
+      Alert.alert('Erro', 'Módulo de imagem não disponível');
+    }
   };
 
   const launchCamera = async (type: 'before' | 'after') => {
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
+    try {
+      const ImagePicker = await import('expo-image-picker');
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      await uploadPhoto(type, result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        await uploadPhoto(type, result.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível abrir a câmara');
     }
   };
 
   const launchLibrary = async (type: 'before' | 'after') => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
+    try {
+      const ImagePicker = await import('expo-image-picker');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      await uploadPhoto(type, result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        await uploadPhoto(type, result.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível abrir a galeria');
     }
   };
 
@@ -198,6 +233,17 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <ScreenHeader 
+        title="Detalhes" 
+        rightElement={
+          <TouchableOpacity 
+            onPress={handleEditAppointment}
+            style={[styles.actionButton, { backgroundColor: colors.surface }]}
+          >
+            <Text style={{ fontSize: 18 }}>✏️</Text>
+          </TouchableOpacity>
+        }
+      />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {isLoading && !isRefetching ? (
           <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} size="large" />
@@ -213,9 +259,9 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
             {/* Hero Card - Serviço */}
             <View style={styles.heroCard}>
               <View style={styles.heroHeader}>
-                <View style={styles.statusBadge}>
-                  <View style={[styles.statusDot, { backgroundColor: displayStatus === 'completed' ? '#10b981' : displayStatus === 'cancelled' ? '#ef4444' : colors.primary }]} />
-                  <Text style={styles.statusBadgeText}>{statusLabels[displayStatus]}</Text>
+                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(displayStatus) + '20', borderColor: getStatusColor(displayStatus) }]}>
+                  <View style={[styles.statusDot, { backgroundColor: getStatusColor(displayStatus) }]} />
+                  <Text style={[styles.statusBadgeText, { color: getStatusColor(displayStatus) }]}>{getStatusLabel(displayStatus)}</Text>
                 </View>
                 <TouchableOpacity 
                   style={[styles.paymentBadge, paymentStatus === 'paid' && styles.paymentBadgePaid]}
@@ -337,15 +383,17 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
             <View style={styles.statusCard}>
               <Text style={styles.statusCardTitle}>Alterar Estado</Text>
               <View style={styles.statusGrid}>
-                {['scheduled', 'pending', 'completed', 'cancelled'].map((value) => {
+                {['scheduled', 'pending', 'completed'].map((value) => {
                   const active = displayStatus === value;
-                  const emoji = value === 'scheduled' ? '📅' : value === 'pending' ? '⏳' : value === 'completed' ? '✅' : '❌';
+                  const emoji = value === 'scheduled' ? '📅' : value === 'pending' ? '⏳' : '✅';
+                  const statusColor = getStatusColor(value);
+                  
                   return (
                     <TouchableOpacity
                       key={value}
                       style={[
                         styles.statusButton,
-                        active && { backgroundColor: colors.primary, borderColor: colors.primary },
+                        active && { backgroundColor: statusColor, borderColor: statusColor },
                       ]}
                       onPress={() => saveStatus(value)}
                     >
@@ -356,13 +404,51 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                           { color: active ? '#fff' : colors.text },
                         ]}
                       >
-                        {statusLabels[value]}
+                        {getStatusLabel(value)}
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
-              {mutation.isPending ? <ActivityIndicator color={colors.primary} style={{ marginTop: 12 }} /> : null}
+              
+              {/* Botões Cancelar e Apagar */}
+              <View style={styles.dangerActions}>
+                <TouchableOpacity
+                  style={[
+                    styles.cancelButton,
+                    displayStatus === 'cancelled' && { backgroundColor: getStatusColor('cancelled'), borderColor: getStatusColor('cancelled') },
+                  ]}
+                  onPress={() => {
+                    Alert.alert(
+                      'Cancelar Marcação',
+                      'Tem a certeza que deseja cancelar esta marcação?',
+                      [
+                        { text: 'Não', style: 'cancel' },
+                        { text: 'Sim, cancelar', style: 'destructive', onPress: () => saveStatus('cancelled') },
+                      ]
+                    );
+                  }}
+                >
+                  <Text style={styles.cancelButtonEmoji}>❌</Text>
+                  <Text
+                    style={[
+                      styles.cancelButtonText,
+                      displayStatus === 'cancelled' && { color: '#fff' },
+                    ]}
+                  >
+                    {displayStatus === 'cancelled' ? 'Cancelado' : 'Cancelar'}
+                  </Text>
+                </TouchableOpacity>
+
+                {displayStatus === 'cancelled' && (
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={handleDelete}
+                  >
+                    <Text style={styles.deleteButtonEmoji}>🗑️</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
 
             {/* Notas */}
@@ -384,6 +470,13 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     container: {
       flex: 1,
       backgroundColor: colors.background,
+    },
+    actionButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     scrollContent: {
       padding: 16,
@@ -421,10 +514,10 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     statusBadge: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: colors.background,
       paddingHorizontal: 12,
       paddingVertical: 6,
       borderRadius: 20,
+      borderWidth: 1.5,
       gap: 6,
     },
     statusDot: {
@@ -433,7 +526,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderRadius: 4,
     },
     statusBadgeText: {
-      color: colors.text,
       fontSize: 13,
       fontWeight: '700',
     },
@@ -678,25 +770,64 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     statusGrid: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 10,
+      gap: 8,
+      marginBottom: 12,
     },
     statusButton: {
-      width: '48%',
+      flex: 1,
       backgroundColor: colors.background,
       borderWidth: 2,
       borderColor: colors.surfaceBorder,
       borderRadius: 14,
-      padding: 14,
+      paddingVertical: 12,
+      paddingHorizontal: 8,
       alignItems: 'center',
-      gap: 6,
+      gap: 4,
     },
     statusButtonEmoji: {
-      fontSize: 24,
+      fontSize: 20,
     },
     statusButtonText: {
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    dangerActions: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    cancelButton: {
+      flex: 1,
+      backgroundColor: '#fee2e2',
+      borderWidth: 2,
+      borderColor: '#fca5a5',
+      borderRadius: 14,
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    cancelButtonEmoji: {
+      fontSize: 18,
+    },
+    cancelButtonText: {
       fontSize: 13,
       fontWeight: '700',
+      color: '#dc2626',
+    },
+    deleteButton: {
+      width: 52,
+      backgroundColor: '#fee2e2',
+      borderWidth: 2,
+      borderColor: '#fca5a5',
+      borderRadius: 14,
+      paddingVertical: 14,
+      paddingHorizontal: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    deleteButtonEmoji: {
+      fontSize: 18,
     },
     // Notas
     notesCard: {

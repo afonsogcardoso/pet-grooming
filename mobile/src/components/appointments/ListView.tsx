@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, SectionList, Image, StyleSheet, Linking } from 'react-native';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import type { Appointment } from '../../api/appointments';
+import { getStatusColor, getStatusLabel } from '../../utils/appointmentStatus';
 
 type ListViewProps = {
   appointments: Appointment[];
@@ -110,6 +111,16 @@ export function ListView({
     return (
       <View style={[styles.pill, { backgroundColor: color + '33', borderColor: color }]}>
         <Text style={[styles.pillText, { color }]}>{paid ? '✓ Pago' : '⏱ Por pagar'}</Text>
+      </View>
+    );
+  };
+
+  const StatusPill = ({ status }: { status?: string | null }) => {
+    const color = getStatusColor(status);
+    const label = getStatusLabel(status);
+    return (
+      <View style={[styles.pill, { backgroundColor: color + '20', borderColor: color }]}>
+        <Text style={[styles.pillText, { color }]}>{label}</Text>
       </View>
     );
   };
@@ -309,6 +320,7 @@ export function ListView({
             </View>
 
         <View style={styles.badges}>
+          <StatusPill status={item.status} />
           {item.payment_status ? <PaymentPill label={item.payment_status} /> : null}
         </View>
       </TouchableOpacity>
@@ -341,7 +353,7 @@ export function ListView({
       keyExtractor={(item) => item.id}
       renderItem={renderAppointmentItem}
       renderSectionHeader={renderSectionHeader}
-      contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
       SectionSeparatorComponent={() => <View style={{ height: 8 }} />}
       ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
       ListEmptyComponent={
