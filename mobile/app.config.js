@@ -25,6 +25,9 @@ export default {
       NSCameraUsageDescription: 'Precisamos de acesso à câmara para tirar fotos do pet.',
       ITSAppUsesNonExemptEncryption: false
     },
+    config: {
+      googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY,
+    },
   },
   android: {
     package: 'com.petgrooming.app',
@@ -34,6 +37,11 @@ export default {
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
+    config: {
+      googleMaps: {
+        apiKey: process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY,
+      },
+    },
   },
   web: {
     favicon: './assets/favicon.png',

@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Linking, Alert, Image, ActionSheetIOS, Platform } from 'react-native';
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAppointment, updateAppointment, uploadAppointmentPhoto, deleteAppointment } from '../api/appointments';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { MiniMap } from '../components/common/MiniMap';
 import { getStatusColor, getStatusLabel } from '../utils/appointmentStatus';
 
 type Props = NativeStackScreenProps<any>;
@@ -81,17 +83,50 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const pet = appointment?.pets;
   const paymentStatus = appointment?.payment_status || 'unpaid';
 
-  const openMaps = () => {
+  const openMaps = async () => {
     const address = customer?.address;
     if (!address) return;
-    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
-    Linking.openURL(url).catch(() => Alert.alert('Erro', 'Não foi possível abrir mapas.'));
+    
+    try {
+      const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`
+      );
+      const data = await response.json();
+      
+      if (data.results && data.results.length > 0) {
+        const location = data.results[0].geometry.location;
+        const url = Platform.select({
+          ios: `maps:0,0?q=${location.lat},${location.lng}`,
+          android: `geo:0,0?q=${location.lat},${location.lng}`,
+          default: `https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`,
+        });
+        Linking.openURL(url).catch(() => Alert.alert('Erro', 'Não foi possível abrir mapas.'));
+      } else {
+        Alert.alert('Erro', 'Endereço não encontrado.');
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      Alert.alert('Erro', 'Não foi possível obter coordenadas.');
+    }
   };
 
   const callCustomer = () => {
     const phone = customer?.phone;
     if (!phone) return;
     Linking.openURL(`tel:${phone}`).catch(() => Alert.alert('Erro', 'Não foi possível iniciar a chamada.'));
+  };
+
+  const whatsappCustomer = () => {
+    const phone = customer?.phone;
+    if (!phone) return;
+    // Remove espaços e caracteres especiais, mantém apenas números
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    // Se começar com 9, adiciona +351 (Portugal)
+    const formattedPhone = cleanPhone.startsWith('9') ? `351${cleanPhone}` : cleanPhone;
+    const message = `Olá ${customer?.name || ''}! Em relação à marcação de ${formatDateTime(appointment?.appointment_date, appointment?.appointment_time)}...`;
+    const url = `whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`;
+    Linking.openURL(url).catch(() => Alert.alert('Erro', 'WhatsApp não instalado ou não foi possível abrir.'));
   };
 
   const saveStatus = (next: string) => {
@@ -305,9 +340,14 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                 <Text style={styles.compactCardTitle}>👤 Cliente</Text>
                 <Text style={styles.compactCardName}>{customer?.name || 'Sem cliente'}</Text>
                 {customer?.phone ? (
-                  <TouchableOpacity style={styles.compactAction} onPress={callCustomer}>
-                    <Text style={styles.compactActionText}>📞 Ligar</Text>
-                  </TouchableOpacity>
+                  <View style={styles.contactActions}>
+                    <TouchableOpacity style={styles.contactButton} onPress={callCustomer}>
+                      <Ionicons name="call" size={20} color="#FFFFFF" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.contactButton, styles.whatsappButton]} onPress={whatsappCustomer}>
+                      <FontAwesome name="whatsapp" size={22} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
                 ) : null}
               </View>
 
@@ -324,14 +364,16 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
             </View>
 
             {customer?.address ? (
-              <TouchableOpacity style={styles.mapCard} onPress={openMaps}>
-                <Text style={styles.mapIcon}>📍</Text>
-                <View style={styles.mapContent}>
-                  <Text style={styles.mapTitle}>Morada</Text>
-                  <Text style={styles.mapAddress}>{customer.address}</Text>
+              <View style={styles.mapCardContainer}>
+                <View style={styles.mapCardHeader}>
+                  <Text style={styles.mapIcon}>📍</Text>
+                  <View style={styles.mapContent}>
+                    <Text style={styles.mapTitle}>Morada</Text>
+                    <Text style={styles.mapAddress}>{customer.address}</Text>
+                  </View>
                 </View>
-                <Text style={styles.mapArrow}>›</Text>
-              </TouchableOpacity>
+                <MiniMap address={customer.address} />
+              </View>
             ) : null}
 
             {/* Fotos Antes/Depois */}
@@ -648,6 +690,30 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontSize: 13,
       fontWeight: '700',
     },
+    contactActions: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 12,
+    },
+    contactButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    whatsappButton: {
+      backgroundColor: '#25D366',
+    },
+    contactButtonIcon: {
+      fontSize: 20,
+    },
     petThumbnail: {
       width: 60,
       height: 60,
@@ -656,6 +722,22 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       backgroundColor: colors.background,
     },
     // Map Card
+    mapCardContainer: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    mapCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 12,
+    },
     mapCard: {
       flexDirection: 'row',
       alignItems: 'center',

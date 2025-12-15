@@ -1,6 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, SectionList, Image, StyleSheet, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, SectionList, Image, StyleSheet, Linking, Platform } from 'react-native';
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
+
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
 import type { Appointment } from '../../api/appointments';
 import { getStatusColor, getStatusLabel } from '../../utils/appointmentStatus';
 
@@ -204,8 +207,12 @@ export function ListView({
       borderColor: colors.surfaceBorder,
       backgroundColor: colors.surface,
     },
+    whatsappButton: {
+      borderColor: '#25D366',
+      backgroundColor: '#E7F8EE',
+    },
     actionText: {
-      fontSize: 11,
+      fontSize: 16,
       fontWeight: '600',
       color: colors.primary,
     },
@@ -300,21 +307,51 @@ export function ListView({
                 {address ? (
                   <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={() => {
-                      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
-                      Linking.openURL(url).catch(() => null);
+                    onPress={async () => {
+                      try {
+                        const response = await fetch(
+                          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`
+                        );
+                        const data = await response.json();
+                        
+                        if (data.results && data.results.length > 0) {
+                          const location = data.results[0].geometry.location;
+                          const url = Platform.select({
+                            ios: `maps:0,0?q=${location.lat},${location.lng}`,
+                            android: `geo:0,0?q=${location.lat},${location.lng}`,
+                            default: `https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`,
+                          });
+                          Linking.openURL(url).catch(() => null);
+                        }
+                      } catch (error) {
+                        console.error('Geocoding error:', error);
+                      }
                     }}
                   >
-                    <Text style={styles.actionText}>📍 Mapas</Text>
+                    <Ionicons name="location" size={14} color={colors.primary} />
                   </TouchableOpacity>
                 ) : null}
                 {phone ? (
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => Linking.openURL(`tel:${phone}`).catch(() => null)}
-                  >
-                    <Text style={styles.actionText}>📞 Ligar</Text>
-                  </TouchableOpacity>
+                  <>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => Linking.openURL(`tel:${phone}`).catch(() => null)}
+                    >
+                      <Ionicons name="call" size={14} color={colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.whatsappButton]}
+                      onPress={() => {
+                        const cleanPhone = phone.replace(/[^0-9]/g, '');
+                        const formattedPhone = cleanPhone.startsWith('9') ? `351${cleanPhone}` : cleanPhone;
+                        const customerName = item.customers?.name || '';
+                        const message = `Olá ${customerName}! Em relação ao agendamento...`;
+                        Linking.openURL(`whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`).catch(() => null);
+                      }}
+                    >
+                      <FontAwesome name="whatsapp" size={16} color="#25D366" />
+                    </TouchableOpacity>
+                  </>
                 ) : null}
               </View>
             </View>

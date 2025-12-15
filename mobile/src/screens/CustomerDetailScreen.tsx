@@ -9,6 +9,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { Avatar } from '../components/common/Avatar';
 import { Button } from '../components/common/Button';
 import { EmptyState } from '../components/common/EmptyState';
+import { MiniMap } from '../components/common/MiniMap';
 import { PetCard } from '../components/customers/PetCard';
 
 type Props = NativeStackScreenProps<any, 'CustomerDetail'>;
@@ -31,10 +32,6 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
   });
 
   const customer = customers.find((c) => c.id === customerId);
-
-  // Debug: log customer data
-  console.log('Customer data:', customer);
-  console.log('Customer NIF:', customer?.nif);
 
   const handleEditCustomer = () => {
     navigation.navigate('CustomerForm', { mode: 'edit', customerId, customer });
@@ -113,13 +110,16 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
             )}
             
             {customer.address && (
-              <View style={styles.infoItem}>
-                <Text style={styles.infoIcon}>📍</Text>
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Endereço</Text>
-                  <Text style={styles.infoValue}>{customer.address}</Text>
+              <>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoIcon}>📍</Text>
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>Endereço</Text>
+                    <Text style={styles.infoValue}>{customer.address}</Text>
+                  </View>
                 </View>
-              </View>
+                <MiniMap address={customer.address} />
+              </>
             )}
             
             {customer.nif && (

@@ -1,7 +1,10 @@
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Pressable } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Pressable, Linking, Platform } from 'react-native';
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import type { Appointment } from '../../api/appointments';
 import { getStatusColor } from '../../utils/appointmentStatus';
+
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
 
 type DayViewProps = {
   appointments: Appointment[];
@@ -190,6 +193,12 @@ export function DayView({
       shadowOpacity: 0.08,
       shadowRadius: 2,
       elevation: 2,
+      flexDirection: 'row',
+      gap: 6,
+    },
+    appointmentContent: {
+      flex: 1,
+      justifyContent: 'center',
     },
     appointmentTime: {
       fontSize: 10,
@@ -216,6 +225,26 @@ export function DayView({
     emptyIcon: {
       fontSize: 48,
       marginBottom: 12,
+    },
+    appointmentActions: {
+      flexDirection: 'row',
+      gap: 6,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    actionButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    whatsappButton: {
+      borderColor: '#25D366',
+      backgroundColor: '#E7F8EE',
     },
   });
 
@@ -285,6 +314,10 @@ export function DayView({
               const topPosition = calculatePosition(appointment.appointment_time);
               const duration = appointment.duration || 60;
               const height = (duration / 60) * HOUR_HEIGHT - 4;
+              const customer = appointment.customers;
+              const phone = customer?.phone;
+              const address = customer?.address;
+              
               return (
                 <TouchableOpacity
                   key={appointment.id}
@@ -298,15 +331,74 @@ export function DayView({
                   ]}
                   onPress={() => onAppointmentPress(appointment)}
                 >
-                  <Text style={styles.appointmentTime} numberOfLines={1}>
-                    {formatTime(appointment.appointment_time)}
-                  </Text>
-                  <Text style={styles.appointmentTitle} numberOfLines={1}>
-                    {appointment.pets?.name}
-                  </Text>
-                  <Text style={styles.appointmentService} numberOfLines={1}>
-                    {appointment.services?.name}
-                  </Text>
+                  <View style={styles.appointmentContent}>
+                    <Text style={styles.appointmentTime} numberOfLines={1}>
+                      {formatTime(appointment.appointment_time)}
+                    </Text>
+                    <Text style={styles.appointmentTitle} numberOfLines={1}>
+                      {appointment.pets?.name}{customer?.name ? ` | ${customer.name}` : ''}
+                    </Text>
+                    <Text style={styles.appointmentService} numberOfLines={1}>
+                      {appointment.services?.name}
+                    </Text>
+                  </View>
+                  
+                  {height >= 40 && (phone || address) && (
+                    <View style={styles.appointmentActions}>
+                      {address && (
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              const response = await fetch(
+                                `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`
+                              );
+                              const data = await response.json();
+                              
+                              if (data.results && data.results.length > 0) {
+                                const location = data.results[0].geometry.location;
+                                const url = Platform.select({
+                                  ios: `maps:0,0?q=${location.lat},${location.lng}`,
+                                  android: `geo:0,0?q=${location.lat},${location.lng}`,
+                                  default: `https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`,
+                                });
+                                Linking.openURL(url).catch(() => null);
+                              }
+                            } catch (error) {
+                              console.error('Geocoding error:', error);
+                            }
+                          }}
+                        >
+                          <Ionicons name="location" size={14} color={colors.primary} />
+                        </TouchableOpacity>
+                      )}
+                      {phone && (
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            Linking.openURL(`tel:${phone}`).catch(() => null);
+                          }}
+                        >
+                          <Ionicons name="call" size={14} color={colors.primary} />
+                        </TouchableOpacity>
+                      )}
+                      {phone && (
+                        <TouchableOpacity
+                          style={[styles.actionButton, styles.whatsappButton]}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            const formattedPhone = phone.startsWith('+') ? phone.replace(/\+/g, '') : '351' + phone;
+                            const message = `Olá! Em relação à sua marcação de ${formatTime(appointment.appointment_time)} no dia ${appointment.appointment_date}.`;
+                            Linking.openURL(`whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`).catch(() => null);
+                          }}
+                        >
+                          <FontAwesome name="whatsapp" size={15} color="#25D366" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
                 </TouchableOpacity>
               );
             })}
