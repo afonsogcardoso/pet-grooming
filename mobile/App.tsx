@@ -22,16 +22,21 @@ export default function App() {
 
   useEffect(() => {
     // Hydrate auth token from SecureStore on app start.
-    useAuthStore.getState().hydrate();
+    useAuthStore.getState().hydrate().catch((err) => {
+      console.error('Failed to hydrate auth:', err);
+    });
   }, []);
 
   if (!hydrated) {
+    console.log('App waiting for hydration...');
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a' }}>
-        <ActivityIndicator size="large" color="#22c55e" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff' }}>
+        <ActivityIndicator size="large" color="#1e40af" />
       </View>
     );
   }
+  
+  console.log('App hydrated, token:', token ? 'present' : 'absent');
 
   return (
     <SafeAreaProvider>

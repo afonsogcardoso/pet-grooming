@@ -25,6 +25,8 @@ function resolveApiBase() {
 const baseUrl = resolveApiBase();
 const baseWithVersion = baseUrl ? `${baseUrl}/api/v1` : undefined;
 
+console.log('[api/client] Base URL:', baseUrl, '-> Full:', baseWithVersion);
+
 const api = axios.create({
   baseURL: baseWithVersion,
 });
