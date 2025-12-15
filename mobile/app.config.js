@@ -42,8 +42,8 @@ export default {
     [
       'expo-image-picker',
       {
-        photosPermission: 'Precisamos de acesso às fotos para anexar imagens do pet.',
-        cameraPermission: 'Precisamos de acesso à câmara para tirar fotos do pet.',
+        photosPermission: 'Precisamos de acesso às fotos para anexar imagens.',
+        cameraPermission: 'Precisamos de acesso à câmara para tirar fotos.',
       },
     ],
   ],
