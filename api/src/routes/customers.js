@@ -163,8 +163,8 @@ router.delete('/:id', async (req, res) => {
   res.json({ ok: true })
 })
 
-// Upload customer photo (NOT pet photo)
-router.post('/:customerId/customer-photo', upload.single('file'), async (req, res) => {
+// Upload customer photo
+router.post('/:id/photo', upload.single('file'), async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
   if (!supabase || !accountId) return res.status(401).json({ error: 'Unauthorized' })
@@ -192,7 +192,7 @@ router.post('/:customerId/customer-photo', upload.single('file'), async (req, re
   const { data: customer } = await supabase
     .from('customers')
     .select('id')
-    .eq('id', req.params.customerId)
+    .eq('id', req.params.id)
     .eq('account_id', accountId)
     .maybeSingle()
 
@@ -201,8 +201,8 @@ router.post('/:customerId/customer-photo', upload.single('file'), async (req, re
   const ext = (file.originalname?.split('.').pop() || 'jpg').toLowerCase()
   const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'heic'].includes(ext) ? ext : 'jpg'
   const timestamp = Date.now()
-  const filename = file.originalname || `customer-${req.params.customerId}-${timestamp}.${safeExt}`
-  const path = `customers/${req.params.customerId}/${filename}`
+  const filename = file.originalname || `customer-${req.params.id}-${timestamp}.${safeExt}`
+  const path = `customers/${req.params.id}/${filename}`
 
   const { error: uploadError } = await supabase.storage
     .from('customers')
@@ -228,14 +228,15 @@ router.post('/:customerId/customer-photo', upload.single('file'), async (req, re
     await supabase
       .from('customers')
       .update({ photo_url: url })
-      .eq('id', req.params.customerId)
+      .eq('id', req.params.id)
       .eq('account_id', accountId)
   }
 
   return res.json({ url })
 })
 
-router.post('/:id/photo', upload.single('file'), async (req, res) => {
+// Upload pet photo
+router.post('/:petId/pet-photo', upload.single('file'), async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
   if (!supabase || !accountId) return res.status(401).json({ error: 'Unauthorized' })
@@ -262,7 +263,7 @@ router.post('/:id/photo', upload.single('file'), async (req, res) => {
   const ext = (file.originalname?.split('.').pop() || 'jpg').toLowerCase()
   const safeExt = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) ? ext : 'jpg'
   const uniqueId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`
-  const path = `pets/${req.params.id}-${uniqueId}.${safeExt}`
+  const path = `pets/${req.params.petId}-${uniqueId}.${safeExt}`
 
   const { error: uploadError } = await supabase.storage
     .from(PET_PHOTO_BUCKET)
@@ -284,7 +285,7 @@ router.post('/:id/photo', upload.single('file'), async (req, res) => {
     await supabase
       .from('pets')
       .update({ photo_url: url })
-      .eq('id', req.params.id)
+      .eq('id', req.params.petId)
       .eq('account_id', accountId)
   }
 

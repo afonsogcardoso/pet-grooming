@@ -89,7 +89,7 @@ export async function uploadPetPhoto(
   } as any);
 
   const { data } = await api.post<{ url: string }>(
-    `/customers/${petId}/photo`,
+    `/customers/${petId}/pet-photo`,
     formData,
     {
       headers: {
