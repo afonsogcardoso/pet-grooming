@@ -101,6 +101,15 @@ export default function HomeScreen({ navigation }: Props) {
             <Text style={styles.secondaryActionTitle}>Clientes</Text>
             <Text style={styles.secondaryActionSubtitle}>Gerir clientes e animais</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.secondaryAction}
+            onPress={() => navigation.navigate('Services')}
+          >
+            <Text style={styles.secondaryActionIcon}>✂️</Text>
+            <Text style={styles.secondaryActionTitle}>Serviços</Text>
+            <Text style={styles.secondaryActionSubtitle}>Gerir catálogo</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </SafeAreaView>
@@ -269,10 +278,11 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     secondaryActions: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       gap: 12,
     },
     secondaryAction: {
-      flex: 1,
+      width: (screenWidth - 52) / 2,
       backgroundColor: colors.surface,
       borderRadius: 16,
       padding: 18,

@@ -154,13 +154,16 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
           style: 'destructive',
           onPress: async () => {
             try {
+              console.log('Attempting to delete appointment:', appointmentId);
               await deleteAppointment(appointmentId);
               queryClient.invalidateQueries({ queryKey: ['appointments'] }).catch(() => null);
               Alert.alert('Sucesso', 'Marcação apagada.', [
                 { text: 'OK', onPress: () => navigation.goBack() },
               ]);
             } catch (error) {
-              Alert.alert('Erro', 'Não foi possível apagar a marcação.');
+              console.error('Delete error:', error);
+              const errorMessage = error?.response?.data?.message || error?.message || 'Não foi possível apagar a marcação.';
+              Alert.alert('Erro', errorMessage);
             }
           },
         },
@@ -336,20 +339,36 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
 
             {/* Cliente & Pet em Grid */}
             <View style={styles.gridRow}>
-              <View style={[styles.compactCard, styles.petCard, { flex: 1 }]}>
+              <TouchableOpacity 
+                style={[styles.compactCard, styles.petCard, { flex: 1 }]}
+                onPress={() => customer?.id && navigation.navigate('CustomerDetail', { customerId: customer.id })}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.compactCardTitle}>👤 Cliente</Text>
                 <Text style={styles.compactCardName}>{customer?.name || 'Sem cliente'}</Text>
                 {customer?.phone ? (
                   <View style={styles.contactActions}>
-                    <TouchableOpacity style={styles.contactButton} onPress={callCustomer}>
+                    <TouchableOpacity 
+                      style={styles.contactButton} 
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        callCustomer();
+                      }}
+                    >
                       <Ionicons name="call" size={20} color="#FFFFFF" />
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.contactButton, styles.whatsappButton]} onPress={whatsappCustomer}>
+                    <TouchableOpacity 
+                      style={[styles.contactButton, styles.whatsappButton]} 
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        whatsappCustomer();
+                      }}
+                    >
                       <FontAwesome name="whatsapp" size={22} color="#FFFFFF" />
                     </TouchableOpacity>
                   </View>
                 ) : null}
-              </View>
+              </TouchableOpacity>
 
               {pet ? (
                 <View style={[styles.compactCard, styles.petCard, { flex: 1 }]}>

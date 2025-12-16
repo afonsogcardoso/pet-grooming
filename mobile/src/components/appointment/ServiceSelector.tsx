@@ -89,6 +89,11 @@ export function ServiceSelector({
       color: colors.muted,
       marginTop: 2,
     },
+    priceText: {
+      color: colors.primary,
+      fontWeight: '700',
+      fontSize: 15,
+    },
   });
 
   return (
@@ -119,10 +124,17 @@ export function ServiceSelector({
                     if (service.default_duration) setDuration(service.default_duration);
                   }}
                 >
-                  <Text style={styles.optionTitle}>{service.name}</Text>
-                  {service.description ? (
-                    <Text style={styles.optionSubtitle}>{service.description}</Text>
-                  ) : null}
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={styles.optionTitle}>{service.name}</Text>
+                      {service.price && (
+                        <Text style={styles.priceText}>{service.price.toFixed(2)}€</Text>
+                      )}
+                    </View>
+                    {service.description ? (
+                      <Text style={styles.optionSubtitle}>{service.description}</Text>
+                    ) : null}
+                  </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>

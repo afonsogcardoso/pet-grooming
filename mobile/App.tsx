@@ -15,6 +15,8 @@ import CustomersScreen from './src/screens/CustomersScreen';
 import CustomerDetailScreen from './src/screens/CustomerDetailScreen';
 import CustomerFormScreen from './src/screens/CustomerFormScreen';
 import PetFormScreen from './src/screens/PetFormScreen';
+import ServicesScreen from './src/screens/ServicesScreen';
+import ServiceFormScreen from './src/screens/ServiceFormScreen';
 import { useAuthStore } from './src/state/authStore';
 
 const Stack = createNativeStackNavigator();
@@ -58,6 +60,8 @@ export default function App() {
                 <Stack.Screen name="CustomerDetail" component={CustomerDetailScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="CustomerForm" component={CustomerFormScreen} options={{ headerShown: false }} />
                 <Stack.Screen name="PetForm" component={PetFormScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="Services" component={ServicesScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="ServiceForm" component={ServiceFormScreen} options={{ headerShown: false }} />
               </>
             ) : (
               <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />

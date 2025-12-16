@@ -340,6 +340,7 @@ export function DayView({
                     </Text>
                     <Text style={styles.appointmentService} numberOfLines={1}>
                       {appointment.services?.name}
+                      {appointment.services?.price ? ` | ${appointment.services.price.toFixed(2)}€` : ''}
                     </Text>
                   </View>
                   

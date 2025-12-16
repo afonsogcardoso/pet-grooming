@@ -10,6 +10,7 @@ import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
 import { EmptyState } from '../components/common/EmptyState';
 import { CustomerCard } from '../components/customers/CustomerCard';
+import { matchesSearchQuery } from '../utils/textHelpers';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -25,12 +26,12 @@ export default function CustomersScreen({ navigation }: Props) {
 
   const filteredCustomers = useMemo(() => {
     if (!searchQuery.trim()) return customers;
-    const query = searchQuery.toLowerCase();
     return customers.filter(
       (c) =>
-        c.name?.toLowerCase().includes(query) ||
-        c.phone?.toLowerCase().includes(query) ||
-        c.email?.toLowerCase().includes(query)
+        (c.name && matchesSearchQuery(c.name, searchQuery)) ||
+        (c.phone && matchesSearchQuery(c.phone, searchQuery)) ||
+        (c.email && matchesSearchQuery(c.email, searchQuery)) ||
+        (c.pets && c.pets.some(pet => pet.name && matchesSearchQuery(pet.name, searchQuery)))
     );
   }, [customers, searchQuery]);
 

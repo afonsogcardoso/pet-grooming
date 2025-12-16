@@ -22,6 +22,7 @@ import type { Customer, Pet } from '../api/customers';
 import { createCustomer, createPet, getCustomers, updateCustomer } from '../api/customers';
 import { getServices } from '../api/services';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
+import { FontAwesome } from '@expo/vector-icons';
 import { AddressAutocomplete } from '../components/appointment/AddressAutocomplete';
 import { NewCustomerForm } from '../components/appointment/NewCustomerForm';
 import { ExistingCustomerForm } from '../components/appointment/ExistingCustomerForm';
@@ -506,9 +507,9 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           automaticallyAdjustKeyboardInsets={true}
         >
         <View style={styles.content}>
-          {/* Seção: Quando e O Quê */}
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>📅 Quando e O Quê</Text>
+          {/* Seção: Data e Serviço */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Data e Serviço</Text>
             
             <View style={styles.row}>
               <View style={[styles.field, { flex: 1 }]}>
@@ -568,9 +569,9 @@ export default function NewAppointmentScreen({ navigation }: Props) {
             </View>
           </View>
 
-          {/* Seção: Para Quem */}
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>🐾 Para Quem</Text>
+          {/* Seção: Cliente e Animal */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Cliente e Animal</Text>
             
             <View style={styles.segment}>
               <TouchableOpacity
@@ -677,7 +678,10 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
             <View style={styles.toggleRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>💬 Enviar por WhatsApp</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <FontAwesome name="whatsapp" size={20} color="#25D366" />
+                  <Text style={styles.label}>Enviar por WhatsApp</Text>
+                </View>
                 {!canSendWhatsapp ? (
                   <Text style={styles.helperText}>Adiciona um número de telefone</Text>
                 ) : null}

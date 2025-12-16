@@ -142,6 +142,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
               keyboardType="email-address"
               autoCapitalize="none"
               editable={mode === 'create'}
+              showEmailSuggestions
             />
 
             <Input
