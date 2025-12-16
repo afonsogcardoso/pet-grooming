@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, ActionSheetIOS, PermissionsAndroid } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { createCustomer, updateCustomer, type Customer } from '../api/customers';
+import { createCustomer, updateCustomer, uploadCustomerPhoto, type Customer } from '../api/customers';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
+import { Avatar } from '../components/common/Avatar';
+import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 
 type Props = NativeStackScreenProps<any, 'CustomerForm'>;
 
@@ -24,6 +26,8 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
   const [email, setEmail] = useState(customer?.email || '');
   const [address, setAddress] = useState(customer?.address || '');
   const [nif, setNif] = useState(customer?.nif || '');
+  const [photoUrl, setPhotoUrl] = useState(customer?.photo_url || '');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -100,6 +104,143 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
     }
   };
 
+  const requestAndroidPermissions = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const cameraGranted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+        );
+        const storageGranted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+        );
+        return cameraGranted === PermissionsAndroid.RESULTS.GRANTED && 
+               storageGranted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const uploadPhoto = async (uri: string, fileName?: string | null) => {
+    if (mode === 'create' || !customerId) {
+      Alert.alert('Aviso', 'Guarde o cliente primeiro antes de adicionar uma foto.');
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+      const formData = new FormData();
+      const timestamp = Date.now();
+      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
+      const filename = `customer-${customerId}-${timestamp}.${extension}`;
+      const fileType = `image/${extension === 'jpg' ? 'jpeg' : extension}`;
+
+      formData.append('photo', {
+        uri,
+        name: filename,
+        type: fileType,
+      } as any);
+
+      const result = await uploadCustomerPhoto(customerId, formData);
+      setPhotoUrl(result.url);
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
+      Alert.alert('Sucesso', 'Foto atualizada!');
+    } catch (error) {
+      console.error('Erro ao fazer upload:', error);
+      Alert.alert('Erro', 'Não foi possível fazer upload da foto');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const openCamera = async () => {
+    const hasPermission = await requestAndroidPermissions();
+    if (!hasPermission) {
+      Alert.alert('Permissão negada', 'Não é possível aceder à câmara sem permissão.');
+      return;
+    }
+
+    const options: CameraOptions = {
+      mediaType: 'photo',
+      quality: 0.8,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      includeBase64: false,
+      saveToPhotos: false,
+    };
+
+    launchCamera(options, async (response) => {
+      if (response.didCancel) return;
+      if (response.errorCode) {
+        console.error('Erro ao abrir câmara:', response.errorMessage);
+        Alert.alert('Erro', 'Não foi possível abrir a câmara');
+        return;
+      }
+      if (response.assets && response.assets[0]) {
+        await uploadPhoto(response.assets[0].uri!, response.assets[0].fileName);
+      }
+    });
+  };
+
+  const openGallery = async () => {
+    const options: ImageLibraryOptions = {
+      mediaType: 'photo',
+      quality: 0.8,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      includeBase64: false,
+      selectionLimit: 1,
+    };
+
+    launchImageLibrary(options, async (response) => {
+      if (response.didCancel) return;
+      if (response.errorCode) {
+        console.error('Erro ao abrir galeria:', response.errorMessage);
+        Alert.alert('Erro', 'Não foi possível abrir a galeria');
+        return;
+      }
+      if (response.assets && response.assets[0]) {
+        await uploadPhoto(response.assets[0].uri!, response.assets[0].fileName);
+      }
+    });
+  };
+
+  const handleAvatarPress = () => {
+    if (mode === 'create') {
+      Alert.alert('Aviso', 'Guarde o cliente primeiro antes de adicionar uma foto.');
+      return;
+    }
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            openCamera();
+          } else if (buttonIndex === 2) {
+            openGallery();
+          }
+        }
+      );
+    } else {
+      Alert.alert(
+        'Escolher foto',
+        'Como deseja adicionar a foto?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Tirar foto', onPress: openCamera },
+          { text: 'Escolher da galeria', onPress: openGallery },
+        ]
+      );
+    }
+  };
+
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
   return (
@@ -112,6 +253,26 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
       >
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.form}>
+            {/* Avatar Section */}
+            <View style={styles.avatarSection}>
+              <View style={styles.avatarContainer}>
+                <Avatar
+                  name={name || 'Cliente'}
+                  imageUrl={photoUrl}
+                  size="large"
+                  onPress={mode === 'edit' ? handleAvatarPress : undefined}
+                />
+                {uploadingPhoto && (
+                  <View style={styles.avatarLoadingOverlay}>
+                    <ActivityIndicator color={colors.onPrimary} size="large" />
+                  </View>
+                )}
+              </View>
+              {mode === 'edit' && (
+                <Text style={styles.avatarHint}>Toque na foto para alterar</Text>
+              )}
+            </View>
+
             <Input
               label="Nome *"
               placeholder="Nome completo"
@@ -205,6 +366,30 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     form: {
       paddingTop: 20,
       paddingBottom: 100,
+    },
+    avatarSection: {
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    avatarContainer: {
+      position: 'relative',
+    },
+    avatarLoadingOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      borderRadius: 999,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarHint: {
+      marginTop: 8,
+      fontSize: 13,
+      color: colors.muted,
+      fontStyle: 'italic',
     },
     hint: {
       marginTop: 8,

@@ -21,7 +21,7 @@ export function CustomerCard({ customer, onPress }: CustomerCardProps) {
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <Avatar name={customer.name} size="medium" />
+      <Avatar name={customer.name} imageUrl={customer.photo_url} size="medium" />
       
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>

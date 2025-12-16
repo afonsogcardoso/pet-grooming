@@ -359,13 +359,14 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const hasNewSelection = Boolean(
     newCustomerName.trim() && newPetName.trim(),
   );
+  const isSubmitting = mutation.isPending;
   const canSubmit =
     Boolean(
       date &&
         timeIsValid &&
         selectedServices.length > 0 &&
         (mode === 'existing' ? hasExistingSelection : hasNewSelection),
-    ) && !mutation.isPending;
+    ) && !isSubmitting;
 
   const handleDateChange = (_event: any, selectedDate?: Date) => {
     if (selectedDate) {
@@ -391,6 +392,10 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   };
 
   const handleSubmit = async () => {
+    if (isSubmitting) {
+      return; // Previne múltiplos cliques
+    }
+
     if (!canSubmit) {
       Alert.alert('Campos obrigatórios', 'Seleciona cliente, pet, serviço, data e hora.');
       return;
@@ -731,12 +736,19 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
           {/* Botões de Ação */}
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: primary, opacity: canSubmit ? 1 : 0.5 }]}
+            style={[styles.button, { 
+              backgroundColor: primary, 
+              opacity: (canSubmit && !isSubmitting) ? 1 : 0.5 
+            }]}
             onPress={handleSubmit}
-            disabled={!canSubmit}
+            disabled={!canSubmit || isSubmitting}
+            activeOpacity={0.7}
           >
-            {mutation.isPending ? (
-              <ActivityIndicator color={colors.onPrimary} />
+            {isSubmitting ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <ActivityIndicator color={colors.onPrimary} size="small" />
+                <Text style={styles.buttonText}>A processar...</Text>
+              </View>
             ) : (
               <Text style={styles.buttonText}>
                 {isEditMode ? '✅ Guardar Alterações' : '✨ Criar Marcação'}

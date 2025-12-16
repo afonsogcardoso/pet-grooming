@@ -5,7 +5,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { createPet, uploadPetPhoto, type Pet } from '../api/customers';
+import { createPet, uploadPetPhoto, deletePet, type Pet } from '../api/customers';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
@@ -58,9 +58,10 @@ export default function PetFormScreen({ navigation, route }: Props) {
 
   const uploadPetPhotoMutation = useMutation({
     mutationFn: async ({ petId, uri }: { petId: string; uri: string }) => {
-      const filename = uri.split('/').pop() || `pet-${Date.now()}.jpg`;
-      const match = /\.(\w+)$/.exec(filename);
-      const fileType = match ? `image/${match[1]}` : 'image/jpeg';
+      const timestamp = Date.now();
+      const extension = uri.split('.').pop() || 'jpg';
+      const filename = `pet-${petId}-${timestamp}.${extension}`;
+      const fileType = `image/${extension === 'jpg' ? 'jpeg' : extension}`;
 
       return uploadPetPhoto(petId, {
         uri,
@@ -121,6 +122,8 @@ export default function PetFormScreen({ navigation, route }: Props) {
     const options: CameraOptions = {
       mediaType: 'photo',
       quality: 0.8,
+      maxWidth: 1200,
+      maxHeight: 1200,
       includeBase64: false,
       saveToPhotos: false,
     };
@@ -145,6 +148,8 @@ export default function PetFormScreen({ navigation, route }: Props) {
     const options: ImageLibraryOptions = {
       mediaType: 'photo',
       quality: 0.8,
+      maxWidth: 1200,
+      maxHeight: 1200,
       includeBase64: false,
       selectionLimit: 1,
     };
@@ -191,6 +196,39 @@ export default function PetFormScreen({ navigation, route }: Props) {
         ]
       );
     }
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deletePet(petId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
+      Alert.alert('Sucesso', 'Pet apagado com sucesso!', [
+        {
+          text: 'OK',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.error || error.message || 'Erro ao apagar pet';
+      Alert.alert('Erro', message);
+    },
+  });
+
+  const handleDeletePet = () => {
+    Alert.alert(
+      'Apagar Pet',
+      `Tem a certeza que deseja apagar ${name}? Esta ação não pode ser desfeita.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Apagar',
+          style: 'destructive',
+          onPress: () => deleteMutation.mutate(),
+        },
+      ]
+    );
   };
 
   const validate = () => {
@@ -297,6 +335,19 @@ export default function PetFormScreen({ navigation, route }: Props) {
             loading={isLoading}
             disabled={isLoading}
           />
+
+          {mode === 'edit' && (
+            <Button
+              title="Apagar Pet"
+              onPress={handleDeletePet}
+              variant="ghost"
+              size="large"
+              loading={deleteMutation.isPending}
+              disabled={deleteMutation.isPending}
+              style={styles.deleteButton}
+              textStyle={styles.deleteButtonText}
+            />
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -392,6 +443,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       backgroundColor: colors.background,
       borderTopWidth: 1,
       borderTopColor: colors.surfaceBorder,
+      gap: 12,
+    },
+    deleteButton: {
+      borderColor: '#ef4444',
+      borderWidth: 1,
+      marginTop: 8,
+    },
+    deleteButtonText: {
+      color: '#ef4444',
     },
   });
 }

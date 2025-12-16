@@ -5,7 +5,7 @@ import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../auth
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
 const ALLOWED_LOCALES = ['pt', 'en']
-const AVATAR_BUCKET = 'profile-avatars'
+const AVATAR_BUCKET = 'profiles'
 
 async function getAuthenticatedUser(req) {
   const supabase = getSupabaseClientWithAuth(req)
@@ -120,8 +120,19 @@ router.post('/avatar', upload.single('file'), async (req, res) => {
     return res.status(500).json({ error: uploadError.message })
   }
 
-  const { data } = supabaseAdmin.storage.from(AVATAR_BUCKET).getPublicUrl(path)
-  return res.json({ url: data?.publicUrl || null })
+  // Gerar signed URL (7 dias)
+  const { data: signedUrlData, error: signedError } = await supabaseAdmin.storage
+    .from('profiles')
+    .createSignedUrl(path, 604800) // 7 dias
+
+  if (signedError) return res.status(500).json({ error: signedError.message })
+
+  // Atualizar user metadata com a URL
+  const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+    user_metadata: { avatar_url: signedUrlData?.signedUrl }
+  })
+
+  return res.json({ url: signedUrlData?.signedUrl || null })
 })
 
 router.post('/reset-password', async (req, res) => {

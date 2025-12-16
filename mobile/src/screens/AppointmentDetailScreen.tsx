@@ -212,9 +212,10 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const uploadPhoto = async (type: 'before' | 'after', uri: string, fileName?: string) => {
     try {
       setUploadingPhoto(type);
-      const filename = fileName || uri.split('/').pop() || `${type}-${Date.now()}.jpg`;
-      const match = /\.(\w+)$/.exec(filename);
-      const fileType = match ? `image/${match[1]}` : 'image/jpeg';
+      const timestamp = Date.now();
+      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
+      const filename = `appointment-${appointmentId}-${type}-${timestamp}.${extension}`;
+      const fileType = `image/${extension === 'jpg' ? 'jpeg' : extension}`;
 
       await photoMutation.mutateAsync({
         type,
@@ -241,6 +242,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     const options: CameraOptions = {
       mediaType: 'photo',
       quality: 0.8,
+      maxWidth: 1200,
+      maxHeight: 1200,
       includeBase64: false,
       saveToPhotos: false,
     };
@@ -264,6 +267,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     const options: ImageLibraryOptions = {
       mediaType: 'photo',
       quality: 0.8,
+      maxWidth: 1200,
+      maxHeight: 1200,
       includeBase64: false,
       selectionLimit: 1,
     };

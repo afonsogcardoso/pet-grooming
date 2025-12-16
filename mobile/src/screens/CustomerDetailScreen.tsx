@@ -5,7 +5,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { getCustomers, getPetsByCustomer, uploadCustomerPhoto, type Customer, type Pet } from '../api/customers';
+import { getCustomers, getPetsByCustomer, uploadCustomerPhoto, deleteCustomer, type Customer, type Pet } from '../api/customers';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Avatar } from '../components/common/Avatar';
 import { Button } from '../components/common/Button';
@@ -80,9 +80,10 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
   const uploadPhoto = async (uri: string, fileName?: string) => {
     try {
       setUploadingPhoto(true);
-      const filename = fileName || uri.split('/').pop() || `customer-${Date.now()}.jpg`;
-      const match = /\.(\w+)$/.exec(filename);
-      const fileType = match ? `image/${match[1]}` : 'image/jpeg';
+      const timestamp = Date.now();
+      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
+      const filename = `customer-${customerId}-${timestamp}.${extension}`;
+      const fileType = `image/${extension === 'jpg' ? 'jpeg' : extension}`;
 
       await uploadPhotoMutation.mutateAsync({
         uri,
@@ -106,6 +107,8 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
     const options: CameraOptions = {
       mediaType: 'photo',
       quality: 0.8,
+      maxWidth: 1200,
+      maxHeight: 1200,
       includeBase64: false,
       saveToPhotos: false,
     };
@@ -129,6 +132,8 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
     const options: ImageLibraryOptions = {
       mediaType: 'photo',
       quality: 0.8,
+      maxWidth: 1200,
+      maxHeight: 1200,
       includeBase64: false,
       selectionLimit: 1,
     };
@@ -174,6 +179,38 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
         ]
       );
     }
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteCustomer(customerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      Alert.alert('Sucesso', 'Cliente apagado com sucesso!', [
+        {
+          text: 'OK',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.error || error.message || 'Erro ao apagar cliente';
+      Alert.alert('Erro', message);
+    },
+  });
+
+  const handleDeleteCustomer = () => {
+    Alert.alert(
+      'Apagar Cliente',
+      `Tem a certeza que deseja apagar ${customer?.name}? Esta ação não pode ser desfeita e todos os pets associados também serão apagados.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Apagar',
+          style: 'destructive',
+          onPress: () => deleteMutation.mutate(),
+        },
+      ]
+    );
   };
 
   const handleEditCustomer = () => {
@@ -322,6 +359,20 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
             </View>
           )}
         </View>
+
+        {/* Delete Customer Button */}
+        <View style={styles.dangerZone}>
+          <Button
+            title="Apagar Cliente"
+            onPress={handleDeleteCustomer}
+            variant="ghost"
+            size="large"
+            loading={deleteMutation.isPending}
+            disabled={deleteMutation.isPending}
+            style={styles.deleteButton}
+            textStyle={styles.deleteButtonText}
+          />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -428,6 +479,20 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     petsList: {
       gap: 12,
+    },
+    dangerZone: {
+      marginTop: 16,
+      marginBottom: 32,
+      paddingTop: 24,
+      borderTopWidth: 1,
+      borderTopColor: colors.surfaceBorder,
+    },
+    deleteButton: {
+      borderColor: '#ef4444',
+      borderWidth: 1,
+    },
+    deleteButtonText: {
+      color: '#ef4444',
     },
   });
 }

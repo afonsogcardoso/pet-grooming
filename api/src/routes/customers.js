@@ -6,7 +6,7 @@ import { sanitizeBody } from '../utils/payload.js'
 
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
-const PET_PHOTO_BUCKET = 'pet-photos'
+const PET_PHOTO_BUCKET = 'pets'
 
 router.get('/', async (req, res) => {
   const accountId = req.accountId
@@ -163,6 +163,78 @@ router.delete('/:id', async (req, res) => {
   res.json({ ok: true })
 })
 
+// Upload customer photo (NOT pet photo)
+router.post('/:customerId/customer-photo', upload.single('file'), async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase || !accountId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const token = req.headers.authorization
+  const bearer = typeof token === 'string' && token.startsWith('Bearer ') ? token.slice(7) : null
+  if (!bearer) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(bearer)
+  if (userError || !userData?.user?.id) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { data: membership } = await supabase
+    .from('account_members')
+    .select('id')
+    .eq('account_id', accountId)
+    .eq('user_id', userData.user.id)
+    .eq('status', 'accepted')
+    .maybeSingle()
+  if (!membership) return res.status(403).json({ error: 'Forbidden' })
+
+  const file = req.file
+  if (!file) return res.status(400).json({ error: 'No file provided' })
+
+  // Verificar se customer pertence à conta
+  const { data: customer } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('id', req.params.customerId)
+    .eq('account_id', accountId)
+    .maybeSingle()
+
+  if (!customer) return res.status(404).json({ error: 'Customer not found' })
+
+  const ext = (file.originalname?.split('.').pop() || 'jpg').toLowerCase()
+  const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'heic'].includes(ext) ? ext : 'jpg'
+  const timestamp = Date.now()
+  const filename = file.originalname || `customer-${req.params.customerId}-${timestamp}.${safeExt}`
+  const path = `customers/${req.params.customerId}/${filename}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('customers')
+    .upload(path, file.buffer, {
+      cacheControl: '3600',
+      upsert: true,
+      contentType: file.mimetype || 'image/jpeg'
+    })
+
+  if (uploadError) return res.status(500).json({ error: uploadError.message })
+
+  // Gerar signed URL (7 dias)
+  const { data: signedUrlData, error: signedError } = await supabase.storage
+    .from('customers')
+    .createSignedUrl(path, 604800) // 7 dias
+
+  if (signedError) return res.status(500).json({ error: signedError.message })
+
+  const url = signedUrlData?.signedUrl || null
+
+  // Guardar URL na BD
+  if (url) {
+    await supabase
+      .from('customers')
+      .update({ photo_url: url })
+      .eq('id', req.params.customerId)
+      .eq('account_id', accountId)
+  }
+
+  return res.json({ url })
+})
+
 router.post('/:id/photo', upload.single('file'), async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
@@ -201,8 +273,13 @@ router.post('/:id/photo', upload.single('file'), async (req, res) => {
     })
   if (uploadError) return res.status(500).json({ error: uploadError.message })
 
-  const { data: publicUrlData } = supabase.storage.from(PET_PHOTO_BUCKET).getPublicUrl(path)
-  const url = publicUrlData?.publicUrl || null
+  // Gerar signed URL (7 dias)
+  const { data: signedUrlData, error: signedError } = await supabase.storage
+    .from(PET_PHOTO_BUCKET)
+    .createSignedUrl(path, 604800)
+
+  if (signedError) return res.status(500).json({ error: signedError.message })
+  const url = signedUrlData?.signedUrl || null
   if (url) {
     await supabase
       .from('pets')

@@ -19,7 +19,7 @@ const APPOINTMENT_CONFIRM_SELECT = `
   pets ( id, name, breed, photo_url ),
   services ( id, name )
 `
-const PET_PHOTO_BUCKET = 'pet-photos'
+const PET_PHOTO_BUCKET = 'pets'
 
 function formatIcsDateUtc(date) {
   const pad = (n) => String(n).padStart(2, '0')
@@ -468,8 +468,16 @@ router.post('/pet-photo', upload.single('file'), async (req, res) => {
     return res.status(500).json({ ok: false, error: 'upload_failed' })
   }
 
-  const { data: publicUrlData } = supabase.storage.from(PET_PHOTO_BUCKET).getPublicUrl(path)
-  const publicUrl = publicUrlData?.publicUrl || null
+  // Gerar signed URL (7 dias)
+  const { data: signedUrlData, error: signedError } = await supabase.storage
+    .from('pets')
+    .createSignedUrl(path, 604800)
+
+  if (signedError) {
+    console.error('[api] pet photo signed URL error', signedError)
+    return res.status(500).json({ ok: false, error: 'signed_url_failed' })
+  }
+  const publicUrl = signedUrlData?.signedUrl || null
 
   if (publicUrl) {
     await supabase.from('pets').update({ photo_url: publicUrl }).eq('id', appointment.pet_id)
@@ -514,7 +522,7 @@ router.post('/:id/photos', upload.single('file'), async (req, res) => {
   const path = `appointments/${id}/${type}-${uniqueId}.${safeExt}`
 
   const { error: uploadError } = await supabase.storage
-    .from(PET_PHOTO_BUCKET)
+    .from('appointments')
     .upload(path, file.buffer, {
       cacheControl: '3600',
       upsert: false,
@@ -526,8 +534,13 @@ router.post('/:id/photos', upload.single('file'), async (req, res) => {
     return res.status(500).json({ error: 'Upload failed' })
   }
 
-  const { data: publicUrlData } = supabase.storage.from(PET_PHOTO_BUCKET).getPublicUrl(path)
-  const publicUrl = publicUrlData?.publicUrl || null
+  // Gerar signed URL (7 dias)
+  const { data: signedUrlData, error: signedError } = await supabase.storage
+    .from('appointments')
+    .createSignedUrl(path, 604800)
+
+  if (signedError) return res.status(500).json({ error: signedError.message })
+  const publicUrl = signedUrlData?.signedUrl || null
 
   if (publicUrl) {
     const column = type === 'before' ? 'before_photo_url' : 'after_photo_url'
@@ -539,6 +552,77 @@ router.post('/:id/photos', upload.single('file'), async (req, res) => {
   }
 
   return res.json({ url: publicUrl })
+})
+
+// Get shareable appointment with temporary signed URLs
+router.get('/:id/share', async (req, res) => {
+  const supabase = getSupabaseServiceRoleClient()
+  if (!supabase) return res.status(500).json({ error: 'Service unavailable' })
+
+  const { id } = req.params
+
+  // Buscar appointment com fotos
+  const { data: appointment, error } = await supabase
+    .from('appointments')
+    .select(`
+      id,
+      appointment_date,
+      appointment_time,
+      status,
+      notes,
+      before_photo_url,
+      after_photo_url,
+      customers ( id, name, phone ),
+      pets ( id, name, breed ),
+      appointment_services ( 
+        service_id,
+        services ( id, name, price )
+      )
+    `)
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error || !appointment) {
+    return res.status(404).json({ error: 'Appointment not found' })
+  }
+
+  // Gerar signed URLs temporárias para as fotos (válidas por 7 dias)
+  const signedUrls = {}
+
+  if (appointment.before_photo_url) {
+    // Extrair path do URL completo
+    const beforePath = appointment.before_photo_url.split('/appointments/')[1]
+    if (beforePath) {
+      const { data } = await supabase.storage
+        .from('appointments')
+        .createSignedUrl(`appointments/${beforePath}`, 604800)
+      if (data?.signedUrl) signedUrls.beforePhoto = data.signedUrl
+    }
+  }
+
+  if (appointment.after_photo_url) {
+    const afterPath = appointment.after_photo_url.split('/appointments/')[1]
+    if (afterPath) {
+      const { data } = await supabase.storage
+        .from('appointments')
+        .createSignedUrl(`appointments/${afterPath}`, 604800)
+      if (data?.signedUrl) signedUrls.afterPhoto = data.signedUrl
+    }
+  }
+
+  return res.json({
+    appointment: {
+      id: appointment.id,
+      date: appointment.appointment_date,
+      time: appointment.appointment_time,
+      status: appointment.status,
+      notes: appointment.notes,
+      customer: appointment.customers,
+      pet: appointment.pets,
+      services: appointment.appointment_services?.map(as => as.services) || [],
+      photos: signedUrls
+    }
+  })
 })
 
 export default router

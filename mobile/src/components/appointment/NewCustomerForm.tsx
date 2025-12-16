@@ -2,10 +2,6 @@ import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { AddressAutocomplete } from './AddressAutocomplete';
 import { Input } from '../common/Input';
-import { useState, useEffect } from 'react';
-import MapView, { Marker } from 'react-native-maps';
-
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
 
 type NewCustomerFormProps = {
   customerName: string;
@@ -43,29 +39,6 @@ export function NewCustomerForm({
   addressPlaceholder,
 }: NewCustomerFormProps) {
   const { colors } = useBrandingTheme();
-  const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
-
-  useEffect(() => {
-    if (customerAddress && customerAddress.length > 10) {
-      const geocodeAddress = async () => {
-        try {
-          const response = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(customerAddress)}&key=${GOOGLE_MAPS_API_KEY}`
-          );
-          const data = await response.json();
-          if (data.results?.[0]?.geometry?.location) {
-            const { lat, lng } = data.results[0].geometry.location;
-            setCoordinates({ latitude: lat, longitude: lng });
-          }
-        } catch (error) {
-          console.error('Geocoding error:', error);
-        }
-      };
-      geocodeAddress();
-    } else {
-      setCoordinates(null);
-    }
-  }, [customerAddress]);
 
   const styles = StyleSheet.create({
     field: {
@@ -149,25 +122,6 @@ export function NewCustomerForm({
           onSelect={setCustomerAddress}
           placeholder={addressPlaceholder}
         />
-        {coordinates && (
-          <View style={{ marginTop: 12, height: 200, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: colors.surfaceBorder }}>
-            <MapView
-              style={{ flex: 1 }}
-              region={{
-                latitude: coordinates.latitude,
-                longitude: coordinates.longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
-              scrollEnabled={false}
-              zoomEnabled={false}
-              pitchEnabled={false}
-              rotateEnabled={false}
-            >
-              <Marker coordinate={coordinates} />
-            </MapView>
-          </View>
-        )}
       </View>
 
       <View style={styles.field}>

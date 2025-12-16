@@ -93,6 +93,8 @@ export default function ProfileScreen({ navigation }: Props) {
     const options: CameraOptions = {
       mediaType: 'photo',
       quality: 0.8,
+      maxWidth: 1200,
+      maxHeight: 1200,
       includeBase64: false,
       saveToPhotos: false,
     };
@@ -116,6 +118,8 @@ export default function ProfileScreen({ navigation }: Props) {
     const options: ImageLibraryOptions = {
       mediaType: 'photo',
       quality: 0.8,
+      maxWidth: 1200,
+      maxHeight: 1200,
       includeBase64: false,
       selectionLimit: 1,
     };
@@ -139,9 +143,10 @@ export default function ProfileScreen({ navigation }: Props) {
     try {
       setUploadingAvatar(true);
       const formData = new FormData();
-      const filename = fileName || uri.split('/').pop() || `avatar-${Date.now()}.jpg`;
-      const match = /\.(\w+)$/.exec(filename);
-      const fileType = match ? `image/${match[1]}` : 'image/jpeg';
+      const timestamp = Date.now();
+      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
+      const filename = `profile-${user?.id || 'unknown'}-${timestamp}.${extension}`;
+      const fileType = `image/${extension === 'jpg' ? 'jpeg' : extension}`;
 
       formData.append('file', {
         uri,
