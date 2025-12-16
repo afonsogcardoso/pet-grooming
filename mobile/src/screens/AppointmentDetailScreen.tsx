@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Linking, Alert, Image, ActionSheetIOS, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Linking, Alert, Image, Platform, ActionSheetIOS, PermissionsAndroid } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import * as ImagePicker from 'expo-image-picker';
-import { getAppointment, updateAppointment, uploadAppointmentPhoto, deleteAppointment } from '../api/appointments';
+import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
+import { getAppointment, updateAppointment, deleteAppointment, uploadAppointmentPhoto } from '../api/appointments';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { MiniMap } from '../components/common/MiniMap';
@@ -29,6 +29,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState<'before' | 'after' | null>(null);
 
   const { data, isLoading, isRefetching, error } = useQuery({
     queryKey: ['appointment', appointmentId],
@@ -58,7 +59,6 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     mutationFn: ({ type, file }: { type: 'before' | 'after'; file: { uri: string; name: string; type: string } }) =>
       uploadAppointmentPhoto(appointmentId, type, file),
     onSuccess: async (data, variables) => {
-      // Atualiza o cache local imediatamente com a URL da foto
       const photoUrl = data?.url;
       if (photoUrl && appointment) {
         const updatedAppointment = {
@@ -67,7 +67,6 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         };
         queryClient.setQueryData(['appointment', appointmentId], updatedAppointment);
       }
-      // Refetch para garantir sincronização
       await queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
       Alert.alert('Sucesso', 'Foto enviada.');
     },
@@ -76,6 +75,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       Alert.alert('Erro', message);
     },
   });
+
+
 
   const appointment = data;
   const displayStatus = status ?? appointment?.status ?? 'scheduled';
@@ -186,113 +187,36 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     );
   };
 
-  const pickImage = async (type: 'before' | 'after') => {
-    try {
-      // Solicita permissões sem bloquear se uma falhar
-      const cameraPermission = await ImagePicker.requestCameraPermissionsAsync().catch(() => ({ status: 'denied' as const }));
-      const libraryPermission = await ImagePicker.requestMediaLibraryPermissionsAsync().catch(() => ({ status: 'denied' as const }));
-
-      const hasCameraPermission = cameraPermission.status === 'granted';
-      const hasLibraryPermission = libraryPermission.status === 'granted';
-
-      if (!hasCameraPermission && !hasLibraryPermission) {
-        Alert.alert('Permissão necessária', 'Precisamos de permissão para aceder à câmara ou galeria.');
-        return;
+  const requestAndroidPermissions = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: 'Permissão de Câmara',
+            message: 'A app precisa de acesso à câmara',
+            buttonNeutral: 'Perguntar depois',
+            buttonNegative: 'Cancelar',
+            buttonPositive: 'OK',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
       }
-
-      const showOptions = () => {
-        const options: string[] = ['Cancelar'];
-        const actions: Array<() => Promise<void>> = [];
-
-        if (hasCameraPermission) {
-          options.push('Tirar foto');
-          actions.push(() => launchCamera(type));
-        }
-        
-        if (hasLibraryPermission) {
-          options.push('Escolher da galeria');
-          actions.push(() => launchLibrary(type));
-        }
-
-        if (Platform.OS === 'ios') {
-          ActionSheetIOS.showActionSheetWithOptions(
-            {
-              options,
-              cancelButtonIndex: 0,
-            },
-            async (buttonIndex) => {
-              if (buttonIndex > 0 && actions[buttonIndex - 1]) {
-                await actions[buttonIndex - 1]();
-              }
-            },
-          );
-        } else {
-          const buttons = actions.map((action, index) => ({
-            text: options[index + 1],
-            onPress: () => action(),
-          }));
-
-          Alert.alert(
-            'Escolher foto',
-            'Como deseja adicionar a foto?',
-            [
-              { text: 'Cancelar', style: 'cancel' },
-              ...buttons,
-            ],
-          );
-        }
-      };
-
-      showOptions();
-    } catch (error) {
-      console.error('Erro ao aceder aos serviços de imagem:', error);
-      Alert.alert('Erro', 'Módulo de imagem não disponível');
     }
+    return true;
   };
 
-  const launchCamera = async (type: 'before' | 'after') => {
+  const uploadPhoto = async (type: 'before' | 'after', uri: string, fileName?: string) => {
     try {
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        await uploadPhoto(type, result.assets[0].uri);
-      }
-    } catch (error) {
-      console.error('Erro ao abrir câmara:', error);
-      Alert.alert('Erro', 'Não foi possível abrir a câmara');
-    }
-  };
-
-  const launchLibrary = async (type: 'before' | 'after') => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        await uploadPhoto(type, result.assets[0].uri);
-      }
-    } catch (error) {
-      console.error('Erro ao abrir galeria:', error);
-      Alert.alert('Erro', 'Não foi possível abrir a galeria');
-    }
-  };
-
-  const uploadPhoto = async (type: 'before' | 'after', uri: string) => {
-    try {
-      const filename = uri.split('/').pop() || `${type}-${Date.now()}.jpg`;
+      setUploadingPhoto(type);
+      const filename = fileName || uri.split('/').pop() || `${type}-${Date.now()}.jpg`;
       const match = /\.(\w+)$/.exec(filename);
       const fileType = match ? `image/${match[1]}` : 'image/jpeg';
 
-      photoMutation.mutate({
+      await photoMutation.mutateAsync({
         type,
         file: {
           uri,
@@ -302,7 +226,88 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       });
     } catch (error) {
       console.error('Erro ao preparar upload:', error);
-      Alert.alert('Erro', 'Não foi possível preparar o upload da foto');
+    } finally {
+      setUploadingPhoto(null);
+    }
+  };
+
+  const openCamera = async (type: 'before' | 'after') => {
+    const hasPermission = await requestAndroidPermissions();
+    if (!hasPermission) {
+      Alert.alert('Permissão negada', 'Não é possível aceder à câmara sem permissão.');
+      return;
+    }
+
+    const options: CameraOptions = {
+      mediaType: 'photo',
+      quality: 0.8,
+      includeBase64: false,
+      saveToPhotos: false,
+    };
+
+    launchCamera(options, async (response) => {
+      if (response.didCancel) {
+        return;
+      }
+      if (response.errorCode) {
+        console.error('Erro ao abrir câmara:', response.errorMessage);
+        Alert.alert('Erro', 'Não foi possível abrir a câmara');
+        return;
+      }
+      if (response.assets && response.assets[0]) {
+        await uploadPhoto(type, response.assets[0].uri!, response.assets[0].fileName);
+      }
+    });
+  };
+
+  const openGallery = async (type: 'before' | 'after') => {
+    const options: ImageLibraryOptions = {
+      mediaType: 'photo',
+      quality: 0.8,
+      includeBase64: false,
+      selectionLimit: 1,
+    };
+
+    launchImageLibrary(options, async (response) => {
+      if (response.didCancel) {
+        return;
+      }
+      if (response.errorCode) {
+        console.error('Erro ao abrir galeria:', response.errorMessage);
+        Alert.alert('Erro', 'Não foi possível abrir a galeria');
+        return;
+      }
+      if (response.assets && response.assets[0]) {
+        await uploadPhoto(type, response.assets[0].uri!, response.assets[0].fileName);
+      }
+    });
+  };
+
+  const pickImage = (type: 'before' | 'after') => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            openCamera(type);
+          } else if (buttonIndex === 2) {
+            openGallery(type);
+          }
+        }
+      );
+    } else {
+      Alert.alert(
+        'Escolher foto',
+        'Como deseja adicionar a foto?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Tirar foto', onPress: () => openCamera(type) },
+          { text: 'Escolher da galeria', onPress: () => openGallery(type) },
+        ]
+      );
     }
   };
 
@@ -462,15 +467,28 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                   <Text style={styles.photoItemLabel}>Antes</Text>
                   <TouchableOpacity
                     onPress={() => pickImage('before')}
-                    disabled={photoMutation.isPending}
                     activeOpacity={0.7}
+                    disabled={uploadingPhoto === 'before'}
                   >
                     {appointment?.before_photo_url ? (
-                      <Image source={{ uri: appointment.before_photo_url }} style={styles.photoItemImage} />
+                      <>
+                        <Image source={{ uri: appointment.before_photo_url }} style={styles.photoItemImage} />
+                        {uploadingPhoto === 'before' && (
+                          <View style={styles.photoLoadingOverlay}>
+                            <ActivityIndicator color="#fff" />
+                          </View>
+                        )}
+                      </>
                     ) : (
                       <View style={styles.photoItemPlaceholder}>
-                        <Text style={styles.photoItemPlaceholderText}>+</Text>
-                        <Text style={styles.photoItemPlaceholderLabel}>Toca para adicionar</Text>
+                        {uploadingPhoto === 'before' ? (
+                          <ActivityIndicator color={colors.primary} />
+                        ) : (
+                          <>
+                            <Text style={styles.photoItemPlaceholderText}>+</Text>
+                            <Text style={styles.photoItemPlaceholderLabel}>Toca para adicionar</Text>
+                          </>
+                        )}
                       </View>
                     )}
                   </TouchableOpacity>
@@ -480,23 +498,33 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                   <Text style={styles.photoItemLabel}>Depois</Text>
                   <TouchableOpacity
                     onPress={() => pickImage('after')}
-                    disabled={photoMutation.isPending}
                     activeOpacity={0.7}
+                    disabled={uploadingPhoto === 'after'}
                   >
                     {appointment?.after_photo_url ? (
-                      <Image source={{ uri: appointment.after_photo_url }} style={styles.photoItemImage} />
+                      <>
+                        <Image source={{ uri: appointment.after_photo_url }} style={styles.photoItemImage} />
+                        {uploadingPhoto === 'after' && (
+                          <View style={styles.photoLoadingOverlay}>
+                            <ActivityIndicator color="#fff" />
+                          </View>
+                        )}
+                      </>
                     ) : (
                       <View style={styles.photoItemPlaceholder}>
-                        <Text style={styles.photoItemPlaceholderText}>+</Text>
-                        <Text style={styles.photoItemPlaceholderLabel}>Toca para adicionar</Text>
+                        {uploadingPhoto === 'after' ? (
+                          <ActivityIndicator color={colors.primary} />
+                        ) : (
+                          <>
+                            <Text style={styles.photoItemPlaceholderText}>+</Text>
+                            <Text style={styles.photoItemPlaceholderLabel}>Toca para adicionar</Text>
+                          </>
+                        )}
                       </View>
                     )}
                   </TouchableOpacity>
                 </View>
               </View>
-              {photoMutation.isPending ? (
-                <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} />
-              ) : null}
             </View>
 
             {/* Estado - Buttons Modernos */}
@@ -931,6 +959,17 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderRadius: 16,
       marginBottom: 10,
       backgroundColor: colors.background,
+    },
+    photoLoadingOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 10,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      borderRadius: 16,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     photoItemPlaceholder: {
       width: '100%',

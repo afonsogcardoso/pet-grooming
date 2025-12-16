@@ -47,14 +47,7 @@ export default {
     favicon: './assets/favicon.png',
   },
   plugins: [
-    'expo-secure-store',
-    [
-      'expo-image-picker',
-      {
-        photosPermission: 'Precisamos de acesso às fotos para anexar imagens.',
-        cameraPermission: 'Precisamos de acesso à câmara para tirar fotos.',
-      },
-    ],
+    'expo-secure-store'
   ],
   extra: {
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL,

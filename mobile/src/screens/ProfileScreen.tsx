@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Image, TextInput, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Image, TextInput, Alert, Platform, ActionSheetIOS, PermissionsAndroid } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import * as ImagePicker from 'expo-image-picker';
+import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 import { getProfile, updateProfile, uploadAvatar } from '../api/profile';
 import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
@@ -35,6 +35,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const InfoPill = ({ label, value }: { label: string; value?: string | number | null }) => (
     <View style={styles.pill}>
@@ -60,88 +61,83 @@ export default function ProfileScreen({ navigation }: Props) {
     onError: () => Alert.alert('Erro', 'Não foi possível atualizar o perfil'),
   });
 
-  const pickImage = async () => {
-    try {
-      const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
-      const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  const requestAndroidPermissions = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: 'Permissão de Câmara',
+            message: 'A app precisa de acesso à câmara',
+            buttonNeutral: 'Perguntar depois',
+            buttonNegative: 'Cancelar',
+            buttonPositive: 'OK',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
+  };
 
-      if (cameraStatus !== 'granted' && libraryStatus !== 'granted') {
-        Alert.alert('Permissão necessária', 'Precisamos de permissão para aceder à câmara ou galeria.');
+  const openCamera = async () => {
+    const hasPermission = await requestAndroidPermissions();
+    if (!hasPermission) {
+      Alert.alert('Permissão negada', 'Não é possível aceder à câmara sem permissão.');
+      return;
+    }
+
+    const options: CameraOptions = {
+      mediaType: 'photo',
+      quality: 0.8,
+      includeBase64: false,
+      saveToPhotos: false,
+    };
+
+    launchCamera(options, async (response) => {
+      if (response.didCancel) {
         return;
       }
-
-      const showOptions = () => {
-        if (Platform.OS === 'ios') {
-          const ActionSheetIOS = require('react-native').ActionSheetIOS;
-          ActionSheetIOS.showActionSheetWithOptions(
-            {
-              options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
-              cancelButtonIndex: 0,
-            },
-            async (buttonIndex: number) => {
-              if (buttonIndex === 1) {
-                await launchCamera();
-              } else if (buttonIndex === 2) {
-                await launchLibrary();
-              }
-            },
-          );
-        } else {
-          Alert.alert(
-            'Escolher foto',
-            'Como deseja adicionar a foto?',
-            [
-              { text: 'Cancelar', style: 'cancel' },
-              { text: 'Tirar foto', onPress: () => launchCamera() },
-              { text: 'Escolher da galeria', onPress: () => launchLibrary() },
-            ],
-          );
-        }
-      };
-
-      showOptions();
-    } catch (error) {
-      console.error('Erro ao selecionar imagem:', error);
-      Alert.alert('Erro', 'Não foi possível aceder à câmara ou galeria');
-    }
+      if (response.errorCode) {
+        console.error('Erro ao abrir câmara:', response.errorMessage);
+        Alert.alert('Erro', 'Não foi possível abrir a câmara');
+        return;
+      }
+      if (response.assets && response.assets[0]) {
+        await uploadAvatarFromUri(response.assets[0].uri!, response.assets[0].fileName);
+      }
+    });
   };
 
-  const launchCamera = async () => {
-    try {
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
+  const openGallery = async () => {
+    const options: ImageLibraryOptions = {
+      mediaType: 'photo',
+      quality: 0.8,
+      includeBase64: false,
+      selectionLimit: 1,
+    };
 
-      if (!result.canceled && result.assets[0]) {
-        await uploadAvatarFromUri(result.assets[0].uri, result.assets[0].fileName);
+    launchImageLibrary(options, async (response) => {
+      if (response.didCancel) {
+        return;
       }
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível abrir a câmara');
-    }
-  };
-
-  const launchLibrary = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        await uploadAvatarFromUri(result.assets[0].uri, result.assets[0].fileName);
+      if (response.errorCode) {
+        console.error('Erro ao abrir galeria:', response.errorMessage);
+        Alert.alert('Erro', 'Não foi possível abrir a galeria');
+        return;
       }
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível abrir a galeria');
-    }
+      if (response.assets && response.assets[0]) {
+        await uploadAvatarFromUri(response.assets[0].uri!, response.assets[0].fileName);
+      }
+    });
   };
 
   const uploadAvatarFromUri = async (uri: string, fileName?: string | null) => {
     try {
+      setUploadingAvatar(true);
       const formData = new FormData();
       const filename = fileName || uri.split('/').pop() || `avatar-${Date.now()}.jpg`;
       const match = /\.(\w+)$/.exec(filename);
@@ -159,6 +155,36 @@ export default function ProfileScreen({ navigation }: Props) {
     } catch (error) {
       console.error('Erro ao fazer upload:', error);
       Alert.alert('Erro', 'Não foi possível fazer upload da imagem');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const pickImage = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            openCamera();
+          } else if (buttonIndex === 2) {
+            openGallery();
+          }
+        }
+      );
+    } else {
+      Alert.alert(
+        'Escolher foto',
+        'Como deseja adicionar a foto?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Tirar foto', onPress: openCamera },
+          { text: 'Escolher da galeria', onPress: openGallery },
+        ]
+      );
     }
   };
 
@@ -182,15 +208,21 @@ export default function ProfileScreen({ navigation }: Props) {
       <ScreenHeader title="Perfil" />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerCard}>
-          <TouchableOpacity style={styles.avatar} onPress={pickImage} disabled={updateMutation.isPending}>
+          <TouchableOpacity style={styles.avatar} onPress={pickImage} disabled={uploadingAvatar || updateMutation.isPending}>
             {data?.avatarUrl ? (
               <Image source={{ uri: data.avatarUrl }} style={styles.avatarImage} />
             ) : (
               <Text style={styles.avatarText}>{avatarFallback}</Text>
             )}
-            <View style={styles.avatarBadge}>
-              <Text style={styles.avatarBadgeText}>📷</Text>
-            </View>
+            {uploadingAvatar ? (
+              <View style={styles.avatarLoading}>
+                <ActivityIndicator color="#fff" />
+              </View>
+            ) : (
+              <View style={styles.avatarBadge}>
+                <Text style={styles.avatarBadgeText}>📷</Text>
+              </View>
+            )}
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerLabel}>Perfil</Text>
@@ -357,6 +389,17 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     avatarBadgeText: {
       fontSize: 12,
+    },
+    avatarLoading: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     editInput: {
       backgroundColor: colors.background,

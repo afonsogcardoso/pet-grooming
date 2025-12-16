@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, Image, ActionSheetIOS } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, Image, ActionSheetIOS, PermissionsAndroid, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import * as ImagePicker from 'expo-image-picker';
+import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { createPet, uploadPetPhoto, type Pet } from '../api/customers';
 import { ScreenHeader } from '../components/ScreenHeader';
@@ -74,108 +74,122 @@ export default function PetFormScreen({ navigation, route }: Props) {
     },
   });
 
-  const pickImage = async () => {
-    try {
-      const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
-      const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  const requestAndroidPermissions = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: 'Permissão de Câmara',
+            message: 'A app precisa de acesso à câmara',
+            buttonNeutral: 'Perguntar depois',
+            buttonNegative: 'Cancelar',
+            buttonPositive: 'OK',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
+  };
 
-      if (cameraStatus !== 'granted' && libraryStatus !== 'granted') {
-        Alert.alert('Permissão necessária', 'Precisamos de permissão para aceder à câmara ou galeria.');
+  const uploadPhoto = async (uri: string) => {
+    // Se estamos editando, faz upload imediatamente
+    if (mode === 'edit' && petId) {
+      try {
+        setUploadingPhoto(true);
+        await uploadPetPhotoMutation.mutateAsync({ petId, uri });
+        Alert.alert('Sucesso', 'Foto atualizada!');
+      } catch (error) {
+        Alert.alert('Erro', 'Não foi possível fazer upload da foto');
+      } finally {
+        setUploadingPhoto(false);
+      }
+    }
+  };
+
+  const openCamera = async () => {
+    const hasPermission = await requestAndroidPermissions();
+    if (!hasPermission) {
+      Alert.alert('Permissão negada', 'Não é possível aceder à câmara sem permissão.');
+      return;
+    }
+
+    const options: CameraOptions = {
+      mediaType: 'photo',
+      quality: 0.8,
+      includeBase64: false,
+      saveToPhotos: false,
+    };
+
+    launchCamera(options, async (response) => {
+      if (response.didCancel) {
         return;
       }
-
-      const showOptions = () => {
-        if (Platform.OS === 'ios') {
-          ActionSheetIOS.showActionSheetWithOptions(
-            {
-              options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
-              cancelButtonIndex: 0,
-            },
-            async (buttonIndex) => {
-              if (buttonIndex === 1) {
-                await launchCamera();
-              } else if (buttonIndex === 2) {
-                await launchLibrary();
-              }
-            },
-          );
-        } else {
-          Alert.alert(
-            'Escolher foto',
-            'Como deseja adicionar a foto?',
-            [
-              { text: 'Cancelar', style: 'cancel' },
-              { text: 'Tirar foto', onPress: () => launchCamera() },
-              { text: 'Escolher da galeria', onPress: () => launchLibrary() },
-            ],
-          );
-        }
-      };
-
-      showOptions();
-    } catch (error) {
-      console.error('Erro ao selecionar imagem:', error);
-      Alert.alert('Erro', 'Não foi possível aceder à câmara ou galeria');
-    }
+      if (response.errorCode) {
+        console.error('Erro ao abrir câmara:', response.errorMessage);
+        Alert.alert('Erro', 'Não foi possível abrir a câmara');
+        return;
+      }
+      if (response.assets && response.assets[0]) {
+        setPhotoUri(response.assets[0].uri!);
+        await uploadPhoto(response.assets[0].uri!);
+      }
+    });
   };
 
-  const launchCamera = async () => {
-    try {
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
+  const openGallery = async () => {
+    const options: ImageLibraryOptions = {
+      mediaType: 'photo',
+      quality: 0.8,
+      includeBase64: false,
+      selectionLimit: 1,
+    };
 
-      if (!result.canceled && result.assets[0]) {
-        setPhotoUri(result.assets[0].uri);
-        
-        // Se estamos editando, faz upload imediatamente
-        if (mode === 'edit' && petId) {
-          try {
-            setUploadingPhoto(true);
-            await uploadPetPhotoMutation.mutateAsync({ petId, uri: result.assets[0].uri });
-            Alert.alert('Sucesso', 'Foto atualizada!');
-          } catch (error) {
-            Alert.alert('Erro', 'Não foi possível fazer upload da foto');
-          } finally {
-            setUploadingPhoto(false);
-          }
-        }
+    launchImageLibrary(options, async (response) => {
+      if (response.didCancel) {
+        return;
       }
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível abrir a câmara');
-    }
+      if (response.errorCode) {
+        console.error('Erro ao abrir galeria:', response.errorMessage);
+        Alert.alert('Erro', 'Não foi possível abrir a galeria');
+        return;
+      }
+      if (response.assets && response.assets[0]) {
+        setPhotoUri(response.assets[0].uri!);
+        await uploadPhoto(response.assets[0].uri!);
+      }
+    });
   };
 
-  const launchLibrary = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setPhotoUri(result.assets[0].uri);
-        
-        // Se estamos editando, faz upload imediatamente
-        if (mode === 'edit' && petId) {
-          try {
-            setUploadingPhoto(true);
-            await uploadPetPhotoMutation.mutateAsync({ petId, uri: result.assets[0].uri });
-            Alert.alert('Sucesso', 'Foto atualizada!');
-          } catch (error) {
-            Alert.alert('Erro', 'Não foi possível fazer upload da foto');
-          } finally {
-            setUploadingPhoto(false);
+  const selectImage = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            openCamera();
+          } else if (buttonIndex === 2) {
+            openGallery();
           }
         }
-      }
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível abrir a galeria');
+      );
+    } else {
+      Alert.alert(
+        'Escolher foto',
+        'Como deseja adicionar a foto?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Tirar foto', onPress: openCamera },
+          { text: 'Escolher da galeria', onPress: openGallery },
+        ]
+      );
     }
   };
 
@@ -221,7 +235,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
               <Text style={styles.photoLabel}>Foto do Pet</Text>
               <TouchableOpacity 
                 style={styles.photoContainer} 
-                onPress={pickImage} 
+                onPress={selectImage} 
                 activeOpacity={0.7}
                 disabled={uploadingPhoto}
               >
@@ -230,16 +244,21 @@ export default function PetFormScreen({ navigation, route }: Props) {
                     <Image source={{ uri: photoUri }} style={styles.photo} />
                     {uploadingPhoto && (
                       <View style={styles.photoOverlay}>
+                        <ActivityIndicator color="#fff" size="large" />
                         <Text style={styles.photoOverlayText}>A carregar...</Text>
                       </View>
                     )}
                   </>
                 ) : (
                   <View style={styles.photoPlaceholder}>
-                    <Text style={styles.photoPlaceholderIcon}>📷</Text>
-                    <Text style={styles.photoPlaceholderText}>
-                      {uploadingPhoto ? 'A carregar...' : 'Adicionar Foto'}
-                    </Text>
+                    {uploadingPhoto ? (
+                      <ActivityIndicator color={colors.primary} size="large" />
+                    ) : (
+                      <>
+                        <Text style={styles.photoPlaceholderIcon}>📷</Text>
+                        <Text style={styles.photoPlaceholderText}>Adicionar Foto</Text>
+                      </>
+                    )}
                   </View>
                 )}
               </TouchableOpacity>
