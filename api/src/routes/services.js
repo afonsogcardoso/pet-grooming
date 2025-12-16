@@ -11,7 +11,8 @@ router.get('/', async (req, res) => {
 
   let query = supabase
     .from('services')
-    .select('id,name,default_duration,price,active,description')
+    .select('id,name,default_duration,price,active,description,display_order')
+    .order('display_order', { ascending: true })
     .order('name', { ascending: true })
 
   if (accountId) {
@@ -63,9 +64,9 @@ router.patch('/:id', async (req, res) => {
   const updatePayload = payload._delete
     ? { deleted_at: new Date().toISOString() }
     : {
-        ...payload,
-        default_duration: payload.duration ?? payload.default_duration
-      }
+      ...payload,
+      default_duration: payload.duration ?? payload.default_duration
+    }
 
   let query = supabase.from('services').update(updatePayload).eq('id', id)
   if (accountId) {

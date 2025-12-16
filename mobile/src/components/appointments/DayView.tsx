@@ -339,8 +339,9 @@ export function DayView({
                       {appointment.pets?.name}{customer?.name ? ` | ${customer.name}` : ''}
                     </Text>
                     <Text style={styles.appointmentService} numberOfLines={1}>
-                      {appointment.services?.name}
-                      {appointment.services?.price ? ` | ${appointment.services.price.toFixed(2)}€` : ''}
+                      {appointment.appointment_services && appointment.appointment_services.length > 0
+                        ? appointment.appointment_services.map(as => `${as.services.name}${as.services.price ? ` (${as.services.price.toFixed(2)}€)` : ''}`).join(', ')
+                        : `${appointment.services?.name}${appointment.services?.price ? ` | ${appointment.services.price.toFixed(2)}€` : ''}`}
                     </Text>
                   </View>
                   

@@ -392,7 +392,9 @@ export function WeekView({
                           {appointment.pets?.name}
                         </Text>
                         <Text style={styles.appointmentService} numberOfLines={1}>
-                          {appointment.services?.name}
+                          {appointment.appointment_services && appointment.appointment_services.length > 0
+                            ? appointment.appointment_services.map(as => as.services.name).join(', ')
+                            : appointment.services?.name}
                         </Text>
                       </TouchableOpacity>
                     );

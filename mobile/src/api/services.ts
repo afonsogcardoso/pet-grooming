@@ -7,6 +7,7 @@ export type Service = {
   default_duration?: number | null;
   price?: number | null;
   active?: boolean | null;
+  display_order?: number | null;
 };
 
 type ServicesResponse = {
@@ -32,4 +33,8 @@ export async function createService(service: Omit<Service, 'id'>): Promise<Servi
 export async function updateService(id: string, service: Partial<Service>): Promise<Service> {
   const { data } = await api.put(`/services/${id}`, service);
   return data.data;
+}
+
+export async function deleteService(id: string): Promise<void> {
+  await api.delete(`/services/${id}`);
 }

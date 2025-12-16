@@ -16,6 +16,9 @@
 # Local backups
 .git_backup_pet_app/
 
+# Migrations
+**/migrations/
+
 # OS/Junk
 **/.DS_Store
 **/Thumbs.db

@@ -81,7 +81,8 @@ router.get('/', async (req, res) => {
       after_photo_url,
       customers ( id, name, phone, address ),
       services ( id, name, price ),
-      pets ( id, name, breed, photo_url )
+      pets ( id, name, breed, photo_url ),
+      appointment_services ( service_id, services ( id, name, price, display_order ) )
     `
     )
     .order('appointment_date', { ascending: true })
@@ -119,19 +120,37 @@ router.post('/', async (req, res) => {
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
   const payload = { ...(req.body || {}) }
+  const serviceIds = payload.service_ids || (payload.service_id ? [payload.service_id] : [])
+  delete payload.service_ids
 
   if (accountId) {
     payload.account_id = accountId
   }
 
-  const { data, error } = await supabase.from('appointments').insert(payload).select()
+  const { data: appointment, error } = await supabase.from('appointments').insert(payload).select().single()
 
   if (error) {
     console.error('[api] create appointment error', error)
     return res.status(500).json({ error: error.message })
   }
 
-  res.status(201).json({ data })
+  // Insert appointment services if provided
+  if (serviceIds.length > 0 && appointment) {
+    const appointmentServices = serviceIds.map(serviceId => ({
+      appointment_id: appointment.id,
+      service_id: serviceId
+    }))
+
+    const { error: servicesError } = await supabase
+      .from('appointment_services')
+      .insert(appointmentServices)
+
+    if (servicesError) {
+      console.error('[api] create appointment services error', servicesError)
+    }
+  }
+
+  res.status(201).json({ data: appointment })
 })
 
 // Get single appointment
@@ -156,7 +175,8 @@ router.get('/:id', async (req, res) => {
       after_photo_url,
       customers ( id, name, phone, address ),
       services ( id, name, price ),
-      pets ( id, name, breed, photo_url )
+      pets ( id, name, breed, photo_url ),
+      appointment_services ( service_id, services ( id, name, price, display_order ) )
     `
     )
     .eq('id', id)

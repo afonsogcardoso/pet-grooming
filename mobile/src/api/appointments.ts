@@ -23,6 +23,15 @@ export type Appointment = {
     name?: string | null;
     price?: number | null;
   } | null;
+  appointment_services?: Array<{
+    service_id: string;
+    services: {
+      id: string;
+      name?: string | null;
+      price?: number | null;
+      display_order?: number | null;
+    };
+  }> | null;
   pets?: {
     id: string;
     name?: string | null;

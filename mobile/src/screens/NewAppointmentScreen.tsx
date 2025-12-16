@@ -86,7 +86,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const setSelectedPet = (value: string) => {
     setSelectedPetState(value);
   };
-  const [selectedService, setSelectedService] = useState('');
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [customerSearch, setCustomerSearch] = useState('');
   const [mode, setMode] = useState<'existing' | 'new'>(isEditMode ? 'existing' : 'new');
   const [newCustomerName, setNewCustomerName] = useState('');
@@ -138,7 +138,15 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       setTime(formatHHMM(appointmentData.appointment_time) || currentLocalTime());
       setDuration(appointmentData.duration || 60);
       setNotes(appointmentData.notes || '');
-      setSelectedService(appointmentData.services?.id || '');
+      
+      // Load services from appointment_services or fallback to single service
+      const serviceIds: string[] = [];
+      if (appointmentData.appointment_services && appointmentData.appointment_services.length > 0) {
+        serviceIds.push(...appointmentData.appointment_services.map((as: any) => as.service_id));
+      } else if (appointmentData.services?.id) {
+        serviceIds.push(appointmentData.services.id);
+      }
+      setSelectedServices(serviceIds);
       
       // Set customer and pet IDs
       const customerId = appointmentData.customers?.id || '';
@@ -202,9 +210,9 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     return pets;
   }, [selectedCustomerData, isEditMode, selectedPet, appointmentData?.pets?.id]);
 
-  const selectedServiceData = useMemo(() => {
-    return services.find((s) => s.id === selectedService);
-  }, [services, selectedService]);
+  const selectedServicesData = useMemo(() => {
+    return services.filter((s) => selectedServices.includes(s.id));
+  }, [services, selectedServices]);
 
   const effectivePhone =
     mode === 'new'
@@ -250,10 +258,16 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   }, [customerSearch, customers]);
 
   useEffect(() => {
-    if (selectedServiceData?.default_duration) {
-      setDuration(selectedServiceData.default_duration);
+    // Set duration to sum of all selected services default durations
+    if (selectedServicesData.length > 0) {
+      const totalDuration = selectedServicesData.reduce((sum, service) => {
+        return sum + (service.default_duration || 0);
+      }, 0);
+      if (totalDuration > 0) {
+        setDuration(totalDuration);
+      }
     }
-  }, [selectedServiceData]);
+  }, [selectedServicesData]);
 
   const parsedDate = useMemo(() => {
     const safe = date ? new Date(`${date}T00:00:00`) : new Date();
@@ -343,7 +357,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     Boolean(
       date &&
         timeIsValid &&
-        selectedService &&
+        selectedServices.length > 0 &&
         (mode === 'existing' ? hasExistingSelection : hasNewSelection),
     ) && !mutation.isPending;
 
@@ -439,7 +453,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       notes: notes.trim() || null,
       customer_id: customerId,
       pet_id: petId,
-      service_id: selectedService,
+      service_id: selectedServices[0] || null, // Keep for backward compatibility
+      service_ids: selectedServices, // New field for multiple services
     });
   };
 
@@ -449,7 +464,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       ? dateObj.toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit', month: 'short' })
       : date;
     const timeLabel = time || '—';
-    const serviceName = selectedServiceData?.name;
+    const serviceNames = selectedServicesData.map(s => s.name).join(', ') || '—';
     const customerName = mode === 'new' ? newCustomerName : selectedCustomerData?.name;
     const pet =
       mode === 'new'
@@ -462,7 +477,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       : `Olá! Confirmamos a sua marcação para ${dateLabel} às ${timeLabel}.`;
 
     const lines = [
-      serviceName && `Serviço: ${serviceName}`,
+      serviceNames && `Serviços: ${serviceNames}`,
       pet ? `Pet: ${pet.name}${pet.breed ? ` (${pet.breed})` : ''}` : null,
       address && `Morada: ${address}`,
     ].filter(Boolean);
@@ -535,13 +550,13 @@ export default function NewAppointmentScreen({ navigation }: Props) {
             </View>
 
             <ServiceSelector
-              selectedService={selectedService}
-              selectedServiceData={selectedServiceData}
+              selectedServices={selectedServices}
+              selectedServicesData={selectedServicesData}
               services={services}
               loadingServices={loadingServices}
               showServiceList={showServiceList}
               setShowServiceList={setShowServiceList}
-              setSelectedService={setSelectedService}
+              setSelectedServices={setSelectedServices}
               setDuration={setDuration}
             />
 

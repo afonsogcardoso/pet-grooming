@@ -9,27 +9,35 @@ type Service = {
 };
 
 type ServiceSelectorProps = {
-  selectedService: string;
-  selectedServiceData?: Service;
+  selectedServices: string[];
+  selectedServicesData: Service[];
   services: Service[];
   loadingServices: boolean;
   showServiceList: boolean;
   setShowServiceList: (value: boolean) => void;
-  setSelectedService: (id: string) => void;
+  setSelectedServices: (ids: string[]) => void;
   setDuration: (duration: number) => void;
 };
 
 export function ServiceSelector({
-  selectedService,
-  selectedServiceData,
+  selectedServices,
+  selectedServicesData,
   services,
   loadingServices,
   showServiceList,
   setShowServiceList,
-  setSelectedService,
+  setSelectedServices,
   setDuration,
 }: ServiceSelectorProps) {
   const { colors } = useBrandingTheme();
+
+  const toggleService = (serviceId: string) => {
+    if (selectedServices.includes(serviceId)) {
+      setSelectedServices(selectedServices.filter(id => id !== serviceId));
+    } else {
+      setSelectedServices([...selectedServices, serviceId]);
+    }
+  };
 
   const styles = StyleSheet.create({
     field: {
@@ -96,15 +104,19 @@ export function ServiceSelector({
     },
   });
 
+  const displayText = selectedServicesData.length > 0
+    ? selectedServicesData.map(s => s.name).join(', ')
+    : (loadingServices ? 'A carregar...' : 'Escolhe os serviços');
+
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>Serviço</Text>
+      <Text style={styles.label}>Serviços ({selectedServices.length})</Text>
       <TouchableOpacity 
         style={styles.select} 
         onPress={() => setShowServiceList(!showServiceList)}
       >
-        <Text style={[styles.selectText, !selectedServiceData && styles.placeholder]}>
-          {selectedServiceData?.name || (loadingServices ? 'A carregar...' : 'Escolhe um serviço')}
+        <Text style={[styles.selectText, selectedServices.length === 0 && styles.placeholder]}>
+          {displayText}
         </Text>
       </TouchableOpacity>
 
@@ -113,30 +125,43 @@ export function ServiceSelector({
           {loadingServices ? (
             <ActivityIndicator color={colors.primary} />
           ) : (
-            <ScrollView style={{ maxHeight: 180 }}>
-              {services.map((service) => (
-                <TouchableOpacity
-                  key={service.id}
-                  style={styles.option}
-                  onPress={() => {
-                    setSelectedService(service.id);
-                    setShowServiceList(false);
-                    if (service.default_duration) setDuration(service.default_duration);
-                  }}
-                >
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={styles.optionTitle}>{service.name}</Text>
-                      {service.price && (
-                        <Text style={styles.priceText}>{service.price.toFixed(2)}€</Text>
-                      )}
+            <ScrollView style={{ maxHeight: 300 }}>
+              {services.map((service) => {
+                const isSelected = selectedServices.includes(service.id);
+                return (
+                  <TouchableOpacity
+                    key={service.id}
+                    style={[styles.option, isSelected && { backgroundColor: colors.primarySoft }]}
+                    onPress={() => toggleService(service.id)}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: 6,
+                        borderWidth: 2,
+                        borderColor: isSelected ? colors.primary : colors.surfaceBorder,
+                        backgroundColor: isSelected ? colors.primary : 'transparent',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      }}>
+                        {isSelected && <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>✓</Text>}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Text style={styles.optionTitle}>{service.name}</Text>
+                          {service.price && (
+                            <Text style={styles.priceText}>{service.price.toFixed(2)}€</Text>
+                          )}
+                        </View>
+                        {service.description ? (
+                          <Text style={styles.optionSubtitle}>{service.description}</Text>
+                        ) : null}
+                      </View>
                     </View>
-                    {service.description ? (
-                      <Text style={styles.optionSubtitle}>{service.description}</Text>
-                    ) : null}
-                  </View>
-                </TouchableOpacity>
-              ))}
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           )}
         </View>

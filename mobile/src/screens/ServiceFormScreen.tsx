@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { getAllServices, createService, updateService, Service } from '../api/services';
+import { getAllServices, createService, updateService, deleteService, Service } from '../api/services';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Input, Button } from '../components/common';
 
@@ -20,6 +20,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [duration, setDuration] = useState('');
+  const [displayOrder, setDisplayOrder] = useState('');
   const [active, setActive] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -37,6 +38,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
       setDescription(service.description || '');
       setPrice(service.price?.toString() || '');
       setDuration(service.default_duration?.toString() || '');
+      setDisplayOrder(service.display_order?.toString() || '0');
       setActive(service.active !== false);
     }
   }, [mode, service]);
@@ -62,6 +64,18 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
     },
     onError: () => {
       Alert.alert('Erro', 'Não foi possível atualizar o serviço.');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteService,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+      Alert.alert('Sucesso', 'Serviço eliminado com sucesso!');
+      navigation.goBack();
+    },
+    onError: () => {
+      Alert.alert('Erro', 'Não foi possível eliminar o serviço.');
     },
   });
 
@@ -92,6 +106,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
       description: description.trim() || null,
       price: price ? Number(price) : null,
       default_duration: duration ? Number(duration) : null,
+      display_order: displayOrder ? Number(displayOrder) : 0,
       active,
     };
 
@@ -102,7 +117,24 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
     }
   };
 
-  const isLoading = createMutation.isPending || updateMutation.isPending;
+  const handleDelete = () => {
+    if (!serviceId) return;
+
+    Alert.alert(
+      'Eliminar Serviço',
+      'Tem a certeza que deseja eliminar este serviço? Esta ação não pode ser revertida.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => deleteMutation.mutate(serviceId),
+        },
+      ]
+    );
+  };
+
+  const isLoading = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -152,6 +184,15 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
             keyboardType="number-pad"
           />
 
+          <Input
+            label="Ordem de Exibição"
+            placeholder="0"
+            value={displayOrder}
+            onChangeText={setDisplayOrder}
+            keyboardType="number-pad"
+            leftIcon="🔢"
+          />
+
           <View style={styles.switchContainer}>
             <View>
               <Text style={styles.switchLabel}>Serviço Ativo</Text>
@@ -173,6 +214,17 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
             loading={isLoading}
             disabled={isLoading}
           />
+
+          {mode === 'edit' && (
+            <Button
+              title="Eliminar Serviço"
+              onPress={handleDelete}
+              loading={deleteMutation.isPending}
+              disabled={isLoading}
+              variant="danger"
+              style={{ marginTop: 16 }}
+            />
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

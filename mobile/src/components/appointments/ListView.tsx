@@ -295,7 +295,11 @@ export function ListView({
 
             <View style={styles.content}>
               <Text style={styles.time}>{formatTime(item.appointment_time)}</Text>
-              <Text style={styles.service}>{item.services?.name || 'Serviço'}</Text>
+              <Text style={styles.service}>
+                {item.appointment_services && item.appointment_services.length > 0
+                  ? item.appointment_services.map(as => as.services.name).join(', ')
+                  : (item.services?.name || 'Serviço')}
+              </Text>
               <Text style={styles.meta}>
                 {item.customers?.name} • {item.pets?.name}
               </Text>
