@@ -1,4 +1,5 @@
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { AddressAutocomplete } from './AddressAutocomplete';
 import type { Customer, Pet } from '../../api/customers';
@@ -160,6 +161,23 @@ export function ExistingCustomerForm({
       fontWeight: '600',
       fontSize: 13,
     },
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      marginBottom: 10,
+      gap: 12,
+      borderWidth: 1,
+      borderColor: colors.primarySoft,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 16,
+      color: colors.text,
+    },
   });
 
   return (
@@ -175,20 +193,28 @@ export function ExistingCustomerForm({
               onPress={() => setShowCustomerList(!showCustomerList)}
             >
               <Text style={[styles.selectText, styles.placeholder]}>
-                {loadingCustomers ? 'A carregar...' : '🔍 Pesquisar cliente ou pet'}
+                {loadingCustomers ? 'A carregar...' : 'Selecionar cliente'}
               </Text>
             </TouchableOpacity>
 
             {showCustomerList ? (
               <View style={[styles.dropdown, { borderColor: primarySoft }]}>
-                <TextInput
-                  value={customerSearch}
-                  onChangeText={setCustomerSearch}
-                  placeholder="Pesquisar por cliente ou pet"
-                  placeholderTextColor={colors.muted}
-                  style={[styles.input, { borderColor: primarySoft, marginBottom: 10 }]}
-                  autoFocus
-                />
+                <View style={styles.searchBar}>
+                  <Ionicons name="search" size={20} color={colors.muted} />
+                  <TextInput
+                    value={customerSearch}
+                    onChangeText={setCustomerSearch}
+                    placeholder="Pesquisar por cliente ou pet"
+                    placeholderTextColor={colors.muted}
+                    style={styles.searchInput}
+                    autoFocus
+                  />
+                  {customerSearch.length > 0 && (
+                    <TouchableOpacity onPress={() => setCustomerSearch('')}>
+                      <Ionicons name="close-circle" size={20} color={colors.muted} />
+                    </TouchableOpacity>
+                  )}
+                </View>
                 <ScrollView style={{ maxHeight: 200 }}>
                   {searchResults.map((result) => {
                     const key =

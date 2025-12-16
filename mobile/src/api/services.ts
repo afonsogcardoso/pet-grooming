@@ -31,10 +31,18 @@ export async function createService(service: Omit<Service, 'id'>): Promise<Servi
 }
 
 export async function updateService(id: string, service: Partial<Service>): Promise<Service> {
-  const { data } = await api.put(`/services/${id}`, service);
+  const { data } = await api.patch(`/services/${id}`, service);
   return data.data;
 }
 
 export async function deleteService(id: string): Promise<void> {
   await api.delete(`/services/${id}`);
+}
+
+export async function updateServiceOrder(services: Array<{ id: string; display_order: number }>): Promise<void> {
+  await Promise.all(
+    services.map(service => 
+      api.patch(`/services/${service.id}`, { display_order: service.display_order })
+    )
+  );
 }

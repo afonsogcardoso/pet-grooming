@@ -122,8 +122,9 @@ export default function AppointmentsScreen({ navigation }: Props) {
           <TouchableOpacity 
             onPress={() => handleNewAppointment()}
             style={[styles.actionButton, { backgroundColor: colors.primary }]}
+            activeOpacity={0.7}
           >
-            <Text style={{ fontSize: 20, color: colors.onPrimary }}>➕</Text>
+            <Text style={styles.actionButtonText}>+</Text>
           </TouchableOpacity>
         }
       />
@@ -252,9 +253,20 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     actionButton: {
       width: 40,
       height: 40,
-      borderRadius: 20,
+      borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    actionButtonText: {
+      fontSize: 28,
+      fontWeight: '300',
+      color: '#ffffff',
+      lineHeight: 28,
     },
     headerInfo: {
       paddingHorizontal: 16,

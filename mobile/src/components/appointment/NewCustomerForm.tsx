@@ -5,6 +5,8 @@ import { Input } from '../common/Input';
 import { useState, useEffect } from 'react';
 import MapView, { Marker } from 'react-native-maps';
 
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
+
 type NewCustomerFormProps = {
   customerName: string;
   setCustomerName: (value: string) => void;
@@ -48,7 +50,7 @@ export function NewCustomerForm({
       const geocodeAddress = async () => {
         try {
           const response = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(customerAddress)}&key=AIzaSyCZ-AKg1tT0vUyZEhJJEz_LlFmKEjKtx4w`
+            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(customerAddress)}&key=${GOOGLE_MAPS_API_KEY}`
           );
           const data = await response.json();
           if (data.results?.[0]?.geometry?.location) {

@@ -338,11 +338,17 @@ export function DayView({
                     <Text style={styles.appointmentTitle} numberOfLines={1}>
                       {appointment.pets?.name}{customer?.name ? ` | ${customer.name}` : ''}
                     </Text>
-                    <Text style={styles.appointmentService} numberOfLines={1}>
-                      {appointment.appointment_services && appointment.appointment_services.length > 0
-                        ? appointment.appointment_services.map(as => `${as.services.name}${as.services.price ? ` (${as.services.price.toFixed(2)}€)` : ''}`).join(', ')
-                        : `${appointment.services?.name}${appointment.services?.price ? ` | ${appointment.services.price.toFixed(2)}€` : ''}`}
-                    </Text>
+                    {appointment.appointment_services && appointment.appointment_services.length > 0 ? (
+                      appointment.appointment_services.map((as, idx) => (
+                        <Text key={idx} style={styles.appointmentService} numberOfLines={1}>
+                          {as.services.name}{as.services.price ? ` (${as.services.price.toFixed(2)}€)` : ''}
+                        </Text>
+                      ))
+                    ) : (
+                      <Text style={styles.appointmentService} numberOfLines={1}>
+                        {appointment.services?.name}{appointment.services?.price ? ` | ${appointment.services.price.toFixed(2)}€` : ''}
+                      </Text>
+                    )}
                   </View>
                   
                   {height >= 40 && (phone || address) && (

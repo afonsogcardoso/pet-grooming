@@ -214,6 +214,12 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     return services.filter((s) => selectedServices.includes(s.id));
   }, [services, selectedServices]);
 
+  const totalAmount = useMemo(() => {
+    return selectedServicesData.reduce((sum, service) => {
+      return sum + (service.price || 0);
+    }, 0);
+  }, [selectedServicesData]);
+
   const effectivePhone =
     mode === 'new'
       ? newCustomerPhone
@@ -450,6 +456,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       appointment_time: formatHHMM(time).trim(),
       status: 'scheduled',
       duration,
+      amount: totalAmount > 0 ? totalAmount : null,
       notes: notes.trim() || null,
       customer_id: customerId,
       pet_id: petId,
@@ -559,6 +566,17 @@ export default function NewAppointmentScreen({ navigation }: Props) {
               setSelectedServices={setSelectedServices}
               setDuration={setDuration}
             />
+
+            {totalAmount > 0 && (
+              <View style={[styles.field, { backgroundColor: primarySoft, padding: 16, borderRadius: 12 }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={[styles.label, { marginBottom: 0 }]}>Valor Total</Text>
+                  <Text style={{ fontSize: 24, fontWeight: '700', color: primary }}>
+                    {totalAmount.toFixed(2)}€
+                  </Text>
+                </View>
+              </View>
+            )}
 
             <View style={styles.field}>
               <Text style={styles.label}>Duração</Text>

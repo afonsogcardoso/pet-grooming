@@ -1,4 +1,6 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { useState, useMemo } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, TextInput } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 
 type Service = {
@@ -30,6 +32,7 @@ export function ServiceSelector({
   setDuration,
 }: ServiceSelectorProps) {
   const { colors } = useBrandingTheme();
+  const [searchQuery, setSearchQuery] = useState('');
 
   const toggleService = (serviceId: string) => {
     if (selectedServices.includes(serviceId)) {
@@ -38,6 +41,15 @@ export function ServiceSelector({
       setSelectedServices([...selectedServices, serviceId]);
     }
   };
+
+  const filteredServices = useMemo(() => {
+    if (!searchQuery.trim()) return services;
+    const query = searchQuery.toLowerCase();
+    return services.filter(service =>
+      service.name.toLowerCase().includes(query) ||
+      service.description?.toLowerCase().includes(query)
+    );
+  }, [services, searchQuery]);
 
   const styles = StyleSheet.create({
     field: {
@@ -102,6 +114,23 @@ export function ServiceSelector({
       fontWeight: '700',
       fontSize: 15,
     },
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      marginBottom: 10,
+      gap: 12,
+      borderWidth: 1,
+      borderColor: colors.primarySoft,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 16,
+      color: colors.text,
+    },
   });
 
   const displayText = selectedServicesData.length > 0
@@ -125,8 +154,31 @@ export function ServiceSelector({
           {loadingServices ? (
             <ActivityIndicator color={colors.primary} />
           ) : (
-            <ScrollView style={{ maxHeight: 300 }}>
-              {services.map((service) => {
+            <>
+              <View style={styles.searchBar}>
+                <Ionicons name="search" size={20} color={colors.muted} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Pesquisar serviços..."
+                  placeholderTextColor={colors.muted}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Ionicons name="close-circle" size={20} color={colors.muted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              <ScrollView style={{ maxHeight: 250 }}>
+                {filteredServices.length === 0 ? (
+                  <Text style={{ color: colors.muted, textAlign: 'center', paddingVertical: 20 }}>
+                    Nenhum serviço encontrado
+                  </Text>
+                ) : (
+                  filteredServices.map((service) => {
                 const isSelected = selectedServices.includes(service.id);
                 return (
                   <TouchableOpacity
@@ -160,9 +212,11 @@ export function ServiceSelector({
                       </View>
                     </View>
                   </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+                  );
+                })
+                )}
+              </ScrollView>
+            </>
           )}
         </View>
       ) : null}

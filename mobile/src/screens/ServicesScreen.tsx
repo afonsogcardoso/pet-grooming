@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
+import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { getAllServices, Service } from '../api/services';
+import { getAllServices, Service, updateServiceOrder } from '../api/services';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { EmptyState } from '../components/common';
 
@@ -15,21 +17,50 @@ export default function ServicesScreen({ navigation }: Props) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [localServices, setLocalServices] = useState<Service[]>([]);
+  const queryClient = useQueryClient();
 
   const { data: services = [], isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['services', 'all'],
     queryFn: getAllServices,
   });
 
+  // Sync local services with API data
+  useState(() => {
+    if (services.length > 0 && localServices.length === 0) {
+      setLocalServices(services);
+    }
+  });
+
+  // Update local services when API data changes
+  useMemo(() => {
+    if (services.length > 0) {
+      setLocalServices(services);
+    }
+  }, [services]);
+
+  const updateOrderMutation = useMutation({
+    mutationFn: updateServiceOrder,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+    },
+    onError: () => {
+      Alert.alert('Erro', 'Não foi possível atualizar a ordem dos serviços');
+      setLocalServices(services); // Revert to original order
+    },
+  });
+
   const filteredServices = useMemo(() => {
-    if (!searchQuery) return services;
+    const data = localServices.length > 0 ? localServices : services;
+    if (!searchQuery) return data;
     const query = searchQuery.toLowerCase();
-    return services.filter(
+    return data.filter(
       (service) =>
         service.name.toLowerCase().includes(query) ||
         service.description?.toLowerCase().includes(query)
     );
-  }, [services, searchQuery]);
+  }, [localServices, services, searchQuery]);
 
   const handleNewService = () => {
     navigation.navigate('ServiceForm', { mode: 'create' });
@@ -37,6 +68,20 @@ export default function ServicesScreen({ navigation }: Props) {
 
   const handleEditService = (service: Service) => {
     navigation.navigate('ServiceForm', { mode: 'edit', serviceId: service.id });
+  };
+
+  const handleDragEnd = ({ data }: { data: Service[] }) => {
+    // Update local state immediately for smooth UX
+    setLocalServices(data);
+
+    // Prepare updates with new display_order
+    const updates = data.map((service, index) => ({
+      id: service.id,
+      display_order: index,
+    }));
+
+    // Send to API
+    updateOrderMutation.mutate(updates);
   };
 
   if (isLoading) {
@@ -50,89 +95,123 @@ export default function ServicesScreen({ navigation }: Props) {
     );
   }
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScreenHeader title="Serviços" showBackButton />
-
-      <View style={styles.content}>
-        {/* Search Bar */}
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color={colors.muted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Pesquisar serviços..."
-            placeholderTextColor={colors.muted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color={colors.muted} />
+  const renderServiceItem = ({ item, drag, isActive }: RenderItemParams<Service>) => {
+    return (
+      <ScaleDecorator>
+        <TouchableOpacity
+          style={[styles.serviceCard, isActive && styles.serviceCardDragging]}
+          onPress={isEditMode ? undefined : () => handleEditService(item)}
+          onLongPress={isEditMode && !searchQuery ? drag : undefined}
+          disabled={isActive}
+          activeOpacity={isEditMode ? 1 : 0.7}
+        >
+          {isEditMode && !searchQuery && (
+            <TouchableOpacity onPressIn={drag} style={styles.dragHandle}>
+              <Ionicons name="menu" size={24} color={colors.muted} />
             </TouchableOpacity>
+          )}
+          <View style={styles.serviceInfo}>
+            <View style={styles.serviceHeader}>
+              <Text style={styles.serviceName}>{item.name}</Text>
+              {!item.active && (
+                <View style={styles.inactiveBadge}>
+                  <Text style={styles.inactiveBadgeText}>Inativo</Text>
+                </View>
+              )}
+            </View>
+            {item.description && (
+              <Text style={styles.serviceDescription} numberOfLines={2}>
+                {item.description}
+              </Text>
+            )}
+            <View style={styles.serviceDetails}>
+              {item.price && (
+                <Text style={styles.detailText}>💰 {item.price.toFixed(2)}€</Text>
+              )}
+              {item.default_duration && (
+                <Text style={styles.detailText}>⏱️ {item.default_duration}min</Text>
+              )}
+            </View>
+          </View>
+          {!isEditMode && <Ionicons name="chevron-forward" size={20} color={colors.muted} />}
+        </TouchableOpacity>
+      </ScaleDecorator>
+    );
+  };
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScreenHeader 
+          title="Serviços" 
+          showBackButton
+          rightElement={
+            filteredServices.length > 1 && !searchQuery ? (
+              <TouchableOpacity 
+                onPress={() => setIsEditMode(!isEditMode)}
+                style={{ paddingHorizontal: 8 }}
+              >
+                <Text style={{ fontSize: 24 }}>
+                  {isEditMode ? '✓' : '✏️'}
+                </Text>
+              </TouchableOpacity>
+            ) : undefined
+          }
+        />
+
+        <View style={styles.content}>
+          {/* Search Bar */}
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={20} color={colors.muted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Pesquisar serviços..."
+              placeholderTextColor={colors.muted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color={colors.muted} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Stats & Instructions */}
+          <View style={styles.stats}>
+            <Text style={styles.statsText}>
+              {filteredServices.length} {filteredServices.length === 1 ? 'serviço' : 'serviços'}
+            </Text>
+            {isEditMode && !searchQuery && filteredServices.length > 1 && (
+              <Text style={styles.hintText}>Arrasta para reorganizar</Text>
+            )}
+          </View>
+
+          {/* Services List */}
+          {filteredServices.length === 0 ? (
+            <EmptyState
+              icon="🛠️"
+              title="Nenhum serviço"
+              subtitle={searchQuery ? 'Tenta outra pesquisa' : 'Adiciona o teu primeiro serviço'}
+            />
+          ) : (
+            <DraggableFlatList
+              data={filteredServices}
+              keyExtractor={(item) => item.id}
+              renderItem={renderServiceItem}
+              onDragEnd={isEditMode && !searchQuery ? handleDragEnd : undefined}
+              contentContainerStyle={styles.listContent}
+              activationDistance={20}
+            />
           )}
         </View>
 
-        {/* Stats */}
-        <View style={styles.stats}>
-          <Text style={styles.statsText}>
-            {filteredServices.length} {filteredServices.length === 1 ? 'serviço' : 'serviços'}
-          </Text>
-        </View>
-
-        {/* Services List */}
-        {filteredServices.length === 0 ? (
-          <EmptyState
-            icon="🛠️"
-            title="Nenhum serviço"
-            subtitle={searchQuery ? 'Tenta outra pesquisa' : 'Adiciona o teu primeiro serviço'}
-          />
-        ) : (
-          <FlatList
-            data={filteredServices}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.serviceCard}
-                onPress={() => handleEditService(item)}
-              >
-                <View style={styles.serviceInfo}>
-                  <View style={styles.serviceHeader}>
-                    <Text style={styles.serviceName}>{item.name}</Text>
-                    {!item.active && (
-                      <View style={styles.inactiveBadge}>
-                        <Text style={styles.inactiveBadgeText}>Inativo</Text>
-                      </View>
-                    )}
-                  </View>
-                  {item.description && (
-                    <Text style={styles.serviceDescription} numberOfLines={2}>
-                      {item.description}
-                    </Text>
-                  )}
-                  <View style={styles.serviceDetails}>
-                    {item.price && (
-                      <Text style={styles.detailText}>💰 {item.price.toFixed(2)}€</Text>
-                    )}
-                    {item.default_duration && (
-                      <Text style={styles.detailText}>⏱️ {item.default_duration}min</Text>
-                    )}
-                  </View>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-              </TouchableOpacity>
-            )}
-            contentContainerStyle={styles.listContent}
-            refreshing={isRefetching}
-            onRefresh={refetch}
-          />
-        )}
-      </View>
-
-      {/* Floating Add Button */}
-      <TouchableOpacity style={styles.fab} onPress={handleNewService}>
-        <Ionicons name="add" size={28} color="#FFFFFF" />
-      </TouchableOpacity>
-    </SafeAreaView>
+        {/* Floating Add Button */}
+        <TouchableOpacity style={styles.fab} onPress={handleNewService}>
+          <Ionicons name="add" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+      </SafeAreaView>
+    </GestureHandlerRootView>
   );
 }
 
@@ -176,6 +255,11 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontWeight: '600',
       color: colors.muted,
     },
+    hintText: {
+      fontSize: 12,
+      color: colors.muted,
+      marginTop: 4,
+    },
     listContent: {
       paddingBottom: 100,
     },
@@ -192,6 +276,16 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       shadowOpacity: 0.08,
       shadowRadius: 8,
       elevation: 3,
+    },
+    serviceCardDragging: {
+      opacity: 0.9,
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+      elevation: 10,
+    },
+    dragHandle: {
+      padding: 4,
+      marginRight: 4,
     },
     serviceInfo: {
       flex: 1,
@@ -248,6 +342,14 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       shadowOpacity: 0.3,
       shadowRadius: 8,
       elevation: 8,
+    },
+    editButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+    },
+    editButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
     },
   });
 }

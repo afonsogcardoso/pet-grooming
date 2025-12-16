@@ -99,14 +99,16 @@ export async function getAppointments(params?: {
 }
 
 export async function createAppointment(payload: CreateAppointmentPayload): Promise<Appointment> {
+  const { service_ids, ...cleanPayload } = payload as any;
   const body = {
     payment_status: 'unpaid',
-    ...payload,
+    ...cleanPayload,
     duration: payload.duration ?? null,
     notes: payload.notes ?? null,
+    service_ids, // Keep this separate so backend can process it
   };
   const { data } = await api.post<CreateAppointmentResponse>('/appointments', body);
-  return data.data?.[0] || payload;
+  return data.data;
 }
 
 export async function getAppointment(id: string): Promise<Appointment> {

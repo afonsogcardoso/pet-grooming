@@ -190,7 +190,6 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
             value={displayOrder}
             onChangeText={setDisplayOrder}
             keyboardType="number-pad"
-            leftIcon="🔢"
           />
 
           <View style={styles.switchContainer}>

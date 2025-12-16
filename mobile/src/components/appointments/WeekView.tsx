@@ -391,11 +391,17 @@ export function WeekView({
                         <Text style={styles.appointmentTitle} numberOfLines={1}>
                           {appointment.pets?.name}
                         </Text>
-                        <Text style={styles.appointmentService} numberOfLines={1}>
-                          {appointment.appointment_services && appointment.appointment_services.length > 0
-                            ? appointment.appointment_services.map(as => as.services.name).join(', ')
-                            : appointment.services?.name}
-                        </Text>
+                        {appointment.appointment_services && appointment.appointment_services.length > 0 ? (
+                          appointment.appointment_services.map((as, idx) => (
+                            <Text key={idx} style={styles.appointmentService} numberOfLines={1}>
+                              {as.services.name}
+                            </Text>
+                          ))
+                        ) : (
+                          <Text style={styles.appointmentService} numberOfLines={1}>
+                            {appointment.services?.name}
+                          </Text>
+                        )}
                       </TouchableOpacity>
                     );
                   })}

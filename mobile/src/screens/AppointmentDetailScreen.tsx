@@ -82,6 +82,20 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const service = appointment?.services;
   const pet = appointment?.pets;
   const paymentStatus = appointment?.payment_status || 'unpaid';
+  
+  // Get all services (from appointment_services or fallback to single service)
+  const services = useMemo(() => {
+    if (appointment?.appointment_services && appointment.appointment_services.length > 0) {
+      return appointment.appointment_services
+        .map(as => as.services)
+        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+    }
+    return service ? [service] : [];
+  }, [appointment?.appointment_services, service]);
+
+  const totalAmount = useMemo(() => {
+    return services.reduce((sum, s) => sum + (s.price || 0), 0);
+  }, [services]);
 
   const openMaps = async () => {
     const address = customer?.address;
@@ -306,28 +320,33 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                   onPress={togglePayment}
                 >
                   <Text style={[styles.paymentBadgeText, paymentStatus === 'paid' && styles.paymentBadgeTextPaid]}>
-                    {paymentStatus === 'paid' ? '✓ Pago' : '⏱ Por pagar'}
+                    {paymentStatus === 'paid' ? 'Pago' : 'Por pagar'}
                   </Text>
                 </TouchableOpacity>
               </View>
               
-              <Text style={styles.heroTitle}>{service?.name || 'Serviço'}</Text>
+              <Text style={styles.heroTitle}>
+                {services.length === 1 
+                  ? (services[0]?.name || 'Serviço') 
+                  : `${services.length} Serviços`
+                }
+              </Text>
               
               <View style={styles.dateTimeRow}>
-                <Text style={styles.heroSubtitle}>📅 {formatDateTime(appointment.appointment_date, appointment.appointment_time)}</Text>
+                <Text style={styles.heroSubtitle}>{formatDateTime(appointment.appointment_date, appointment.appointment_time)}</Text>
                 <TouchableOpacity 
                   style={styles.editButton}
                   onPress={handleEditAppointment}
                 >
-                  <Text style={styles.editButtonText}>✏️ Editar</Text>
+                  <Text style={styles.editButtonText}>Editar</Text>
                 </TouchableOpacity>
               </View>
               
               <View style={styles.heroDetails}>
-                {service?.price ? (
+                {totalAmount > 0 ? (
                   <View style={styles.heroDetailItem}>
-                    <Text style={styles.heroDetailLabel}>Valor</Text>
-                    <Text style={styles.heroDetailValue}>€{Number(service.price).toFixed(2)}</Text>
+                    <Text style={styles.heroDetailLabel}>Valor Total</Text>
+                    <Text style={styles.heroDetailValue}>€{totalAmount.toFixed(2)}</Text>
                   </View>
                 ) : null}
                 <View style={styles.heroDetailItem}>
@@ -335,6 +354,23 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                   <Text style={styles.heroDetailValue}>{appointment.duration ? `${appointment.duration} min` : '—'}</Text>
                 </View>
               </View>
+              
+              {services.length > 1 && (
+                <View style={styles.servicesDetailBox}>
+                  <Text style={styles.servicesDetailTitle}>Serviços Incluídos</Text>
+                  {services.map((s, idx) => (
+                    <View key={idx} style={styles.serviceDetailRow}>
+                      <View style={styles.serviceDetailLeft}>
+                        <View style={styles.serviceBullet} />
+                        <Text style={styles.serviceDetailName}>{s.name}</Text>
+                      </View>
+                      {s.price ? (
+                        <Text style={styles.serviceDetailPrice}>€{Number(s.price).toFixed(2)}</Text>
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
 
             {/* Cliente & Pet em Grid */}
@@ -490,7 +526,6 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                     );
                   }}
                 >
-                  <Text style={styles.cancelButtonEmoji}>❌</Text>
                   <Text
                     style={[
                       styles.cancelButtonText,
@@ -506,7 +541,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                     style={styles.deleteButton}
                     onPress={handleDelete}
                   >
-                    <Text style={styles.deleteButtonEmoji}>🗑️</Text>
+                    <Text style={styles.deleteButtonText}>Apagar</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -515,7 +550,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
             {/* Notas */}
             {appointment.notes ? (
               <View style={styles.notesCard}>
-                <Text style={styles.notesTitle}>📝 Notas</Text>
+                <Text style={styles.notesTitle}>Notas</Text>
                 <Text style={styles.notesText}>{appointment.notes}</Text>
               </View>
             ) : null}
@@ -656,6 +691,51 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     heroDetailValue: {
       fontSize: 18,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    // Services Detail Box
+    servicesDetailBox: {
+      backgroundColor: colors.background,
+      borderRadius: 12,
+      padding: 16,
+      marginTop: 16,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+    },
+    servicesDetailTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 12,
+    },
+    serviceDetailRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.surfaceBorder,
+    },
+    serviceDetailLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      flex: 1,
+    },
+    serviceBullet: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.primary,
+    },
+    serviceDetailName: {
+      fontSize: 15,
+      color: colors.text,
+      fontWeight: '500',
+    },
+    serviceDetailPrice: {
+      fontSize: 15,
       fontWeight: '700',
       color: colors.primary,
     },
@@ -908,16 +988,13 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       justifyContent: 'center',
       gap: 8,
     },
-    cancelButtonEmoji: {
-      fontSize: 18,
-    },
     cancelButtonText: {
       fontSize: 13,
       fontWeight: '700',
       color: '#dc2626',
     },
     deleteButton: {
-      width: 52,
+      flex: 1,
       backgroundColor: '#fee2e2',
       borderWidth: 2,
       borderColor: '#fca5a5',
@@ -927,8 +1004,10 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    deleteButtonEmoji: {
-      fontSize: 18,
+    deleteButtonText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#dc2626',
     },
     // Notas
     notesCard: {

@@ -5,6 +5,8 @@ import Constants from 'expo-constants';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import MapView, { Marker } from 'react-native-maps';
 
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
+
 type AddressAutocompleteProps = {
   value: string;
   onSelect: (address: string) => void;
@@ -40,7 +42,7 @@ export function AddressAutocomplete({ value, onSelect, placeholder }: AddressAut
     
     try {
       const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=AIzaSyCZ-AKg1tT0vUyZEhJJEz_LlFmKEjKtx4w`
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`
       );
       const data = await response.json();
       if (data.results?.[0]?.geometry?.location) {
