@@ -4,6 +4,7 @@ import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import * as ImagePicker from 'expo-image-picker';
 import { getAppointment, updateAppointment, uploadAppointmentPhoto, deleteAppointment } from '../api/appointments';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { ScreenHeader } from '../components/ScreenHeader';
@@ -187,54 +188,70 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
 
   const pickImage = async (type: 'before' | 'after') => {
     try {
-      // Lazy load expo-image-picker
-      const ImagePicker = await import('expo-image-picker');
-      
-      const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
-      const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      // Solicita permissões sem bloquear se uma falhar
+      const cameraPermission = await ImagePicker.requestCameraPermissionsAsync().catch(() => ({ status: 'denied' as const }));
+      const libraryPermission = await ImagePicker.requestMediaLibraryPermissionsAsync().catch(() => ({ status: 'denied' as const }));
 
-      if (cameraStatus !== 'granted' && libraryStatus !== 'granted') {
+      const hasCameraPermission = cameraPermission.status === 'granted';
+      const hasLibraryPermission = libraryPermission.status === 'granted';
+
+      if (!hasCameraPermission && !hasLibraryPermission) {
         Alert.alert('Permissão necessária', 'Precisamos de permissão para aceder à câmara ou galeria.');
         return;
       }
 
-    const showOptions = () => {
-      if (Platform.OS === 'ios') {
-        ActionSheetIOS.showActionSheetWithOptions(
-          {
-            options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
-            cancelButtonIndex: 0,
-          },
-          async (buttonIndex) => {
-            if (buttonIndex === 1) {
-              await launchCamera(type);
-            } else if (buttonIndex === 2) {
-              await launchLibrary(type);
-            }
-          },
-        );
-      } else {
-        Alert.alert(
-          'Escolher foto',
-          'Como deseja adicionar a foto?',
-          [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Tirar foto', onPress: () => launchCamera(type) },
-            { text: 'Escolher da galeria', onPress: () => launchLibrary(type) },
-          ],
-        );
-      }
-    };
+      const showOptions = () => {
+        const options: string[] = ['Cancelar'];
+        const actions: Array<() => Promise<void>> = [];
+
+        if (hasCameraPermission) {
+          options.push('Tirar foto');
+          actions.push(() => launchCamera(type));
+        }
+        
+        if (hasLibraryPermission) {
+          options.push('Escolher da galeria');
+          actions.push(() => launchLibrary(type));
+        }
+
+        if (Platform.OS === 'ios') {
+          ActionSheetIOS.showActionSheetWithOptions(
+            {
+              options,
+              cancelButtonIndex: 0,
+            },
+            async (buttonIndex) => {
+              if (buttonIndex > 0 && actions[buttonIndex - 1]) {
+                await actions[buttonIndex - 1]();
+              }
+            },
+          );
+        } else {
+          const buttons = actions.map((action, index) => ({
+            text: options[index + 1],
+            onPress: () => action(),
+          }));
+
+          Alert.alert(
+            'Escolher foto',
+            'Como deseja adicionar a foto?',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              ...buttons,
+            ],
+          );
+        }
+      };
 
       showOptions();
     } catch (error) {
+      console.error('Erro ao aceder aos serviços de imagem:', error);
       Alert.alert('Erro', 'Módulo de imagem não disponível');
     }
   };
 
   const launchCamera = async (type: 'before' | 'after') => {
     try {
-      const ImagePicker = await import('expo-image-picker');
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -246,13 +263,13 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         await uploadPhoto(type, result.assets[0].uri);
       }
     } catch (error) {
+      console.error('Erro ao abrir câmara:', error);
       Alert.alert('Erro', 'Não foi possível abrir a câmara');
     }
   };
 
   const launchLibrary = async (type: 'before' | 'after') => {
     try {
-      const ImagePicker = await import('expo-image-picker');
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -264,23 +281,29 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         await uploadPhoto(type, result.assets[0].uri);
       }
     } catch (error) {
+      console.error('Erro ao abrir galeria:', error);
       Alert.alert('Erro', 'Não foi possível abrir a galeria');
     }
   };
 
   const uploadPhoto = async (type: 'before' | 'after', uri: string) => {
-    const filename = uri.split('/').pop() || `${type}-${Date.now()}.jpg`;
-    const match = /\.(\w+)$/.exec(filename);
-    const fileType = match ? `image/${match[1]}` : 'image/jpeg';
+    try {
+      const filename = uri.split('/').pop() || `${type}-${Date.now()}.jpg`;
+      const match = /\.(\w+)$/.exec(filename);
+      const fileType = match ? `image/${match[1]}` : 'image/jpeg';
 
-    photoMutation.mutate({
-      type,
-      file: {
-        uri,
-        name: filename,
-        type: fileType,
-      },
-    });
+      photoMutation.mutate({
+        type,
+        file: {
+          uri,
+          name: filename,
+          type: fileType,
+        },
+      });
+    } catch (error) {
+      console.error('Erro ao preparar upload:', error);
+      Alert.alert('Erro', 'Não foi possível preparar o upload da foto');
+    }
   };
 
   return (

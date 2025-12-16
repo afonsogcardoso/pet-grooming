@@ -75,3 +75,26 @@ export async function createPet(customerId: string, payload: CreatePetPayload): 
   const pet = (data as any)?.data;
   return Array.isArray(pet) ? pet[0] : pet;
 }
+
+export async function uploadPetPhoto(
+  petId: string,
+  file: { uri: string; name: string; type: string },
+): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append('file', {
+    uri: file.uri,
+    name: file.name,
+    type: file.type,
+  } as any);
+
+  const { data } = await api.post<{ url: string }>(
+    `/customers/${petId}/photo`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    },
+  );
+  return data;
+}
