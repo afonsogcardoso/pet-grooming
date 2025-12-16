@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
 
   const { data, error } = await supabase
     .from('customers')
-    .select('id,name,phone,email,address,nif,account_id,pets(id,name,breed,photo_url)')
+    .select('id,name,phone,email,address,nif,photo_url,account_id,pets(id,name,breed,photo_url)')
     .eq('account_id', accountId)
     .order('name', { ascending: true })
     .limit(200)

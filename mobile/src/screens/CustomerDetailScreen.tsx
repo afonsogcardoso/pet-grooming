@@ -47,7 +47,6 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
         queryClient.setQueryData(['customers'], updatedCustomers);
       }
       await queryClient.invalidateQueries({ queryKey: ['customers'] });
-      Alert.alert('Sucesso', 'Foto do cliente atualizada!');
     },
     onError: (err: any) => {
       const message = err?.response?.data?.error || err.message || 'Erro ao enviar foto';
