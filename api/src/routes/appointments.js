@@ -249,12 +249,14 @@ router.patch('/:id', async (req, res) => {
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
   const { id } = req.params
   const payload = req.body || {}
+  const serviceIds = payload.service_ids
 
   const allowed = [
     'status',
     'payment_status',
     'notes',
     'duration',
+    'amount',
     'appointment_date',
     'appointment_time',
     'customer_id',
@@ -276,7 +278,7 @@ router.patch('/:id', async (req, res) => {
     query = query.eq('account_id', accountId)
   }
 
-  const { data, error } = await query.select(
+  const { data: appointment, error } = await query.select(
     `
     id,
     appointment_date,
@@ -289,14 +291,39 @@ router.patch('/:id', async (req, res) => {
     services ( id, name, price ),
     pets ( id, name, breed, photo_url )
   `
-  )
+  ).single()
 
   if (error) {
     console.error('[api] update appointment error', error)
     return res.status(500).json({ error: error.message })
   }
 
-  res.json({ data })
+  // Update appointment services if provided
+  if (serviceIds && Array.isArray(serviceIds) && appointment) {
+    // Delete existing services
+    await supabase
+      .from('appointment_services')
+      .delete()
+      .eq('appointment_id', id)
+
+    // Insert new services
+    if (serviceIds.length > 0) {
+      const appointmentServices = serviceIds.map(serviceId => ({
+        appointment_id: id,
+        service_id: serviceId
+      }))
+
+      const { error: servicesError } = await supabase
+        .from('appointment_services')
+        .insert(appointmentServices)
+
+      if (servicesError) {
+        console.error('[api] update appointment services error', servicesError)
+      }
+    }
+  }
+
+  res.json({ data: appointment })
 })
 
 router.delete('/:id', async (req, res) => {
