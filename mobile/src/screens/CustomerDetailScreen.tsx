@@ -282,7 +282,6 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
           <View style={styles.infoGrid}>
             {customer.phone && (
               <View style={styles.infoItem}>
-                <Text style={styles.infoIcon}>📱</Text>
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>Telefone</Text>
                   <Text style={styles.infoValue}>{customer.phone}</Text>
@@ -292,7 +291,6 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
             
             {customer.email && (
               <View style={styles.infoItem}>
-                <Text style={styles.infoIcon}>✉️</Text>
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>Email</Text>
                   <Text style={styles.infoValue}>{customer.email}</Text>
@@ -303,7 +301,6 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
             {customer.address && (
               <>
                 <View style={styles.infoItem}>
-                  <Text style={styles.infoIcon}>📍</Text>
                   <View style={styles.infoContent}>
                     <Text style={styles.infoLabel}>Endereço</Text>
                     <Text style={styles.infoValue}>{customer.address}</Text>
@@ -315,7 +312,6 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
             
             {customer.nif && (
               <View style={styles.infoItem}>
-                <Text style={styles.infoIcon}>🆔</Text>
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>NIF</Text>
                   <Text style={styles.infoValue}>{customer.nif}</Text>
@@ -344,7 +340,6 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
             </View>
           ) : pets.length === 0 ? (
             <EmptyState
-              icon="🐾"
               title="Nenhum pet"
               description="Adicione o primeiro pet deste cliente"
               actionLabel="Adicionar Pet"

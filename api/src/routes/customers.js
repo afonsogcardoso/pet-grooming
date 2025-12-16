@@ -99,6 +99,28 @@ router.post('/:id/pets', async (req, res) => {
   res.status(201).json({ data })
 })
 
+router.patch('/:customerId/pets/:petId', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+  const { customerId, petId } = req.params
+  const payload = sanitizeBody(req.body || {})
+
+  let query = supabase.from('pets').update(payload).eq('id', petId).eq('customer_id', customerId)
+  if (accountId) {
+    query = query.eq('account_id', accountId)
+  }
+
+  const { data, error } = await query.select()
+
+  if (error) {
+    console.error('[api] update pet error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.json({ data })
+})
+
 router.delete('/:customerId/pets/:petId', async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)

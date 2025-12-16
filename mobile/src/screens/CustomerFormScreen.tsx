@@ -279,7 +279,6 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
               value={name}
               onChangeText={setName}
               error={errors.name}
-              leftIcon="👤"
               editable={mode === 'create'}
             />
 
@@ -289,7 +288,6 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
               value={phone}
               onChangeText={setPhone}
               error={errors.phone}
-              leftIcon="📱"
               keyboardType="phone-pad"
             />
 
@@ -299,7 +297,6 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
               value={email}
               onChangeText={setEmail}
               error={errors.email}
-              leftIcon="✉️"
               keyboardType="email-address"
               autoCapitalize="none"
               editable={mode === 'create'}
@@ -312,7 +309,6 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
               value={address}
               onChangeText={setAddress}
               error={errors.address}
-              leftIcon="📍"
               multiline
               numberOfLines={3}
             />
@@ -323,7 +319,6 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
               value={nif}
               onChangeText={setNif}
               error={errors.nif}
-              leftIcon="🆔"
               keyboardType="number-pad"
             />
 

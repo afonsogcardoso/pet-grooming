@@ -5,7 +5,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { createPet, uploadPetPhoto, deletePet, type Pet } from '../api/customers';
+import { createPet, updatePet, uploadPetPhoto, deletePet, type Pet } from '../api/customers';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
@@ -22,13 +22,14 @@ export default function PetFormScreen({ navigation, route }: Props) {
 
   const [name, setName] = useState(pet?.name || '');
   const [breed, setBreed] = useState(pet?.breed || '');
+  const [weight, setWeight] = useState(pet?.weight?.toString() || '');
   const [photoUri, setPhotoUri] = useState<string | null>(pet?.photo_url || null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; breed?: string | null }) => createPet(customerId, data),
+    mutationFn: (data: { name: string; breed?: string | null; weight?: number | null }) => createPet(customerId, data),
     onSuccess: async (createdPet) => {
       // Se há uma foto selecionada, faz upload após criar o pet
       if (photoUri && !photoUri.startsWith('http')) {
@@ -53,6 +54,36 @@ export default function PetFormScreen({ navigation, route }: Props) {
     },
     onError: (error: any) => {
       Alert.alert('Erro', error?.response?.data?.message || 'Erro ao adicionar pet');
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: { name: string; breed?: string | null; weight?: number | null }) => 
+      updatePet(customerId, petId!, data),
+    onSuccess: async () => {
+      // Se há uma foto nova selecionada, faz upload
+      if (photoUri && !photoUri.startsWith('http')) {
+        try {
+          setUploadingPhoto(true);
+          await uploadPetPhotoMutation.mutateAsync({ petId: petId!, uri: photoUri });
+        } catch (error) {
+          console.error('Erro ao fazer upload da foto:', error);
+        } finally {
+          setUploadingPhoto(false);
+        }
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
+      Alert.alert('Sucesso', 'Pet atualizado com sucesso!', [
+        {
+          text: 'OK',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+    },
+    onError: (error: any) => {
+      Alert.alert('Erro', error?.response?.data?.message || 'Erro ao atualizar pet');
     },
   });
 
@@ -238,6 +269,10 @@ export default function PetFormScreen({ navigation, route }: Props) {
       newErrors.name = 'Nome é obrigatório';
     }
 
+    if (weight && isNaN(Number(weight))) {
+      newErrors.weight = 'Peso inválido';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -245,18 +280,20 @@ export default function PetFormScreen({ navigation, route }: Props) {
   const handleSubmit = () => {
     if (!validate()) return;
 
+    const petData = {
+      name: name.trim(),
+      breed: breed.trim() || null,
+      weight: weight ? Number(weight) : null,
+    };
+
     if (mode === 'create') {
-      createMutation.mutate({
-        name: name.trim(),
-        breed: breed.trim() || null,
-      });
+      createMutation.mutate(petData);
     } else {
-      // TODO: Implement update mutation
-      Alert.alert('Em desenvolvimento', 'Edição de pets será implementada em breve');
+      updateMutation.mutate(petData);
     }
   };
 
-  const isLoading = createMutation.isPending;
+  const isLoading = createMutation.isPending || updateMutation.isPending;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -292,10 +329,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
                     {uploadingPhoto ? (
                       <ActivityIndicator color={colors.primary} size="large" />
                     ) : (
-                      <>
-                        <Text style={styles.photoPlaceholderIcon}>📷</Text>
-                        <Text style={styles.photoPlaceholderText}>Adicionar Foto</Text>
-                      </>
+                      <Text style={styles.photoPlaceholderText}>Adicionar Foto</Text>
                     )}
                   </View>
                 )}
@@ -308,7 +342,6 @@ export default function PetFormScreen({ navigation, route }: Props) {
               value={name}
               onChangeText={setName}
               error={errors.name}
-              leftIcon="🐾"
             />
 
             <Input
@@ -317,7 +350,15 @@ export default function PetFormScreen({ navigation, route }: Props) {
               value={breed}
               onChangeText={setBreed}
               error={errors.breed}
-              leftIcon="🏷️"
+            />
+
+            <Input
+              label="Peso (kg)"
+              placeholder="Ex: 5.5"
+              value={weight}
+              onChangeText={setWeight}
+              error={errors.weight}
+              keyboardType="decimal-pad"
             />
 
             <View style={styles.hint}>
@@ -328,7 +369,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
 
         <View style={styles.footer}>
           <Button
-            title={mode === 'create' ? 'Adicionar Pet' : 'Salvar Alterações'}
+            title={mode === 'create' ? 'Criar Pet' : 'Guardar Alterações'}
             onPress={handleSubmit}
             variant="primary"
             size="large"

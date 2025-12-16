@@ -4,6 +4,7 @@ export type Pet = {
   id: string;
   name: string;
   breed?: string | null;
+  weight?: number | null;
   photo_url?: string | null;
 };
 
@@ -38,6 +39,7 @@ type CreateCustomerPayload = {
 type CreatePetPayload = {
   name: string;
   breed?: string | null;
+  weight?: number | null;
 };
 
 export async function getCustomers(): Promise<Customer[]> {
@@ -75,6 +77,18 @@ export async function createPet(customerId: string, payload: CreatePetPayload): 
   );
   const pet = (data as any)?.data;
   return Array.isArray(pet) ? pet[0] : pet;
+}
+
+export async function updatePet(
+  customerId: string,
+  petId: string,
+  payload: Partial<CreatePetPayload>,
+): Promise<Pet> {
+  const { data } = await api.patch<{ data: Pet[] }>(
+    `/customers/${customerId}/pets/${petId}`,
+    payload,
+  );
+  return data.data[0];
 }
 
 export async function uploadPetPhoto(
