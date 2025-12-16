@@ -34,11 +34,7 @@ router.post('/', async (req, res) => {
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
   const payload = sanitizeBody(req.body || {})
-  // Map duration -> default_duration if provided
-  const mapped = {
-    ...(payload || {}),
-    default_duration: payload.duration ?? payload.default_duration
-  }
+  const mapped = payload
   if (accountId) {
     mapped.account_id = accountId
   }
@@ -63,10 +59,7 @@ router.patch('/:id', async (req, res) => {
   // Support soft-delete via _delete flag
   const updatePayload = payload._delete
     ? { deleted_at: new Date().toISOString() }
-    : {
-      ...payload,
-      default_duration: payload.duration ?? payload.default_duration
-    }
+    : payload
 
   let query = supabase.from('services').update(updatePayload).eq('id', id)
   if (accountId) {
