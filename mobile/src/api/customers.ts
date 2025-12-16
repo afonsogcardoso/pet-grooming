@@ -14,6 +14,7 @@ export type Customer = {
   email?: string | null;
   address?: string | null;
   nif?: string | null;
+  photo_url?: string | null;
   pet_count?: number | null;
   pets?: Pet[] | null;
 };
@@ -89,6 +90,29 @@ export async function uploadPetPhoto(
 
   const { data } = await api.post<{ url: string }>(
     `/customers/${petId}/photo`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    },
+  );
+  return data;
+}
+
+export async function uploadCustomerPhoto(
+  customerId: string,
+  file: { uri: string; name: string; type: string },
+): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append('file', {
+    uri: file.uri,
+    name: file.name,
+    type: file.type,
+  } as any);
+
+  const { data } = await api.post<{ url: string }>(
+    `/customers/${customerId}/photo`,
     formData,
     {
       headers: {

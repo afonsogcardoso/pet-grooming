@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform, ActionSheetIOS, PermissionsAndroid } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { getCustomers, getPetsByCustomer, type Customer, type Pet } from '../api/customers';
+import { getCustomers, getPetsByCustomer, uploadCustomerPhoto, type Customer, type Pet } from '../api/customers';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Avatar } from '../components/common/Avatar';
 import { Button } from '../components/common/Button';
@@ -19,6 +20,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const queryClient = useQueryClient();
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const { data: customers = [], isLoading: isLoadingCustomer } = useQuery({
     queryKey: ['customers'],
@@ -32,6 +34,147 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
   });
 
   const customer = customers.find((c) => c.id === customerId);
+
+  const uploadPhotoMutation = useMutation({
+    mutationFn: (file: { uri: string; name: string; type: string }) =>
+      uploadCustomerPhoto(customerId, file),
+    onSuccess: async (data) => {
+      const photoUrl = data?.url;
+      if (photoUrl && customer) {
+        const updatedCustomers = customers.map((c) =>
+          c.id === customerId ? { ...c, photo_url: photoUrl } : c
+        );
+        queryClient.setQueryData(['customers'], updatedCustomers);
+      }
+      await queryClient.invalidateQueries({ queryKey: ['customers'] });
+      Alert.alert('Sucesso', 'Foto do cliente atualizada!');
+    },
+    onError: (err: any) => {
+      const message = err?.response?.data?.error || err.message || 'Erro ao enviar foto';
+      Alert.alert('Erro', message);
+    },
+  });
+
+  const requestAndroidPermissions = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: 'Permissão de Câmara',
+            message: 'A app precisa de acesso à câmara',
+            buttonNeutral: 'Perguntar depois',
+            buttonNegative: 'Cancelar',
+            buttonPositive: 'OK',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const uploadPhoto = async (uri: string, fileName?: string) => {
+    try {
+      setUploadingPhoto(true);
+      const filename = fileName || uri.split('/').pop() || `customer-${Date.now()}.jpg`;
+      const match = /\.(\w+)$/.exec(filename);
+      const fileType = match ? `image/${match[1]}` : 'image/jpeg';
+
+      await uploadPhotoMutation.mutateAsync({
+        uri,
+        name: filename,
+        type: fileType,
+      });
+    } catch (error) {
+      console.error('Erro ao preparar upload:', error);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const openCamera = async () => {
+    const hasPermission = await requestAndroidPermissions();
+    if (!hasPermission) {
+      Alert.alert('Permissão negada', 'Não é possível aceder à câmara sem permissão.');
+      return;
+    }
+
+    const options: CameraOptions = {
+      mediaType: 'photo',
+      quality: 0.8,
+      includeBase64: false,
+      saveToPhotos: false,
+    };
+
+    launchCamera(options, async (response) => {
+      if (response.didCancel) {
+        return;
+      }
+      if (response.errorCode) {
+        console.error('Erro ao abrir câmara:', response.errorMessage);
+        Alert.alert('Erro', 'Não foi possível abrir a câmara');
+        return;
+      }
+      if (response.assets && response.assets[0]) {
+        await uploadPhoto(response.assets[0].uri!, response.assets[0].fileName);
+      }
+    });
+  };
+
+  const openGallery = async () => {
+    const options: ImageLibraryOptions = {
+      mediaType: 'photo',
+      quality: 0.8,
+      includeBase64: false,
+      selectionLimit: 1,
+    };
+
+    launchImageLibrary(options, async (response) => {
+      if (response.didCancel) {
+        return;
+      }
+      if (response.errorCode) {
+        console.error('Erro ao abrir galeria:', response.errorMessage);
+        Alert.alert('Erro', 'Não foi possível abrir a galeria');
+        return;
+      }
+      if (response.assets && response.assets[0]) {
+        await uploadPhoto(response.assets[0].uri!, response.assets[0].fileName);
+      }
+    });
+  };
+
+  const handleAvatarPress = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            openCamera();
+          } else if (buttonIndex === 2) {
+            openGallery();
+          }
+        }
+      );
+    } else {
+      Alert.alert(
+        'Escolher foto',
+        'Como deseja adicionar a foto?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Tirar foto', onPress: openCamera },
+          { text: 'Escolher da galeria', onPress: openGallery },
+        ]
+      );
+    }
+  };
 
   const handleEditCustomer = () => {
     navigation.navigate('CustomerForm', { mode: 'edit', customerId, customer });
@@ -84,7 +227,19 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Customer Info Card */}
         <View style={styles.customerCard}>
-          <Avatar name={customer.name} size="large" />
+          <View style={styles.avatarContainer}>
+            <Avatar 
+              name={customer.name} 
+              size="large" 
+              imageUrl={customer.photo_url}
+              onPress={handleAvatarPress}
+            />
+            {uploadingPhoto && (
+              <View style={styles.avatarLoadingOverlay}>
+                <ActivityIndicator color="#fff" />
+              </View>
+            )}
+          </View>
           
           <Text style={styles.customerName}>{customer.name}</Text>
           
@@ -203,6 +358,20 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       alignItems: 'center',
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
+    },
+    avatarContainer: {
+      position: 'relative',
+    },
+    avatarLoadingOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      borderRadius: 999,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     customerName: {
       fontSize: 24,

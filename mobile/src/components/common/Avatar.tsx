@@ -38,6 +38,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     container: {
       borderRadius: 999,
       backgroundColor: colors.primarySoft,
+      borderWidth: 2,
+      borderColor: colors.primary,
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
