@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
@@ -11,7 +11,6 @@ import { deleteCustomer } from '../api/customers';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Alert } from 'react-native';
 import { Input } from '../components/common/Input';
-import { Button } from '../components/common/Button';
 import { EmptyState } from '../components/common/EmptyState';
 import { CustomerCard } from '../components/customers/CustomerCard';
 import { matchesSearchQuery } from '../utils/textHelpers';
@@ -60,13 +59,13 @@ export default function CustomersScreen({ navigation }: Props) {
         title="Clientes"
         showBack={true}
         rightElement={
-          <Button
-            title="Adicionar"
+          <TouchableOpacity
             onPress={handleAddCustomer}
-            variant="primary"
-            size="small"
-            icon="+"
-          />
+            style={styles.actionButton}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.actionButtonText}>+</Text>
+          </TouchableOpacity>
         }
       />
 
@@ -161,6 +160,25 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.muted,
       textAlign: 'center',
       paddingVertical: 24,
+    },
+    actionButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+      backgroundColor: colors.primary,
+    },
+    actionButtonText: {
+      fontSize: 28,
+      fontWeight: '300',
+      color: '#ffffff',
+      lineHeight: 28,
     },
   });
 }
