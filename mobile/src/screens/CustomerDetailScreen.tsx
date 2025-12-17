@@ -12,6 +12,8 @@ import { Button } from '../components/common/Button';
 import { EmptyState } from '../components/common/EmptyState';
 import { MiniMap } from '../components/common/MiniMap';
 import { PetCard } from '../components/customers/PetCard';
+import SwipeableRow from '../components/common/SwipeableRow';
+import { deletePet } from '../api/customers';
 
 type Props = NativeStackScreenProps<any, 'CustomerDetail'>;
 
@@ -31,6 +33,18 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
     queryKey: ['customer-pets', customerId],
     queryFn: () => getPetsByCustomer(customerId),
     enabled: !!customerId,
+  });
+
+  const deletePetMutation = useMutation({
+    mutationFn: (petId: string) => deletePet(petId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
+      await queryClient.invalidateQueries({ queryKey: ['customers'] });
+    },
+    onError: (err: any) => {
+      const message = err?.response?.data?.error || err.message || 'Erro ao apagar pet';
+      Alert.alert('Erro', message);
+    },
   });
 
   const customer = customers.find((c) => c.id === customerId);
@@ -348,7 +362,14 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
           ) : (
             <View style={styles.petsList}>
               {pets.map((pet) => (
-                <PetCard key={pet.id} pet={pet} onPress={() => handlePetPress(pet)} />
+                <SwipeableRow key={pet.id} onDelete={() => {
+                  Alert.alert('Apagar pet', `Apagar ${pet.name}?`, [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'Apagar', style: 'destructive', onPress: () => deletePetMutation.mutate(pet.id) },
+                  ]);
+                }}>
+                  <PetCard key={pet.id} pet={pet} onPress={() => handlePetPress(pet)} />
+                </SwipeableRow>
               ))}
             </View>
           )}

@@ -6,6 +6,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { getCustomers, type Customer } from '../api/customers';
 import { ScreenHeader } from '../components/ScreenHeader';
+import SwipeableRow from '../components/common/SwipeableRow';
+import { deleteCustomer } from '../api/customers';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Alert } from 'react-native';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
 import { EmptyState } from '../components/common/EmptyState';
@@ -22,6 +26,13 @@ export default function CustomersScreen({ navigation }: Props) {
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ['customers'],
     queryFn: getCustomers,
+  });
+
+  const queryClient = useQueryClient();
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteCustomer(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['customers'] }),
+    onError: (err: any) => Alert.alert('Erro', err?.response?.data?.error || err.message || 'Erro ao apagar cliente'),
   });
 
   const filteredCustomers = useMemo(() => {
@@ -98,7 +109,14 @@ export default function CustomersScreen({ navigation }: Props) {
               data={filteredCustomers}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <CustomerCard customer={item} onPress={() => handleCustomerPress(item)} />
+                <SwipeableRow onDelete={() => {
+                  Alert.alert('Apagar cliente', `Apagar ${item.name}?`, [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'Apagar', style: 'destructive', onPress: () => deleteMutation.mutate(item.id) },
+                  ]);
+                }}>
+                  <CustomerCard customer={item} onPress={() => handleCustomerPress(item)} />
+                </SwipeableRow>
               )}
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}

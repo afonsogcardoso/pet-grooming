@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   View,
@@ -9,7 +10,9 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getAppointments, Appointment } from '../api/appointments';
+import { getAppointments, Appointment, deleteAppointment } from '../api/appointments';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Alert } from 'react-native';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { ViewSelector } from '../components/appointments/ViewSelector';
 import { ListView } from '../components/appointments/ListView';
@@ -97,6 +100,30 @@ export default function AppointmentsScreen({ navigation }: Props) {
   });
 
   const appointments = appointmentsData?.items || [];
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteAppointment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+    },
+    onError: (err: any) => {
+      Alert.alert('Erro', err?.response?.data?.error || err.message || 'Erro ao apagar agendamento');
+    },
+  });
+
+  useEffect(() => {
+    // Expose a simple global hook used by ListView's SwipeableRow
+    (global as any).onDeleteAppointment = (id: string) => {
+      Alert.alert('Apagar marcação', 'Tem a certeza?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Apagar', style: 'destructive', onPress: () => deleteMutation.mutate(id) },
+      ]);
+    };
+    return () => {
+      try { delete (global as any).onDeleteAppointment; } catch {}
+    };
+  }, []);
   const primary = colors.primary;
   const surface = colors.surface;
   const primarySoft = colors.primarySoft;

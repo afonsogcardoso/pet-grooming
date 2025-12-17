@@ -10,6 +10,8 @@ import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { getAllServices, Service, updateServiceOrder } from '../api/services';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { EmptyState } from '../components/common';
+import SwipeableRow from '../components/common/SwipeableRow';
+import { deleteService } from '../api/services';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -24,6 +26,12 @@ export default function ServicesScreen({ navigation }: Props) {
   const { data: services = [], isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['services', 'all'],
     queryFn: getAllServices,
+  });
+
+  const deleteServiceMutation = useMutation({
+    mutationFn: (id: string) => deleteService(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['services', 'all'] }),
+    onError: (err: any) => Alert.alert('Erro', err?.response?.data?.error || err.message || 'Erro ao apagar serviço'),
   });
 
   // Sync local services with API data
@@ -98,43 +106,85 @@ export default function ServicesScreen({ navigation }: Props) {
   const renderServiceItem = ({ item, drag, isActive }: RenderItemParams<Service>) => {
     return (
       <ScaleDecorator>
-        <TouchableOpacity
-          style={[styles.serviceCard, isActive && styles.serviceCardDragging]}
-          onPress={isEditMode ? undefined : () => handleEditService(item)}
-          onLongPress={isEditMode && !searchQuery ? drag : undefined}
-          disabled={isActive}
-          activeOpacity={isEditMode ? 1 : 0.7}
-        >
-          {isEditMode && !searchQuery && (
-            <TouchableOpacity onPressIn={drag} style={styles.dragHandle}>
-              <Ionicons name="menu" size={24} color={colors.muted} />
-            </TouchableOpacity>
-          )}
-          <View style={styles.serviceInfo}>
-            <View style={styles.serviceHeader}>
-              <Text style={styles.serviceName}>{item.name}</Text>
-              {!item.active && (
-                <View style={styles.inactiveBadge}>
-                  <Text style={styles.inactiveBadgeText}>Inativo</Text>
-                </View>
-              )}
-            </View>
-            {item.description && (
-              <Text style={styles.serviceDescription} numberOfLines={2}>
-                {item.description}
-              </Text>
+        {isEditMode ? (
+          <TouchableOpacity
+            style={[styles.serviceCard, isActive && styles.serviceCardDragging]}
+            onPress={isEditMode ? undefined : () => handleEditService(item)}
+            onLongPress={isEditMode && !searchQuery ? drag : undefined}
+            disabled={isActive}
+            activeOpacity={isEditMode ? 1 : 0.7}
+          >
+            {isEditMode && !searchQuery && (
+              <TouchableOpacity onPressIn={drag} style={styles.dragHandle}>
+                <Ionicons name="menu" size={24} color={colors.muted} />
+              </TouchableOpacity>
             )}
-            <View style={styles.serviceDetails}>
-              {item.price && (
-                <Text style={styles.detailText}>💰 {item.price.toFixed(2)}€</Text>
+            <View style={styles.serviceInfo}>
+              <View style={styles.serviceHeader}>
+                <Text style={styles.serviceName}>{item.name}</Text>
+                {!item.active && (
+                  <View style={styles.inactiveBadge}>
+                    <Text style={styles.inactiveBadgeText}>Inativo</Text>
+                  </View>
+                )}
+              </View>
+              {item.description && (
+                <Text style={styles.serviceDescription} numberOfLines={2}>
+                  {item.description}
+                </Text>
               )}
-              {item.default_duration && (
-                <Text style={styles.detailText}>⏱️ {item.default_duration}min</Text>
-              )}
+              <View style={styles.serviceDetails}>
+                {item.price && (
+                  <Text style={styles.detailText}>💰 {item.price.toFixed(2)}€</Text>
+                )}
+                {item.default_duration && (
+                  <Text style={styles.detailText}>⏱️ {item.default_duration}min</Text>
+                )}
+              </View>
             </View>
-          </View>
-          {!isEditMode && <Ionicons name="chevron-forward" size={20} color={colors.muted} />}
-        </TouchableOpacity>
+            {!isEditMode && <Ionicons name="chevron-forward" size={20} color={colors.muted} />}
+          </TouchableOpacity>
+        ) : (
+          <SwipeableRow onDelete={() => {
+            Alert.alert('Apagar serviço', `Apagar ${item.name}?`, [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Apagar', style: 'destructive', onPress: () => deleteServiceMutation.mutate(item.id) },
+            ]);
+          }}>
+            <TouchableOpacity
+              style={[styles.serviceCard, isActive && styles.serviceCardDragging]}
+              onPress={() => handleEditService(item)}
+              onLongPress={isEditMode && !searchQuery ? drag : undefined}
+              disabled={isActive}
+              activeOpacity={0.7}
+            >
+              <View style={styles.serviceInfo}>
+                <View style={styles.serviceHeader}>
+                  <Text style={styles.serviceName}>{item.name}</Text>
+                  {!item.active && (
+                    <View style={styles.inactiveBadge}>
+                      <Text style={styles.inactiveBadgeText}>Inativo</Text>
+                    </View>
+                  )}
+                </View>
+                {item.description && (
+                  <Text style={styles.serviceDescription} numberOfLines={2}>
+                    {item.description}
+                  </Text>
+                )}
+                <View style={styles.serviceDetails}>
+                  {item.price && (
+                    <Text style={styles.detailText}>💰 {item.price.toFixed(2)}€</Text>
+                  )}
+                  {item.default_duration && (
+                    <Text style={styles.detailText}>⏱️ {item.default_duration}min</Text>
+                  )}
+                </View>
+              </View>
+              {!isEditMode && <Ionicons name="chevron-forward" size={20} color={colors.muted} />}
+            </TouchableOpacity>
+          </SwipeableRow>
+        )}
       </ScaleDecorator>
     );
   };

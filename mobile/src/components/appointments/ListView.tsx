@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, SectionList, Image, StyleSheet, Linking, Platform } from 'react-native';
+import SwipeableRow from '../common/SwipeableRow';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 
@@ -281,10 +282,22 @@ export function ListView({
     const phone = item.customers?.phone;
 
     return (
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => onAppointmentPress(item)}
-      >
+      <SwipeableRow onDelete={() => {
+        // call a deletion handler passed via onRefresh convention: trigger delete through parent via global event
+        // We'll emit a custom event on window for parent to handle if provided (parent should pass onDelete prop in future)
+        // For now, attempt to call global function if present
+        try {
+          if ((global as any).onDeleteAppointment) {
+            (global as any).onDeleteAppointment(item.id);
+          }
+        } catch (err) {
+          // ignore
+        }
+      }}>
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => onAppointmentPress(item)}
+        >
             <View style={styles.petThumb}>
               {item.pets?.photo_url ? (
                 <Image source={{ uri: item.pets.photo_url }} style={styles.petImage} />
@@ -365,6 +378,7 @@ export function ListView({
           {item.payment_status ? <PaymentPill label={item.payment_status} /> : null}
         </View>
       </TouchableOpacity>
+    </SwipeableRow>
     );
   };
 
