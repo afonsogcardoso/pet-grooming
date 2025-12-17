@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -19,13 +19,23 @@ import PetFormScreen from './src/screens/PetFormScreen';
 import ServicesScreen from './src/screens/ServicesScreen';
 import ServiceFormScreen from './src/screens/ServiceFormScreen';
 import { useAuthStore } from './src/state/authStore';
+import { Branding, getBranding } from './src/api/branding';
+import { getProfile } from './src/api/profile';
+import { clearBrandingCache, readBrandingCache, writeBrandingCache } from './src/theme/brandingCache';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
   const [queryClient] = useState(() => new QueryClient());
+  const [brandingData, setBrandingData] = useState<Branding | null>(null);
+  const [brandingStatus, setBrandingStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const token = useAuthStore((s) => s.token);
   const hydrated = useAuthStore((s) => s.hydrated);
+  const loaderColors = useMemo(() => {
+    const primary = brandingData?.brand_primary || '#1e40af';
+    const background = brandingData?.brand_background || '#ffffff';
+    return { primary, background };
+  }, [brandingData]);
 
   useEffect(() => {
     // Hydrate auth token from SecureStore on app start.
@@ -34,11 +44,63 @@ export default function App() {
     });
   }, []);
 
-  if (!hydrated) {
-    console.log('App waiting for hydration...');
+  useEffect(() => {
+    // Reset branding gating on auth changes and clear cache on logout to avoid mixing tenants.
+    if (!hydrated) return;
+    setBrandingStatus('idle');
+    setBrandingData(null);
+    if (!token) {
+      clearBrandingCache();
+    }
+  }, [token, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated || !token) return;
+
+    let cancelled = false;
+    setBrandingStatus('loading');
+    setBrandingData(null);
+
+    (async () => {
+      const cached = await readBrandingCache();
+      if (cached && !cancelled) {
+        queryClient.setQueryData(['branding'], cached);
+        setBrandingData(cached);
+        setBrandingStatus('ready'); // cached branding is enough to render while we fetch fresh
+      }
+
+      try {
+        const fresh = await getBranding();
+        if (cancelled) return;
+        queryClient.setQueryData(['branding'], fresh);
+        setBrandingData(fresh);
+        setBrandingStatus('ready');
+        await writeBrandingCache(fresh);
+      } catch (err: any) {
+        console.warn('Failed to load branding:', err?.message || err);
+        if (!cached && !cancelled) {
+          setBrandingStatus('error');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, token, queryClient]);
+
+  useEffect(() => {
+    if (!hydrated || !token) return;
+    queryClient
+      .ensureQueryData({ queryKey: ['profile'], queryFn: getProfile, staleTime: 1000 * 60 * 2 })
+      .catch((err) => console.warn('Failed to prefetch profile:', err?.message || err));
+  }, [hydrated, token, queryClient]);
+
+  if (!hydrated || (token && brandingStatus !== 'ready' && brandingStatus !== 'error')) {
+    console.log(!hydrated ? 'App waiting for hydration...' : 'App waiting for branding...');
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff' }}>
-        <ActivityIndicator size="large" color="#1e40af" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: loaderColors.background }}>
+        <ActivityIndicator size="large" color={loaderColors.primary} />
       </View>
     );
   }

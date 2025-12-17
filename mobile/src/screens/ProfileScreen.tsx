@@ -48,6 +48,9 @@ export default function ProfileScreen({ navigation }: Props) {
     queryKey: ['profile'],
     queryFn: getProfile,
     retry: 1,
+    staleTime: 1000 * 60 * 2,
+    refetchOnMount: false,
+    placeholderData: () => queryClient.getQueryData(['profile']),
   });
 
   const updateMutation = useMutation({

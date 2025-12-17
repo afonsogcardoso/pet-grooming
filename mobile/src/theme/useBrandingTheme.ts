@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Branding, getBranding } from '../api/branding';
+import { writeBrandingCache } from './brandingCache';
 
 type ThemeColors = {
   primary: string;
@@ -45,11 +46,16 @@ function withAlpha(color: string, alpha: number) {
 }
 
 export function useBrandingTheme() {
+  const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ['branding'],
+    // Query should already be primed by App bootstrap; keep fetch here as safety.
     queryFn: () => getBranding(),
     staleTime: 1000 * 60 * 5,
     refetchOnMount: false,
+    enabled: Boolean(queryClient.getQueryData<Branding>(['branding'])), // avoid firing before bootstrap
+    initialData: () => queryClient.getQueryData<Branding>(['branding']),
+    placeholderData: () => queryClient.getQueryData<Branding>(['branding']),
   });
 
   const colors: ThemeColors = useMemo(() => {
@@ -86,6 +92,13 @@ export function useBrandingTheme() {
       warning: '#d97706',
       success: '#059669',
     };
+  }, [query.data]);
+
+  useEffect(() => {
+    const data = query.data as Branding | undefined;
+    if (data) {
+      writeBrandingCache(data);
+    }
   }, [query.data]);
 
   return {
