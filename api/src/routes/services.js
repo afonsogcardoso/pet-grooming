@@ -39,10 +39,34 @@ router.post('/', async (req, res) => {
     mapped.account_id = accountId
   }
 
+  // Normalize/validate common numeric fields to avoid DB check violations
+  if (mapped.default_duration == null || mapped.default_duration === '') {
+    // sensible default: 10 minutes
+    mapped.default_duration = 10
+  } else {
+    mapped.default_duration = Number(mapped.default_duration)
+    if (Number.isNaN(mapped.default_duration)) mapped.default_duration = 10
+  }
+
+  if (mapped.price != null && mapped.price !== '') {
+    mapped.price = Number(mapped.price)
+    if (Number.isNaN(mapped.price)) mapped.price = null
+  }
+
+  // Ensure display_order is numeric when provided
+  if (mapped.display_order != null && mapped.display_order !== '') {
+    mapped.display_order = Number(mapped.display_order)
+    if (Number.isNaN(mapped.display_order)) mapped.display_order = undefined
+  }
+
   const { data, error } = await supabase.from('services').insert([mapped]).select()
 
   if (error) {
     console.error('[api] create service error', error)
+    // If DB reports a check-constraint violation, return 400 with helpful message
+    if (error.code === '23514') {
+      return res.status(400).json({ error: 'Invalid service payload: failed DB validation', details: error.message })
+    }
     return res.status(500).json({ error: error.message })
   }
 

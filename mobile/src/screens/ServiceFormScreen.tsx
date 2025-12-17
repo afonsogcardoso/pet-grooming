@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Switch, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -7,6 +7,7 @@ import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { getAllServices, createService, updateService, deleteService, Service } from '../api/services';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Input, Button } from '../components/common';
+import { Ionicons } from '@expo/vector-icons';
 
 type Props = NativeStackScreenProps<any, 'ServiceForm'>;
 
@@ -93,6 +94,14 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
     if (duration && isNaN(Number(duration))) {
       newErrors.duration = 'Duração inválida';
     }
+    if (duration) {
+      const d = Number(duration);
+      if (d < 5 || d > 600) {
+        newErrors.duration = 'Duração deve ser entre 5 e 600 minutos';
+      } else if (d % 5 !== 0) {
+        newErrors.duration = 'Duração deve ser múltiplo de 5 minutos';
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -175,14 +184,40 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
             keyboardType="decimal-pad"
           />
 
-          <Input
-            label="Duração Padrão (minutos)"
-            placeholder="60"
-            value={duration}
-            onChangeText={setDuration}
-            error={errors.duration}
-            keyboardType="number-pad"
-          />
+          <View style={{ marginBottom: 16 }}>
+            <Text style={[styles.label]}>Duração Padrão (minutos)</Text>
+            <View style={[styles.spinnerRow]}> 
+              <TouchableOpacity
+                style={styles.spinnerButton}
+                onPress={() => {
+                  const cur = Number(duration) || 0;
+                  const next = Math.max(5, cur - 5);
+                  setDuration(String(next));
+                }}
+                accessibilityLabel="Diminuir duração"
+              >
+                <Ionicons name="remove" size={20} color={colors.text} />
+              </TouchableOpacity>
+
+              <View style={styles.spinnerValueContainer}>
+                <Text style={styles.spinnerValue}>{duration ? String(Number(duration)) : '0'}</Text>
+                <Text style={styles.spinnerUnit}>min</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.spinnerButton}
+                onPress={() => {
+                  const cur = Number(duration) || 0;
+                  const next = Math.min(600, cur + 5);
+                  setDuration(String(next));
+                }}
+                accessibilityLabel="Aumentar duração"
+              >
+                <Ionicons name="add" size={20} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            {errors.duration && <Text style={styles.error}>{errors.duration}</Text>}
+          </View>
 
           <Input
             label="Ordem de Exibição"
@@ -264,6 +299,52 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontSize: 13,
       color: colors.muted,
       maxWidth: 250,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    spinnerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: colors.surfaceBorder,
+      paddingHorizontal: 12,
+      height: 52,
+    },
+    spinnerButton: {
+      width: 44,
+      height: 36,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'transparent',
+    },
+    spinnerValueContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: 8,
+    },
+    spinnerValue: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    spinnerUnit: {
+      fontSize: 13,
+      color: colors.muted,
+    },
+    error: {
+      fontSize: 13,
+      color: colors.danger,
+      marginTop: 6,
+      marginLeft: 4,
     },
   });
 }
