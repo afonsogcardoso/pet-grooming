@@ -87,8 +87,11 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
       newErrors.name = 'Nome é obrigatório';
     }
 
-    if (price && isNaN(Number(price))) {
-      newErrors.price = 'Preço inválido';
+    if (price) {
+      const parsedPrice = Number(String(price).replace(',', '.'));
+      if (isNaN(parsedPrice)) {
+        newErrors.price = 'Preço inválido';
+      }
     }
 
     if (duration && isNaN(Number(duration))) {
@@ -113,7 +116,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
     const serviceData = {
       name: name.trim(),
       description: description.trim() || null,
-      price: price ? Number(price) : null,
+      price: price ? Number(String(price).replace(',', '.')) : null,
       default_duration: duration ? Number(duration) : null,
       display_order: displayOrder ? Number(displayOrder) : 0,
       active,
