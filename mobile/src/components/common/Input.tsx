@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TextInputProps, TouchableOpacity } from 'react-native';
+import { useMemo, useState, useRef } from 'react';
+import { View, Text, TextInput, StyleSheet, TextInputProps, TouchableWithoutFeedback } from 'react-native';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 
 interface InputProps extends TextInputProps {
@@ -16,6 +16,7 @@ export function Input({ label, error, leftIcon, rightIcon, style, showEmailSugge
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const inputRef = useRef<TextInput | null>(null);
 
   const handleEmailChange = (text: string) => {
     if (onChangeText) {
@@ -36,33 +37,38 @@ export function Input({ label, error, leftIcon, rightIcon, style, showEmailSugge
     setSuggestions([]);
   };
 
+  const focusInput = () => {
+    inputRef.current?.focus();
+  };
+
   return (
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
-      <View style={[styles.inputWrapper, props.multiline && styles.inputWrapperMultiline, error && styles.inputWrapperError]}>
-        {leftIcon && <Text style={[styles.leftIcon, props.multiline && styles.leftIconMultiline]}>{leftIcon}</Text>}
-        <TextInput
-          style={[styles.input, leftIcon && styles.inputWithLeftIcon, style]}
-          placeholderTextColor={colors.muted}
-          value={value}
-          onChangeText={showEmailSuggestions ? handleEmailChange : onChangeText}
-          autoCorrect={showEmailSuggestions ? false : props.autoCorrect}
-          autoComplete={showEmailSuggestions ? 'off' : props.autoComplete}
-          {...props}
-        />
-        {rightIcon && <View style={styles.rightIcon}>{rightIcon}</View>}
-      </View>
+      <TouchableWithoutFeedback onPress={focusInput} accessible={false}>
+        <View style={[styles.inputWrapper, props.multiline && styles.inputWrapperMultiline, error && styles.inputWrapperError]}>
+          {leftIcon && <Text style={[styles.leftIcon, props.multiline && styles.leftIconMultiline]}>{leftIcon}</Text>}
+          <TextInput
+            ref={(r) => (inputRef.current = r)}
+            style={[styles.input, leftIcon && styles.inputWithLeftIcon, style]}
+            placeholderTextColor={colors.muted}
+            value={value}
+            onChangeText={showEmailSuggestions ? handleEmailChange : onChangeText}
+            autoCorrect={showEmailSuggestions ? false : props.autoCorrect}
+            autoComplete={showEmailSuggestions ? 'off' : props.autoComplete}
+            {...props}
+          />
+          {rightIcon && <View style={styles.rightIcon}>{rightIcon}</View>}
+        </View>
+      </TouchableWithoutFeedback>
       {error && <Text style={styles.error}>{error}</Text>}
       {suggestions.length > 0 && (
         <View style={styles.suggestionsContainer}>
           {suggestions.map((suggestion, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.suggestionItem}
-              onPress={() => selectSuggestion(suggestion)}
-            >
-              <Text style={styles.suggestionText}>{suggestion}</Text>
-            </TouchableOpacity>
+            <TouchableWithoutFeedback key={index} onPress={() => selectSuggestion(suggestion)}>
+              <View style={styles.suggestionItem}>
+                <Text style={styles.suggestionText}>{suggestion}</Text>
+              </View>
+            </TouchableWithoutFeedback>
           ))}
         </View>
       )}

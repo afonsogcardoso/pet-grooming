@@ -198,12 +198,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
     mutationFn: () => deleteCustomer(customerId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
-      Alert.alert('Sucesso', 'Cliente apagado com sucesso!', [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      navigation.goBack();
     },
     onError: (error: any) => {
       const message = error?.response?.data?.error || error.message || 'Erro ao apagar cliente';

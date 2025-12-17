@@ -35,12 +35,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
     mutationFn: createCustomer,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
-      Alert.alert('Sucesso', 'Cliente criado com sucesso!', [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      navigation.goBack();
     },
     onError: (error: any) => {
       Alert.alert('Erro', error?.response?.data?.message || 'Erro ao criar cliente');
@@ -53,12 +48,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
-      Alert.alert('Sucesso', 'Cliente atualizado com sucesso!', [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      navigation.goBack();
     },
     onError: (error: any) => {
       Alert.alert('Erro', error?.response?.data?.message || 'Erro ao atualizar cliente');
@@ -147,7 +137,6 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
       setPhotoUrl(result.url);
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
-      Alert.alert('Sucesso', 'Foto atualizada!');
     } catch (error) {
       console.error('Erro ao fazer upload:', error);
       Alert.alert('Erro', 'Não foi possível fazer upload da foto');

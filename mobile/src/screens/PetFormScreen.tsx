@@ -45,12 +45,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
       
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
-      Alert.alert('Sucesso', 'Pet adicionado com sucesso!', [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      navigation.goBack();
     },
     onError: (error: any) => {
       Alert.alert('Erro', error?.response?.data?.message || 'Erro ao adicionar pet');
@@ -75,12 +70,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
       
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
-      Alert.alert('Sucesso', 'Pet atualizado com sucesso!', [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      navigation.goBack();
     },
     onError: (error: any) => {
       Alert.alert('Erro', error?.response?.data?.message || 'Erro ao atualizar pet');
@@ -134,7 +124,6 @@ export default function PetFormScreen({ navigation, route }: Props) {
       try {
         setUploadingPhoto(true);
         await uploadPetPhotoMutation.mutateAsync({ petId, uri });
-        Alert.alert('Sucesso', 'Foto atualizada!');
       } catch (error) {
         Alert.alert('Erro', 'Não foi possível fazer upload da foto');
       } finally {
@@ -234,12 +223,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
-      Alert.alert('Sucesso', 'Pet apagado com sucesso!', [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      navigation.goBack();
     },
     onError: (error: any) => {
       const message = error?.response?.data?.error || error.message || 'Erro ao apagar pet';

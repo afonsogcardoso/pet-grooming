@@ -344,7 +344,6 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       if (savedAppointment?.id) {
         navigation.replace('AppointmentDetail', { id: savedAppointment.id });
       } else {
-        Alert.alert('Sucesso', isEditMode ? 'Marcação atualizada.' : 'Marcação criada.');
         navigation.goBack();
       }
     },

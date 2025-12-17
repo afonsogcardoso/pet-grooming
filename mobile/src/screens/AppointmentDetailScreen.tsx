@@ -68,7 +68,6 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         queryClient.setQueryData(['appointment', appointmentId], updatedAppointment);
       }
       await queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
-      Alert.alert('Sucesso', 'Foto enviada.');
     },
     onError: (err: any) => {
       const message = err?.response?.data?.error || err.message || 'Erro ao enviar foto';
@@ -173,9 +172,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
               console.log('Attempting to delete appointment:', appointmentId);
               await deleteAppointment(appointmentId);
               queryClient.invalidateQueries({ queryKey: ['appointments'] }).catch(() => null);
-              Alert.alert('Sucesso', 'Marcação apagada.', [
-                { text: 'OK', onPress: () => navigation.goBack() },
-              ]);
+              navigation.goBack();
             } catch (error) {
               console.error('Delete error:', error);
               const errorMessage = error?.response?.data?.message || error?.message || 'Não foi possível apagar a marcação.';

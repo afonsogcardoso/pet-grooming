@@ -48,7 +48,6 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
     mutationFn: createService,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['services'] });
-      Alert.alert('Sucesso', 'Serviço criado com sucesso!');
       navigation.goBack();
     },
     onError: () => {
@@ -60,7 +59,6 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
     mutationFn: ({ id, data }: { id: string; data: Partial<Service> }) => updateService(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['services'] });
-      Alert.alert('Sucesso', 'Serviço atualizado com sucesso!');
       navigation.goBack();
     },
     onError: () => {
@@ -72,7 +70,6 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
     mutationFn: deleteService,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['services'] });
-      Alert.alert('Sucesso', 'Serviço eliminado com sucesso!');
       navigation.goBack();
     },
     onError: () => {

@@ -56,7 +56,7 @@ export default function ProfileScreen({ navigation }: Props) {
       queryClient.setQueryData(['profile'], updated);
       setUser({ email: updated.email, displayName: updated.displayName, avatarUrl: updated.avatarUrl });
       setIsEditing(false);
-      Alert.alert('Sucesso', 'Perfil atualizado');
+      // profile updated
     },
     onError: () => Alert.alert('Erro', 'Não foi possível atualizar o perfil'),
   });
@@ -156,7 +156,6 @@ export default function ProfileScreen({ navigation }: Props) {
 
       const { url } = await uploadAvatar(formData);
       await updateMutation.mutateAsync({ avatarUrl: url });
-      Alert.alert('Sucesso', 'Foto de perfil atualizada!');
     } catch (error) {
       console.error('Erro ao fazer upload:', error);
       Alert.alert('Erro', 'Não foi possível fazer upload da imagem');
