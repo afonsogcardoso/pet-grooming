@@ -6,15 +6,15 @@ export type AppointmentStatus = 'scheduled' | 'pending' | 'completed' | 'cancell
 export function getStatusColor(status?: string | null): string {
   switch (status) {
     case 'scheduled':
-      return '#3b82f6'; // azul
+      return '#F47C1C'; // laranja principal
     case 'pending':
-      return '#f59e0b'; // laranja/amarelo
+      return '#FFA85C'; // laranja claro
     case 'completed':
       return '#10b981'; // verde
     case 'cancelled':
       return '#ef4444'; // vermelho
     default:
-      return '#6b7280'; // cinza para estados desconhecidos
+      return '#6F6F6F'; // cinza para estados desconhecidos
   }
 }
 

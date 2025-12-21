@@ -182,7 +182,7 @@ export function MonthView({
     todayDay: {
       backgroundColor: colors.primarySoft,
       borderWidth: 2,
-      borderColor: colors.primary,
+      borderColor: colors.surfaceBorder,
     },
     todayText: {
       color: colors.primary,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Animated, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -29,14 +29,33 @@ const Stack = createNativeStackNavigator();
 export default function App() {
   const [queryClient] = useState(() => new QueryClient());
   const [brandingData, setBrandingData] = useState<Branding | null>(null);
+  const [previousBranding, setPreviousBranding] = useState<Branding | null>(null);
   const [profileData, setProfileData] = useState<{ email?: string | null; displayName?: string | null; avatarUrl?: string | null } | null>(null);
   const token = useAuthStore((s) => s.token);
   const hydrated = useAuthStore((s) => s.hydrated);
+  const brandingFade = useMemo(() => new Animated.Value(0), []);
   const loaderColors = useMemo(() => {
-    const primary = brandingData?.brand_primary || '#1e40af';
-    const background = brandingData?.brand_background || '#ffffff';
+    const primary = brandingData?.brand_primary || '#F47C1C';
+    const background = brandingData?.brand_background || '#FFF7EE';
     return { primary, background };
   }, [brandingData]);
+
+  const isBrandingEqual = (left?: Branding | null, right?: Branding | null) => {
+    const keys: (keyof Branding)[] = [
+      'account_name',
+      'brand_primary',
+      'brand_primary_soft',
+      'brand_accent',
+      'brand_accent_soft',
+      'brand_background',
+      'brand_gradient',
+      'logo_url',
+      'portal_image_url',
+      'support_email',
+      'support_phone',
+    ];
+    return keys.every((key) => (left?.[key] ?? null) === (right?.[key] ?? null));
+  };
 
   useEffect(() => {
     // Hydrate auth token from SecureStore on app start.
@@ -71,9 +90,23 @@ export default function App() {
       try {
         const fresh = await getBranding();
         if (cancelled) return;
+        const shouldAnimate = Boolean(brandingData) && !isBrandingEqual(brandingData, fresh);
+        if (shouldAnimate) {
+          setPreviousBranding(brandingData);
+          brandingFade.setValue(1);
+        }
         queryClient.setQueryData(['branding'], fresh);
         setBrandingData(fresh);
         await writeBrandingCache(fresh);
+        if (shouldAnimate) {
+          Animated.timing(brandingFade, {
+            toValue: 0,
+            duration: 350,
+            useNativeDriver: true,
+          }).start(() => {
+            setPreviousBranding(null);
+          });
+        }
       } catch (err: any) {
         console.warn('Failed to load branding:', err?.message || err);
       }
@@ -133,6 +166,8 @@ export default function App() {
     );
   }
 
+  const overlayBackground = previousBranding?.brand_background || '#FFF7EE';
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
@@ -159,6 +194,20 @@ export default function App() {
           </Stack.Navigator>
           </NavigationContainer>
           <StatusBar style="light" />
+          {previousBranding ? (
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0,
+                backgroundColor: overlayBackground,
+                opacity: brandingFade,
+              }}
+            />
+          ) : null}
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -16,7 +16,7 @@ export default function HomeScreen({ navigation }: Props) {
   const primary = colors.primary;
   const primarySoft = colors.primarySoft;
   const background = colors.background;
-  const accountName = branding?.account_name || 'Pet Grooming';
+  const accountName = branding?.account_name || 'Pawmi';
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'Utilizador';
   const avatarUrl = user?.avatarUrl || null;
   const heroImage = branding?.portal_image_url || branding?.logo_url || null;

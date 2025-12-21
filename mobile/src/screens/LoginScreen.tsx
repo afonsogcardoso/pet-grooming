@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,11 +21,18 @@ type Props = NativeStackScreenProps<any>;
 
 export default function LoginScreen({ navigation }: Props) {
   const [apiError, setApiError] = useState<string | null>(null);
+  const [brandingLogoFailed, setBrandingLogoFailed] = useState(false);
   const setTokens = useAuthStore((s) => s.setTokens);
   const setUser = useAuthStore((s) => s.setUser);
   const queryClient = useQueryClient();
-  const { colors } = useBrandingTheme();
+  const { colors, branding } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const logoSource = useMemo(() => {
+    if (!branding?.logo_url || brandingLogoFailed) {
+      return require('../../assets/logo_180x180.png');
+    }
+    return { uri: branding.logo_url };
+  }, [branding?.logo_url, brandingLogoFailed]);
 
   const { control, handleSubmit } = useForm<FormValues>({
     defaultValues: { email: '', password: '' },
@@ -68,7 +75,11 @@ export default function LoginScreen({ navigation }: Props) {
     <View style={styles.container}>
       <View style={styles.headerSection}>
         <View style={styles.iconCircle}>
-          <Text style={styles.iconText}>🐾</Text>
+          <Image
+            source={logoSource}
+            style={styles.iconImage}
+            onError={() => setBrandingLogoFailed(true)}
+          />
         </View>
         <Text style={styles.welcomeText}>Bem-vindo de volta</Text>
         <Text style={styles.subtitle}>Entre para gerir os seus agendamentos</Text>
@@ -141,7 +152,7 @@ export default function LoginScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Pet Grooming App</Text>
+        <Text style={styles.footerText}>Pawmi App</Text>
       </View>
     </View>
   );
@@ -174,8 +185,11 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       shadowRadius: 16,
       elevation: 8,
     },
-    iconText: {
-      fontSize: 38,
+    iconImage: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 40,
+      resizeMode: 'cover',
     },
     welcomeText: {
       fontSize: 32,

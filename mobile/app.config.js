@@ -1,11 +1,11 @@
 import 'dotenv/config';
 
-const bundleIdentifier = process.env.IOS_BUNDLE_ID || 'com.petgrooming.app';
+const bundleIdentifier = process.env.IOS_BUNDLE_ID || 'com.pawmi.app';
 const buildNumber = process.env.IOS_BUILD_NUMBER || '1';
 
 export default {
-  name: 'Pet Grooming',
-  slug: 'pet-grooming-mobile',
+  name: 'Pawmi',
+  slug: 'pawmi-mobile',
   version: '0.0.1',
   orientation: 'portrait',
   icon: './assets/icon.png',
@@ -30,7 +30,7 @@ export default {
     },
   },
   android: {
-    package: 'com.petgrooming.app',
+    package: 'com.pawmi.app',
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
@@ -53,7 +53,7 @@ export default {
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL,
     googlePlacesKey: process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY,
     eas: {
-      projectId: 'a6b7307b-0759-4b16-a535-4a3b45619adf',
+      projectId: '2d2a4865-75c5-47ab-9d03-c79206e7c1dc',
     },
   },
 };

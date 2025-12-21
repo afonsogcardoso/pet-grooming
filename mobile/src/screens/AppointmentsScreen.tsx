@@ -168,7 +168,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
           <TouchableOpacity
             style={[
               styles.segmentButton,
-              filterMode === 'upcoming' && { backgroundColor: primarySoft, borderColor: primary },
+              filterMode === 'upcoming' && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
             ]}
             onPress={() => setFilterMode('upcoming')}
           >
@@ -179,7 +179,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
           <TouchableOpacity
             style={[
               styles.segmentButton,
-              filterMode === 'past' && { backgroundColor: primarySoft, borderColor: primary },
+              filterMode === 'past' && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
             ]}
             onPress={() => setFilterMode('past')}
           >
@@ -190,7 +190,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
           <TouchableOpacity
             style={[
               styles.segmentButton,
-              filterMode === 'unpaid' && { backgroundColor: primarySoft, borderColor: primary },
+              filterMode === 'unpaid' && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
             ]}
             onPress={() => setFilterMode('unpaid')}
           >
