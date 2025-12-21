@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { View, StyleSheet, Dimensions, ActivityIndicator, Linking, TouchableOpacity, Text, Platform } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
+import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 
 interface MiniMapProps {
@@ -11,6 +12,7 @@ const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
 
 export function MiniMap({ address }: MiniMapProps) {
   const { colors } = useBrandingTheme();
+  const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -96,7 +98,7 @@ export function MiniMap({ address }: MiniMapProps) {
       </MapView>
       <View style={styles.overlay}>
         <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-          <Text style={styles.badgeText}>Abrir no Maps →</Text>
+          <Text style={styles.badgeText}>{t('common.openMaps')}</Text>
         </View>
       </View>
     </TouchableOpacity>

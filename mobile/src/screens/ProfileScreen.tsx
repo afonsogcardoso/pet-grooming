@@ -4,17 +4,19 @@ import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
-import { getProfile, updateProfile, uploadAvatar } from '../api/profile';
+import { useTranslation } from 'react-i18next';
+import { getProfile, updateProfile, uploadAvatar, Profile } from '../api/profile';
 import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { getDateLocale, normalizeLanguage, setAppLanguage } from '../i18n';
 
 type Props = NativeStackScreenProps<any>;
 
-function formatDate(value?: string | null) {
-  if (!value) return '—';
+function formatDate(value: string | null | undefined, locale: string, fallback: string) {
+  if (!value) return fallback;
   try {
-    return new Date(value).toLocaleString('pt-PT', {
+    return new Date(value).toLocaleString(locale, {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
@@ -28,9 +30,12 @@ function formatDate(value?: string | null) {
 
 export default function ProfileScreen({ navigation }: Props) {
   const setUser = useAuthStore((s) => s.setUser);
+  const user = useAuthStore((s) => s.user);
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const queryClient = useQueryClient();
+  const { t, i18n } = useTranslation();
+  const dateLocale = getDateLocale();
   
   const [isEditing, setIsEditing] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState('');
@@ -52,16 +57,114 @@ export default function ProfileScreen({ navigation }: Props) {
     refetchOnMount: false,
     placeholderData: () => queryClient.getQueryData(['profile']),
   });
+  const currentLanguage = normalizeLanguage(data?.locale || i18n.language);
+
+  const mergeProfileUpdate = (current: Profile | undefined, updated: Profile, payload?: Partial<Profile>) => {
+    if (!current) return updated;
+    const next: Profile = { ...current };
+    const isBlankString = (value: unknown) => typeof value === 'string' && value.trim().length === 0;
+    const applyIfProvided = <K extends keyof Profile>(key: K) => {
+      const value = updated[key];
+      if (payload && key in payload) {
+        if (value !== undefined) {
+          next[key] = value;
+        }
+        return;
+      }
+      if (value !== undefined && value !== null && !isBlankString(value)) {
+        next[key] = value;
+      }
+    };
+    applyIfProvided('displayName');
+    applyIfProvided('phone');
+    applyIfProvided('locale');
+    applyIfProvided('avatarUrl');
+    applyIfProvided('email');
+    applyIfProvided('lastLoginAt');
+    applyIfProvided('createdAt');
+    applyIfProvided('memberships');
+    applyIfProvided('platformAdmin');
+    return next;
+  };
 
   const updateMutation = useMutation({
     mutationFn: updateProfile,
-    onSuccess: (updated) => {
-      queryClient.setQueryData(['profile'], updated);
-      setUser({ email: updated.email, displayName: updated.displayName, avatarUrl: updated.avatarUrl });
+    onMutate: () => {
+      const previousProfile =
+        queryClient.getQueryData<Profile>(['profile']) ||
+        data ||
+        (user
+          ? {
+              email: user.email,
+              displayName: user.displayName,
+              avatarUrl: user.avatarUrl,
+            }
+          : undefined);
+      if (previousProfile && !queryClient.getQueryData(['profile'])) {
+        queryClient.setQueryData(['profile'], previousProfile);
+      }
+      return { previousProfile };
+    },
+    onSuccess: (updated, payload, context) => {
+      const current =
+        queryClient.getQueryData<Profile>(['profile']) ||
+        context?.previousProfile ||
+        data ||
+        (user
+          ? {
+              email: user.email,
+              displayName: user.displayName,
+              avatarUrl: user.avatarUrl,
+            }
+          : undefined);
+      const merged = current ? mergeProfileUpdate(current, updated, payload) : updated;
+      queryClient.setQueryData<Profile | undefined>(['profile'], merged);
+      const nextUser = {
+        email: merged.email ?? user?.email,
+        displayName:
+          payload && 'displayName' in payload ? merged.displayName : merged.displayName ?? user?.displayName,
+        avatarUrl:
+          payload && 'avatarUrl' in payload ? merged.avatarUrl : merged.avatarUrl ?? user?.avatarUrl,
+      };
+      setUser(nextUser);
       setIsEditing(false);
       // profile updated
     },
-    onError: () => Alert.alert('Erro', 'Não foi possível atualizar o perfil'),
+    onError: () => Alert.alert(t('common.error'), t('profile.updateError')),
+  });
+
+  const languageMutation = useMutation({
+    mutationFn: async (language: string) => updateProfile({ locale: normalizeLanguage(language) }),
+    onMutate: async (language) => {
+      const normalized = normalizeLanguage(language);
+      const previousProfile = queryClient.getQueryData<Profile>(['profile']);
+      queryClient.setQueryData<Profile | undefined>(['profile'], (current) =>
+        current ? { ...current, locale: normalized } : current
+      );
+      const previousLanguage = i18n.language;
+      await setAppLanguage(normalized);
+      return { previousProfile, previousLanguage, normalized };
+    },
+    onSuccess: (updated, _language, context) => {
+      if (updated?.locale) {
+        queryClient.setQueryData<Profile | undefined>(['profile'], (current) =>
+          current ? { ...current, locale: normalizeLanguage(updated.locale) } : current
+        );
+      } else if (context?.normalized) {
+        queryClient.setQueryData<Profile | undefined>(['profile'], (current) =>
+          current ? { ...current, locale: context.normalized } : current
+        );
+      }
+    },
+    onError: (_err, _language, context) => {
+      if (context?.previousProfile) {
+        queryClient.setQueryData(['profile'], context.previousProfile);
+      }
+      if (context?.previousLanguage) {
+        setAppLanguage(context.previousLanguage);
+      }
+      Alert.alert(t('common.error'), t('profile.updateError'));
+    },
   });
 
   const requestAndroidPermissions = async () => {
@@ -70,11 +173,11 @@ export default function ProfileScreen({ navigation }: Props) {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.CAMERA,
           {
-            title: 'Permissão de Câmara',
-            message: 'A app precisa de acesso à câmara',
-            buttonNeutral: 'Perguntar depois',
-            buttonNegative: 'Cancelar',
-            buttonPositive: 'OK',
+            title: t('profile.cameraPermissionTitle'),
+            message: t('profile.cameraPermissionMessage'),
+            buttonNeutral: t('common.later'),
+            buttonNegative: t('common.cancel'),
+            buttonPositive: t('common.ok'),
           }
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
@@ -89,7 +192,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const openCamera = async () => {
     const hasPermission = await requestAndroidPermissions();
     if (!hasPermission) {
-      Alert.alert('Permissão negada', 'Não é possível aceder à câmara sem permissão.');
+      Alert.alert(t('profile.cameraPermissionDeniedTitle'), t('profile.cameraPermissionDeniedMessage'));
       return;
     }
 
@@ -108,7 +211,7 @@ export default function ProfileScreen({ navigation }: Props) {
       }
       if (response.errorCode) {
         console.error('Erro ao abrir câmara:', response.errorMessage);
-        Alert.alert('Erro', 'Não foi possível abrir a câmara');
+        Alert.alert(t('common.error'), t('profile.openCameraError'));
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -133,7 +236,7 @@ export default function ProfileScreen({ navigation }: Props) {
       }
       if (response.errorCode) {
         console.error('Erro ao abrir galeria:', response.errorMessage);
-        Alert.alert('Erro', 'Não foi possível abrir a galeria');
+        Alert.alert(t('common.error'), t('profile.openGalleryError'));
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -161,7 +264,7 @@ export default function ProfileScreen({ navigation }: Props) {
       await updateMutation.mutateAsync({ avatarUrl: url });
     } catch (error) {
       console.error('Erro ao fazer upload:', error);
-      Alert.alert('Erro', 'Não foi possível fazer upload da imagem');
+      Alert.alert(t('common.error'), t('profile.uploadError'));
     } finally {
       setUploadingAvatar(false);
     }
@@ -171,7 +274,7 @@ export default function ProfileScreen({ navigation }: Props) {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
+          options: [t('common.cancel'), t('profile.takePhoto'), t('profile.chooseFromGallery')],
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
@@ -184,12 +287,12 @@ export default function ProfileScreen({ navigation }: Props) {
       );
     } else {
       Alert.alert(
-        'Escolher foto',
-        'Como deseja adicionar a foto?',
+        t('profile.choosePhotoTitle'),
+        t('profile.choosePhotoMessage'),
         [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Tirar foto', onPress: openCamera },
-          { text: 'Escolher da galeria', onPress: openGallery },
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('profile.takePhoto'), onPress: openCamera },
+          { text: t('profile.chooseFromGallery'), onPress: openGallery },
         ]
       );
     }
@@ -208,11 +311,16 @@ export default function ProfileScreen({ navigation }: Props) {
     setIsEditing(true);
   };
 
+  const handleLanguageChange = (language: string) => {
+    if (isEditing || updateMutation.isPending || languageMutation.isPending) return;
+    languageMutation.mutate(language);
+  };
+
   const avatarFallback = data?.displayName ? data.displayName.charAt(0).toUpperCase() : '';
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <ScreenHeader title="Perfil" />
+      <ScreenHeader title={t('profile.title')} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerCard}>
           <TouchableOpacity style={styles.avatar} onPress={pickImage} disabled={uploadingAvatar || updateMutation.isPending}>
@@ -232,21 +340,21 @@ export default function ProfileScreen({ navigation }: Props) {
             )}
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerLabel}>Perfil</Text>
+            <Text style={styles.headerLabel}>{t('profile.header')}</Text>
             {isEditing ? (
               <>
                 <TextInput
                   style={styles.editInput}
                   value={editDisplayName}
                   onChangeText={setEditDisplayName}
-                  placeholder="Nome"
+                  placeholder={t('common.name')}
                   placeholderTextColor={colors.muted}
                 />
                 <TextInput
                   style={styles.editInput}
                   value={editPhone}
                   onChangeText={setEditPhone}
-                  placeholder="Telefone"
+                  placeholder={t('common.phone')}
                   keyboardType="phone-pad"
                   placeholderTextColor={colors.muted}
                 />
@@ -255,24 +363,47 @@ export default function ProfileScreen({ navigation }: Props) {
               <>
                 <Text style={styles.headerTitle}>{data?.displayName}</Text>
                 <Text style={styles.headerSubtitle}>{data?.email}</Text>
-                <Text style={styles.headerMeta}>Último login: {formatDate(data?.lastLoginAt)}</Text>
+                <Text style={styles.headerMeta}>
+                  {t('profile.lastLogin', { date: formatDate(data?.lastLoginAt, dateLocale, t('common.noData')) })}
+                </Text>
               </>
             )}
           </View>
         </View>
 
         {isLoading || isRefetching ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} /> : null}
-        {error ? <Text style={styles.error}>Não foi possível buscar perfil agora.</Text> : null}
+        {error ? <Text style={styles.error}>{t('profile.loadError')}</Text> : null}
 
         <View style={styles.infoGrid}>
-          <InfoPill label="Criado em" value={formatDate(data?.createdAt)} />
-          <InfoPill label="Telefone" value={data?.phone || '—'} />
-          <InfoPill label="Idioma" value={data?.locale || 'pt'} />
-          <InfoPill label="Associações" value={0} />
+          <InfoPill label={t('profile.createdAt')} value={formatDate(data?.createdAt, dateLocale, t('common.noData'))} />
+          <InfoPill label={t('common.phone')} value={data?.phone || t('common.noData')} />
+          <InfoPill label={t('profile.language')} value={t(`language.${normalizeLanguage(data?.locale || 'pt')}`)} />
+          <InfoPill label={t('profile.associations')} value={0} />
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ações</Text>
+          <Text style={styles.sectionTitle}>{t('profile.language')}</Text>
+          <View style={styles.languageOptions}>
+            {(['pt', 'en'] as const).map((lang) => {
+              const isActive = currentLanguage === lang;
+              return (
+                <TouchableOpacity
+                  key={lang}
+                  style={[styles.languageOption, isActive && styles.languageOptionActive]}
+                  onPress={() => handleLanguageChange(lang)}
+                  disabled={updateMutation.isPending || languageMutation.isPending || isEditing}
+                >
+                  <Text style={[styles.languageOptionText, isActive && styles.languageOptionTextActive]}>
+                    {t(`language.${lang}`)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('profile.actions')}</Text>
           {isEditing ? (
             <>
               <TouchableOpacity 
@@ -283,29 +414,29 @@ export default function ProfileScreen({ navigation }: Props) {
                 {updateMutation.isPending ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.buttonText}>Guardar alterações</Text>
+                  <Text style={styles.buttonText}>{t('common.save')}</Text>
                 )}
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.button, styles.secondary]} 
                 onPress={() => setIsEditing(false)}
               >
-                <Text style={styles.buttonTextSecondary}>Cancelar</Text>
+                <Text style={styles.buttonTextSecondary}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </>
           ) : (
             <>
               <TouchableOpacity style={styles.button} onPress={handleEdit}>
-                <Text style={styles.buttonText}>Editar perfil</Text>
+                <Text style={styles.buttonText}>{t('profile.editProfile')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.button, styles.secondary]} onPress={() => refetch()}>
-                <Text style={styles.buttonTextSecondary}>Recarregar perfil</Text>
+                <Text style={styles.buttonTextSecondary}>{t('profile.reloadProfile')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.button, styles.danger]} onPress={async () => {
                 await useAuthStore.getState().clear();
                 navigation.replace('Login');
               }}>
-                <Text style={styles.buttonText}>🚪 Terminar Sessão</Text>
+                <Text style={styles.buttonText}>{t('profile.logout')}</Text>
               </TouchableOpacity>
             </>
           )}
@@ -455,6 +586,33 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       padding: 16,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
+    },
+    languageOptions: {
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 8,
+    },
+    languageOption: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.background,
+      borderRadius: 10,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    languageOptionActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primarySoft,
+    },
+    languageOptionText: {
+      color: colors.text,
+      fontWeight: '600',
+      fontSize: 14,
+    },
+    languageOptionTextActive: {
+      color: colors.primary,
+      fontWeight: '700',
     },
     sectionTitle: {
       color: colors.text,

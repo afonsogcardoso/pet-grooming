@@ -1,5 +1,6 @@
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 
 type DateTimePickerModalProps = {
@@ -26,6 +27,7 @@ export function DateTimePickerModal({
   pickerTheme,
 }: DateTimePickerModalProps) {
   const { colors } = useBrandingTheme();
+  const { t } = useTranslation();
 
   const styles = StyleSheet.create({
     modalOverlay: {
@@ -81,10 +83,10 @@ export function DateTimePickerModal({
         <View style={styles.modalCard}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={onClose}>
-              <Text style={styles.modalButton}>Cancelar</Text>
+              <Text style={styles.modalButton}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={onClose}>
-              <Text style={[styles.modalButton, styles.modalButtonPrimary]}>Feito</Text>
+              <Text style={[styles.modalButton, styles.modalButtonPrimary]}>{t('common.done')}</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.modalPickerContainer}>

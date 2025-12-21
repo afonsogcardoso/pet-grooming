@@ -14,6 +14,7 @@ import { Input } from '../components/common/Input';
 import { EmptyState } from '../components/common/EmptyState';
 import { CustomerCard } from '../components/customers/CustomerCard';
 import { matchesSearchQuery } from '../utils/textHelpers';
+import { useTranslation } from 'react-i18next';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -21,6 +22,7 @@ export default function CustomersScreen({ navigation }: Props) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [searchQuery, setSearchQuery] = useState('');
+  const { t } = useTranslation();
 
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ['customers'],
@@ -31,7 +33,8 @@ export default function CustomersScreen({ navigation }: Props) {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteCustomer(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['customers'] }),
-    onError: (err: any) => Alert.alert('Erro', err?.response?.data?.error || err.message || 'Erro ao apagar cliente'),
+    onError: (err: any) =>
+      Alert.alert(t('common.error'), err?.response?.data?.error || err.message || t('customers.deleteError')),
   });
 
   const filteredCustomers = useMemo(() => {
@@ -56,7 +59,7 @@ export default function CustomersScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScreenHeader
-        title="Clientes"
+        title={t('customers.title')}
         showBack={true}
         rightElement={
           <TouchableOpacity
@@ -73,7 +76,7 @@ export default function CustomersScreen({ navigation }: Props) {
         {/* Search Bar */}
         <View style={styles.searchSection}>
           <Input
-            placeholder="Buscar por nome, telefone ou email..."
+            placeholder={t('customers.searchPlaceholder')}
             value={searchQuery}
             onChangeText={setSearchQuery}
             leftIcon="🔍"
@@ -88,20 +91,20 @@ export default function CustomersScreen({ navigation }: Props) {
         ) : filteredCustomers.length === 0 ? (
           <EmptyState
             icon={searchQuery ? "🔍" : "👥"}
-            title={searchQuery ? "Nenhum resultado" : "Nenhum cliente"}
+            title={searchQuery ? t('customers.emptySearchTitle') : t('customers.emptyTitle')}
             description={
               searchQuery
-                ? "Não encontramos clientes com esse critério"
-                : "Adicione seu primeiro cliente para começar"
+                ? t('customers.emptySearchDescription')
+                : t('customers.emptyDescription')
             }
-            actionLabel={!searchQuery ? "Adicionar Cliente" : undefined}
+            actionLabel={!searchQuery ? t('customers.addCustomer') : undefined}
             onAction={!searchQuery ? handleAddCustomer : undefined}
           />
         ) : (
           <>
             <View style={styles.statsBar}>
               <Text style={styles.statsText}>
-                {filteredCustomers.length} {filteredCustomers.length === 1 ? 'cliente' : 'clientes'}
+                {t('customers.count', { count: filteredCustomers.length })}
               </Text>
             </View>
             <FlatList
@@ -109,9 +112,9 @@ export default function CustomersScreen({ navigation }: Props) {
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <SwipeableRow onDelete={() => {
-                  Alert.alert('Apagar cliente', `Apagar ${item.name}?`, [
-                    { text: 'Cancelar', style: 'cancel' },
-                    { text: 'Apagar', style: 'destructive', onPress: () => deleteMutation.mutate(item.id) },
+                  Alert.alert(t('customers.deleteTitle'), t('customers.deletePrompt', { name: item.name }), [
+                    { text: t('common.cancel'), style: 'cancel' },
+                    { text: t('customers.deleteAction'), style: 'destructive', onPress: () => deleteMutation.mutate(item.id) },
                   ]);
                 }}>
                   <CustomerCard customer={item} onPress={() => handleCustomerPress(item)} />

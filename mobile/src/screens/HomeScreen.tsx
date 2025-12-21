@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image, Dimensions } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 
@@ -10,6 +11,7 @@ type Props = NativeStackScreenProps<any>;
 export default function HomeScreen({ navigation }: Props) {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
+  const { t } = useTranslation();
   const { branding, colors, isLoading: brandingLoading } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -17,7 +19,7 @@ export default function HomeScreen({ navigation }: Props) {
   const primarySoft = colors.primarySoft;
   const background = colors.background;
   const accountName = branding?.account_name || 'Pawmi';
-  const displayName = user?.displayName || user?.email?.split('@')[0] || 'Utilizador';
+  const displayName = user?.displayName || user?.email?.split('@')[0] || t('common.user');
   const avatarUrl = user?.avatarUrl || null;
   const heroImage = branding?.portal_image_url || branding?.logo_url || null;
 
@@ -26,7 +28,7 @@ export default function HomeScreen({ navigation }: Props) {
       {/* Header Section */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Olá! 👋</Text>
+          <Text style={styles.greeting}>{t('home.greeting')}</Text>
           <Text style={styles.userName}>{displayName}</Text>
         </View>
         {brandingLoading ? (
@@ -58,16 +60,16 @@ export default function HomeScreen({ navigation }: Props) {
         ) : null}
         <View style={styles.heroOverlay}>
           <View style={[styles.heroBadge, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
-            <Text style={styles.heroBadgeText}>✨ {accountName}</Text>
-          </View>
-          <Text style={styles.heroTitle}>Bem-vindo de volta!</Text>
-          <Text style={styles.heroSubtitle}>Gerencie seus agendamentos com facilidade</Text>
+          <Text style={styles.heroBadgeText}>✨ {accountName}</Text>
+        </View>
+        <Text style={styles.heroTitle}>{t('home.welcomeBack')}</Text>
+        <Text style={styles.heroSubtitle}>{t('home.heroSubtitle')}</Text>
         </View>
       </View>
 
       {/* Quick Actions */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Ações Rápidas</Text>
+        <Text style={styles.sectionTitle}>{t('home.quickActions')}</Text>
         
         <TouchableOpacity 
           style={[styles.primaryAction, { backgroundColor: primary }]}
@@ -77,8 +79,8 @@ export default function HomeScreen({ navigation }: Props) {
             <Text style={styles.actionIconText}>✨</Text>
           </View>
           <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>Nova Marcação</Text>
-            <Text style={styles.actionSubtitle}>Criar agendamento rápido</Text>
+            <Text style={styles.actionTitle}>{t('home.newAppointmentTitle')}</Text>
+            <Text style={styles.actionSubtitle}>{t('home.newAppointmentSubtitle')}</Text>
           </View>
           <Text style={styles.actionArrow}>→</Text>
         </TouchableOpacity>
@@ -89,8 +91,8 @@ export default function HomeScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('Appointments')}
           >
             <Text style={styles.secondaryActionIcon}>📅</Text>
-            <Text style={styles.secondaryActionTitle}>Agendamentos</Text>
-            <Text style={styles.secondaryActionSubtitle}>Ver marcações</Text>
+            <Text style={styles.secondaryActionTitle}>{t('home.appointmentsTitle')}</Text>
+            <Text style={styles.secondaryActionSubtitle}>{t('home.appointmentsSubtitle')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -98,8 +100,8 @@ export default function HomeScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('Customers')}
           >
             <Text style={styles.secondaryActionIcon}>👥</Text>
-            <Text style={styles.secondaryActionTitle}>Clientes</Text>
-            <Text style={styles.secondaryActionSubtitle}>Gerir clientes e animais</Text>
+            <Text style={styles.secondaryActionTitle}>{t('home.customersTitle')}</Text>
+            <Text style={styles.secondaryActionSubtitle}>{t('home.customersSubtitle')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -107,8 +109,8 @@ export default function HomeScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('Services')}
           >
             <Text style={styles.secondaryActionIcon}>✂️</Text>
-            <Text style={styles.secondaryActionTitle}>Serviços</Text>
-            <Text style={styles.secondaryActionSubtitle}>Gerir catálogo</Text>
+            <Text style={styles.secondaryActionTitle}>{t('home.servicesTitle')}</Text>
+            <Text style={styles.secondaryActionSubtitle}>{t('home.servicesSubtitle')}</Text>
           </TouchableOpacity>
         </View>
       </View>

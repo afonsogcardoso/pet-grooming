@@ -2,8 +2,10 @@ import { useRef, useEffect, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Keyboard } from 'react-native';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import Constants from 'expo-constants';
+import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import MapView, { Marker } from 'react-native-maps';
+import { normalizeLanguage } from '../../i18n';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
 
@@ -15,6 +17,7 @@ type AddressAutocompleteProps = {
 
 export function AddressAutocomplete({ value, onSelect, placeholder }: AddressAutocompleteProps) {
   const { colors } = useBrandingTheme();
+  const { i18n } = useTranslation();
   const autocompleteRef = useRef<any>(null);
   const placesKey = Constants.expoConfig?.extra?.googlePlacesKey;
   const [listVisible, setListVisible] = useState<boolean | 'auto'>('auto');
@@ -101,7 +104,7 @@ export function AddressAutocomplete({ value, onSelect, placeholder }: AddressAut
         }}
         query={{
           key: placesKey,
-          language: 'pt',
+          language: normalizeLanguage(i18n.language),
           components: 'country:pt',
         }}
         onPress={(data, details = null) => {

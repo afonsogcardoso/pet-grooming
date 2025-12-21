@@ -8,6 +8,7 @@ import { getAllServices, createService, updateService, deleteService, Service } 
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Input, Button } from '../components/common';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 type Props = NativeStackScreenProps<any, 'ServiceForm'>;
 
@@ -16,6 +17,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -51,7 +53,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
       navigation.goBack();
     },
     onError: () => {
-      Alert.alert('Erro', 'Não foi possível criar o serviço.');
+      Alert.alert(t('common.error'), t('serviceForm.createError'));
     },
   });
 
@@ -62,7 +64,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
       navigation.goBack();
     },
     onError: () => {
-      Alert.alert('Erro', 'Não foi possível atualizar o serviço.');
+      Alert.alert(t('common.error'), t('serviceForm.updateError'));
     },
   });
 
@@ -73,7 +75,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
       navigation.goBack();
     },
     onError: () => {
-      Alert.alert('Erro', 'Não foi possível eliminar o serviço.');
+      Alert.alert(t('common.error'), t('serviceForm.deleteError'));
     },
   });
 
@@ -81,25 +83,25 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
     const newErrors: Record<string, string> = {};
 
     if (!name.trim()) {
-      newErrors.name = 'Nome é obrigatório';
+      newErrors.name = t('serviceForm.validationNameRequired');
     }
 
     if (price) {
       const parsedPrice = Number(String(price).replace(',', '.'));
       if (isNaN(parsedPrice)) {
-        newErrors.price = 'Preço inválido';
+        newErrors.price = t('serviceForm.validationPriceInvalid');
       }
     }
 
     if (duration && isNaN(Number(duration))) {
-      newErrors.duration = 'Duração inválida';
+      newErrors.duration = t('serviceForm.validationDurationInvalid');
     }
     if (duration) {
       const d = Number(duration);
       if (d < 5 || d > 600) {
-        newErrors.duration = 'Duração deve ser entre 5 e 600 minutos';
+        newErrors.duration = t('serviceForm.validationDurationRange');
       } else if (d % 5 !== 0) {
-        newErrors.duration = 'Duração deve ser múltiplo de 5 minutos';
+        newErrors.duration = t('serviceForm.validationDurationStep');
       }
     }
 
@@ -130,12 +132,12 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
     if (!serviceId) return;
 
     Alert.alert(
-      'Eliminar Serviço',
-      'Tem a certeza que deseja eliminar este serviço? Esta ação não pode ser revertida.',
+      t('serviceForm.deleteTitle'),
+      t('serviceForm.deleteMessage'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: t('serviceForm.deleteAction'),
           style: 'destructive',
           onPress: () => deleteMutation.mutate(serviceId),
         },
@@ -148,7 +150,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScreenHeader
-        title={mode === 'create' ? 'Novo Serviço' : 'Editar Serviço'}
+        title={mode === 'create' ? t('serviceForm.createTitle') : t('serviceForm.editTitle')}
         showBackButton
       />
 
@@ -158,16 +160,16 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
       >
         <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
           <Input
-            label="Nome do Serviço *"
-            placeholder="Ex: Banho e Tosquia"
+            label={t('serviceForm.nameLabel')}
+            placeholder={t('serviceForm.namePlaceholder')}
             value={name}
             onChangeText={setName}
             error={errors.name}
           />
 
           <Input
-            label="Descrição"
-            placeholder="Descrição do serviço"
+            label={t('serviceForm.descriptionLabel')}
+            placeholder={t('serviceForm.descriptionPlaceholder')}
             value={description}
             onChangeText={setDescription}
             multiline
@@ -176,7 +178,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
           />
 
           <Input
-            label="Preço (€)"
+            label={t('serviceForm.priceLabel')}
             placeholder="0.00"
             value={price}
             onChangeText={setPrice}
@@ -185,7 +187,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
           />
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={[styles.label]}>Duração Padrão (minutos)</Text>
+            <Text style={[styles.label]}>{t('serviceForm.durationLabel')}</Text>
             <View style={[styles.spinnerRow]}> 
               <TouchableOpacity
                 style={styles.spinnerButton}
@@ -194,14 +196,14 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
                   const next = Math.max(5, cur - 5);
                   setDuration(String(next));
                 }}
-                accessibilityLabel="Diminuir duração"
+                accessibilityLabel={t('serviceForm.durationDecrease')}
               >
                 <Ionicons name="remove" size={20} color={colors.text} />
               </TouchableOpacity>
 
               <View style={styles.spinnerValueContainer}>
                 <Text style={styles.spinnerValue}>{duration ? String(Number(duration)) : '0'}</Text>
-                <Text style={styles.spinnerUnit}>min</Text>
+                <Text style={styles.spinnerUnit}>{t('common.minutesShort')}</Text>
               </View>
 
               <TouchableOpacity
@@ -211,7 +213,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
                   const next = Math.min(600, cur + 5);
                   setDuration(String(next));
                 }}
-                accessibilityLabel="Aumentar duração"
+                accessibilityLabel={t('serviceForm.durationIncrease')}
               >
                 <Ionicons name="add" size={20} color={colors.text} />
               </TouchableOpacity>
@@ -220,7 +222,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
           </View>
 
           <Input
-            label="Ordem de Exibição"
+            label={t('serviceForm.displayOrderLabel')}
             placeholder="0"
             value={displayOrder}
             onChangeText={setDisplayOrder}
@@ -229,10 +231,8 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
 
           <View style={styles.switchContainer}>
             <View>
-              <Text style={styles.switchLabel}>Serviço Ativo</Text>
-              <Text style={styles.switchSubtext}>
-                Serviços inativos não aparecem na lista de marcações
-              </Text>
+              <Text style={styles.switchLabel}>{t('serviceForm.activeLabel')}</Text>
+              <Text style={styles.switchSubtext}>{t('serviceForm.activeHint')}</Text>
             </View>
             <Switch
               value={active}
@@ -243,7 +243,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
           </View>
 
           <Button
-            title={mode === 'create' ? 'Criar Serviço' : 'Guardar Alterações'}
+            title={mode === 'create' ? t('serviceForm.createAction') : t('serviceForm.saveAction')}
             onPress={handleSubmit}
             loading={isLoading}
             disabled={isLoading}
@@ -251,7 +251,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
 
           {mode === 'edit' && (
             <Button
-              title="Eliminar Serviço"
+              title={t('serviceForm.deleteAction')}
               onPress={handleDelete}
               loading={deleteMutation.isPending}
               disabled={isLoading}

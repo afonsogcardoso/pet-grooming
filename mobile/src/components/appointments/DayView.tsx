@@ -1,6 +1,8 @@
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Pressable, Linking, Platform } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
+import { getDateLocale } from '../../i18n';
 import type { Appointment } from '../../api/appointments';
 import { getStatusColor } from '../../utils/appointmentStatus';
 
@@ -26,9 +28,9 @@ function formatTime(value?: string | null) {
   return value;
 }
 
-function formatDateLabel(date: Date) {
+function formatDateLabel(date: Date, locale: string) {
   try {
-    const label = date.toLocaleDateString('pt-PT', {
+    const label = date.toLocaleDateString(locale, {
       weekday: 'short',
       day: '2-digit',
       month: 'short',
@@ -90,6 +92,8 @@ export function DayView({
   isRefreshing,
 }: DayViewProps) {
   const { colors } = useBrandingTheme();
+  const { t } = useTranslation();
+  const dateLocale = getDateLocale();
 
   const navigateDay = (direction: 'prev' | 'next') => {
     const date = new Date(selectedDate);
@@ -264,7 +268,7 @@ export function DayView({
     const timeStr = `${hh}:${mm}`;
 
     if (!isSlotFree(dayAppointments, minutesRounded, 60)) {
-      Alert.alert('Indisponível', 'Já existe uma marcação neste horário.');
+      Alert.alert(t('dayView.slotUnavailableTitle'), t('dayView.slotUnavailableMessage'));
       return;
     }
 
@@ -283,7 +287,7 @@ export function DayView({
         </View>
 
         <View style={styles.dateInfo}>
-          <Text style={styles.dateLabel}>{formatDateLabel(selectedDate)}</Text>
+          <Text style={styles.dateLabel}>{formatDateLabel(selectedDate, dateLocale)}</Text>
         </View>
 
         <View style={styles.navButtonWrap}>
@@ -398,7 +402,10 @@ export function DayView({
                           onPress={(e) => {
                             e.stopPropagation();
                             const formattedPhone = phone.startsWith('+') ? phone.replace(/\+/g, '') : '351' + phone;
-                            const message = `Olá! Em relação à sua marcação de ${formatTime(appointment.appointment_time)} no dia ${appointment.appointment_date}.`;
+                            const message = t('dayView.whatsappMessage', {
+                              time: formatTime(appointment.appointment_time),
+                              date: appointment.appointment_date,
+                            });
                             Linking.openURL(`whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`).catch(() => null);
                           }}
                         >
@@ -414,7 +421,7 @@ export function DayView({
             {dayAppointments.length === 0 ? (
               <View style={styles.emptySlot}>
                 <Text style={styles.emptyIcon}>☀️</Text>
-                <Text style={styles.emptyText}>Nenhuma marcação para este dia</Text>
+                <Text style={styles.emptyText}>{t('dayView.noAppointments')}</Text>
               </View>
             ) : null}
           </Pressable>

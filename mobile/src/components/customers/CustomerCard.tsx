@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { Avatar } from '../common/Avatar';
 import type { Customer } from '../../api/customers';
@@ -11,6 +12,7 @@ interface CustomerCardProps {
 
 export function CustomerCard({ customer, onPress }: CustomerCardProps) {
   const { colors } = useBrandingTheme();
+  const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const petCount = customer.pet_count || customer.pets?.length || 0;
@@ -39,7 +41,7 @@ export function CustomerCard({ customer, onPress }: CustomerCardProps) {
           <View style={styles.detailItem}>
             <Text style={styles.detailIcon}>🐾</Text>
             <Text style={styles.detailText}>
-              {petCount} {petCount === 1 ? 'pet' : 'pets'}
+              {t('customerCard.petCount', { count: petCount })}
             </Text>
           </View>
         </View>

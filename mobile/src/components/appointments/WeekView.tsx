@@ -1,5 +1,7 @@
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Alert, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
+import { getDateLocale } from '../../i18n';
 import type { Appointment } from '../../api/appointments';
 import { getStatusColor } from '../../utils/appointmentStatus';
 
@@ -78,6 +80,8 @@ export function WeekView({
   isRefreshing,
 }: WeekViewProps) {
   const { colors } = useBrandingTheme();
+  const { t } = useTranslation();
+  const dateLocale = getDateLocale();
   const screenWidth = Dimensions.get('window').width;
   const dayColumnWidth = (screenWidth - TIME_COLUMN_WIDTH - 32) / 7; // 32 for padding
   
@@ -111,7 +115,7 @@ export function WeekView({
 
     // Avoid creating over an existing appointment (using default 60m duration)
     if (!isSlotFree(dayAppointments, minutesRounded, 60)) {
-      Alert.alert('Indisponível', 'Já existe uma marcação neste horário.');
+      Alert.alert(t('dayView.slotUnavailableTitle'), t('dayView.slotUnavailableMessage'));
       return;
     }
 
@@ -276,7 +280,7 @@ export function WeekView({
   const weekEnd = weekDays[6];
   const sameYear = weekStart.getFullYear() === weekEnd.getFullYear();
   const formatDayLabel = (d: Date, withYear: boolean) =>
-    d.toLocaleDateString('pt-PT', {
+    d.toLocaleDateString(dateLocale, {
       day: '2-digit',
       month: 'short',
       year: withYear ? 'numeric' : undefined,
@@ -312,7 +316,7 @@ export function WeekView({
         {weekDays.map((day) => {
           const dayStr = day.toLocaleDateString('sv-SE');
           const isToday = dayStr === today;
-          const dayName = day.toLocaleDateString('pt-PT', { weekday: 'short' });
+          const dayName = day.toLocaleDateString(dateLocale, { weekday: 'short' });
           const dayNumber = day.getDate();
           
           return (

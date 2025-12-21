@@ -5,22 +5,30 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
+import { useTranslation } from 'react-i18next';
 import { getAppointment, updateAppointment, deleteAppointment, uploadAppointmentPhoto } from '../api/appointments';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { MiniMap } from '../components/common/MiniMap';
 import { getStatusColor, getStatusLabel } from '../utils/appointmentStatus';
+import { getDateLocale } from '../i18n';
 
 type Props = NativeStackScreenProps<any>;
 
-function formatDateTime(date?: string | null, time?: string | null) {
+function formatDateTime(
+  date: string | null | undefined,
+  time: string | null | undefined,
+  locale: string,
+  noDateLabel: string,
+  atLabel: string,
+) {
   const safeDate = date ? new Date(`${date}T00:00:00`) : null;
   const dateLabel =
     safeDate && !Number.isNaN(safeDate.getTime())
-      ? safeDate.toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit', month: 'short' })
-      : date || 'Sem data';
+      ? safeDate.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: 'short' })
+      : date || noDateLabel;
   const timeLabel = time ? time.slice(0, 5) : '—';
-  return `${dateLabel} às ${timeLabel}`;
+  return `${dateLabel} ${atLabel} ${timeLabel}`;
 }
 
 export default function AppointmentDetailScreen({ route, navigation }: Props) {
@@ -28,6 +36,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  const dateLocale = getDateLocale();
   const [status, setStatus] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState<'before' | 'after' | null>(null);
 
@@ -50,8 +60,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       }
     },
     onError: (err: any) => {
-      const message = err?.response?.data?.error || err.message || 'Erro ao atualizar marcação';
-      Alert.alert('Erro', message);
+      const message = err?.response?.data?.error || err.message || t('appointmentDetail.updateError');
+      Alert.alert(t('common.error'), message);
     },
   });
 
@@ -70,8 +80,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       await queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
     },
     onError: (err: any) => {
-      const message = err?.response?.data?.error || err.message || 'Erro ao enviar foto';
-      Alert.alert('Erro', message);
+      const message = err?.response?.data?.error || err.message || t('appointmentDetail.photoUploadError');
+      Alert.alert(t('common.error'), message);
     },
   });
 
@@ -116,20 +126,20 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
           android: `geo:0,0?q=${location.lat},${location.lng}`,
           default: `https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`,
         });
-        Linking.openURL(url).catch(() => Alert.alert('Erro', 'Não foi possível abrir mapas.'));
+        Linking.openURL(url).catch(() => Alert.alert(t('common.error'), t('appointmentDetail.mapOpenError')));
       } else {
-        Alert.alert('Erro', 'Endereço não encontrado.');
+        Alert.alert(t('common.error'), t('appointmentDetail.addressNotFound'));
       }
     } catch (error) {
       console.error('Geocoding error:', error);
-      Alert.alert('Erro', 'Não foi possível obter coordenadas.');
+      Alert.alert(t('common.error'), t('appointmentDetail.geocodeError'));
     }
   };
 
   const callCustomer = () => {
     const phone = customer?.phone;
     if (!phone) return;
-    Linking.openURL(`tel:${phone}`).catch(() => Alert.alert('Erro', 'Não foi possível iniciar a chamada.'));
+    Linking.openURL(`tel:${phone}`).catch(() => Alert.alert(t('common.error'), t('appointmentDetail.callError')));
   };
 
   const whatsappCustomer = () => {
@@ -139,9 +149,18 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     const cleanPhone = phone.replace(/[^0-9]/g, '');
     // Se começar com 9, adiciona +351 (Portugal)
     const formattedPhone = cleanPhone.startsWith('9') ? `351${cleanPhone}` : cleanPhone;
-    const message = `Olá ${customer?.name || ''}! Em relação à marcação de ${formatDateTime(appointment?.appointment_date, appointment?.appointment_time)}...`;
+    const message = t('appointmentDetail.whatsappMessage', {
+      name: customer?.name || '',
+      dateTime: formatDateTime(
+        appointment?.appointment_date,
+        appointment?.appointment_time,
+        dateLocale,
+        t('common.noDate'),
+        t('common.at'),
+      ),
+    });
     const url = `whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`;
-    Linking.openURL(url).catch(() => Alert.alert('Erro', 'WhatsApp não instalado ou não foi possível abrir.'));
+    Linking.openURL(url).catch(() => Alert.alert(t('common.error'), t('appointmentDetail.whatsappError')));
   };
 
   const saveStatus = (next: string) => {
@@ -160,12 +179,12 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
 
   const handleDelete = () => {
     Alert.alert(
-      'Apagar Marcação',
-      'Esta ação é irreversível. Tem a certeza que deseja apagar esta marcação?',
+      t('appointmentDetail.deleteTitle'),
+      t('appointmentDetail.deleteMessage'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Apagar',
+          text: t('appointmentDetail.deleteAction'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -175,8 +194,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
               navigation.goBack();
             } catch (error) {
               console.error('Delete error:', error);
-              const errorMessage = error?.response?.data?.message || error?.message || 'Não foi possível apagar a marcação.';
-              Alert.alert('Erro', errorMessage);
+              const errorMessage = error?.response?.data?.message || error?.message || t('appointmentDetail.deleteError');
+              Alert.alert(t('common.error'), errorMessage);
             }
           },
         },
@@ -190,11 +209,11 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.CAMERA,
           {
-            title: 'Permissão de Câmara',
-            message: 'A app precisa de acesso à câmara',
-            buttonNeutral: 'Perguntar depois',
-            buttonNegative: 'Cancelar',
-            buttonPositive: 'OK',
+            title: t('profile.cameraPermissionTitle'),
+            message: t('profile.cameraPermissionMessage'),
+            buttonNeutral: t('common.later'),
+            buttonNegative: t('common.cancel'),
+            buttonPositive: t('common.ok'),
           }
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
@@ -232,7 +251,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const openCamera = async (type: 'before' | 'after') => {
     const hasPermission = await requestAndroidPermissions();
     if (!hasPermission) {
-      Alert.alert('Permissão negada', 'Não é possível aceder à câmara sem permissão.');
+      Alert.alert(t('profile.cameraPermissionDeniedTitle'), t('profile.cameraPermissionDeniedMessage'));
       return;
     }
 
@@ -251,7 +270,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       }
       if (response.errorCode) {
         console.error('Erro ao abrir câmara:', response.errorMessage);
-        Alert.alert('Erro', 'Não foi possível abrir a câmara');
+        Alert.alert(t('common.error'), t('profile.openCameraError'));
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -276,7 +295,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       }
       if (response.errorCode) {
         console.error('Erro ao abrir galeria:', response.errorMessage);
-        Alert.alert('Erro', 'Não foi possível abrir a galeria');
+        Alert.alert(t('common.error'), t('profile.openGalleryError'));
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -289,7 +308,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
+          options: [t('common.cancel'), t('profile.takePhoto'), t('profile.chooseFromGallery')],
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
@@ -302,12 +321,12 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       );
     } else {
       Alert.alert(
-        'Escolher foto',
-        'Como deseja adicionar a foto?',
+        t('profile.choosePhotoTitle'),
+        t('profile.choosePhotoMessage'),
         [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Tirar foto', onPress: () => openCamera(type) },
-          { text: 'Escolher da galeria', onPress: () => openGallery(type) },
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('profile.takePhoto'), onPress: () => openCamera(type) },
+          { text: t('profile.chooseFromGallery'), onPress: () => openGallery(type) },
         ]
       );
     }
@@ -316,7 +335,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScreenHeader 
-        title="Detalhes" 
+        title={t('appointmentDetail.title')} 
         rightElement={
           <TouchableOpacity 
             onPress={handleEditAppointment}
@@ -332,7 +351,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         ) : null}
         {error ? (
           <View style={styles.errorCard}>
-            <Text style={styles.errorText}>⚠️ Erro ao carregar marcação</Text>
+            <Text style={styles.errorText}>⚠️ {t('appointmentDetail.loadError')}</Text>
           </View>
         ) : null}
 
@@ -350,44 +369,54 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                   onPress={togglePayment}
                 >
                   <Text style={[styles.paymentBadgeText, paymentStatus === 'paid' && styles.paymentBadgeTextPaid]}>
-                    {paymentStatus === 'paid' ? 'Pago' : 'Por pagar'}
+                    {paymentStatus === 'paid' ? t('payment.paid') : t('payment.unpaid')}
                   </Text>
                 </TouchableOpacity>
               </View>
               
               <Text style={styles.heroTitle}>
                 {services.length === 1 
-                  ? (services[0]?.name || 'Serviço') 
-                  : `${services.length} Serviços`
+                  ? (services[0]?.name || t('common.service'))
+                  : t('appointmentDetail.servicesCount', { count: services.length })
                 }
               </Text>
               
               <View style={styles.dateTimeRow}>
-                <Text style={styles.heroSubtitle}>{formatDateTime(appointment.appointment_date, appointment.appointment_time)}</Text>
+                <Text style={styles.heroSubtitle}>
+                  {formatDateTime(
+                    appointment.appointment_date,
+                    appointment.appointment_time,
+                    dateLocale,
+                    t('common.noDate'),
+                    t('common.at'),
+                  )}
+                </Text>
                 <TouchableOpacity 
                   style={styles.editButton}
                   onPress={handleEditAppointment}
                 >
-                  <Text style={styles.editButtonText}>Editar</Text>
+                  <Text style={styles.editButtonText}>{t('common.edit')}</Text>
                 </TouchableOpacity>
               </View>
               
               <View style={styles.heroDetails}>
                 {totalAmount > 0 ? (
                   <View style={styles.heroDetailItem}>
-                    <Text style={styles.heroDetailLabel}>Valor Total</Text>
+                    <Text style={styles.heroDetailLabel}>{t('appointmentDetail.totalValue')}</Text>
                     <Text style={styles.heroDetailValue}>€{totalAmount.toFixed(2)}</Text>
                   </View>
                 ) : null}
                 <View style={styles.heroDetailItem}>
-                  <Text style={styles.heroDetailLabel}>Duração</Text>
-                  <Text style={styles.heroDetailValue}>{appointment.duration ? `${appointment.duration} min` : '—'}</Text>
+                  <Text style={styles.heroDetailLabel}>{t('appointmentDetail.duration')}</Text>
+                  <Text style={styles.heroDetailValue}>
+                    {appointment.duration ? `${appointment.duration} ${t('common.minutesShort')}` : '—'}
+                  </Text>
                 </View>
               </View>
               
               {services.length > 1 && (
                 <View style={styles.servicesDetailBox}>
-                  <Text style={styles.servicesDetailTitle}>Serviços Incluídos</Text>
+                  <Text style={styles.servicesDetailTitle}>{t('appointmentDetail.servicesIncluded')}</Text>
                   {services.map((s, idx) => (
                     <View key={idx} style={styles.serviceDetailRow}>
                       <View style={styles.serviceDetailLeft}>
@@ -410,8 +439,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                 onPress={() => customer?.id && navigation.navigate('CustomerDetail', { customerId: customer.id })}
                 activeOpacity={0.7}
               >
-                <Text style={styles.compactCardTitle}>👤 Cliente</Text>
-                <Text style={styles.compactCardName}>{customer?.name || 'Sem cliente'}</Text>
+                <Text style={styles.compactCardTitle}>👤 {t('appointmentDetail.customer')}</Text>
+                <Text style={styles.compactCardName}>{customer?.name || t('appointmentDetail.noCustomer')}</Text>
                 {customer?.phone ? (
                   <View style={styles.contactActions}>
                     <TouchableOpacity 
@@ -438,7 +467,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
 
               {pet ? (
                 <View style={[styles.compactCard, styles.petCard, { flex: 1 }]}>
-                  <Text style={styles.compactCardTitle}>🐾 Pet</Text>
+                  <Text style={styles.compactCardTitle}>🐾 {t('appointmentDetail.pet')}</Text>
                   {pet.photo_url ? (
                     <Image source={{ uri: pet.photo_url }} style={styles.petThumbnail} />
                   ) : null}
@@ -453,7 +482,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                 <View style={styles.mapCardHeader}>
                   <Text style={styles.mapIcon}>📍</Text>
                   <View style={styles.mapContent}>
-                    <Text style={styles.mapTitle}>Morada</Text>
+                    <Text style={styles.mapTitle}>{t('appointmentDetail.address')}</Text>
                     <Text style={styles.mapAddress}>{customer.address}</Text>
                   </View>
                 </View>
@@ -463,10 +492,10 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
 
             {/* Fotos Antes/Depois */}
             <View style={styles.photosCard}>
-              <Text style={styles.photosCardTitle}>📸 Fotos do Serviço</Text>
+              <Text style={styles.photosCardTitle}>📸 {t('appointmentDetail.servicePhotos')}</Text>
               <View style={styles.photosGrid}>
                 <View style={styles.photoItem}>
-                  <Text style={styles.photoItemLabel}>Antes</Text>
+                  <Text style={styles.photoItemLabel}>{t('appointmentDetail.before')}</Text>
                   <TouchableOpacity
                     onPress={() => pickImage('before')}
                     activeOpacity={0.7}
@@ -488,7 +517,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                         ) : (
                           <>
                             <Text style={styles.photoItemPlaceholderText}>+</Text>
-                            <Text style={styles.photoItemPlaceholderLabel}>Toca para adicionar</Text>
+                            <Text style={styles.photoItemPlaceholderLabel}>{t('appointmentDetail.tapToAdd')}</Text>
                           </>
                         )}
                       </View>
@@ -497,7 +526,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                 </View>
 
                 <View style={styles.photoItem}>
-                  <Text style={styles.photoItemLabel}>Depois</Text>
+                  <Text style={styles.photoItemLabel}>{t('appointmentDetail.after')}</Text>
                   <TouchableOpacity
                     onPress={() => pickImage('after')}
                     activeOpacity={0.7}
@@ -519,7 +548,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                         ) : (
                           <>
                             <Text style={styles.photoItemPlaceholderText}>+</Text>
-                            <Text style={styles.photoItemPlaceholderLabel}>Toca para adicionar</Text>
+                            <Text style={styles.photoItemPlaceholderLabel}>{t('appointmentDetail.tapToAdd')}</Text>
                           </>
                         )}
                       </View>
@@ -531,7 +560,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
 
             {/* Estado - Buttons Modernos */}
             <View style={styles.statusCard}>
-              <Text style={styles.statusCardTitle}>Alterar Estado</Text>
+              <Text style={styles.statusCardTitle}>{t('appointmentDetail.changeStatus')}</Text>
               <View style={styles.statusGrid}>
                 {['scheduled', 'pending', 'completed'].map((value) => {
                   const active = displayStatus === value;
@@ -570,11 +599,11 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                   ]}
                   onPress={() => {
                     Alert.alert(
-                      'Cancelar Marcação',
-                      'Tem a certeza que deseja cancelar esta marcação?',
+                      t('appointmentDetail.cancelTitle'),
+                      t('appointmentDetail.cancelMessage'),
                       [
-                        { text: 'Não', style: 'cancel' },
-                        { text: 'Sim, cancelar', style: 'destructive', onPress: () => saveStatus('cancelled') },
+                        { text: t('appointmentDetail.cancelNo'), style: 'cancel' },
+                        { text: t('appointmentDetail.cancelYes'), style: 'destructive', onPress: () => saveStatus('cancelled') },
                       ]
                     );
                   }}
@@ -585,7 +614,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                       displayStatus === 'cancelled' && { color: '#fff' },
                     ]}
                   >
-                    {displayStatus === 'cancelled' ? 'Cancelado' : 'Cancelar'}
+                    {displayStatus === 'cancelled' ? t('status.cancelled') : t('appointmentDetail.cancelAction')}
                   </Text>
                 </TouchableOpacity>
 
@@ -594,7 +623,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                     style={styles.deleteButton}
                     onPress={handleDelete}
                   >
-                    <Text style={styles.deleteButtonText}>Apagar</Text>
+                    <Text style={styles.deleteButtonText}>{t('appointmentDetail.deleteAction')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -603,7 +632,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
             {/* Notas */}
             {appointment.notes ? (
               <View style={styles.notesCard}>
-                <Text style={styles.notesTitle}>Notas</Text>
+                <Text style={styles.notesTitle}>{t('appointmentDetail.notes')}</Text>
                 <Text style={styles.notesText}>{appointment.notes}</Text>
               </View>
             ) : null}

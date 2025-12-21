@@ -20,6 +20,7 @@ import { DayView } from '../components/appointments/DayView';
 import { WeekView } from '../components/appointments/WeekView';
 import { MonthView } from '../components/appointments/MonthView';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { useTranslation } from 'react-i18next';
 
 type Props = NativeStackScreenProps<any>;
 type ViewMode = 'list' | 'day' | 'week' | 'month';
@@ -38,6 +39,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
 
   const { branding: brandingData, colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { t } = useTranslation();
 
   // For list/day view: fetch appointments based on filter mode
   // For week/month view: fetch a broader range
@@ -108,16 +110,16 @@ export default function AppointmentsScreen({ navigation }: Props) {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
     },
     onError: (err: any) => {
-      Alert.alert('Erro', err?.response?.data?.error || err.message || 'Erro ao apagar agendamento');
+      Alert.alert(t('common.error'), err?.response?.data?.error || err.message || t('appointments.deleteError'));
     },
   });
 
   useEffect(() => {
     // Expose a simple global hook used by ListView's SwipeableRow
     (global as any).onDeleteAppointment = (id: string) => {
-      Alert.alert('Apagar marcação', 'Tem a certeza?', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Apagar', style: 'destructive', onPress: () => deleteMutation.mutate(id) },
+      Alert.alert(t('appointments.deleteTitle'), t('appointments.deleteMessage'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('appointments.deleteAction'), style: 'destructive', onPress: () => deleteMutation.mutate(id) },
       ]);
     };
     return () => {
@@ -144,7 +146,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
       <ScreenHeader 
-        title="Marcações"
+        title={t('appointments.title')}
         rightElement={
           <TouchableOpacity 
             onPress={() => handleNewAppointment()}
@@ -156,7 +158,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
         }
       />
       <View style={styles.headerInfo}>
-        <Text style={styles.subtitle}>Múltiplas visões para melhor organização</Text>
+        <Text style={styles.subtitle}>{t('appointments.subtitle')}</Text>
       </View>
 
       {/* View Mode Selector */}
@@ -173,7 +175,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
             onPress={() => setFilterMode('upcoming')}
           >
             <Text style={[styles.segmentText, { color: filterMode === 'upcoming' ? primary : colors.text }]}>
-              Próximos
+              {t('appointments.filterUpcoming')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -184,7 +186,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
             onPress={() => setFilterMode('past')}
           >
             <Text style={[styles.segmentText, { color: filterMode === 'past' ? primary : colors.text }]}>
-              Anteriores
+              {t('appointments.filterPast')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -195,7 +197,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
             onPress={() => setFilterMode('unpaid')}
           >
             <Text style={[styles.segmentText, { color: filterMode === 'unpaid' ? primary : colors.text }]}>
-              Por pagar
+              {t('appointments.filterUnpaid')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -209,7 +211,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
       {/* Error State */}
       {error ? (
         <Text style={styles.error}>
-          Não foi possível carregar agendamentos{'\n'}
+          {t('appointments.loadError')}{'\n'}
           {(error as any)?.response?.data?.error || (error as Error)?.message || ''}
         </Text>
       ) : null}

@@ -1,4 +1,5 @@
 import { View, Text, TextInput, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { AddressAutocomplete } from './AddressAutocomplete';
 import { Input } from '../common/Input';
@@ -39,6 +40,7 @@ export function NewCustomerForm({
   addressPlaceholder,
 }: NewCustomerFormProps) {
   const { colors } = useBrandingTheme();
+  const { t } = useTranslation();
 
   const styles = StyleSheet.create({
     field: {
@@ -70,11 +72,11 @@ export function NewCustomerForm({
   return (
     <>
       <View style={styles.field}>
-        <Text style={styles.label}>Nome do Cliente</Text>
+        <Text style={styles.label}>{t('newCustomerForm.customerNameLabel')}</Text>
         <TextInput
           value={customerName}
           onChangeText={setCustomerName}
-          placeholder="Nome completo"
+          placeholder={t('customerForm.namePlaceholder')}
           placeholderTextColor={colors.muted}
           style={styles.input}
         />
@@ -82,22 +84,22 @@ export function NewCustomerForm({
       
       <View style={styles.row}>
         <View style={[styles.field, { flex: 1 }]}>
-          <Text style={styles.label}>Telefone</Text>
+          <Text style={styles.label}>{t('common.phone')}</Text>
           <TextInput
             value={customerPhone}
             onChangeText={setCustomerPhone}
-            placeholder="Telefone"
+            placeholder={t('common.phone')}
             placeholderTextColor={colors.muted}
             style={styles.input}
             keyboardType="phone-pad"
           />
         </View>
         <View style={[styles.field, { flex: 1 }]}>
-          <Text style={styles.label}>NIF</Text>
+          <Text style={styles.label}>{t('customerDetail.nif')}</Text>
           <TextInput
             value={customerNif}
             onChangeText={setCustomerNif}
-            placeholder="NIF"
+            placeholder={t('customerDetail.nif')}
             placeholderTextColor={colors.muted}
             style={styles.input}
             keyboardType="number-pad"
@@ -106,17 +108,17 @@ export function NewCustomerForm({
       </View>
 
       <Input
-        label="Email"
+        label={t('common.email')}
         value={customerEmail}
         onChangeText={setCustomerEmail}
-        placeholder="email@dominio.com"
+        placeholder={t('newCustomerForm.emailPlaceholder')}
         keyboardType="email-address"
         autoCapitalize="none"
         showEmailSuggestions
       />
 
       <View style={styles.field}>
-        <Text style={styles.label}>Morada</Text>
+        <Text style={styles.label}>{t('customerDetail.address')}</Text>
         <AddressAutocomplete
           value={customerAddress}
           onSelect={setCustomerAddress}
@@ -125,22 +127,22 @@ export function NewCustomerForm({
       </View>
 
       <View style={styles.field}>
-        <Text style={styles.label}>Nome do Animal</Text>
+        <Text style={styles.label}>{t('newCustomerForm.petNameLabel')}</Text>
         <TextInput
           value={petName}
           onChangeText={setPetName}
-          placeholder="Nome do animal"
+          placeholder={t('newCustomerForm.petNamePlaceholder')}
           placeholderTextColor={colors.muted}
           style={styles.input}
         />
       </View>
 
       <View style={styles.field}>
-        <Text style={styles.label}>Raça (opcional)</Text>
+        <Text style={styles.label}>{t('newCustomerForm.petBreedLabel')}</Text>
         <TextInput
           value={petBreed}
           onChangeText={setPetBreed}
-          placeholder="Raça"
+          placeholder={t('newCustomerForm.petBreedPlaceholder')}
           placeholderTextColor={colors.muted}
           style={styles.input}
         />

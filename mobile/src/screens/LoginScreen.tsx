@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useTranslation } from 'react-i18next';
 import { login } from '../api/auth';
 import { getBranding } from '../api/branding';
 import { getProfile } from '../api/profile';
@@ -25,6 +26,7 @@ export default function LoginScreen({ navigation }: Props) {
   const setTokens = useAuthStore((s) => s.setTokens);
   const setUser = useAuthStore((s) => s.setUser);
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const { colors, branding } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const logoSource = useMemo(() => {
@@ -62,7 +64,7 @@ export default function LoginScreen({ navigation }: Props) {
       const message =
         err?.response?.data?.error ??
         err?.response?.data?.message ??
-        'Falha no login. Verifique credenciais.';
+        t('login.errorFallback');
       setApiError(message);
     },
   });
@@ -81,8 +83,8 @@ export default function LoginScreen({ navigation }: Props) {
             onError={() => setBrandingLogoFailed(true)}
           />
         </View>
-        <Text style={styles.welcomeText}>Bem-vindo de volta</Text>
-        <Text style={styles.subtitle}>Entre para gerir os seus agendamentos</Text>
+        <Text style={styles.welcomeText}>{t('login.welcomeBack')}</Text>
+        <Text style={styles.subtitle}>{t('login.subtitle')}</Text>
       </View>
 
       <View style={styles.formCard}>
@@ -99,7 +101,7 @@ export default function LoginScreen({ navigation }: Props) {
                   keyboardType="email-address"
                   value={value}
                   onChangeText={onChange}
-                  placeholder="Email"
+                  placeholder={t('common.email')}
                   placeholderTextColor={colors.muted}
                 />
               </View>
@@ -120,7 +122,7 @@ export default function LoginScreen({ navigation }: Props) {
                   secureTextEntry
                   value={value}
                   onChangeText={onChange}
-                  placeholder="Senha"
+                  placeholder={t('common.password')}
                   placeholderTextColor={colors.muted}
                 />
               </View>
@@ -143,10 +145,10 @@ export default function LoginScreen({ navigation }: Props) {
           {isPending ? (
             <View style={styles.buttonContent}>
               <ActivityIndicator color="#fff" size="small" />
-              <Text style={styles.buttonText}>A carregar...</Text>
+              <Text style={styles.buttonText}>{t('common.loading')}</Text>
             </View>
           ) : (
-            <Text style={styles.buttonText}>Entrar →</Text>
+            <Text style={styles.buttonText}>{t('login.signIn')}</Text>
           )}
         </TouchableOpacity>
       </View>

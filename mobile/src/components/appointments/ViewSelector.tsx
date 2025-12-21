@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 
 type ViewMode = 'list' | 'day' | 'week' | 'month';
@@ -10,12 +11,13 @@ type ViewSelectorProps = {
 
 export function ViewSelector({ currentView, onViewChange }: ViewSelectorProps) {
   const { colors } = useBrandingTheme();
+  const { t } = useTranslation();
 
   const views: Array<{ mode: ViewMode; icon: string; label: string }> = [
-    { mode: 'list', icon: '📋', label: 'Lista' },
-    { mode: 'day', icon: '📅', label: 'Dia' },
-    { mode: 'week', icon: '📆', label: 'Semana' },
-    { mode: 'month', icon: '🗓️', label: 'Mês' },
+    { mode: 'list', icon: '📋', label: t('viewSelector.list') },
+    { mode: 'day', icon: '📅', label: t('viewSelector.day') },
+    { mode: 'week', icon: '📆', label: t('viewSelector.week') },
+    { mode: 'month', icon: '🗓️', label: t('viewSelector.month') },
   ];
 
   const styles = StyleSheet.create({

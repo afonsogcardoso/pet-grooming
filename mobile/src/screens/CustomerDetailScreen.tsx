@@ -14,6 +14,7 @@ import { MiniMap } from '../components/common/MiniMap';
 import { PetCard } from '../components/customers/PetCard';
 import SwipeableRow from '../components/common/SwipeableRow';
 import { deletePet } from '../api/customers';
+import { useTranslation } from 'react-i18next';
 
 type Props = NativeStackScreenProps<any, 'CustomerDetail'>;
 
@@ -23,6 +24,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const queryClient = useQueryClient();
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const { t } = useTranslation();
 
   const { data: customers = [], isLoading: isLoadingCustomer } = useQuery({
     queryKey: ['customers'],
@@ -42,8 +44,8 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
       await queryClient.invalidateQueries({ queryKey: ['customers'] });
     },
     onError: (err: any) => {
-      const message = err?.response?.data?.error || err.message || 'Erro ao apagar pet';
-      Alert.alert('Erro', message);
+      const message = err?.response?.data?.error || err.message || t('customerDetail.deletePetError');
+      Alert.alert(t('common.error'), message);
     },
   });
 
@@ -63,8 +65,8 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
       await queryClient.invalidateQueries({ queryKey: ['customers'] });
     },
     onError: (err: any) => {
-      const message = err?.response?.data?.error || err.message || 'Erro ao enviar foto';
-      Alert.alert('Erro', message);
+      const message = err?.response?.data?.error || err.message || t('customerDetail.photoUploadError');
+      Alert.alert(t('common.error'), message);
     },
   });
 
@@ -74,11 +76,11 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.CAMERA,
           {
-            title: 'Permissão de Câmara',
-            message: 'A app precisa de acesso à câmara',
-            buttonNeutral: 'Perguntar depois',
-            buttonNegative: 'Cancelar',
-            buttonPositive: 'OK',
+            title: t('profile.cameraPermissionTitle'),
+            message: t('profile.cameraPermissionMessage'),
+            buttonNeutral: t('common.later'),
+            buttonNegative: t('common.cancel'),
+            buttonPositive: t('common.ok'),
           }
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
@@ -113,7 +115,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
   const openCamera = async () => {
     const hasPermission = await requestAndroidPermissions();
     if (!hasPermission) {
-      Alert.alert('Permissão negada', 'Não é possível aceder à câmara sem permissão.');
+      Alert.alert(t('profile.cameraPermissionDeniedTitle'), t('profile.cameraPermissionDeniedMessage'));
       return;
     }
 
@@ -132,7 +134,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
       }
       if (response.errorCode) {
         console.error('Erro ao abrir câmara:', response.errorMessage);
-        Alert.alert('Erro', 'Não foi possível abrir a câmara');
+        Alert.alert(t('common.error'), t('profile.openCameraError'));
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -157,7 +159,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
       }
       if (response.errorCode) {
         console.error('Erro ao abrir galeria:', response.errorMessage);
-        Alert.alert('Erro', 'Não foi possível abrir a galeria');
+        Alert.alert(t('common.error'), t('profile.openGalleryError'));
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -170,7 +172,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
+          options: [t('common.cancel'), t('profile.takePhoto'), t('profile.chooseFromGallery')],
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
@@ -183,12 +185,12 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
       );
     } else {
       Alert.alert(
-        'Escolher foto',
-        'Como deseja adicionar a foto?',
+        t('profile.choosePhotoTitle'),
+        t('profile.choosePhotoMessage'),
         [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Tirar foto', onPress: openCamera },
-          { text: 'Escolher da galeria', onPress: openGallery },
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('profile.takePhoto'), onPress: openCamera },
+          { text: t('profile.chooseFromGallery'), onPress: openGallery },
         ]
       );
     }
@@ -201,19 +203,19 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
       navigation.goBack();
     },
     onError: (error: any) => {
-      const message = error?.response?.data?.error || error.message || 'Erro ao apagar cliente';
-      Alert.alert('Erro', message);
+      const message = error?.response?.data?.error || error.message || t('customerDetail.deleteCustomerError');
+      Alert.alert(t('common.error'), message);
     },
   });
 
   const handleDeleteCustomer = () => {
     Alert.alert(
-      'Apagar Cliente',
-      `Tem a certeza que deseja apagar ${customer?.name}? Esta ação não pode ser desfeita e todos os pets associados também serão apagados.`,
+      t('customerDetail.deleteCustomerTitle'),
+      t('customerDetail.deleteCustomerMessage', { name: customer?.name || '' }),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Apagar',
+          text: t('customerDetail.deleteCustomerAction'),
           style: 'destructive',
           onPress: () => deleteMutation.mutate(),
         },
@@ -236,7 +238,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
   if (isLoadingCustomer) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <ScreenHeader title="Cliente" />
+        <ScreenHeader title={t('customerDetail.title')} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -247,11 +249,11 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
   if (!customer) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <ScreenHeader title="Cliente" />
+        <ScreenHeader title={t('customerDetail.title')} />
         <EmptyState
           icon="❌"
-          title="Cliente não encontrado"
-          description="O cliente que você procura não existe"
+          title={t('customerDetail.notFoundTitle')}
+          description={t('customerDetail.notFoundDescription')}
         />
       </SafeAreaView>
     );
@@ -260,7 +262,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScreenHeader
-        title="Detalhes do Cliente"
+        title={t('customerDetail.detailsTitle')}
         showBack={true}
         rightElement={
           <TouchableOpacity onPress={handleEditCustomer} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -292,7 +294,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
             {customer.phone && (
               <View style={styles.infoItem}>
                 <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Telefone</Text>
+                  <Text style={styles.infoLabel}>{t('common.phone')}</Text>
                   <Text style={styles.infoValue}>{customer.phone}</Text>
                 </View>
               </View>
@@ -301,7 +303,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
             {customer.email && (
               <View style={styles.infoItem}>
                 <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Email</Text>
+                  <Text style={styles.infoLabel}>{t('common.email')}</Text>
                   <Text style={styles.infoValue}>{customer.email}</Text>
                 </View>
               </View>
@@ -311,8 +313,8 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
               <>
                 <View style={styles.infoItem}>
                   <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Endereço</Text>
-                    <Text style={styles.infoValue}>{customer.address}</Text>
+                  <Text style={styles.infoLabel}>{t('customerDetail.address')}</Text>
+                  <Text style={styles.infoValue}>{customer.address}</Text>
                   </View>
                 </View>
                 <MiniMap address={customer.address} />
@@ -322,7 +324,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
             {customer.nif && (
               <View style={styles.infoItem}>
                 <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>NIF</Text>
+                  <Text style={styles.infoLabel}>{t('customerDetail.nif')}</Text>
                   <Text style={styles.infoValue}>{customer.nif}</Text>
                 </View>
               </View>
@@ -333,9 +335,9 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
         {/* Pets Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Pets ({pets.length})</Text>
+            <Text style={styles.sectionTitle}>{t('customerDetail.petsTitle', { count: pets.length })}</Text>
             <Button
-              title="Adicionar"
+              title={t('common.add')}
               onPress={handleAddPet}
               variant="ghost"
               size="small"
@@ -349,18 +351,18 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
             </View>
           ) : pets.length === 0 ? (
             <EmptyState
-              title="Nenhum pet"
-              description="Adicione o primeiro pet deste cliente"
-              actionLabel="Adicionar Pet"
+              title={t('customerDetail.noPetsTitle')}
+              description={t('customerDetail.noPetsDescription')}
+              actionLabel={t('customerDetail.addPet')}
               onAction={handleAddPet}
             />
           ) : (
             <View style={styles.petsList}>
               {pets.map((pet) => (
                 <SwipeableRow key={pet.id} onDelete={() => {
-                  Alert.alert('Apagar pet', `Apagar ${pet.name}?`, [
-                    { text: 'Cancelar', style: 'cancel' },
-                    { text: 'Apagar', style: 'destructive', onPress: () => deletePetMutation.mutate(pet.id) },
+                  Alert.alert(t('customerDetail.deletePetTitle'), t('customerDetail.deletePetMessage', { name: pet.name }), [
+                    { text: t('common.cancel'), style: 'cancel' },
+                    { text: t('customerDetail.deletePetAction'), style: 'destructive', onPress: () => deletePetMutation.mutate(pet.id) },
                   ]);
                 }}>
                   <PetCard key={pet.id} pet={pet} onPress={() => handlePetPress(pet)} />
@@ -373,7 +375,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
         {/* Delete Customer Button */}
         <View style={styles.dangerZone}>
           <Button
-            title="Apagar Cliente"
+            title={t('customerDetail.deleteCustomerAction')}
             onPress={handleDeleteCustomer}
             variant="ghost"
             size="large"

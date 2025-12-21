@@ -1,5 +1,6 @@
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { AddressAutocomplete } from './AddressAutocomplete';
 import type { Customer, Pet } from '../../api/customers';
@@ -57,6 +58,7 @@ export function ExistingCustomerForm({
   primarySoft,
 }: ExistingCustomerFormProps) {
   const { colors } = useBrandingTheme();
+  const { t } = useTranslation();
 
   const styles = StyleSheet.create({
     field: {
@@ -183,7 +185,7 @@ export function ExistingCustomerForm({
   return (
     <>
       <View style={styles.field}>
-        <Text style={styles.label}>Cliente</Text>
+        <Text style={styles.label}>{t('existingCustomerForm.customerLabel')}</Text>
         
         {!selectedCustomerData ? (
           // Modo de pesquisa: mostrar sempre a caixa de pesquisa
@@ -193,7 +195,7 @@ export function ExistingCustomerForm({
               onPress={() => setShowCustomerList(!showCustomerList)}
             >
               <Text style={[styles.selectText, styles.placeholder]}>
-                {loadingCustomers ? 'A carregar...' : 'Selecionar cliente'}
+                {loadingCustomers ? t('common.loading') : t('existingCustomerForm.selectCustomer')}
               </Text>
             </TouchableOpacity>
 
@@ -204,7 +206,7 @@ export function ExistingCustomerForm({
                   <TextInput
                     value={customerSearch}
                     onChangeText={setCustomerSearch}
-                    placeholder="Pesquisar por cliente ou pet"
+                    placeholder={t('existingCustomerForm.searchPlaceholder')}
                     placeholderTextColor={colors.muted}
                     style={styles.searchInput}
                     autoFocus
@@ -237,7 +239,7 @@ export function ExistingCustomerForm({
                       >
                         <Text style={styles.optionTitle}>
                           {result.label}
-                          {result.type === 'pet' ? ' (pet)' : ''}
+                          {result.type === 'pet' ? ` ${t('existingCustomerForm.petSuffix')}` : ''}
                         </Text>
                         {result.subtitle ? <Text style={styles.optionSubtitle}>{result.subtitle}</Text> : null}
                         {result.type === 'pet' && result.customer.phone ? (
@@ -247,7 +249,7 @@ export function ExistingCustomerForm({
                     );
                   })}
                   {!loadingCustomers && searchResults.length === 0 ? (
-                    <Text style={styles.optionSubtitle}>Nenhum resultado</Text>
+                    <Text style={styles.optionSubtitle}>{t('existingCustomerForm.noResults')}</Text>
                   ) : null}
                 </ScrollView>
               </View>
@@ -263,26 +265,26 @@ export function ExistingCustomerForm({
               </Text>
             </View>
 
-            <Text style={styles.customerDetailLabel}>📱 Telefone</Text>
+            <Text style={styles.customerDetailLabel}>📱 {t('common.phone')}</Text>
             <TextInput
               value={customerPhone}
               onChangeText={setCustomerPhone}
-              placeholder="Telefone"
+              placeholder={t('common.phone')}
               placeholderTextColor={colors.muted}
               style={[styles.input, styles.inlineInput]}
               keyboardType="phone-pad"
             />
-            <Text style={styles.customerDetailLabel}>📍 Morada</Text>
+            <Text style={styles.customerDetailLabel}>📍 {t('customerDetail.address')}</Text>
             <AddressAutocomplete
               value={customerAddress}
               onSelect={setCustomerAddress}
               placeholder={addressPlaceholder}
             />
-            <Text style={styles.customerDetailLabel}>🆔 NIF</Text>
+            <Text style={styles.customerDetailLabel}>🆔 {t('customerDetail.nif')}</Text>
             <TextInput
               value={customerNif}
               onChangeText={setCustomerNif}
-              placeholder="NIF"
+              placeholder={t('customerDetail.nif')}
               placeholderTextColor={colors.muted}
               style={[styles.input, styles.inlineInput]}
               keyboardType="number-pad"
@@ -294,7 +296,7 @@ export function ExistingCustomerForm({
                 setShowCustomerList(!showCustomerList);
               }}
             >
-              <Text style={styles.changeButtonText}>🔄 Trocar cliente</Text>
+              <Text style={styles.changeButtonText}>🔄 {t('existingCustomerForm.changeCustomer')}</Text>
             </TouchableOpacity>
 
             {showCustomerList ? (
@@ -302,7 +304,7 @@ export function ExistingCustomerForm({
                 <TextInput
                   value={customerSearch}
                   onChangeText={setCustomerSearch}
-                  placeholder="Pesquisar por cliente ou pet"
+                  placeholder={t('existingCustomerForm.searchPlaceholder')}
                   placeholderTextColor={colors.muted}
                   style={[styles.input, { borderColor: primarySoft, marginBottom: 10 }]}
                   autoFocus
@@ -329,7 +331,7 @@ export function ExistingCustomerForm({
                       >
                         <Text style={styles.optionTitle}>
                           {result.label}
-                          {result.type === 'pet' ? ' (pet)' : ''}
+                          {result.type === 'pet' ? ` ${t('existingCustomerForm.petSuffix')}` : ''}
                         </Text>
                         {result.subtitle ? <Text style={styles.optionSubtitle}>{result.subtitle}</Text> : null}
                         {result.type === 'pet' && result.customer.phone ? (
@@ -339,7 +341,7 @@ export function ExistingCustomerForm({
                     );
                   })}
                   {!loadingCustomers && searchResults.length === 0 ? (
-                    <Text style={styles.optionSubtitle}>Nenhum resultado</Text>
+                    <Text style={styles.optionSubtitle}>{t('existingCustomerForm.noResults')}</Text>
                   ) : null}
                 </ScrollView>
               </View>
@@ -349,7 +351,7 @@ export function ExistingCustomerForm({
       </View>
 
       <View style={styles.field}>
-        <Text style={styles.label}>Animal</Text>
+        <Text style={styles.label}>{t('existingCustomerForm.petLabel')}</Text>
         <TouchableOpacity
           style={styles.select}
           onPress={() => {
@@ -359,7 +361,7 @@ export function ExistingCustomerForm({
         >
           <Text style={[styles.selectText, !petOptions.find((p) => p.id === selectedPet) && styles.placeholder]}>
             {petOptions.find((p) => p.id === selectedPet)?.name ||
-              (selectedCustomer ? 'Escolhe um pet' : 'Seleciona primeiro o cliente')}
+              (selectedCustomer ? t('existingCustomerForm.selectPet') : t('existingCustomerForm.selectCustomerFirst'))}
           </Text>
         </TouchableOpacity>
       </View>
@@ -367,7 +369,7 @@ export function ExistingCustomerForm({
       {showPetList ? (
         <View style={[styles.dropdown, { borderColor: primarySoft }]}>
           {petOptions.length === 0 ? (
-            <Text style={styles.optionSubtitle}>Este cliente não tem pets registados.</Text>
+            <Text style={styles.optionSubtitle}>{t('existingCustomerForm.noPets')}</Text>
           ) : (
             <ScrollView style={{ maxHeight: 160 }}>
               {petOptions.map((pet) => (

@@ -1,5 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
+import { getDateLocale } from '../../i18n';
 import type { Appointment } from '../../api/appointments';
 
 type MonthViewProps = {
@@ -64,13 +66,15 @@ export function MonthView({
   isRefreshing,
 }: MonthViewProps) {
   const { colors } = useBrandingTheme();
+  const { t } = useTranslation();
+  const dateLocale = getDateLocale();
   const screenWidth = Dimensions.get('window').width;
   const daySize = (screenWidth - 40) / 7; // 20px padding on each side
   
   const monthDays = getMonthDays(selectedDate);
   const today = new Date().toLocaleDateString('sv-SE');
   
-  const monthLabelRaw = selectedDate.toLocaleDateString('pt-PT', { 
+  const monthLabelRaw = selectedDate.toLocaleDateString(dateLocale, { 
     month: 'long', 
     year: 'numeric' 
   });
@@ -336,11 +340,11 @@ export function MonthView({
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
-          <Text style={styles.legendText}>Com marcações</Text>
+          <Text style={styles.legendText}>{t('monthView.legendAppointments')}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { borderWidth: 2, borderColor: colors.primary }]} />
-          <Text style={styles.legendText}>Hoje</Text>
+          <Text style={styles.legendText}>{t('monthView.legendToday')}</Text>
         </View>
       </View>
     </View>

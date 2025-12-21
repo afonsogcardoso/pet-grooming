@@ -1,8 +1,11 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, SectionList, Image, StyleSheet, Linking, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, SectionList, Image, StyleSheet, Linking, Platform, TextInput } from 'react-native';
 import SwipeableRow from '../common/SwipeableRow';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
+import { getDateLocale } from '../../i18n';
+import { matchesSearchQuery } from '../../utils/textHelpers';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
 import type { Appointment } from '../../api/appointments';
@@ -17,6 +20,8 @@ type ListViewProps = {
   isRefreshing: boolean;
 };
 
+const SEARCH_HEADER_HEIGHT = 44;
+
 function formatTime(value?: string | null) {
   if (!value) return '—';
   const match = String(value).match(/(\d{1,2}):(\d{2})/);
@@ -27,10 +32,10 @@ function formatTime(value?: string | null) {
   return value;
 }
 
-function formatDateLabel(value?: string | null) {
-  if (!value) return 'Sem data';
+function formatDateLabel(value: string | null | undefined, locale: string, fallback: string) {
+  if (!value) return fallback;
   try {
-    return new Date(value + 'T00:00:00').toLocaleDateString('pt-PT', {
+    return new Date(value + 'T00:00:00').toLocaleDateString(locale, {
       weekday: 'short',
       day: '2-digit',
       month: 'short',
@@ -59,15 +64,48 @@ export function ListView({
   onRefresh,
   isRefreshing,
 }: ListViewProps) {
+  const listRef = React.useRef<SectionList<Appointment>>(null);
+  const searchInputRef = React.useRef<TextInput>(null);
+  const hasSetInitialOffset = React.useRef(false);
   const { colors } = useBrandingTheme();
+  const { t } = useTranslation();
+  const dateLocale = getDateLocale();
   const today = todayLocalISO();
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const searchTerm = searchQuery.trim();
+
+  const filteredAppointments = React.useMemo(() => {
+    if (!searchTerm) return appointments;
+
+    return appointments.filter((appointment) => {
+      const serviceNames =
+        appointment.appointment_services
+          ?.map((entry) => entry.services?.name)
+          .filter((value): value is string => Boolean(value)) ?? [];
+
+      const values = [
+        appointment.customers?.name,
+        appointment.customers?.phone,
+        appointment.customers?.address,
+        appointment.pets?.name,
+        appointment.pets?.breed,
+        appointment.services?.name,
+        appointment.appointment_date,
+        appointment.appointment_time,
+        appointment.notes,
+        ...serviceNames,
+      ].filter((value): value is string => Boolean(value));
+
+      return values.some((value) => matchesSearchQuery(value, searchTerm));
+    });
+  }, [appointments, searchTerm]);
 
   // Group appointments by day
   const sections = React.useMemo(() => {
     const source =
       filterMode === 'unpaid'
-        ? appointments.filter((a) => (a.payment_status || 'unpaid') !== 'paid')
-        : appointments;
+        ? filteredAppointments.filter((a) => (a.payment_status || 'unpaid') !== 'paid')
+        : filteredAppointments;
 
     const grouped: Record<string, Appointment[]> = {};
     for (const item of source) {
@@ -80,7 +118,7 @@ export function ListView({
     
     const todayKey = today;
     const entries = Object.entries(grouped).map(([dayKey, items]) => {
-      const titleLabel = dayKey === todayKey ? 'Hoje' : formatDateLabel(dayKey);
+      const titleLabel = dayKey === todayKey ? t('common.today') : formatDateLabel(dayKey, dateLocale, t('common.noDate'));
       return {
         dayKey,
         title: titleLabel,
@@ -107,14 +145,14 @@ export function ListView({
     }
 
     return filtered;
-  }, [appointments, filterMode, today]);
+  }, [filteredAppointments, filterMode, t, dateLocale, today]);
 
   const PaymentPill = ({ label }: { label: string }) => {
     const paid = label === 'paid';
     const color = paid ? colors.success : colors.warning;
     return (
       <View style={[styles.pill, { backgroundColor: color + '33', borderColor: color }]}>
-        <Text style={[styles.pillText, { color }]}>{paid ? '✓ Pago' : '⏱ Por pagar'}</Text>
+        <Text style={[styles.pillText, { color }]}>{paid ? t('listView.paid') : t('listView.unpaid')}</Text>
       </View>
     );
   };
@@ -273,6 +311,29 @@ export function ListView({
       fontSize: 12,
       lineHeight: 14,
     },
+    searchContainer: {
+      height: SEARCH_HEADER_HEIGHT,
+      justifyContent: 'center',
+    },
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      gap: 8,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 15,
+      color: colors.text,
+    },
+    clearButton: {
+      padding: 2,
+    },
   });
 
   const renderAppointmentItem = ({ item }: { item: Appointment }) => {
@@ -311,7 +372,7 @@ export function ListView({
               <Text style={styles.service}>
                 {item.appointment_services && item.appointment_services.length > 0
                   ? item.appointment_services.map(as => as.services.name).join(', ')
-                  : (item.services?.name || 'Serviço')}
+                  : (item.services?.name || t('listView.serviceFallback'))}
               </Text>
               <Text style={styles.meta}>
                 {item.customers?.name} • {item.pets?.name}
@@ -362,7 +423,7 @@ export function ListView({
                         const cleanPhone = phone.replace(/[^0-9]/g, '');
                         const formattedPhone = cleanPhone.startsWith('9') ? `351${cleanPhone}` : cleanPhone;
                         const customerName = item.customers?.name || '';
-                        const message = `Olá ${customerName}! Em relação ao agendamento...`;
+                        const message = t('listView.whatsappMessage', { name: customerName });
                         Linking.openURL(`whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`).catch(() => null);
                       }}
                     >
@@ -402,20 +463,66 @@ export function ListView({
     );
   };
 
+  const listHeader = (
+    <View style={styles.searchContainer}>
+      <View style={styles.searchBar}>
+        <Ionicons name="search" size={16} color={colors.muted} />
+        <TextInput
+          ref={searchInputRef}
+          placeholder={t('listView.searchPlaceholder')}
+          placeholderTextColor={colors.muted}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+          style={styles.searchInput}
+        />
+        {searchQuery.length > 0 ? (
+          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+            <Ionicons name="close-circle" size={18} color={colors.muted} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    </View>
+  );
+
+  const listEmptyTitle = searchTerm ? t('listView.noSearchResults') : t('listView.noAppointments');
+  const listEmptySubtitle = searchTerm
+    ? t('listView.noSearchResultsSubtitle')
+    : t('listView.noAppointmentsSubtitle');
+
+  const applyInitialOffset = React.useCallback(() => {
+    if (Platform.OS !== 'ios' || hasSetInitialOffset.current) return;
+    if (!listRef.current) return;
+    listRef.current.scrollToOffset({ offset: SEARCH_HEADER_HEIGHT, animated: false });
+    hasSetInitialOffset.current = true;
+  }, []);
+
+  React.useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    searchInputRef.current?.blur();
+    hasSetInitialOffset.current = false;
+    requestAnimationFrame(applyInitialOffset);
+  }, [filterMode]);
+
   return (
     <SectionList
+      ref={listRef}
       sections={sections}
       keyExtractor={(item) => item.id}
       renderItem={renderAppointmentItem}
       renderSectionHeader={renderSectionHeader}
+      ListHeaderComponent={listHeader}
       contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
       SectionSeparatorComponent={() => <View style={{ height: 8 }} />}
       ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+      onContentSizeChange={applyInitialOffset}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
       ListEmptyComponent={
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>📭</Text>
-          <Text style={styles.emptyText}>Nenhuma marcação</Text>
-          <Text style={styles.emptySubtext}>Não há agendamentos neste período</Text>
+          <Text style={styles.emptyIcon}>{searchTerm ? '🔍' : '📭'}</Text>
+          <Text style={styles.emptyText}>{listEmptyTitle}</Text>
+          <Text style={styles.emptySubtext}>{listEmptySubtitle}</Text>
         </View>
       }
       onRefresh={onRefresh}

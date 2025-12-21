@@ -23,6 +23,7 @@ import { Branding, getBranding } from './src/api/branding';
 import { getProfile } from './src/api/profile';
 import { clearBrandingCache, readBrandingCache, writeBrandingCache } from './src/theme/brandingCache';
 import { readProfileCache, writeProfileCache } from './src/state/profileCache';
+import { bootstrapLanguage, setAppLanguage } from './src/i18n';
 
 const Stack = createNativeStackNavigator();
 
@@ -62,6 +63,10 @@ export default function App() {
     useAuthStore.getState().hydrate().catch((err) => {
       console.error('Failed to hydrate auth:', err);
     });
+  }, []);
+
+  useEffect(() => {
+    bootstrapLanguage().catch(() => null);
   }, []);
 
   useEffect(() => {
@@ -129,6 +134,9 @@ export default function App() {
         setProfileData(cached);
         useAuthStore.getState().setUser(cached);
         queryClient.setQueryData(['profile'], cached);
+        if (cached.locale) {
+          setAppLanguage(cached.locale);
+        }
       }
 
       try {
@@ -146,6 +154,9 @@ export default function App() {
           displayName: fresh.displayName,
           avatarUrl: fresh.avatarUrl,
         });
+        if (fresh.locale) {
+          setAppLanguage(fresh.locale);
+        }
       } catch (err: any) {
         console.warn('Failed to load profile:', err?.message || err);
       }

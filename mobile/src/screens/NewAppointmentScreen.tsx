@@ -29,6 +29,8 @@ import { ExistingCustomerForm } from '../components/appointment/ExistingCustomer
 import { ServiceSelector } from '../components/appointment/ServiceSelector';
 import { DateTimePickerModal } from '../components/appointment/DateTimePickerModal';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { useTranslation } from 'react-i18next';
+import { getDateLocale } from '../i18n';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -110,6 +112,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const addressFieldRef = useRef<View>(null);
 
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  const dateLocale = getDateLocale();
 
   // Debug: verificar se a chave está carregada
   useEffect(() => {
@@ -181,7 +185,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const background = colors.background;
   const surface = colors.surface;
   const pickerTheme = isHexLight(colors.background) ? 'light' : 'dark';
-  const addressPlaceholder = 'Comece a digitar uma morada';
+  const addressPlaceholder = t('appointmentForm.addressPlaceholder');
 
   const selectedCustomerData = useMemo(
     () => {
@@ -348,8 +352,11 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       }
     },
     onError: (err: any) => {
-      const message = err?.response?.data?.error || err.message || (isEditMode ? 'Erro ao atualizar marcação' : 'Erro ao criar marcação');
-      Alert.alert('Erro', message);
+      const message =
+        err?.response?.data?.error ||
+        err.message ||
+        (isEditMode ? t('appointmentForm.updateError') : t('appointmentForm.createError'));
+      Alert.alert(t('common.error'), message);
     },
   });
 
@@ -396,7 +403,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     }
 
     if (!canSubmit) {
-      Alert.alert('Campos obrigatórios', 'Seleciona cliente, pet, serviço, data e hora.');
+      Alert.alert(t('appointmentForm.requiredTitle'), t('appointmentForm.requiredMessage'));
       return;
     }
 
@@ -427,8 +434,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           return next;
         });
       } catch (err: any) {
-        const message = err?.response?.data?.error || err.message || 'Erro ao criar cliente/pet';
-        Alert.alert('Erro', message);
+        const message = err?.response?.data?.error || err.message || t('appointmentForm.createCustomerPetError');
+        Alert.alert(t('common.error'), message);
         return;
       }
     } else if (selectedCustomerData) {
@@ -448,8 +455,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
             return prev.map((c) => (c.id === selectedCustomerData.id ? { ...c, ...(updated || {}) } : c));
           });
         } catch (err: any) {
-          const message = err?.response?.data?.error || err.message || 'Erro ao atualizar cliente';
-          Alert.alert('Erro', message);
+          const message = err?.response?.data?.error || err.message || t('appointmentForm.updateCustomerError');
+          Alert.alert(t('common.error'), message);
           return;
         }
       }
@@ -472,10 +479,10 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const buildWhatsappMessage = () => {
     const dateObj = date ? new Date(`${date}T00:00:00`) : null;
     const dateLabel = dateObj && !Number.isNaN(dateObj.getTime())
-      ? dateObj.toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit', month: 'short' })
+      ? dateObj.toLocaleDateString(dateLocale, { weekday: 'short', day: '2-digit', month: 'short' })
       : date;
     const timeLabel = time || '—';
-    const serviceNames = selectedServicesData.map(s => s.name).join(', ') || '—';
+    const serviceNames = selectedServicesData.map(s => s.name).join(', ') || t('common.noData');
     const customerName = mode === 'new' ? newCustomerName : selectedCustomerData?.name;
     const pet =
       mode === 'new'
@@ -484,13 +491,14 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     const address = mode === 'new' ? newCustomerAddress : customerAddress || selectedCustomerData?.address;
 
     const intro = customerName
-      ? `Olá ${customerName}! Confirmamos a sua marcação para ${dateLabel} às ${timeLabel}.`
-      : `Olá! Confirmamos a sua marcação para ${dateLabel} às ${timeLabel}.`;
+      ? t('appointmentForm.whatsappIntroWithName', { name: customerName, date: dateLabel, time: timeLabel })
+      : t('appointmentForm.whatsappIntro', { date: dateLabel, time: timeLabel });
+    const petLabel = pet ? `${pet.name}${pet.breed ? ` (${pet.breed})` : ''}` : null;
 
     const lines = [
-      serviceNames && `Serviços: ${serviceNames}`,
-      pet ? `Pet: ${pet.name}${pet.breed ? ` (${pet.breed})` : ''}` : null,
-      address && `Morada: ${address}`,
+      serviceNames && t('appointmentForm.whatsappServices', { services: serviceNames }),
+      petLabel ? t('appointmentForm.whatsappPet', { pet: petLabel }) : null,
+      address && t('appointmentForm.whatsappAddress', { address }),
     ].filter(Boolean);
 
     return [intro, '', ...lines].join('\n');
@@ -498,14 +506,14 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
   const openWhatsapp = async () => {
     if (!canSendWhatsapp) {
-      Alert.alert('WhatsApp', 'Cliente sem número válido.');
+      Alert.alert(t('appointmentForm.whatsappTitle'), t('appointmentForm.whatsappNoNumber'));
       return;
     }
     const message = buildWhatsappMessage();
     const url = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(message)}`;
     const supported = await Linking.canOpenURL(url);
     if (!supported) {
-      Alert.alert('WhatsApp', 'Não foi possível abrir o WhatsApp.');
+      Alert.alert(t('appointmentForm.whatsappTitle'), t('appointmentForm.whatsappOpenError'));
       return;
     }
     await Linking.openURL(url);
@@ -513,10 +521,10 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: background }]} edges={['top', 'left', 'right']}>
-      <ScreenHeader title={isEditMode ? 'Editar Marcação' : 'Nova Marcação'} />
+      <ScreenHeader title={isEditMode ? t('appointmentForm.editTitle') : t('appointmentForm.createTitle')} />
       <View style={styles.headerInfo}>
         <Text style={styles.subtitle}>
-          {isEditMode ? 'Atualiza os dados da marcação' : 'Cria rapidamente uma nova marcação'}
+          {isEditMode ? t('appointmentForm.editSubtitle') : t('appointmentForm.createSubtitle')}
         </Text>
       </View>
       <KeyboardAvoidingView
@@ -535,11 +543,11 @@ export default function NewAppointmentScreen({ navigation }: Props) {
         <View style={styles.content}>
           {/* Seção: Data e Serviço */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Data e Serviço</Text>
+            <Text style={styles.sectionTitle}>{t('appointmentForm.dateServiceSection')}</Text>
             
             <View style={styles.row}>
               <View style={[styles.field, { flex: 1 }]}>
-                <Text style={styles.label}>Data</Text>
+                <Text style={styles.label}>{t('appointmentForm.dateLabel')}</Text>
                 <TouchableOpacity
                   style={[styles.input, styles.pickInput]}
                   onPress={openDatePicker}
@@ -548,13 +556,13 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                 </TouchableOpacity>
               </View>
               <View style={[styles.field, { flex: 1 }]}>
-                <Text style={styles.label}>Hora</Text>
+                <Text style={styles.label}>{t('appointmentForm.timeLabel')}</Text>
                 <TouchableOpacity
                   style={[styles.input, styles.pickInput]}
                   onPress={openTimePicker}
                 >
                   <Text style={[styles.pickText, !time && styles.placeholder]}>
-                    {time || 'Hora'}
+                    {time || t('appointmentForm.timePlaceholder')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -574,7 +582,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
             {totalAmount > 0 && (
               <View style={[styles.field, { backgroundColor: primarySoft, padding: 16, borderRadius: 12 }]}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={[styles.label, { marginBottom: 0 }]}>Valor Total</Text>
+                  <Text style={[styles.label, { marginBottom: 0 }]}>{t('appointmentForm.totalValue')}</Text>
                   <Text style={{ fontSize: 24, fontWeight: '700', color: primary }}>
                     {totalAmount.toFixed(2)}€
                   </Text>
@@ -583,7 +591,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
             )}
 
             <View style={styles.field}>
-              <Text style={styles.label}>Duração</Text>
+              <Text style={styles.label}>{t('appointmentForm.durationLabel')}</Text>
               <View style={styles.segment}>
                 {[30, 60, 90].map((value) => {
                   const active = duration === value;
@@ -597,7 +605,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                       onPress={() => setDuration(value)}
                     >
                       <Text style={[styles.segmentText, { color: active ? primary : colors.text }]}>
-                        {value} min
+                        {value} {t('common.minutesShort')}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -608,8 +616,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
           {/* Seção: Cliente e Animal */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Cliente e Animal</Text>
-            
+            <Text style={styles.sectionTitle}>{t('appointmentForm.customerPetSection')}</Text>
+
             <View style={styles.segment}>
               <TouchableOpacity
                 style={[
@@ -626,7 +634,9 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                   setCustomerNif('');
                 }}
               >
-                <Text style={[styles.segmentText, { color: mode === 'new' ? primary : colors.text }]}>➕ Novo</Text>
+                <Text style={[styles.segmentText, { color: mode === 'new' ? primary : colors.text }]}>
+                  ➕ {t('appointmentForm.newCustomer')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -644,7 +654,9 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                   setNewPetBreed('');
                 }}
               >
-                <Text style={[styles.segmentText, { color: mode === 'existing' ? primary : colors.text }]}>📋 Existente</Text>
+                <Text style={[styles.segmentText, { color: mode === 'existing' ? primary : colors.text }]}>
+                  📋 {t('appointmentForm.existingCustomer')}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -696,14 +708,14 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
           {/* Seção: Notas */}
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>📝 Informações Adicionais</Text>
+            <Text style={styles.sectionTitle}>📝 {t('appointmentForm.additionalInfo')}</Text>
             
             <View style={styles.field}>
-              <Text style={styles.label}>Notas</Text>
+              <Text style={styles.label}>{t('appointmentForm.notesLabel')}</Text>
               <TextInput
                 value={notes}
                 onChangeText={setNotes}
-                placeholder="Adiciona notas para a equipa (opcional)"
+                placeholder={t('appointmentForm.notesPlaceholder')}
                 placeholderTextColor={colors.muted}
                 multiline
                 style={[
@@ -717,10 +729,10 @@ export default function NewAppointmentScreen({ navigation }: Props) {
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <FontAwesome name="whatsapp" size={20} color="#25D366" />
-                  <Text style={styles.label}>Enviar por WhatsApp</Text>
+                  <Text style={styles.label}>{t('appointmentForm.sendWhatsapp')}</Text>
                 </View>
                 {!canSendWhatsapp ? (
-                  <Text style={styles.helperText}>Adiciona um número de telefone</Text>
+                  <Text style={styles.helperText}>{t('appointmentForm.addPhoneHint')}</Text>
                 ) : null}
               </View>
               <Switch
@@ -746,17 +758,17 @@ export default function NewAppointmentScreen({ navigation }: Props) {
             {isSubmitting ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <ActivityIndicator color={colors.onPrimary} size="small" />
-                <Text style={styles.buttonText}>A processar...</Text>
+                <Text style={styles.buttonText}>{t('appointmentForm.processing')}</Text>
               </View>
             ) : (
               <Text style={styles.buttonText}>
-                {isEditMode ? '✅ Guardar Alterações' : '✨ Criar Marcação'}
+                {isEditMode ? t('appointmentForm.saveAction') : t('appointmentForm.createAction')}
               </Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.secondary} onPress={() => navigation.goBack()}>
-            <Text style={styles.secondaryText}>Cancelar</Text>
+            <Text style={styles.secondaryText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
         </View>
         </ScrollView>

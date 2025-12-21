@@ -1,3 +1,5 @@
+import i18n from '../i18n';
+
 export type AppointmentStatus = 'scheduled' | 'pending' | 'completed' | 'cancelled';
 
 /**
@@ -24,15 +26,15 @@ export function getStatusColor(status?: string | null): string {
 export function getStatusLabel(status?: string | null): string {
   switch (status) {
     case 'scheduled':
-      return 'Agendado';
+      return i18n.t('status.scheduled');
     case 'pending':
-      return 'Em progresso';
+      return i18n.t('status.pending');
     case 'completed':
-      return 'Concluído';
+      return i18n.t('status.completed');
     case 'cancelled':
-      return 'Cancelado';
+      return i18n.t('status.cancelled');
     default:
-      return 'Desconhecido';
+      return i18n.t('common.unknown');
   }
 }
 
@@ -42,14 +44,14 @@ export function getStatusLabel(status?: string | null): string {
 export function getStatusButtonLabel(status?: string | null): string {
   switch (status) {
     case 'scheduled':
-      return 'Agendar';
+      return i18n.t('status.button.scheduled');
     case 'pending':
-      return 'Em progresso';
+      return i18n.t('status.button.pending');
     case 'completed':
-      return 'Concluir';
+      return i18n.t('status.button.completed');
     case 'cancelled':
-      return 'Cancelar';
+      return i18n.t('status.button.cancelled');
     default:
-      return 'Desconhecido';
+      return i18n.t('common.unknown');
   }
 }

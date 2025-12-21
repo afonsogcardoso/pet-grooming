@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 
 type Service = {
@@ -32,6 +33,7 @@ export function ServiceSelector({
   setDuration,
 }: ServiceSelectorProps) {
   const { colors } = useBrandingTheme();
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
 
   const toggleService = (serviceId: string) => {
@@ -135,11 +137,11 @@ export function ServiceSelector({
 
   const displayText = selectedServicesData.length > 0
     ? selectedServicesData.map(s => s.name).join(', ')
-    : (loadingServices ? 'A carregar...' : 'Escolhe os serviços');
+    : (loadingServices ? t('common.loading') : t('serviceSelector.placeholder'));
 
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>Serviços ({selectedServices.length})</Text>
+      <Text style={styles.label}>{t('serviceSelector.title', { count: selectedServices.length })}</Text>
       <TouchableOpacity 
         style={styles.select} 
         onPress={() => setShowServiceList(!showServiceList)}
@@ -159,7 +161,7 @@ export function ServiceSelector({
                 <Ionicons name="search" size={20} color={colors.muted} />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Pesquisar serviços..."
+                  placeholder={t('serviceSelector.searchPlaceholder')}
                   placeholderTextColor={colors.muted}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
@@ -175,7 +177,7 @@ export function ServiceSelector({
               <ScrollView style={{ maxHeight: 250 }}>
                 {filteredServices.length === 0 ? (
                   <Text style={{ color: colors.muted, textAlign: 'center', paddingVertical: 20 }}>
-                    Nenhum serviço encontrado
+                    {t('serviceSelector.empty')}
                   </Text>
                 ) : (
                   filteredServices.map((service) => {

@@ -10,6 +10,7 @@ import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
 import { Avatar } from '../components/common/Avatar';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
+import { useTranslation } from 'react-i18next';
 
 type Props = NativeStackScreenProps<any, 'CustomerForm'>;
 
@@ -20,6 +21,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   const [name, setName] = useState(customer?.name || '');
   const [phone, setPhone] = useState(customer?.phone || '');
@@ -38,7 +40,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
       navigation.goBack();
     },
     onError: (error: any) => {
-      Alert.alert('Erro', error?.response?.data?.message || 'Erro ao criar cliente');
+      Alert.alert(t('common.error'), error?.response?.data?.message || t('customerForm.createError'));
     },
   });
 
@@ -51,7 +53,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
       navigation.goBack();
     },
     onError: (error: any) => {
-      Alert.alert('Erro', error?.response?.data?.message || 'Erro ao atualizar cliente');
+      Alert.alert(t('common.error'), error?.response?.data?.message || t('customerForm.updateError'));
     },
   });
 
@@ -59,15 +61,15 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
     const newErrors: Record<string, string> = {};
 
     if (!name.trim()) {
-      newErrors.name = 'Nome é obrigatório';
+      newErrors.name = t('customerForm.validationNameRequired');
     }
 
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = 'Email inválido';
+      newErrors.email = t('customerForm.validationEmailInvalid');
     }
 
     if (phone && !/^\d{9,}$/.test(phone.replace(/\s/g, ''))) {
-      newErrors.phone = 'Telefone inválido';
+      newErrors.phone = t('customerForm.validationPhoneInvalid');
     }
 
     setErrors(newErrors);
@@ -115,7 +117,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
 
   const uploadPhoto = async (uri: string, fileName?: string | null) => {
     if (mode === 'create' || !customerId) {
-      Alert.alert('Aviso', 'Guarde o cliente primeiro antes de adicionar uma foto.');
+      Alert.alert(t('common.warning'), t('customerForm.saveFirstWarning'));
       return;
     }
 
@@ -139,7 +141,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
       queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
     } catch (error) {
       console.error('Erro ao fazer upload:', error);
-      Alert.alert('Erro', 'Não foi possível fazer upload da foto');
+      Alert.alert(t('common.error'), t('customerForm.photoUploadError'));
     } finally {
       setUploadingPhoto(false);
     }
@@ -148,7 +150,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
   const openCamera = async () => {
     const hasPermission = await requestAndroidPermissions();
     if (!hasPermission) {
-      Alert.alert('Permissão negada', 'Não é possível aceder à câmara sem permissão.');
+      Alert.alert(t('profile.cameraPermissionDeniedTitle'), t('profile.cameraPermissionDeniedMessage'));
       return;
     }
 
@@ -165,7 +167,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
       if (response.didCancel) return;
       if (response.errorCode) {
         console.error('Erro ao abrir câmara:', response.errorMessage);
-        Alert.alert('Erro', 'Não foi possível abrir a câmara');
+        Alert.alert(t('common.error'), t('profile.openCameraError'));
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -188,7 +190,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
       if (response.didCancel) return;
       if (response.errorCode) {
         console.error('Erro ao abrir galeria:', response.errorMessage);
-        Alert.alert('Erro', 'Não foi possível abrir a galeria');
+        Alert.alert(t('common.error'), t('profile.openGalleryError'));
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -199,14 +201,14 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
 
   const handleAvatarPress = () => {
     if (mode === 'create') {
-      Alert.alert('Aviso', 'Guarde o cliente primeiro antes de adicionar uma foto.');
+      Alert.alert(t('common.warning'), t('customerForm.saveFirstWarning'));
       return;
     }
 
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
+          options: [t('common.cancel'), t('profile.takePhoto'), t('profile.chooseFromGallery')],
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
@@ -219,12 +221,12 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
       );
     } else {
       Alert.alert(
-        'Escolher foto',
-        'Como deseja adicionar a foto?',
+        t('profile.choosePhotoTitle'),
+        t('profile.choosePhotoMessage'),
         [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Tirar foto', onPress: openCamera },
-          { text: 'Escolher da galeria', onPress: openGallery },
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('profile.takePhoto'), onPress: openCamera },
+          { text: t('profile.chooseFromGallery'), onPress: openGallery },
         ]
       );
     }
@@ -234,7 +236,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <ScreenHeader title={mode === 'create' ? 'Novo Cliente' : 'Editar Cliente'} showBack={true} />
+      <ScreenHeader title={mode === 'create' ? t('customerForm.createTitle') : t('customerForm.editTitle')} showBack={true} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -246,7 +248,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
             <View style={styles.avatarSection}>
               <View style={styles.avatarContainer}>
                 <Avatar
-                  name={name || 'Cliente'}
+                  name={name || t('customerForm.customerFallback')}
                   imageUrl={photoUrl}
                   size="large"
                   onPress={mode === 'edit' ? handleAvatarPress : undefined}
@@ -258,13 +260,13 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
                 )}
               </View>
               {mode === 'edit' && (
-                <Text style={styles.avatarHint}>Toque na foto para alterar</Text>
+                <Text style={styles.avatarHint}>{t('customerForm.avatarHint')}</Text>
               )}
             </View>
 
             <Input
-              label="Nome *"
-              placeholder="Nome completo"
+              label={t('customerForm.nameLabel')}
+              placeholder={t('customerForm.namePlaceholder')}
               value={name}
               onChangeText={setName}
               error={errors.name}
@@ -272,8 +274,8 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
             />
 
             <Input
-              label="Telefone"
-              placeholder="+351 912 345 678"
+              label={t('common.phone')}
+              placeholder={t('customerForm.phonePlaceholder')}
               value={phone}
               onChangeText={setPhone}
               error={errors.phone}
@@ -281,8 +283,8 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
             />
 
             <Input
-              label="Email"
-              placeholder="exemplo@email.com"
+              label={t('common.email')}
+              placeholder={t('customerForm.emailPlaceholder')}
               value={email}
               onChangeText={setEmail}
               error={errors.email}
@@ -293,8 +295,8 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
             />
 
             <Input
-              label="Endereço"
-              placeholder="Rua, número, cidade"
+              label={t('customerDetail.address')}
+              placeholder={t('customerForm.addressPlaceholder')}
               value={address}
               onChangeText={setAddress}
               error={errors.address}
@@ -303,8 +305,8 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
             />
 
             <Input
-              label="NIF"
-              placeholder="123456789"
+              label={t('customerDetail.nif')}
+              placeholder={t('customerForm.nifPlaceholder')}
               value={nif}
               onChangeText={setNif}
               error={errors.nif}
@@ -313,7 +315,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
 
             {mode === 'create' && (
               <View style={styles.hint}>
-                <Text style={styles.hintText}>* Campos obrigatórios</Text>
+                <Text style={styles.hintText}>{t('customerForm.requiredHint')}</Text>
               </View>
             )}
           </View>
@@ -321,7 +323,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
 
         <View style={styles.footer}>
           <Button
-            title={mode === 'create' ? 'Criar Cliente' : 'Salvar Alterações'}
+            title={mode === 'create' ? t('customerForm.createAction') : t('customerForm.saveAction')}
             onPress={handleSubmit}
             variant="primary"
             size="large"

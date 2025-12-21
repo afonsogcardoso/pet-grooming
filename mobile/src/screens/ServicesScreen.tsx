@@ -12,6 +12,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { EmptyState } from '../components/common';
 import SwipeableRow from '../components/common/SwipeableRow';
 import { deleteService } from '../api/services';
+import { useTranslation } from 'react-i18next';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -21,6 +22,7 @@ export default function ServicesScreen({ navigation }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [localServices, setLocalServices] = useState<Service[]>([]);
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   const { data: services = [], isLoading } = useQuery({
     queryKey: ['services', 'all'],
@@ -30,14 +32,15 @@ export default function ServicesScreen({ navigation }: Props) {
   const deleteServiceMutation = useMutation({
     mutationFn: (id: string) => deleteService(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['services', 'all'] }),
-    onError: (err: any) => Alert.alert('Erro', err?.response?.data?.error || err.message || 'Erro ao apagar serviço'),
+    onError: (err: any) =>
+      Alert.alert(t('common.error'), err?.response?.data?.error || err.message || t('services.deleteError')),
   });
 
   const updateOrderMutation = useMutation({
     mutationFn: updateServiceOrder,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['services', 'all'] }),
     onError: () => {
-      Alert.alert('Erro', 'Não foi possível atualizar a ordem dos serviços');
+      Alert.alert(t('common.error'), t('services.updateOrderError'));
       setLocalServices(services);
     },
   });
@@ -76,9 +79,9 @@ export default function ServicesScreen({ navigation }: Props) {
       <ScaleDecorator>
         <SwipeableRow
           onDelete={() =>
-            Alert.alert('Apagar serviço', `Apagar ${item.name}?`, [
-              { text: 'Cancelar', style: 'cancel' },
-              { text: 'Apagar', style: 'destructive', onPress: () => deleteServiceMutation.mutate(item.id) },
+            Alert.alert(t('services.deleteTitle'), t('services.deletePrompt', { name: item.name }), [
+              { text: t('common.cancel'), style: 'cancel' },
+              { text: t('services.deleteAction'), style: 'destructive', onPress: () => deleteServiceMutation.mutate(item.id) },
             ])
           }
         >
@@ -94,7 +97,7 @@ export default function ServicesScreen({ navigation }: Props) {
                 <Text style={styles.serviceName}>{item.name}</Text>
                 {!item.active && (
                   <View style={styles.inactiveBadge}>
-                    <Text style={styles.inactiveBadgeText}>Inativo</Text>
+                    <Text style={styles.inactiveBadgeText}>{t('services.inactive')}</Text>
                   </View>
                 )}
               </View>
@@ -105,7 +108,9 @@ export default function ServicesScreen({ navigation }: Props) {
               )}
               <View style={styles.serviceDetails}>
                 {item.price != null && <Text style={styles.detailText}>💰 {item.price.toFixed(2)}€</Text>}
-                {item.default_duration != null && <Text style={styles.detailText}>⏱️ {item.default_duration}min</Text>}
+                {item.default_duration != null && (
+                  <Text style={styles.detailText}>⏱️ {item.default_duration}{t('common.minutesShort')}</Text>
+                )}
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.muted} />
@@ -118,7 +123,7 @@ export default function ServicesScreen({ navigation }: Props) {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <ScreenHeader title="Serviços" showBackButton />
+        <ScreenHeader title={t('services.title')} showBackButton />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -130,7 +135,7 @@ export default function ServicesScreen({ navigation }: Props) {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container} edges={['top']}>
         <ScreenHeader
-          title="Serviços"
+          title={t('services.title')}
           showBackButton
           rightElement={
             <TouchableOpacity onPress={handleNewService} style={styles.actionButton} activeOpacity={0.7}>
@@ -143,7 +148,7 @@ export default function ServicesScreen({ navigation }: Props) {
           <View style={styles.searchBar}>
             <Ionicons name="search" size={18} color={colors.muted} style={{ marginRight: 8 }} />
             <TextInput
-              placeholder="Pesquisar serviços..."
+              placeholder={t('services.searchPlaceholder')}
               placeholderTextColor={colors.muted}
               style={styles.searchInput}
               value={searchQuery}
@@ -154,11 +159,11 @@ export default function ServicesScreen({ navigation }: Props) {
           {filteredServices.length === 0 ? (
             <EmptyState
               icon={searchQuery ? '🔍' : '🛎️'}
-              title={searchQuery ? 'Nenhum resultado' : 'Nenhum serviço'}
+              title={searchQuery ? t('services.emptySearchTitle') : t('services.emptyTitle')}
               description={
-                searchQuery ? 'Não encontramos serviços com esse critério' : 'Adicione seu primeiro serviço para começar'
+                searchQuery ? t('services.emptySearchDescription') : t('services.emptyDescription')
               }
-              actionLabel={!searchQuery ? 'Adicionar Serviço' : undefined}
+              actionLabel={!searchQuery ? t('services.addService') : undefined}
               onAction={!searchQuery ? handleNewService : undefined}
             />
           ) : (

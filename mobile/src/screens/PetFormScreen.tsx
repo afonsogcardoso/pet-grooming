@@ -9,6 +9,7 @@ import { createPet, updatePet, uploadPetPhoto, deletePet, type Pet } from '../ap
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
+import { useTranslation } from 'react-i18next';
 
 type Props = NativeStackScreenProps<any, 'PetForm'>;
 
@@ -19,6 +20,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   const [name, setName] = useState(pet?.name || '');
   const [breed, setBreed] = useState(pet?.breed || '');
@@ -48,7 +50,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
       navigation.goBack();
     },
     onError: (error: any) => {
-      Alert.alert('Erro', error?.response?.data?.message || 'Erro ao adicionar pet');
+      Alert.alert(t('common.error'), error?.response?.data?.message || t('petForm.createError'));
     },
   });
 
@@ -73,7 +75,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
       navigation.goBack();
     },
     onError: (error: any) => {
-      Alert.alert('Erro', error?.response?.data?.message || 'Erro ao atualizar pet');
+      Alert.alert(t('common.error'), error?.response?.data?.message || t('petForm.updateError'));
     },
   });
 
@@ -102,11 +104,11 @@ export default function PetFormScreen({ navigation, route }: Props) {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.CAMERA,
           {
-            title: 'Permissão de Câmara',
-            message: 'A app precisa de acesso à câmara',
-            buttonNeutral: 'Perguntar depois',
-            buttonNegative: 'Cancelar',
-            buttonPositive: 'OK',
+            title: t('profile.cameraPermissionTitle'),
+            message: t('profile.cameraPermissionMessage'),
+            buttonNeutral: t('common.later'),
+            buttonNegative: t('common.cancel'),
+            buttonPositive: t('common.ok'),
           }
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
@@ -125,7 +127,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
         setUploadingPhoto(true);
         await uploadPetPhotoMutation.mutateAsync({ petId, uri });
       } catch (error) {
-        Alert.alert('Erro', 'Não foi possível fazer upload da foto');
+        Alert.alert(t('common.error'), t('petForm.photoUploadError'));
       } finally {
         setUploadingPhoto(false);
       }
@@ -135,7 +137,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
   const openCamera = async () => {
     const hasPermission = await requestAndroidPermissions();
     if (!hasPermission) {
-      Alert.alert('Permissão negada', 'Não é possível aceder à câmara sem permissão.');
+      Alert.alert(t('profile.cameraPermissionDeniedTitle'), t('profile.cameraPermissionDeniedMessage'));
       return;
     }
 
@@ -154,7 +156,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
       }
       if (response.errorCode) {
         console.error('Erro ao abrir câmara:', response.errorMessage);
-        Alert.alert('Erro', 'Não foi possível abrir a câmara');
+        Alert.alert(t('common.error'), t('profile.openCameraError'));
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -180,7 +182,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
       }
       if (response.errorCode) {
         console.error('Erro ao abrir galeria:', response.errorMessage);
-        Alert.alert('Erro', 'Não foi possível abrir a galeria');
+        Alert.alert(t('common.error'), t('profile.openGalleryError'));
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -194,7 +196,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancelar', 'Tirar foto', 'Escolher da galeria'],
+          options: [t('common.cancel'), t('profile.takePhoto'), t('profile.chooseFromGallery')],
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
@@ -207,12 +209,12 @@ export default function PetFormScreen({ navigation, route }: Props) {
       );
     } else {
       Alert.alert(
-        'Escolher foto',
-        'Como deseja adicionar a foto?',
+        t('profile.choosePhotoTitle'),
+        t('profile.choosePhotoMessage'),
         [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Tirar foto', onPress: openCamera },
-          { text: 'Escolher da galeria', onPress: openGallery },
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('profile.takePhoto'), onPress: openCamera },
+          { text: t('profile.chooseFromGallery'), onPress: openGallery },
         ]
       );
     }
@@ -226,19 +228,19 @@ export default function PetFormScreen({ navigation, route }: Props) {
       navigation.goBack();
     },
     onError: (error: any) => {
-      const message = error?.response?.data?.error || error.message || 'Erro ao apagar pet';
-      Alert.alert('Erro', message);
+      const message = error?.response?.data?.error || error.message || t('petForm.deleteError');
+      Alert.alert(t('common.error'), message);
     },
   });
 
   const handleDeletePet = () => {
     Alert.alert(
-      'Apagar Pet',
-      `Tem a certeza que deseja apagar ${name}? Esta ação não pode ser desfeita.`,
+      t('petForm.deleteTitle'),
+      t('petForm.deleteMessage', { name }),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Apagar',
+          text: t('petForm.deleteAction'),
           style: 'destructive',
           onPress: () => deleteMutation.mutate(),
         },
@@ -250,11 +252,11 @@ export default function PetFormScreen({ navigation, route }: Props) {
     const newErrors: Record<string, string> = {};
 
     if (!name.trim()) {
-      newErrors.name = 'Nome é obrigatório';
+      newErrors.name = t('petForm.validationNameRequired');
     }
 
     if (weight && isNaN(Number(weight))) {
-      newErrors.weight = 'Peso inválido';
+      newErrors.weight = t('petForm.validationWeightInvalid');
     }
 
     setErrors(newErrors);
@@ -281,7 +283,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <ScreenHeader title={mode === 'create' ? 'Novo Pet' : 'Editar Pet'} showBack={true} />
+      <ScreenHeader title={mode === 'create' ? t('petForm.createTitle') : t('petForm.editTitle')} showBack={true} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -291,7 +293,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
           <View style={styles.form}>
             {/* Photo Picker */}
             <View style={styles.photoSection}>
-              <Text style={styles.photoLabel}>Foto do Pet</Text>
+              <Text style={styles.photoLabel}>{t('petForm.photoLabel')}</Text>
               <TouchableOpacity 
                 style={styles.photoContainer} 
                 onPress={selectImage} 
@@ -304,7 +306,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
                     {uploadingPhoto && (
                       <View style={styles.photoOverlay}>
                         <ActivityIndicator color="#fff" size="large" />
-                        <Text style={styles.photoOverlayText}>A carregar...</Text>
+                        <Text style={styles.photoOverlayText}>{t('common.loading')}</Text>
                       </View>
                     )}
                   </>
@@ -313,7 +315,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
                     {uploadingPhoto ? (
                       <ActivityIndicator color={colors.primary} size="large" />
                     ) : (
-                      <Text style={styles.photoPlaceholderText}>Adicionar Foto</Text>
+                      <Text style={styles.photoPlaceholderText}>{t('petForm.addPhoto')}</Text>
                     )}
                   </View>
                 )}
@@ -321,24 +323,24 @@ export default function PetFormScreen({ navigation, route }: Props) {
             </View>
 
             <Input
-              label="Nome *"
-              placeholder="Nome do pet"
+              label={t('petForm.nameLabel')}
+              placeholder={t('petForm.namePlaceholder')}
               value={name}
               onChangeText={setName}
               error={errors.name}
             />
 
             <Input
-              label="Raça"
-              placeholder="Ex: Golden Retriever, Persa..."
+              label={t('petForm.breedLabel')}
+              placeholder={t('petForm.breedPlaceholder')}
               value={breed}
               onChangeText={setBreed}
               error={errors.breed}
             />
 
             <Input
-              label="Peso (kg)"
-              placeholder="Ex: 5.5"
+              label={t('petForm.weightLabel')}
+              placeholder={t('petForm.weightPlaceholder')}
               value={weight}
               onChangeText={setWeight}
               error={errors.weight}
@@ -346,14 +348,14 @@ export default function PetFormScreen({ navigation, route }: Props) {
             />
 
             <View style={styles.hint}>
-              <Text style={styles.hintText}>* Campos obrigatórios</Text>
+              <Text style={styles.hintText}>{t('petForm.requiredHint')}</Text>
             </View>
           </View>
         </ScrollView>
 
         <View style={styles.footer}>
           <Button
-            title={mode === 'create' ? 'Criar Pet' : 'Guardar Alterações'}
+            title={mode === 'create' ? t('petForm.createAction') : t('petForm.saveAction')}
             onPress={handleSubmit}
             variant="primary"
             size="large"
@@ -363,7 +365,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
 
           {mode === 'edit' && (
             <Button
-              title="Apagar Pet"
+              title={t('petForm.deleteAction')}
               onPress={handleDeletePet}
               variant="ghost"
               size="large"
