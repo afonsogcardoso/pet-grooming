@@ -321,6 +321,17 @@ export function DayView({
               const customer = appointment.customers;
               const phone = customer?.phone;
               const address = customer?.address;
+              const appointmentServices = Array.isArray(appointment.appointment_services)
+                ? appointment.appointment_services
+                : [];
+              const appointmentServiceLines = appointmentServices
+                .map((entry) => {
+                  const name = entry.services?.name;
+                  if (!name) return null;
+                  const price = entry.services?.price;
+                  return price ? `${name} (${price.toFixed(2)}€)` : name;
+                })
+                .filter((value): value is string => Boolean(value));
               
               return (
                 <TouchableOpacity
@@ -342,10 +353,10 @@ export function DayView({
                     <Text style={styles.appointmentTitle} numberOfLines={1}>
                       {appointment.pets?.name}{customer?.name ? ` | ${customer.name}` : ''}
                     </Text>
-                    {appointment.appointment_services && appointment.appointment_services.length > 0 ? (
-                      appointment.appointment_services.map((as, idx) => (
+                    {appointmentServiceLines.length > 0 ? (
+                      appointmentServiceLines.map((label, idx) => (
                         <Text key={idx} style={styles.appointmentService} numberOfLines={1}>
-                          {as.services.name}{as.services.price ? ` (${as.services.price.toFixed(2)}€)` : ''}
+                          {label}
                         </Text>
                       ))
                     ) : (

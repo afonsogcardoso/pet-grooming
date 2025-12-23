@@ -57,6 +57,7 @@ export type CreateAppointmentPayload = {
   notes?: string | null;
   payment_status?: string | null;
   status?: string | null;
+  amount?: number | null;
 };
 
 type CreateAppointmentResponse = {

@@ -290,21 +290,65 @@
       "description": "Descrição",
       "duration": "Duração padrão",
       "price": "Preço (opcional)",
-      "active": "Serviço disponível para marcações"
+      "active": "Serviço disponível para marcações",
+      "category": "Categoria",
+      "subcategory": "Subcategoria",
+      "petType": "Tipo de pet",
+      "pricingModel": "Modelo de preço",
+      "tier": "Escalão",
+      "tierRange": "Intervalo: {{min}} - {{max}} kg",
+      "tierPrice": "Preço: {{price}} €",
+      "addonPrice": "Preço: {{price}} €"
     },
     "placeholders": {
       "name": "ex: Grooming completo",
       "description": "Descreve o que está incluído...",
-      "price": "40.00"
+      "price": "40.00",
+      "category": "ex: grooming",
+      "subcategory": "ex: banho e tosquia",
+      "petType": "ex: cão, gato",
+      "pricingModel": "ex: by_weight, fixed, per_hour",
+      "tierLabel": "XS",
+      "tierMin": "Min kg",
+      "tierMax": "Max kg",
+      "tierPrice": "Preço",
+      "tierOrder": "Ordem",
+      "addonName": "ex: Corte de unhas",
+      "addonDescription": "Detalhe do extra",
+      "addonPrice": "Preço",
+      "addonOrder": "Ordem"
     },
     "durationOption": "{{minutes}} minutos",
     "buttons": {
       "save": "💾 Guardar serviço",
       "update": "💾 Atualizar serviço",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "addTier": "Adicionar escalão",
+      "deleteTier": "Eliminar",
+      "addAddon": "Adicionar extra",
+      "deleteAddon": "Eliminar"
+    },
+    "sections": {
+      "priceTiers": "Escalões de preço",
+      "addons": "Extras"
+    },
+    "hints": {
+      "saveFirst": "Guarda o serviço para adicionares escalões e extras.",
+      "noTiers": "Ainda não existem escalões.",
+      "noAddons": "Ainda não existem extras."
     },
     "errors": {
-      "create": "Erro ao criar serviço: {{message}}"
+      "create": "Erro ao criar serviço: {{message}}",
+      "loadTiers": "Erro ao carregar escalões: {{message}}",
+      "loadAddons": "Erro ao carregar extras: {{message}}",
+      "createTier": "Erro ao criar escalão: {{message}}",
+      "deleteTier": "Erro ao eliminar escalão: {{message}}",
+      "createAddon": "Erro ao criar extra: {{message}}",
+      "deleteAddon": "Erro ao eliminar extra: {{message}}",
+      "tierPriceRequired": "Preço é obrigatório",
+      "tierRangeRequired": "Indica o peso mínimo ou máximo",
+      "addonNameRequired": "Nome é obrigatório",
+      "addonPriceRequired": "Preço é obrigatório"
     }
   },
   "servicesPage": {

@@ -375,6 +375,12 @@ export function WeekView({
                     const topPosition = calculatePosition(appointment.appointment_time);
                     const duration = appointment.duration || 60;
                     const height = (duration / 60) * HOUR_HEIGHT - 4; // -4 for spacing
+                    const appointmentServices = Array.isArray(appointment.appointment_services)
+                      ? appointment.appointment_services
+                      : [];
+                    const appointmentServiceLines = appointmentServices
+                      .map((entry) => entry.services?.name)
+                      .filter((value): value is string => Boolean(value));
 
                     return (
                       <TouchableOpacity
@@ -395,10 +401,10 @@ export function WeekView({
                         <Text style={styles.appointmentTitle} numberOfLines={1}>
                           {appointment.pets?.name}
                         </Text>
-                        {appointment.appointment_services && appointment.appointment_services.length > 0 ? (
-                          appointment.appointment_services.map((as, idx) => (
+                        {appointmentServiceLines.length > 0 ? (
+                          appointmentServiceLines.map((label, idx) => (
                             <Text key={idx} style={styles.appointmentService} numberOfLines={1}>
-                              {as.services.name}
+                              {label}
                             </Text>
                           ))
                         ) : (

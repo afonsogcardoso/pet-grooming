@@ -98,15 +98,17 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const services = useMemo(() => {
     if (appointment?.appointment_services && appointment.appointment_services.length > 0) {
       return appointment.appointment_services
-        .map(as => as.services)
+        .map((entry) => entry.services)
+        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
         .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
     }
     return service ? [service] : [];
   }, [appointment?.appointment_services, service]);
 
-  const totalAmount = useMemo(() => {
+  const servicesTotal = useMemo(() => {
     return services.reduce((sum, s) => sum + (s.price || 0), 0);
   }, [services]);
+  const amount = appointment?.amount ?? (servicesTotal > 0 ? servicesTotal : null);
 
   const openMaps = async () => {
     const address = customer?.address;
@@ -400,10 +402,10 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
               </View>
               
               <View style={styles.heroDetails}>
-                {totalAmount > 0 ? (
+                {amount !== null && amount !== undefined ? (
                   <View style={styles.heroDetailItem}>
                     <Text style={styles.heroDetailLabel}>{t('appointmentDetail.totalValue')}</Text>
-                    <Text style={styles.heroDetailValue}>€{totalAmount.toFixed(2)}</Text>
+                    <Text style={styles.heroDetailValue}>€{Number(amount).toFixed(2)}</Text>
                   </View>
                 ) : null}
                 <View style={styles.heroDetailItem}>

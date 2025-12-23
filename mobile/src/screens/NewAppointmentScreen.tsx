@@ -71,6 +71,15 @@ function formatHHMM(value?: string | null) {
   return safe.slice(0, 5);
 }
 
+function parseAmountInput(value: string) {
+  const normalized = value.replace(/\s/g, '').replace(',', '.');
+  if (!normalized) return null;
+  const sanitized = normalized.replace(/[^0-9.]/g, '');
+  if (!sanitized) return null;
+  const parsed = Number(sanitized);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
 export default function NewAppointmentScreen({ navigation }: Props) {
   const route = useRoute<Props['route']>();
   const initialDateParam = route.params?.date as string | undefined;
@@ -89,6 +98,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     setSelectedPetState(value);
   };
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [amountInput, setAmountInput] = useState('');
+  const [amountEdited, setAmountEdited] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
   const [mode, setMode] = useState<'existing' | 'new'>(isEditMode ? 'existing' : 'new');
   const [newCustomerName, setNewCustomerName] = useState('');
@@ -168,6 +179,15 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     }
   }, [appointmentData, isEditMode]);
 
+  useEffect(() => {
+    if (!appointmentData || !isEditMode) return;
+    if (amountEdited) return;
+    if (appointmentData.amount != null) {
+      setAmountInput(appointmentData.amount.toFixed(2));
+      setAmountEdited(true);
+    }
+  }, [appointmentData, isEditMode, amountEdited]);
+
   const { data: customersData, isLoading: loadingCustomers } = useQuery({
     queryKey: ['customers'],
     queryFn: getCustomers,
@@ -218,11 +238,22 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     return services.filter((s) => selectedServices.includes(s.id));
   }, [services, selectedServices]);
 
-  const totalAmount = useMemo(() => {
+  const servicesTotal = useMemo(() => {
     return selectedServicesData.reduce((sum, service) => {
       return sum + (service.price || 0);
     }, 0);
   }, [selectedServicesData]);
+
+  useEffect(() => {
+    if (amountEdited) return;
+    if (servicesTotal > 0) {
+      setAmountInput(servicesTotal.toFixed(2));
+    } else {
+      setAmountInput('');
+    }
+  }, [servicesTotal, amountEdited]);
+
+  const amountValue = useMemo(() => parseAmountInput(amountInput), [amountInput]);
 
   const effectivePhone =
     mode === 'new'
@@ -397,6 +428,16 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     setShowTimePicker(false);
   };
 
+  const handleAmountChange = (value: string) => {
+    setAmountEdited(true);
+    setAmountInput(value.replace(/[^0-9.,]/g, ''));
+  };
+
+  const handleUseServicesAmount = () => {
+    setAmountEdited(false);
+    setAmountInput(servicesTotal > 0 ? servicesTotal.toFixed(2) : '');
+  };
+
   const handleSubmit = async () => {
     if (isSubmitting) {
       return; // Previne múltiplos cliques
@@ -404,6 +445,11 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
     if (!canSubmit) {
       Alert.alert(t('appointmentForm.requiredTitle'), t('appointmentForm.requiredMessage'));
+      return;
+    }
+
+    if (amountInput.trim() && amountValue === null) {
+      Alert.alert(t('common.error'), t('appointmentForm.amountInvalid'));
       return;
     }
 
@@ -467,7 +513,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       appointment_time: formatHHMM(time).trim(),
       status: 'scheduled',
       duration,
-      amount: totalAmount > 0 ? totalAmount : null,
+      amount: amountValue ?? null,
       notes: notes.trim() || null,
       customer_id: customerId,
       pet_id: petId,
@@ -579,16 +625,35 @@ export default function NewAppointmentScreen({ navigation }: Props) {
               setDuration={setDuration}
             />
 
-            {totalAmount > 0 && (
-              <View style={[styles.field, { backgroundColor: primarySoft, padding: 16, borderRadius: 12 }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={[styles.label, { marginBottom: 0 }]}>{t('appointmentForm.totalValue')}</Text>
-                  <Text style={{ fontSize: 24, fontWeight: '700', color: primary }}>
-                    {totalAmount.toFixed(2)}€
-                  </Text>
-                </View>
+            <View style={styles.field}>
+              <View style={styles.amountHeader}>
+                <Text style={styles.label}>{t('appointmentForm.amountLabel')}</Text>
+                {amountEdited && servicesTotal > 0 ? (
+                  <TouchableOpacity onPress={handleUseServicesAmount}>
+                    <Text style={styles.amountReset}>{t('appointmentForm.useServicesAmount')}</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
-            )}
+              <TextInput
+                value={amountInput}
+                onChangeText={handleAmountChange}
+                onBlur={() => {
+                  const parsed = parseAmountInput(amountInput);
+                  if (parsed !== null) {
+                    setAmountInput(parsed.toFixed(2));
+                  }
+                }}
+                placeholder={t('appointmentForm.amountPlaceholder')}
+                placeholderTextColor={colors.muted}
+                keyboardType="decimal-pad"
+                style={[styles.input, styles.amountInput]}
+              />
+              {servicesTotal > 0 ? (
+                <Text style={styles.amountHint}>
+                  {t('appointmentForm.servicesTotalLabel', { value: servicesTotal.toFixed(2) })}
+                </Text>
+              ) : null}
+            </View>
 
             <View style={styles.field}>
               <Text style={styles.label}>{t('appointmentForm.durationLabel')}</Text>
@@ -853,6 +918,26 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       backgroundColor: colors.surface,
       borderColor: colors.surfaceBorder,
       fontSize: 15,
+      fontWeight: '500',
+    },
+    amountHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    amountInput: {
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    amountReset: {
+      color: colors.primary,
+      fontWeight: '600',
+      fontSize: 13,
+    },
+    amountHint: {
+      marginTop: 6,
+      color: colors.muted,
+      fontSize: 13,
       fontWeight: '500',
     },
     pickInput: {

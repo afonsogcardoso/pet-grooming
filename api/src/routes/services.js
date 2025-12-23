@@ -4,6 +4,38 @@ import { sanitizeBody } from '../utils/payload.js'
 
 const router = Router()
 
+const SERVICE_SELECT_FIELDS =
+  'id,name,default_duration,price,active,description,display_order,category,subcategory,pet_type,pricing_model'
+
+function parseNumber(value) {
+  if (value == null || value === '') return null
+  const parsed = Number(value)
+  return Number.isNaN(parsed) ? null : parsed
+}
+
+async function ensureServiceAccess({ supabase, serviceId, accountId }) {
+  if (!accountId) {
+    return { error: { status: 400, message: 'accountId is required' } }
+  }
+
+  const { data, error } = await supabase
+    .from('services')
+    .select('id')
+    .eq('id', serviceId)
+    .eq('account_id', accountId)
+    .maybeSingle()
+
+  if (error) {
+    return { error: { status: 500, message: error.message } }
+  }
+
+  if (!data) {
+    return { error: { status: 404, message: 'Service not found' } }
+  }
+
+  return { ok: true }
+}
+
 router.get('/', async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
@@ -11,7 +43,7 @@ router.get('/', async (req, res) => {
 
   let query = supabase
     .from('services')
-    .select('id,name,default_duration,price,active,description,display_order')
+    .select(SERVICE_SELECT_FIELDS)
     .order('display_order', { ascending: true })
     .order('name', { ascending: true })
 
@@ -59,7 +91,7 @@ router.post('/', async (req, res) => {
     if (Number.isNaN(mapped.display_order)) mapped.display_order = undefined
   }
 
-  const { data, error } = await supabase.from('services').insert([mapped]).select()
+  const { data, error } = await supabase.from('services').insert([mapped]).select(SERVICE_SELECT_FIELDS)
 
   if (error) {
     console.error('[api] create service error', error)
@@ -90,7 +122,7 @@ router.patch('/:id', async (req, res) => {
     query = query.eq('account_id', accountId)
   }
 
-  const { data, error } = await query.select()
+  const { data, error } = await query.select(SERVICE_SELECT_FIELDS)
 
   if (error) {
     console.error('[api] update service error', error)
@@ -119,6 +151,227 @@ router.delete('/:id', async (req, res) => {
   }
 
   res.json({ ok: true })
+})
+
+router.get('/:id/price-tiers', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { id } = req.params
+  const access = await ensureServiceAccess({ supabase, serviceId: id, accountId })
+  if (access.error) return res.status(access.error.status).json({ error: access.error.message })
+
+  const { data, error } = await supabase
+    .from('service_price_tiers')
+    .select('id,service_id,label,min_weight_kg,max_weight_kg,price,display_order')
+    .eq('service_id', id)
+    .order('display_order', { ascending: true })
+    .order('min_weight_kg', { ascending: true })
+
+  if (error) {
+    console.error('[api] list service price tiers error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.json({ data: data || [] })
+})
+
+router.post('/:id/price-tiers', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { id } = req.params
+  const access = await ensureServiceAccess({ supabase, serviceId: id, accountId })
+  if (access.error) return res.status(access.error.status).json({ error: access.error.message })
+
+  const payload = sanitizeBody(req.body || {})
+  payload.service_id = id
+  payload.min_weight_kg = parseNumber(payload.min_weight_kg)
+  payload.max_weight_kg = parseNumber(payload.max_weight_kg)
+  payload.price = parseNumber(payload.price)
+  payload.display_order = parseNumber(payload.display_order)
+
+  if (payload.price == null) {
+    return res.status(400).json({ error: 'price is required' })
+  }
+
+  const { data, error } = await supabase
+    .from('service_price_tiers')
+    .insert([payload])
+    .select('id,service_id,label,min_weight_kg,max_weight_kg,price,display_order')
+
+  if (error) {
+    console.error('[api] create service price tier error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.status(201).json({ data })
+})
+
+router.patch('/:id/price-tiers/:tierId', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { id, tierId } = req.params
+  const access = await ensureServiceAccess({ supabase, serviceId: id, accountId })
+  if (access.error) return res.status(access.error.status).json({ error: access.error.message })
+
+  const payload = sanitizeBody(req.body || {})
+  delete payload.service_id
+  if (payload.min_weight_kg != null) payload.min_weight_kg = parseNumber(payload.min_weight_kg)
+  if (payload.max_weight_kg != null) payload.max_weight_kg = parseNumber(payload.max_weight_kg)
+  if (payload.price != null) payload.price = parseNumber(payload.price)
+  if (payload.display_order != null) payload.display_order = parseNumber(payload.display_order)
+
+  const { data, error } = await supabase
+    .from('service_price_tiers')
+    .update(payload)
+    .eq('id', tierId)
+    .eq('service_id', id)
+    .select('id,service_id,label,min_weight_kg,max_weight_kg,price,display_order')
+
+  if (error) {
+    console.error('[api] update service price tier error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.json({ data })
+})
+
+router.delete('/:id/price-tiers/:tierId', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { id, tierId } = req.params
+  const access = await ensureServiceAccess({ supabase, serviceId: id, accountId })
+  if (access.error) return res.status(access.error.status).json({ error: access.error.message })
+
+  const { error } = await supabase
+    .from('service_price_tiers')
+    .delete()
+    .eq('id', tierId)
+    .eq('service_id', id)
+
+  if (error) {
+    console.error('[api] delete service price tier error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.status(204).send()
+})
+
+router.get('/:id/addons', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { id } = req.params
+  const access = await ensureServiceAccess({ supabase, serviceId: id, accountId })
+  if (access.error) return res.status(access.error.status).json({ error: access.error.message })
+
+  const { data, error } = await supabase
+    .from('service_addons')
+    .select('id,service_id,name,description,price,active,display_order')
+    .eq('service_id', id)
+    .order('display_order', { ascending: true })
+    .order('name', { ascending: true })
+
+  if (error) {
+    console.error('[api] list service addons error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.json({ data: data || [] })
+})
+
+router.post('/:id/addons', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { id } = req.params
+  const access = await ensureServiceAccess({ supabase, serviceId: id, accountId })
+  if (access.error) return res.status(access.error.status).json({ error: access.error.message })
+
+  const payload = sanitizeBody(req.body || {})
+  payload.service_id = id
+  payload.price = parseNumber(payload.price)
+  payload.display_order = parseNumber(payload.display_order)
+
+  if (!payload.name) {
+    return res.status(400).json({ error: 'name is required' })
+  }
+  if (payload.price == null) {
+    return res.status(400).json({ error: 'price is required' })
+  }
+
+  const { data, error } = await supabase
+    .from('service_addons')
+    .insert([payload])
+    .select('id,service_id,name,description,price,active,display_order')
+
+  if (error) {
+    console.error('[api] create service addon error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.status(201).json({ data })
+})
+
+router.patch('/:id/addons/:addonId', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { id, addonId } = req.params
+  const access = await ensureServiceAccess({ supabase, serviceId: id, accountId })
+  if (access.error) return res.status(access.error.status).json({ error: access.error.message })
+
+  const payload = sanitizeBody(req.body || {})
+  delete payload.service_id
+  if (payload.price != null) payload.price = parseNumber(payload.price)
+  if (payload.display_order != null) payload.display_order = parseNumber(payload.display_order)
+
+  const { data, error } = await supabase
+    .from('service_addons')
+    .update(payload)
+    .eq('id', addonId)
+    .eq('service_id', id)
+    .select('id,service_id,name,description,price,active,display_order')
+
+  if (error) {
+    console.error('[api] update service addon error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.json({ data })
+})
+
+router.delete('/:id/addons/:addonId', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { id, addonId } = req.params
+  const access = await ensureServiceAccess({ supabase, serviceId: id, accountId })
+  if (access.error) return res.status(access.error.status).json({ error: access.error.message })
+
+  const { error } = await supabase
+    .from('service_addons')
+    .delete()
+    .eq('id', addonId)
+    .eq('service_id', id)
+
+  if (error) {
+    console.error('[api] delete service addon error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.status(204).send()
 })
 
 export default router

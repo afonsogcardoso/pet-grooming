@@ -78,10 +78,12 @@ export function ListView({
     if (!searchTerm) return appointments;
 
     return appointments.filter((appointment) => {
-      const serviceNames =
-        appointment.appointment_services
-          ?.map((entry) => entry.services?.name)
-          .filter((value): value is string => Boolean(value)) ?? [];
+      const appointmentServices = Array.isArray(appointment.appointment_services)
+        ? appointment.appointment_services
+        : [];
+      const serviceNames = appointmentServices
+        .map((entry) => entry.services?.name)
+        .filter((value): value is string => Boolean(value));
 
       const values = [
         appointment.customers?.name,
@@ -338,7 +340,17 @@ export function ListView({
 
   const renderAppointmentItem = ({ item }: { item: Appointment }) => {
     const petInitial = item.pets?.name?.charAt(0)?.toUpperCase() || '🐾';
-    const price = item.services?.price;
+    const appointmentServices = Array.isArray(item.appointment_services)
+      ? item.appointment_services
+      : [];
+    const servicesTotal =
+      appointmentServices.length > 0
+        ? appointmentServices.reduce((sum, entry) => sum + (entry.services?.price || 0), 0)
+        : item.services?.price ?? null;
+    const amount = item.amount ?? servicesTotal;
+    const serviceNames = appointmentServices
+      .map((entry) => entry.services?.name)
+      .filter((value): value is string => Boolean(value));
     const address = item.customers?.address;
     const phone = item.customers?.phone;
 
@@ -370,15 +382,15 @@ export function ListView({
             <View style={styles.content}>
               <Text style={styles.time}>{formatTime(item.appointment_time)}</Text>
               <Text style={styles.service}>
-                {item.appointment_services && item.appointment_services.length > 0
-                  ? item.appointment_services.map(as => as.services.name).join(', ')
+                {serviceNames.length > 0
+                  ? serviceNames.join(', ')
                   : (item.services?.name || t('listView.serviceFallback'))}
               </Text>
               <Text style={styles.meta}>
                 {item.customers?.name} • {item.pets?.name}
               </Text>
-              {price !== undefined && price !== null ? (
-                <Text style={styles.meta}>€ {Number(price).toFixed(2)}</Text>
+              {amount !== undefined && amount !== null ? (
+                <Text style={styles.meta}>€ {Number(amount).toFixed(2)}</Text>
               ) : null}
               
               <View style={styles.actions}>
@@ -492,10 +504,36 @@ export function ListView({
 
   const applyInitialOffset = React.useCallback(() => {
     if (Platform.OS !== 'ios' || hasSetInitialOffset.current) return;
-    if (!listRef.current) return;
-    listRef.current.scrollToOffset({ offset: SEARCH_HEADER_HEIGHT, animated: false });
-    hasSetInitialOffset.current = true;
-  }, []);
+    const list = listRef.current as any;
+    if (!list) return;
+
+    if (typeof list.scrollToOffset === 'function') {
+      list.scrollToOffset({ offset: SEARCH_HEADER_HEIGHT, animated: false });
+      hasSetInitialOffset.current = true;
+      return;
+    }
+
+    if (typeof list.scrollToLocation === 'function') {
+      if (sections.length > 0 && sections[0].data.length > 0) {
+        list.scrollToLocation({
+          sectionIndex: 0,
+          itemIndex: 0,
+          viewOffset: SEARCH_HEADER_HEIGHT,
+          animated: false,
+        });
+        hasSetInitialOffset.current = true;
+      }
+      return;
+    }
+
+    const responder = typeof list.getScrollResponder === 'function'
+      ? list.getScrollResponder()
+      : null;
+    if (responder && typeof responder.scrollResponderScrollTo === 'function') {
+      responder.scrollResponderScrollTo({ y: SEARCH_HEADER_HEIGHT, animated: false });
+      hasSetInitialOffset.current = true;
+    }
+  }, [sections]);
 
   React.useEffect(() => {
     if (Platform.OS !== 'ios') return;

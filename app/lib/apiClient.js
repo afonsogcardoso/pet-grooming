@@ -69,6 +69,18 @@ export async function apiPatch(path, payload, { token, headers = {}, apiVersion 
   return body
 }
 
+export async function apiDelete(path, { token, headers = {}, apiVersion } = {}) {
+  const url = buildUrl(path, apiVersion)
+  if (!url) return null
+  const resp = await fetch(url, {
+    method: 'DELETE',
+    headers: buildHeaders(token, headers)
+  })
+  const body = await resp.json().catch(() => ({}))
+  if (!resp.ok) throw new Error(body.error || 'Request failed')
+  return body
+}
+
 export function hasExternalApi() {
   return Boolean(API_BASE_HOST)
 }

@@ -290,21 +290,65 @@
       "description": "Description",
       "duration": "Default Duration",
       "price": "Price (optional)",
-      "active": "Service available for booking"
+      "active": "Service available for booking",
+      "category": "Category",
+      "subcategory": "Subcategory",
+      "petType": "Pet type",
+      "pricingModel": "Pricing model",
+      "tier": "Tier",
+      "tierRange": "Range: {{min}} - {{max}} kg",
+      "tierPrice": "Price: €{{price}}",
+      "addonPrice": "Price: €{{price}}"
     },
     "placeholders": {
       "name": "e.g. Full Groom",
       "description": "Describe what’s included...",
-      "price": "40.00"
+      "price": "40.00",
+      "category": "e.g., grooming",
+      "subcategory": "e.g., bath and trim",
+      "petType": "e.g., dog, cat",
+      "pricingModel": "e.g., by_weight, fixed, per_hour",
+      "tierLabel": "XS",
+      "tierMin": "Min kg",
+      "tierMax": "Max kg",
+      "tierPrice": "Price",
+      "tierOrder": "Order",
+      "addonName": "e.g., Nail trimming",
+      "addonDescription": "Add-on details",
+      "addonPrice": "Price",
+      "addonOrder": "Order"
     },
     "durationOption": "{{minutes}} minutes",
     "buttons": {
       "save": "💾 Save Service",
       "update": "💾 Update Service",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "addTier": "Add tier",
+      "deleteTier": "Delete",
+      "addAddon": "Add add-on",
+      "deleteAddon": "Delete"
+    },
+    "sections": {
+      "priceTiers": "Price tiers",
+      "addons": "Add-ons"
+    },
+    "hints": {
+      "saveFirst": "Save the service to add tiers and add-ons.",
+      "noTiers": "No tiers yet.",
+      "noAddons": "No add-ons yet."
     },
     "errors": {
-      "create": "Error creating service: {{message}}"
+      "create": "Error creating service: {{message}}",
+      "loadTiers": "Error loading tiers: {{message}}",
+      "loadAddons": "Error loading add-ons: {{message}}",
+      "createTier": "Error creating tier: {{message}}",
+      "deleteTier": "Error deleting tier: {{message}}",
+      "createAddon": "Error creating add-on: {{message}}",
+      "deleteAddon": "Error deleting add-on: {{message}}",
+      "tierPriceRequired": "Price is required",
+      "tierRangeRequired": "Provide a minimum or maximum weight",
+      "addonNameRequired": "Name is required",
+      "addonPriceRequired": "Price is required"
     }
   },
   "servicesPage": {
