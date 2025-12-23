@@ -26,6 +26,7 @@ export type Appointment = {
   appointment_services?: Array<{
     id?: string;
     service_id: string;
+    pet_id?: string | null;
     price_tier_id?: string | null;
     price_tier_label?: string | null;
     price_tier_price?: number | null;
@@ -35,6 +36,13 @@ export type Appointment = {
       price?: number | null;
       display_order?: number | null;
     };
+    pets?: {
+      id: string;
+      name?: string | null;
+      breed?: string | null;
+      photo_url?: string | null;
+      weight?: number | null;
+    } | null;
     appointment_service_addons?: Array<{
       id?: string;
       service_addon_id?: string | null;
@@ -47,6 +55,7 @@ export type Appointment = {
     name?: string | null;
     breed?: string | null;
     photo_url?: string | null;
+    weight?: number | null;
   } | null;
 };
 
@@ -65,6 +74,7 @@ export type CreateAppointmentPayload = {
   service_id: string;
   service_ids?: string[];
   service_selections?: Array<{
+    pet_id?: string | null;
     service_id: string;
     price_tier_id?: string | null;
     addon_ids?: string[];

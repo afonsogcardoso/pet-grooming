@@ -20,13 +20,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { createAppointment, updateAppointment, getAppointment } from '../api/appointments';
 import type { Customer, Pet } from '../api/customers';
 import { createCustomer, createPet, getCustomers, updateCustomer } from '../api/customers';
-import { getServices, getServicePriceTiers, getServiceAddons, ServicePriceTier, ServiceAddon } from '../api/services';
+import { getServices } from '../api/services';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { FontAwesome } from '@expo/vector-icons';
-import { AddressAutocomplete } from '../components/appointment/AddressAutocomplete';
 import { NewCustomerForm } from '../components/appointment/NewCustomerForm';
 import { ExistingCustomerForm } from '../components/appointment/ExistingCustomerForm';
-import { ServiceSelector } from '../components/appointment/ServiceSelector';
+import { PetServiceRow, type ServiceRow } from '../components/appointment/PetServiceRow';
 import { DateTimePickerModal } from '../components/appointment/DateTimePickerModal';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { useTranslation } from 'react-i18next';
@@ -80,6 +79,43 @@ function parseAmountInput(value: string) {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+type DraftPet = {
+  id: string;
+  name: string;
+  breed: string;
+  weight: string;
+};
+
+type RowTotals = {
+  price: number;
+  duration: number;
+  requiresTier: boolean;
+};
+
+function createLocalId(prefix = 'tmp') {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function createServiceRow(overrides?: Partial<ServiceRow>): ServiceRow {
+  return {
+    id: createLocalId('row'),
+    serviceId: '',
+    priceTierId: '',
+    tierSelectionSource: null,
+    addonIds: [],
+    ...overrides,
+  };
+}
+
+function createDraftPet(): DraftPet {
+  return {
+    id: createLocalId('pet'),
+    name: '',
+    breed: '',
+    weight: '',
+  };
+}
+
 export default function NewAppointmentScreen({ navigation }: Props) {
   const route = useRoute<Props['route']>();
   const initialDateParam = route.params?.date as string | undefined;
@@ -92,27 +128,21 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const [duration, setDuration] = useState<number>(60);
   const [notes, setNotes] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState('');
-  const [selectedPet, setSelectedPetState] = useState('');
-  
-  const setSelectedPet = (value: string) => {
-    setSelectedPetState(value);
-  };
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  const [selectedTierId, setSelectedTierId] = useState('');
-  const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
+  const [selectedPetIds, setSelectedPetIds] = useState<string[]>([]);
+  const [serviceRowsByPet, setServiceRowsByPet] = useState<Record<string, ServiceRow[]>>({});
+  const [rowTotals, setRowTotals] = useState<Record<string, RowTotals>>({});
   const [amountInput, setAmountInput] = useState('');
   const [amountEdited, setAmountEdited] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
+  const [petSearch, setPetSearch] = useState('');
   const [mode, setMode] = useState<'existing' | 'new'>(isEditMode ? 'existing' : 'new');
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
   const [newCustomerEmail, setNewCustomerEmail] = useState('');
   const [newCustomerAddress, setNewCustomerAddress] = useState('');
   const [newCustomerNif, setNewCustomerNif] = useState('');
-  const [newPetName, setNewPetName] = useState('');
-  const [newPetBreed, setNewPetBreed] = useState('');
+  const [newPets, setNewPets] = useState<DraftPet[]>([createDraftPet()]);
   const [showCustomerList, setShowCustomerList] = useState(false);
-  const [showServiceList, setShowServiceList] = useState(false);
   const [showPetList, setShowPetList] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -122,8 +152,6 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const [customerNif, setCustomerNif] = useState('');
   const placesKey = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || process.env.GOOGLE_PLACES_KEY;
   const scrollViewRef = useRef<ScrollView>(null);
-  const addressFieldRef = useRef<View>(null);
-  const lastPrimaryServiceIdRef = useRef<string | null>(null);
 
   const queryClient = useQueryClient();
   const { t } = useTranslation();
@@ -156,37 +184,54 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       setTime(formatHHMM(appointmentData.appointment_time) || currentLocalTime());
       setDuration(appointmentData.duration || 60);
       setNotes(appointmentData.notes || '');
-      
-      // Load services from appointment_services or fallback to single service
-      const serviceIds: string[] = [];
-      if (appointmentData.appointment_services && appointmentData.appointment_services.length > 0) {
-        serviceIds.push(...appointmentData.appointment_services.map((as: any) => as.service_id));
-      } else if (appointmentData.services?.id) {
-        serviceIds.push(appointmentData.services.id);
-      }
-      setSelectedServices(serviceIds);
 
-      const primaryService = serviceIds[0];
-      const matchingService = appointmentData.appointment_services?.find(
-        (entry: any) => entry.service_id === primaryService
-      );
-      setSelectedTierId(matchingService?.price_tier_id || '');
-      const addonIds = matchingService?.appointment_service_addons
-        ? matchingService.appointment_service_addons
-            .map((addon: any) => addon.service_addon_id)
-            .filter(Boolean)
-        : [];
-      setSelectedAddonIds(addonIds);
-      
-      // Set customer and pet IDs
       const customerId = appointmentData.customers?.id || '';
-      const petId = appointmentData.pets?.id || '';
-      
       setSelectedCustomer(customerId);
-      setSelectedPet(petId);
       setMode('existing');
-      
-      // Set customer details
+
+      const rowsByPet: Record<string, ServiceRow[]> = {};
+      const petIds = new Set<string>();
+      const appointmentServices = appointmentData.appointment_services || [];
+
+      if (appointmentServices.length > 0) {
+        appointmentServices.forEach((entry: any, index: number) => {
+          const petId = entry.pet_id || appointmentData.pets?.id;
+          if (!petId) return;
+          petIds.add(petId);
+          if (!rowsByPet[petId]) rowsByPet[petId] = [];
+          rowsByPet[petId].push(
+            createServiceRow({
+              id: entry.id || `${petId}-${entry.service_id}-${index}`,
+              serviceId: entry.service_id,
+              priceTierId: entry.price_tier_id || '',
+              tierSelectionSource: entry.price_tier_id ? 'stored' : null,
+              addonIds: entry.appointment_service_addons
+                ? entry.appointment_service_addons
+                    .map((addon: any) => addon.service_addon_id)
+                    .filter(Boolean)
+                : [],
+            }),
+          );
+        });
+      } else if (appointmentData.services?.id) {
+        const petId = appointmentData.pets?.id;
+        if (petId) {
+          petIds.add(petId);
+          rowsByPet[petId] = [
+            createServiceRow({
+              id: `${petId}-${appointmentData.services.id}`,
+              serviceId: appointmentData.services.id,
+              priceTierId: '',
+              tierSelectionSource: null,
+              addonIds: [],
+            }),
+          ];
+        }
+      }
+
+      setSelectedPetIds(Array.from(petIds));
+      setServiceRowsByPet(rowsByPet);
+
       setCustomerSearch(appointmentData.customers?.name || '');
       setCustomerPhone(appointmentData.customers?.phone || '');
       setCustomerAddress(appointmentData.customers?.address || '');
@@ -213,42 +258,11 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     queryFn: getServices,
   });
 
-  const primaryServiceId = selectedServices.length === 1 ? selectedServices[0] : null;
-
-  useEffect(() => {
-    if (!primaryServiceId) {
-      setSelectedTierId('');
-      setSelectedAddonIds([]);
-      lastPrimaryServiceIdRef.current = primaryServiceId;
-      return;
-    }
-
-    if (lastPrimaryServiceIdRef.current && lastPrimaryServiceIdRef.current !== primaryServiceId) {
-      setSelectedTierId('');
-      setSelectedAddonIds([]);
-    }
-
-    lastPrimaryServiceIdRef.current = primaryServiceId;
-  }, [primaryServiceId]);
-
-  const { data: priceTiers = [], isLoading: loadingTiers } = useQuery<ServicePriceTier[]>({
-    queryKey: ['service-tiers', primaryServiceId],
-    queryFn: () => getServicePriceTiers(primaryServiceId || ''),
-    enabled: Boolean(primaryServiceId),
-  });
-
-  const { data: serviceAddons = [], isLoading: loadingAddons } = useQuery<ServiceAddon[]>({
-    queryKey: ['service-addons', primaryServiceId],
-    queryFn: () => getServiceAddons(primaryServiceId || ''),
-    enabled: Boolean(primaryServiceId),
-  });
-
   const customers = customersData || [];
   const services = servicesData || [];
   const primary = colors.primary;
   const primarySoft = colors.primarySoft;
   const background = colors.background;
-  const surface = colors.surface;
   const pickerTheme = isHexLight(colors.background) ? 'light' : 'dark';
   const addressPlaceholder = t('appointmentForm.addressPlaceholder');
 
@@ -269,25 +283,47 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
   const petOptions = useMemo(() => {
     const pets = selectedCustomerData?.pets || [];
-    
-    // Fallback: se estamos em modo de edição e não temos pets mas temos dados da marcação,
-    // usar os pets da marcação
-    if (pets.length === 0 && isEditMode && appointmentDataRef.current?.pets && selectedPet) {
-      return [appointmentDataRef.current.pets];
+    const fallbackPets: Pet[] = [];
+
+    if (isEditMode && appointmentDataRef.current) {
+      const fromServices = (appointmentDataRef.current.appointment_services || [])
+        .map((entry: any) => entry.pets)
+        .filter(Boolean);
+      if (appointmentDataRef.current.pets) {
+        fromServices.push(appointmentDataRef.current.pets as any);
+      }
+      fallbackPets.push(...fromServices);
     }
-    
-    return pets;
-  }, [selectedCustomerData, isEditMode, selectedPet, appointmentData?.pets?.id]);
 
-  const selectedServicesData = useMemo(() => {
-    return services.filter((s) => selectedServices.includes(s.id));
-  }, [services, selectedServices]);
+    const merged = new Map<string, Pet>();
+    [...pets, ...fallbackPets].forEach((pet) => {
+      if (pet?.id) merged.set(pet.id, pet);
+    });
 
-  const servicesTotal = useMemo(() => {
-    return selectedServicesData.reduce((sum, service) => {
-      return sum + (service.price || 0);
-    }, 0);
-  }, [selectedServicesData]);
+    return Array.from(merged.values());
+  }, [selectedCustomerData, isEditMode, appointmentData?.appointment_services, appointmentData?.pets?.id]);
+
+  const activeRowIds = useMemo(() => {
+    return Object.values(serviceRowsByPet).flat().map((row) => row.id);
+  }, [serviceRowsByPet]);
+
+  const totals = useMemo(() => {
+    let totalPrice = 0;
+    let totalDuration = 0;
+    let requiresTier = false;
+    activeRowIds.forEach((rowId) => {
+      const rowTotal = rowTotals[rowId];
+      if (!rowTotal) return;
+      totalPrice += rowTotal.price || 0;
+      totalDuration += rowTotal.duration || 0;
+      if (rowTotal.requiresTier) requiresTier = true;
+    });
+    return { totalPrice, totalDuration, requiresTier };
+  }, [activeRowIds, rowTotals]);
+
+  const servicesTotal = totals.totalPrice;
+  const totalDuration = totals.totalDuration;
+  const requiresTierSelection = totals.requiresTier;
 
   useEffect(() => {
     if (amountEdited) return;
@@ -299,6 +335,41 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   }, [servicesTotal, amountEdited]);
 
   const amountValue = useMemo(() => parseAmountInput(amountInput), [amountInput]);
+
+  useEffect(() => {
+    if (mode !== 'existing') return;
+    setServiceRowsByPet((prev) => {
+      const next: Record<string, ServiceRow[]> = {};
+      selectedPetIds.forEach((petId) => {
+        const rows = prev[petId];
+        next[petId] = rows && rows.length > 0 ? rows : [createServiceRow()];
+      });
+      return next;
+    });
+  }, [selectedPetIds, mode]);
+
+  useEffect(() => {
+    if (mode !== 'new') return;
+    setServiceRowsByPet((prev) => {
+      const next: Record<string, ServiceRow[]> = {};
+      newPets.forEach((pet) => {
+        const rows = prev[pet.id];
+        next[pet.id] = rows && rows.length > 0 ? rows : [createServiceRow()];
+      });
+      return next;
+    });
+  }, [newPets, mode]);
+
+  useEffect(() => {
+    const activeIds = new Set(activeRowIds);
+    setRowTotals((prev) => {
+      const next: Record<string, RowTotals> = {};
+      Object.entries(prev).forEach(([id, totals]) => {
+        if (activeIds.has(id)) next[id] = totals;
+      });
+      return next;
+    });
+  }, [activeRowIds]);
 
   const effectivePhone =
     mode === 'new'
@@ -343,17 +414,25 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     return results;
   }, [customerSearch, customers]);
 
-  useEffect(() => {
-    // Set duration to sum of all selected services default durations
-    if (selectedServicesData.length > 0) {
-      const totalDuration = selectedServicesData.reduce((sum, service) => {
-        return sum + (service.default_duration || 0);
-      }, 0);
-      if (totalDuration > 0) {
-        setDuration(totalDuration);
-      }
-    }
-  }, [selectedServicesData]);
+  const filteredPetOptions = useMemo(() => {
+    const term = petSearch.trim().toLowerCase();
+    if (!term) return petOptions;
+    return petOptions.filter((pet) => {
+      const haystack = `${pet.name} ${pet.breed ?? ''}`.toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [petOptions, petSearch]);
+
+  const selectedPetsData = useMemo(() => {
+    return selectedPetIds
+      .map((petId) => petOptions.find((pet) => pet.id === petId))
+      .filter(Boolean) as Pet[];
+  }, [selectedPetIds, petOptions]);
+
+  const selectedPetSummary = useMemo(() => {
+    if (selectedPetsData.length === 0) return '';
+    return selectedPetsData.map((pet) => pet.name).join(', ');
+  }, [selectedPetsData]);
 
   const parsedDate = useMemo(() => {
     const safe = date ? new Date(`${date}T00:00:00`) : new Date();
@@ -374,16 +453,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     if (initialDateParam) {
       setDate(initialDateParam);
     }
-    
-    // Only reset pet if changing customer and pet doesn't belong to new customer (new appointments only)
-    if (mode === 'new') {
-      const belongs =
-        selectedPet && selectedCustomerData?.pets?.some((pet: Pet) => pet.id === selectedPet);
-      if (!belongs) {
-        setSelectedPet('');
-      }
-    }
-    
+
     setSendWhatsapp((prev) => prev || canSendWhatsapp);
 
     if (selectedCustomerData) {
@@ -395,13 +465,15 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       setCustomerAddress('');
       setCustomerNif('');
     }
-  }, [selectedCustomer, selectedCustomerData, selectedPet, canSendWhatsapp, mode]);
+  }, [selectedCustomer, selectedCustomerData, canSendWhatsapp, mode]);
 
   // Reset customer/pet when toggling to new appointment mode
   useEffect(() => {
     if (mode === 'new') {
       setSelectedCustomer('');
-      setSelectedPet('');
+      setSelectedPetIds([]);
+      setServiceRowsByPet({});
+      setRowTotals({});
     }
   }, [mode]);
 
@@ -437,17 +509,19 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   });
 
   const timeIsValid = /^\d{2}:\d{2}$/.test(formatHHMM(time).trim());
-  const hasExistingSelection = Boolean(selectedCustomer && selectedPet);
-  const hasNewSelection = Boolean(
-    newCustomerName.trim() && newPetName.trim(),
-  );
+  const hasExistingSelection = Boolean(selectedCustomer && selectedPetIds.length > 0);
+  const allServiceRows = Object.values(serviceRowsByPet).flat();
+  const hasServiceSelection = allServiceRows.length > 0 && allServiceRows.every((row) => row.serviceId);
+  const newPetsValid = newPets.length > 0 && newPets.every((pet) => pet.name.trim());
+  const hasNewSelection = Boolean(newCustomerName.trim() && newPetsValid);
   const isSubmitting = mutation.isPending;
   const canSubmit =
     Boolean(
       date &&
         timeIsValid &&
-        selectedServices.length > 0 &&
-        (mode === 'existing' ? hasExistingSelection : hasNewSelection),
+        hasServiceSelection &&
+        (mode === 'existing' ? hasExistingSelection : hasNewSelection) &&
+        !requiresTierSelection,
     ) && !isSubmitting;
 
   const handleDateChange = (_event: any, selectedDate?: Date) => {
@@ -483,6 +557,84 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     setAmountInput(servicesTotal > 0 ? servicesTotal.toFixed(2) : '');
   };
 
+  const handleSelectCustomer = (customerId: string) => {
+    setSelectedCustomer(customerId);
+    setSelectedPetIds([]);
+    setServiceRowsByPet({});
+    setRowTotals({});
+    setShowPetList(false);
+    setPetSearch('');
+  };
+
+  const handleSelectPet = (petId: string) => {
+    setSelectedPetIds((prev) => (prev.includes(petId) ? prev : [...prev, petId]));
+  };
+
+  const togglePetSelection = (petId: string) => {
+    setSelectedPetIds((prev) =>
+      prev.includes(petId) ? prev.filter((id) => id !== petId) : [...prev, petId],
+    );
+  };
+
+  const handleAddServiceRow = (petKey: string) => {
+    setServiceRowsByPet((prev) => ({
+      ...prev,
+      [petKey]: [...(prev[petKey] || []), createServiceRow()],
+    }));
+  };
+
+  const handleRemoveServiceRow = (petKey: string, rowId: string) => {
+    setServiceRowsByPet((prev) => {
+      const rows = (prev[petKey] || []).filter((row) => row.id !== rowId);
+      return {
+        ...prev,
+        [petKey]: rows.length > 0 ? rows : [createServiceRow()],
+      };
+    });
+    setRowTotals((prev) => {
+      const next = { ...prev };
+      delete next[rowId];
+      return next;
+    });
+  };
+
+  const handleUpdateServiceRow = (petKey: string, rowId: string, updates: Partial<ServiceRow>) => {
+    setServiceRowsByPet((prev) => {
+      const rows = prev[petKey] || [];
+      return {
+        ...prev,
+        [petKey]: rows.map((row) => {
+          if (row.id !== rowId) return row;
+          const nextRow = { ...row, ...updates };
+          if (Object.prototype.hasOwnProperty.call(updates, 'serviceId') && updates.serviceId !== row.serviceId) {
+            nextRow.priceTierId = '';
+            nextRow.tierSelectionSource = null;
+            nextRow.addonIds = [];
+          }
+          return nextRow;
+        }),
+      };
+    });
+  };
+
+  const handleRowTotalsChange = (rowId: string, totals: RowTotals) => {
+    setRowTotals((prev) => ({ ...prev, [rowId]: totals }));
+  };
+
+  const handleAddNewPet = () => {
+    setNewPets((prev) => [...prev, createDraftPet()]);
+  };
+
+  const handleRemoveNewPet = (petId: string) => {
+    setNewPets((prev) => prev.filter((pet) => pet.id !== petId));
+  };
+
+  const handleUpdateNewPet = (petId: string, updates: Partial<DraftPet>) => {
+    setNewPets((prev) =>
+      prev.map((pet) => (pet.id === petId ? { ...pet, ...updates } : pet)),
+    );
+  };
+
   const handleSubmit = async () => {
     if (isSubmitting) {
       return; // Previne múltiplos cliques
@@ -498,12 +650,17 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       return;
     }
 
+    if (requiresTierSelection) {
+      Alert.alert(t('appointmentForm.requiredTitle'), t('appointmentForm.tierRequiredMessage'));
+      return;
+    }
+
     let customerId = selectedCustomer;
-    let petId = selectedPet;
+    let createdCustomer: Customer | null = null;
 
     if (mode === 'new') {
       try {
-        const createdCustomer = await createCustomer({
+        createdCustomer = await createCustomer({
           name: newCustomerName.trim(),
           phone: newCustomerPhone.trim() || null,
           email: newCustomerEmail.trim() || null,
@@ -511,19 +668,6 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           nif: newCustomerNif.trim() || null,
         });
         customerId = createdCustomer.id;
-
-        const createdPet = await createPet(customerId, {
-          name: newPetName.trim(),
-          breed: newPetBreed.trim() || null,
-        });
-        petId = createdPet.id;
-
-        // Atualiza cache local para futuras buscas
-        queryClient.setQueryData(['customers'], (prev: Customer[] | undefined) => {
-          const next = prev ? [...prev] : [];
-          next.push({ ...createdCustomer, pets: [createdPet] });
-          return next;
-        });
       } catch (err: any) {
         const message = err?.response?.data?.error || err.message || t('appointmentForm.createCustomerPetError');
         Alert.alert(t('common.error'), message);
@@ -553,27 +697,72 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       }
     }
 
-    const serviceSelections = selectedServices.length === 1
-      ? [
-          {
-            service_id: selectedServices[0],
-            price_tier_id: selectedTierId || null,
-            addon_ids: selectedAddonIds,
-          },
-        ]
-      : [];
+    const petIdMap = new Map<string, string>();
+    let primaryPetId = '';
+
+    if (mode === 'new') {
+      try {
+        const createdPets: Pet[] = [];
+        for (const pet of newPets) {
+          const weightValue = parseAmountInput(pet.weight);
+          const createdPet = await createPet(customerId, {
+            name: pet.name.trim(),
+            breed: pet.breed.trim() || null,
+            weight: weightValue ?? null,
+          });
+          petIdMap.set(pet.id, createdPet.id);
+          createdPets.push(createdPet);
+        }
+        if (createdPets[0]?.id) {
+          primaryPetId = createdPets[0].id;
+        }
+
+        if (createdCustomer) {
+          queryClient.setQueryData(['customers'], (prev: Customer[] | undefined) => {
+            const next = prev ? [...prev] : [];
+            next.push({ ...createdCustomer, pets: createdPets });
+            return next;
+          });
+        }
+      } catch (err: any) {
+        const message = err?.response?.data?.error || err.message || t('appointmentForm.createCustomerPetError');
+        Alert.alert(t('common.error'), message);
+        return;
+      }
+    } else {
+      primaryPetId = selectedPetIds[0] || '';
+    }
+
+    const serviceSelections = Object.entries(serviceRowsByPet).flatMap(([petKey, rows]) => {
+      const resolvedPetId = mode === 'new' ? petIdMap.get(petKey) : petKey;
+      if (!resolvedPetId) return [];
+      return rows
+        .filter((row) => row.serviceId)
+        .map((row) => ({
+          pet_id: resolvedPetId,
+          service_id: row.serviceId,
+          price_tier_id: row.priceTierId || null,
+          addon_ids: row.addonIds,
+        }));
+    });
+
+    const serviceIds = Array.from(new Set(serviceSelections.map((selection) => selection.service_id)));
+    const primarySelection = serviceSelections[0];
+    const primaryServiceId = primarySelection?.service_id || serviceIds[0] || '';
+    const primaryPetSelectionId = primarySelection?.pet_id || primaryPetId || '';
+    const effectiveDuration = totalDuration > 0 ? totalDuration : duration || null;
 
     await mutation.mutateAsync({
       appointment_date: date,
       appointment_time: formatHHMM(time).trim(),
       status: 'scheduled',
-      duration,
+      duration: effectiveDuration,
       amount: amountValue ?? null,
       notes: notes.trim() || null,
       customer_id: customerId,
-      pet_id: petId,
-      service_id: selectedServices[0] || null, // Keep for backward compatibility
-      service_ids: selectedServices, // New field for multiple services
+      pet_id: primaryPetSelectionId,
+      service_id: primaryServiceId, // Keep for backward compatibility
+      service_ids: serviceIds,
       service_selections: serviceSelections,
     });
   };
@@ -584,22 +773,35 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       ? dateObj.toLocaleDateString(dateLocale, { weekday: 'short', day: '2-digit', month: 'short' })
       : date;
     const timeLabel = time || '—';
-    const serviceNames = selectedServicesData.map(s => s.name).join(', ') || t('common.noData');
     const customerName = mode === 'new' ? newCustomerName : selectedCustomerData?.name;
-    const pet =
-      mode === 'new'
-        ? { name: newPetName, breed: newPetBreed || '' }
-        : petOptions.find((p: Pet) => p.id === selectedPet);
     const address = mode === 'new' ? newCustomerAddress : customerAddress || selectedCustomerData?.address;
+
+    const serviceNameById = new Map(services.map((service) => [service.id, service.name]));
+    const petEntries =
+      mode === 'new'
+        ? newPets.map((pet) => ({ id: pet.id, name: pet.name, breed: pet.breed }))
+        : selectedPetIds
+            .map((petId) => {
+              const pet = petOptions.find((item) => item.id === petId);
+              return pet ? { id: pet.id, name: pet.name, breed: pet.breed || '' } : null;
+            })
+            .filter(Boolean) as Array<{ id: string; name: string; breed?: string | null }>;
+
+    const petLines = petEntries.map((pet) => {
+      const rows = serviceRowsByPet[pet.id] || [];
+      const serviceNames = rows
+        .map((row) => serviceNameById.get(row.serviceId))
+        .filter(Boolean)
+        .join(', ') || t('common.noData');
+      const petLabel = pet.breed ? `${pet.name} (${pet.breed})` : pet.name;
+      return t('appointmentForm.whatsappPetServices', { pet: petLabel, services: serviceNames });
+    });
 
     const intro = customerName
       ? t('appointmentForm.whatsappIntroWithName', { name: customerName, date: dateLabel, time: timeLabel })
       : t('appointmentForm.whatsappIntro', { date: dateLabel, time: timeLabel });
-    const petLabel = pet ? `${pet.name}${pet.breed ? ` (${pet.breed})` : ''}` : null;
-
     const lines = [
-      serviceNames && t('appointmentForm.whatsappServices', { services: serviceNames }),
-      petLabel ? t('appointmentForm.whatsappPet', { pet: petLabel }) : null,
+      ...petLines,
       address && t('appointmentForm.whatsappAddress', { address }),
     ].filter(Boolean);
 
@@ -643,10 +845,10 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           automaticallyAdjustKeyboardInsets={true}
         >
         <View style={styles.content}>
-          {/* Seção: Data e Serviço */}
+          {/* Seção: Data e Hora */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t('appointmentForm.dateServiceSection')}</Text>
-            
+
             <View style={styles.row}>
               <View style={[styles.field, { flex: 1 }]}>
                 <Text style={styles.label}>{t('appointmentForm.dateLabel')}</Text>
@@ -669,86 +871,351 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                 </TouchableOpacity>
               </View>
             </View>
+          </View>
 
-            <ServiceSelector
-              selectedServices={selectedServices}
-              selectedServicesData={selectedServicesData}
-              services={services}
-              loadingServices={loadingServices}
-              showServiceList={showServiceList}
-              setShowServiceList={setShowServiceList}
-              setSelectedServices={setSelectedServices}
-              setDuration={setDuration}
-            />
+          {/* Seção: Cliente */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('appointmentForm.customerPetSection')}</Text>
 
-            {primaryServiceId ? (
-              <View style={styles.pricingCard}>
-                <Text style={styles.pricingTitle}>{t('appointmentForm.pricingSection')}</Text>
+            <View style={styles.segment}>
+              <TouchableOpacity
+                style={[
+                  styles.segmentButton,
+                  mode === 'new' && { backgroundColor: primarySoft, borderColor: primary, borderWidth: 1.5 },
+                ]}
+                onPress={() => {
+                  setMode('new');
+                  setSelectedCustomer('');
+                  setSelectedPetIds([]);
+                  setCustomerSearch('');
+                  setCustomerPhone('');
+                  setCustomerAddress('');
+                  setCustomerNif('');
+                  setShowPetList(false);
+                  setNewPets([createDraftPet()]);
+                }}
+              >
+                <Text style={[styles.segmentText, { color: mode === 'new' ? primary : colors.text }]}>
+                  ➕ {t('appointmentForm.newCustomer')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.segmentButton,
+                  mode === 'existing' && { backgroundColor: primarySoft, borderColor: primary, borderWidth: 1.5 },
+                ]}
+                onPress={() => {
+                  setMode('existing');
+                  setNewCustomerName('');
+                  setNewCustomerPhone('');
+                  setNewCustomerEmail('');
+                  setNewCustomerAddress('');
+                  setNewCustomerNif('');
+                  setNewPets([createDraftPet()]);
+                }}
+              >
+                <Text style={[styles.segmentText, { color: mode === 'existing' ? primary : colors.text }]}>
+                  📋 {t('appointmentForm.existingCustomer')}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-                <Text style={styles.label}>{t('appointmentForm.tierLabel')}</Text>
-                {loadingTiers ? (
-                  <ActivityIndicator color={colors.primary} />
-                ) : priceTiers.length === 0 ? (
-                  <Text style={styles.helperText}>{t('appointmentForm.noTiers')}</Text>
+            {mode === 'existing' ? (
+              <ExistingCustomerForm
+                customerSearch={customerSearch}
+                setCustomerSearch={setCustomerSearch}
+                showCustomerList={showCustomerList}
+                setShowCustomerList={setShowCustomerList}
+                searchResults={searchResults}
+                loadingCustomers={loadingCustomers}
+                setSelectedCustomer={handleSelectCustomer}
+                onSelectPet={handleSelectPet}
+                selectedCustomerData={selectedCustomerData}
+                customerPhone={customerPhone}
+                setCustomerPhone={setCustomerPhone}
+                customerAddress={customerAddress}
+                setCustomerAddress={setCustomerAddress}
+                customerNif={customerNif}
+                setCustomerNif={setCustomerNif}
+                addressPlaceholder={addressPlaceholder}
+                primarySoft={primarySoft}
+              />
+            ) : (
+              <NewCustomerForm
+                customerName={newCustomerName}
+                setCustomerName={setNewCustomerName}
+                customerPhone={newCustomerPhone}
+                setCustomerPhone={setNewCustomerPhone}
+                customerEmail={newCustomerEmail}
+                setCustomerEmail={setNewCustomerEmail}
+                customerAddress={newCustomerAddress}
+                setCustomerAddress={setNewCustomerAddress}
+                customerNif={newCustomerNif}
+                setCustomerNif={setNewCustomerNif}
+                addressPlaceholder={addressPlaceholder}
+              />
+            )}
+          </View>
+
+          {/* Seção: Pets e Serviços */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('appointmentForm.petsServicesSection')}</Text>
+
+            {mode === 'existing' ? (
+              <>
+                {!selectedCustomer ? (
+                  <Text style={styles.helperText}>{t('appointmentForm.selectCustomerFirst')}</Text>
                 ) : (
-                  <View style={styles.optionGroup}>
-                    {priceTiers.map((tier) => {
-                      const active = selectedTierId === tier.id;
-                      const rangeLabel = [tier.min_weight_kg ?? '-', tier.max_weight_kg ?? '+'].join(' - ');
-                      return (
-                        <TouchableOpacity
-                          key={tier.id}
-                          style={[styles.optionCard, active && styles.optionCardActive]}
-                          onPress={() => setSelectedTierId(active ? '' : tier.id)}
-                        >
-                          <View style={styles.optionRow}>
-                            <Text style={styles.optionTitle}>
-                              {tier.label || t('appointmentForm.tierDefault')}
-                            </Text>
-                            <Text style={styles.optionPrice}>{`€${tier.price}`}</Text>
-                          </View>
-                          <Text style={styles.optionSubtitle}>{`${rangeLabel} kg`}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                  <View style={styles.field}>
+                    <Text style={styles.label}>{t('appointmentForm.petLabel')}</Text>
+                    <TouchableOpacity
+                      style={styles.select}
+                      onPress={() => setShowPetList(!showPetList)}
+                    >
+                      <Text style={[styles.selectText, !selectedPetSummary && styles.placeholder]}>
+                        {selectedPetSummary || t('appointmentForm.selectPets')}
+                      </Text>
+                    </TouchableOpacity>
+                    {showPetList ? (
+                      <View style={styles.dropdown}>
+                        <View style={styles.searchBar}>
+                          <FontAwesome name="search" size={16} color={colors.muted} />
+                          <TextInput
+                            value={petSearch}
+                            onChangeText={setPetSearch}
+                            placeholder={t('appointmentForm.petSearchPlaceholder')}
+                            placeholderTextColor={colors.muted}
+                            style={styles.searchInput}
+                          />
+                          {petSearch.length > 0 && (
+                            <TouchableOpacity onPress={() => setPetSearch('')}>
+                              <FontAwesome name="times" size={16} color={colors.muted} />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                        <ScrollView style={{ maxHeight: 220 }}>
+                          {filteredPetOptions.length === 0 ? (
+                            <Text style={styles.optionSubtitle}>{t('appointmentForm.noPets')}</Text>
+                          ) : (
+                            filteredPetOptions.map((pet) => {
+                              const active = selectedPetIds.includes(pet.id);
+                              return (
+                                <TouchableOpacity
+                                  key={pet.id}
+                                  style={[styles.option, active && { backgroundColor: colors.primarySoft }]}
+                                  onPress={() => togglePetSelection(pet.id)}
+                                >
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                    <View style={[
+                                      styles.checkbox,
+                                      active && { borderColor: primary, backgroundColor: primary },
+                                    ]}>
+                                      {active ? (
+                                        <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>✓</Text>
+                                      ) : null}
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                      <Text style={styles.optionTitle}>{pet.name}</Text>
+                                      {pet.breed ? (
+                                        <Text style={styles.optionSubtitle}>{pet.breed}</Text>
+                                      ) : null}
+                                      {pet.weight != null ? (
+                                        <Text style={styles.optionSubtitle}>
+                                          {t('appointmentForm.petWeightInline', { value: pet.weight })}
+                                        </Text>
+                                      ) : null}
+                                    </View>
+                                  </View>
+                                </TouchableOpacity>
+                              );
+                            })
+                          )}
+                        </ScrollView>
+                      </View>
+                    ) : null}
                   </View>
                 )}
 
-                <Text style={styles.label}>{t('appointmentForm.addonsLabel')}</Text>
-                {loadingAddons ? (
-                  <ActivityIndicator color={colors.primary} />
-                ) : serviceAddons.length === 0 ? (
-                  <Text style={styles.helperText}>{t('appointmentForm.noAddons')}</Text>
+                {selectedPetsData.length === 0 ? (
+                  <Text style={styles.helperText}>{t('appointmentForm.selectPetsHint')}</Text>
                 ) : (
-                  <View style={styles.optionGroup}>
-                    {serviceAddons.map((addon) => {
-                      const active = selectedAddonIds.includes(addon.id);
-                      return (
-                        <TouchableOpacity
-                          key={addon.id}
-                          style={[styles.optionCard, active && styles.optionCardActive]}
-                          onPress={() => {
-                            setSelectedAddonIds((prev) =>
-                              active ? prev.filter((id) => id !== addon.id) : [...prev, addon.id]
-                            );
-                          }}
-                        >
-                          <View style={styles.optionRow}>
-                            <Text style={styles.optionTitle}>{addon.name}</Text>
-                            <Text style={styles.optionPrice}>{`€${addon.price}`}</Text>
+                  selectedPetsData.map((pet) => {
+                    const rows = serviceRowsByPet[pet.id] || [];
+                    const petTotals = rows.reduce(
+                      (acc, row) => {
+                        const totals = rowTotals[row.id];
+                        if (totals) {
+                          acc.price += totals.price || 0;
+                          acc.duration += totals.duration || 0;
+                        }
+                        return acc;
+                      },
+                      { price: 0, duration: 0 },
+                    );
+                    return (
+                      <View key={pet.id} style={styles.petCard}>
+                        <View style={styles.petHeader}>
+                          <View>
+                            <Text style={styles.petTitle}>{pet.name}</Text>
+                            {pet.breed ? <Text style={styles.petMeta}>{pet.breed}</Text> : null}
+                            {pet.weight != null ? (
+                              <Text style={styles.petMeta}>
+                                {t('appointmentForm.petWeightInline', { value: pet.weight })}
+                              </Text>
+                            ) : null}
                           </View>
-                          {addon.description ? (
-                            <Text style={styles.optionSubtitle}>{addon.description}</Text>
-                          ) : null}
+                        </View>
+
+                        {rows.map((row, index) => (
+                          <PetServiceRow
+                            key={row.id}
+                            index={index}
+                            row={row}
+                            services={services}
+                            loadingServices={loadingServices}
+                            petWeight={pet.weight ?? null}
+                            onChange={(updates) => handleUpdateServiceRow(pet.id, row.id, updates)}
+                            onRemove={() => handleRemoveServiceRow(pet.id, row.id)}
+                            allowRemove={rows.length > 1}
+                            onTotalsChange={(totals) => handleRowTotalsChange(row.id, totals)}
+                          />
+                        ))}
+
+                        {rows.length > 0 ? (
+                          <Text style={styles.petSummary}>
+                            {t('appointmentForm.petTotalsLabel', {
+                              price: petTotals.price.toFixed(2),
+                              duration: petTotals.duration,
+                            })}
+                          </Text>
+                        ) : null}
+
+                        <TouchableOpacity
+                          style={styles.addServiceButton}
+                          onPress={() => handleAddServiceRow(pet.id)}
+                        >
+                          <Text style={styles.addServiceText}>+ {t('appointmentForm.addService')}</Text>
                         </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                      </View>
+                    );
+                  })
                 )}
-              </View>
-            ) : selectedServices.length > 1 ? (
-              <Text style={styles.helperText}>{t('appointmentForm.multiServicePricingHint')}</Text>
-            ) : null}
+              </>
+            ) : (
+              <>
+                {newPets.map((pet, index) => {
+                  const rows = serviceRowsByPet[pet.id] || [];
+                  const weightValue = parseAmountInput(pet.weight);
+                  const petTotals = rows.reduce(
+                    (acc, row) => {
+                      const totals = rowTotals[row.id];
+                      if (totals) {
+                        acc.price += totals.price || 0;
+                        acc.duration += totals.duration || 0;
+                      }
+                      return acc;
+                    },
+                    { price: 0, duration: 0 },
+                  );
+                  return (
+                    <View key={pet.id} style={styles.petCard}>
+                      <View style={styles.petHeader}>
+                        <Text style={styles.petTitle}>{t('appointmentForm.petCardTitle', { index: index + 1 })}</Text>
+                        {newPets.length > 1 ? (
+                          <TouchableOpacity style={styles.removePetButton} onPress={() => handleRemoveNewPet(pet.id)}>
+                            <Text style={styles.removePetText}>{t('appointmentForm.removePet')}</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
+
+                      <View style={styles.row}>
+                        <View style={[styles.field, { flex: 1 }]}>
+                          <Text style={styles.label}>{t('newCustomerForm.petNameLabel')}</Text>
+                          <TextInput
+                            value={pet.name}
+                            onChangeText={(value) => handleUpdateNewPet(pet.id, { name: value })}
+                            placeholder={t('newCustomerForm.petNamePlaceholder')}
+                            placeholderTextColor={colors.muted}
+                            style={styles.input}
+                          />
+                        </View>
+                        <View style={[styles.field, { flex: 1 }]}>
+                          <Text style={styles.label}>{t('newCustomerForm.petBreedLabel')}</Text>
+                          <TextInput
+                            value={pet.breed}
+                            onChangeText={(value) => handleUpdateNewPet(pet.id, { breed: value })}
+                            placeholder={t('newCustomerForm.petBreedPlaceholder')}
+                            placeholderTextColor={colors.muted}
+                            style={styles.input}
+                          />
+                        </View>
+                      </View>
+
+                      <View style={styles.field}>
+                        <Text style={styles.label}>{t('appointmentForm.petWeightLabel')}</Text>
+                        <TextInput
+                          value={pet.weight}
+                          onChangeText={(value) =>
+                            handleUpdateNewPet(pet.id, { weight: value.replace(/[^0-9.,]/g, '') })
+                          }
+                          placeholder={t('appointmentForm.petWeightPlaceholder')}
+                          placeholderTextColor={colors.muted}
+                          keyboardType="decimal-pad"
+                          style={styles.input}
+                        />
+                      </View>
+
+                      {rows.map((row, rowIndex) => (
+                        <PetServiceRow
+                          key={row.id}
+                          index={rowIndex}
+                          row={row}
+                          services={services}
+                          loadingServices={loadingServices}
+                          petWeight={weightValue ?? null}
+                          onChange={(updates) => handleUpdateServiceRow(pet.id, row.id, updates)}
+                          onRemove={() => handleRemoveServiceRow(pet.id, row.id)}
+                          allowRemove={rows.length > 1}
+                          onTotalsChange={(totals) => handleRowTotalsChange(row.id, totals)}
+                        />
+                      ))}
+
+                      {rows.length > 0 ? (
+                        <Text style={styles.petSummary}>
+                          {t('appointmentForm.petTotalsLabel', {
+                            price: petTotals.price.toFixed(2),
+                            duration: petTotals.duration,
+                          })}
+                        </Text>
+                      ) : null}
+
+                      <TouchableOpacity
+                        style={styles.addServiceButton}
+                        onPress={() => handleAddServiceRow(pet.id)}
+                      >
+                        <Text style={styles.addServiceText}>+ {t('appointmentForm.addService')}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+
+                <TouchableOpacity style={styles.addPetButton} onPress={handleAddNewPet}>
+                  <Text style={styles.addPetText}>+ {t('appointmentForm.addPet')}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+
+          {/* Seção: Totais */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('appointmentForm.summarySection')}</Text>
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>{t('appointmentForm.totalDurationLabel')}</Text>
+              <Text style={styles.summaryValue}>
+                {totalDuration > 0 ? `${totalDuration} ${t('common.minutesShort')}` : '—'}
+              </Text>
+            </View>
 
             <View style={styles.field}>
               <View style={styles.amountHeader}>
@@ -779,121 +1246,6 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                 </Text>
               ) : null}
             </View>
-
-            <View style={styles.field}>
-              <Text style={styles.label}>{t('appointmentForm.durationLabel')}</Text>
-              <View style={styles.segment}>
-                {[30, 60, 90].map((value) => {
-                  const active = duration === value;
-                  return (
-                    <TouchableOpacity
-                      key={value}
-                      style={[
-                        styles.segmentButton,
-                        active && { backgroundColor: primarySoft, borderColor: primary, borderWidth: 1.5 },
-                      ]}
-                      onPress={() => setDuration(value)}
-                    >
-                      <Text style={[styles.segmentText, { color: active ? primary : colors.text }]}>
-                        {value} {t('common.minutesShort')}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          </View>
-
-          {/* Seção: Cliente e Animal */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('appointmentForm.customerPetSection')}</Text>
-
-            <View style={styles.segment}>
-              <TouchableOpacity
-                style={[
-                  styles.segmentButton,
-                  mode === 'new' && { backgroundColor: primarySoft, borderColor: primary, borderWidth: 1.5 },
-                ]}
-                onPress={() => {
-                  setMode('new');
-                  setSelectedCustomer('');
-                  setSelectedPet('');
-                  setCustomerSearch('');
-                  setCustomerPhone('');
-                  setCustomerAddress('');
-                  setCustomerNif('');
-                }}
-              >
-                <Text style={[styles.segmentText, { color: mode === 'new' ? primary : colors.text }]}>
-                  ➕ {t('appointmentForm.newCustomer')}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.segmentButton,
-                  mode === 'existing' && { backgroundColor: primarySoft, borderColor: primary, borderWidth: 1.5 },
-                ]}
-                onPress={() => {
-                  setMode('existing');
-                  setNewCustomerName('');
-                  setNewCustomerPhone('');
-                  setNewCustomerEmail('');
-                  setNewCustomerAddress('');
-                  setNewCustomerNif('');
-                  setNewPetName('');
-                  setNewPetBreed('');
-                }}
-              >
-                <Text style={[styles.segmentText, { color: mode === 'existing' ? primary : colors.text }]}>
-                  📋 {t('appointmentForm.existingCustomer')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-        {mode === 'existing' ? (
-          <ExistingCustomerForm
-            customerSearch={customerSearch}
-            setCustomerSearch={setCustomerSearch}
-            showCustomerList={showCustomerList}
-            setShowCustomerList={setShowCustomerList}
-            searchResults={searchResults}
-            loadingCustomers={loadingCustomers}
-            selectedCustomer={selectedCustomer}
-            setSelectedCustomer={setSelectedCustomer}
-            setSelectedPet={setSelectedPet}
-            setShowPetList={setShowPetList}
-            selectedCustomerData={selectedCustomerData}
-            customerPhone={customerPhone}
-            setCustomerPhone={setCustomerPhone}
-            customerAddress={customerAddress}
-            setCustomerAddress={setCustomerAddress}
-            customerNif={customerNif}
-            setCustomerNif={setCustomerNif}
-            addressPlaceholder={addressPlaceholder}
-            showPetList={showPetList}
-            selectedPet={selectedPet}
-            petOptions={petOptions}
-            primarySoft={primarySoft}
-          />
-        ) : (
-          <NewCustomerForm
-            customerName={newCustomerName}
-            setCustomerName={setNewCustomerName}
-            customerPhone={newCustomerPhone}
-            setCustomerPhone={setNewCustomerPhone}
-            customerEmail={newCustomerEmail}
-            setCustomerEmail={setNewCustomerEmail}
-            customerAddress={newCustomerAddress}
-            setCustomerAddress={setNewCustomerAddress}
-            customerNif={newCustomerNif}
-            setCustomerNif={setNewCustomerNif}
-            petName={newPetName}
-            setPetName={setNewPetName}
-            petBreed={newPetBreed}
-            setPetBreed={setNewPetBreed}
-            addressPlaceholder={addressPlaceholder}
-          />
-        )}
           </View>
 
           {/* Seção: Notas */}
@@ -1003,6 +1355,9 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     scrollContent: {
       paddingBottom: 40,
+    },
+    section: {
+      marginBottom: 16,
     },
     sectionCard: {
       backgroundColor: colors.surface,
@@ -1122,6 +1477,114 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.muted,
       marginTop: 2,
     },
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      marginBottom: 10,
+      gap: 8,
+      borderWidth: 1,
+      borderColor: colors.primarySoft,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 14,
+      color: colors.text,
+    },
+    checkbox: {
+      width: 24,
+      height: 24,
+      borderRadius: 6,
+      borderWidth: 2,
+      borderColor: colors.surfaceBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'transparent',
+    },
+    petCard: {
+      borderWidth: 1,
+      borderRadius: 16,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.surface,
+      padding: 14,
+      marginBottom: 16,
+    },
+    petHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    petTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    petMeta: {
+      color: colors.muted,
+      fontSize: 12,
+      marginTop: 4,
+    },
+    petSummary: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '600',
+      marginBottom: 10,
+    },
+    addServiceButton: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 10,
+      backgroundColor: colors.primarySoft,
+    },
+    addServiceText: {
+      color: colors.primary,
+      fontWeight: '700',
+      fontSize: 13,
+    },
+    addPetButton: {
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      backgroundColor: colors.surface,
+    },
+    addPetText: {
+      color: colors.primary,
+      fontWeight: '700',
+      fontSize: 14,
+    },
+    removePetButton: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+      backgroundColor: colors.primarySoft,
+    },
+    removePetText: {
+      color: colors.primary,
+      fontWeight: '600',
+      fontSize: 12,
+    },
+    summaryRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 8,
+    },
+    summaryLabel: {
+      color: colors.muted,
+      fontWeight: '600',
+    },
+    summaryValue: {
+      color: colors.text,
+      fontWeight: '700',
+      fontSize: 16,
+    },
     segment: {
       flexDirection: 'row',
       gap: 8,
@@ -1193,6 +1656,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.muted,
       fontSize: 13,
       marginTop: 4,
+    },
+    serviceMeta: {
+      color: colors.muted,
+      fontSize: 13,
+      marginTop: 6,
+      fontWeight: '600',
     },
     pricingCard: {
       backgroundColor: colors.surface,

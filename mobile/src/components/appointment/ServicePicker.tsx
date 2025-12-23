@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -14,48 +14,87 @@ type Service = {
   subcategory?: string | null;
 };
 
-type ServiceSelectorProps = {
-  selectedServices: string[];
-  selectedServicesData: Service[];
+type ServicePickerProps = {
+  selectedServiceId: string;
   services: Service[];
-  loadingServices: boolean;
-  showServiceList: boolean;
-  setShowServiceList: (value: boolean) => void;
-  setSelectedServices: (ids: string[]) => void;
-  setDuration: (duration: number) => void;
+  loading: boolean;
+  onSelect: (serviceId: string) => void;
+  label?: string;
+  placeholder?: string;
+  allowClear?: boolean;
 };
 
-export function ServiceSelector({
-  selectedServices,
-  selectedServicesData,
+const UNCATEGORIZED = '__uncategorized__';
+const NO_SUBCATEGORY = '__no_subcategory__';
+
+export function ServicePicker({
+  selectedServiceId,
   services,
-  loadingServices,
-  showServiceList,
-  setShowServiceList,
-  setSelectedServices,
-  setDuration,
-}: ServiceSelectorProps) {
+  loading,
+  onSelect,
+  label,
+  placeholder,
+  allowClear = true,
+}: ServicePickerProps) {
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedSubcategory, setSelectedSubcategory] = useState('');
 
-  const toggleService = (serviceId: string) => {
-    if (selectedServices.includes(serviceId)) {
-      setSelectedServices(selectedServices.filter(id => id !== serviceId));
-    } else {
-      setSelectedServices([...selectedServices, serviceId]);
-    }
-  };
+  const selectedService = useMemo(
+    () => services.find((service) => service.id === selectedServiceId) || null,
+    [services, selectedServiceId],
+  );
+
+  const categories = useMemo(() => {
+    const categoriesSet = new Set<string>();
+    let hasUncategorized = false;
+    services.forEach((service) => {
+      if (service.category && service.category.trim()) {
+        categoriesSet.add(service.category.trim());
+      } else {
+        hasUncategorized = true;
+      }
+    });
+    const list = Array.from(categoriesSet).sort((a, b) => a.localeCompare(b));
+    if (hasUncategorized) list.push(UNCATEGORIZED);
+    return list;
+  }, [services]);
+
+  const subcategories = useMemo(() => {
+    const source = selectedCategory
+      ? services.filter((service) => {
+          if (selectedCategory === UNCATEGORIZED) return !service.category?.trim();
+          return service.category === selectedCategory;
+        })
+      : services;
+    const set = new Set<string>();
+    let hasNoSubcategory = false;
+    source.forEach((service) => {
+      if (service.subcategory && service.subcategory.trim()) {
+        set.add(service.subcategory.trim());
+      } else {
+        hasNoSubcategory = true;
+      }
+    });
+    const list = Array.from(set).sort((a, b) => a.localeCompare(b));
+    if (hasNoSubcategory) list.push(NO_SUBCATEGORY);
+    return list;
+  }, [services, selectedCategory]);
 
   const filteredServices = useMemo(() => {
-    const category = selectedCategory.trim();
-    const subcategory = selectedSubcategory.trim();
     const query = searchQuery.trim().toLowerCase();
-    return services.filter(service => {
-      if (category && service.category !== category) return false;
-      if (subcategory && service.subcategory !== subcategory) return false;
+    return services.filter((service) => {
+      if (selectedCategory) {
+        if (selectedCategory === UNCATEGORIZED && service.category?.trim()) return false;
+        if (selectedCategory !== UNCATEGORIZED && service.category !== selectedCategory) return false;
+      }
+      if (selectedSubcategory) {
+        if (selectedSubcategory === NO_SUBCATEGORY && service.subcategory?.trim()) return false;
+        if (selectedSubcategory !== NO_SUBCATEGORY && service.subcategory !== selectedSubcategory) return false;
+      }
       if (!query) return true;
       return (
         service.name.toLowerCase().includes(query) ||
@@ -64,32 +103,9 @@ export function ServiceSelector({
     });
   }, [services, searchQuery, selectedCategory, selectedSubcategory]);
 
-  const categories = useMemo(() => {
-    return Array.from(
-      new Set(
-        services
-          .map((service) => service.category)
-          .filter((value) => typeof value === 'string' && value.trim().length > 0)
-      )
-    ).sort((a, b) => String(a).localeCompare(String(b)));
-  }, [services]);
-
-  const subcategories = useMemo(() => {
-    const source = selectedCategory
-      ? services.filter((service) => service.category === selectedCategory)
-      : services;
-    return Array.from(
-      new Set(
-        source
-          .map((service) => service.subcategory)
-          .filter((value) => typeof value === 'string' && value.trim().length > 0)
-      )
-    ).sort((a, b) => String(a).localeCompare(String(b)));
-  }, [services, selectedCategory]);
-
   const styles = StyleSheet.create({
     field: {
-      marginBottom: 16,
+      marginBottom: 12,
     },
     label: {
       color: colors.text,
@@ -124,7 +140,7 @@ export function ServiceSelector({
       borderRadius: 12,
       padding: 12,
       backgroundColor: colors.surface,
-      marginBottom: 12,
+      marginTop: 8,
       borderColor: colors.primarySoft,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
@@ -144,6 +160,11 @@ export function ServiceSelector({
     optionSubtitle: {
       color: colors.muted,
       marginTop: 2,
+    },
+    optionMeta: {
+      color: colors.muted,
+      marginTop: 2,
+      fontSize: 12,
     },
     priceText: {
       color: colors.primary,
@@ -200,32 +221,27 @@ export function ServiceSelector({
     chipTextActive: {
       color: colors.primary,
     },
-    optionMeta: {
-      color: colors.muted,
-      marginTop: 2,
-      fontSize: 12,
-    },
   });
 
-  const displayText = selectedServicesData.length > 0
-    ? selectedServicesData.map(s => s.name).join(', ')
-    : (loadingServices ? t('common.loading') : t('serviceSelector.placeholder'));
+  const displayText = selectedService
+    ? selectedService.name
+    : (loading ? t('common.loading') : (placeholder || t('serviceSelector.placeholder')));
 
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{t('serviceSelector.title', { count: selectedServices.length })}</Text>
-      <TouchableOpacity 
-        style={styles.select} 
-        onPress={() => setShowServiceList(!showServiceList)}
+      {label ? <Text style={styles.label}>{label}</Text> : null}
+      <TouchableOpacity
+        style={styles.select}
+        onPress={() => setOpen((prev) => !prev)}
       >
-        <Text style={[styles.selectText, selectedServices.length === 0 && styles.placeholder]}>
+        <Text style={[styles.selectText, !selectedService && styles.placeholder]}>
           {displayText}
         </Text>
       </TouchableOpacity>
 
-      {showServiceList ? (
+      {open ? (
         <View style={styles.dropdown}>
-          {loadingServices ? (
+          {loading ? (
             <ActivityIndicator color={colors.primary} />
           ) : (
             <>
@@ -262,17 +278,20 @@ export function ServiceSelector({
                       </Text>
                     </TouchableOpacity>
                     {categories.map((category) => {
-                      const active = selectedCategory === category;
+                      const value = category;
+                      const active = selectedCategory === value;
+                      const labelText =
+                        category === UNCATEGORIZED ? t('serviceSelector.uncategorized') : category;
                       return (
                         <TouchableOpacity
-                          key={category}
+                          key={value}
                           style={[styles.chip, active && styles.chipActive]}
                           onPress={() => {
-                            setSelectedCategory(active ? '' : category);
+                            setSelectedCategory(active ? '' : value);
                             setSelectedSubcategory('');
                           }}
                         >
-                          <Text style={[styles.chipText, active && styles.chipTextActive]}>{category}</Text>
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>{labelText}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -292,53 +311,47 @@ export function ServiceSelector({
                       </Text>
                     </TouchableOpacity>
                     {subcategories.map((subcategory) => {
-                      const active = selectedSubcategory === subcategory;
+                      const value = subcategory;
+                      const active = selectedSubcategory === value;
+                      const labelText =
+                        subcategory === NO_SUBCATEGORY ? t('serviceSelector.noSubcategory') : subcategory;
                       return (
                         <TouchableOpacity
-                          key={subcategory}
+                          key={value}
                           style={[styles.chip, active && styles.chipActive]}
-                          onPress={() => setSelectedSubcategory(active ? '' : subcategory)}
+                          onPress={() => setSelectedSubcategory(active ? '' : value)}
                         >
-                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                            {subcategory}
-                          </Text>
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>{labelText}</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
                 </View>
               )}
-              <ScrollView style={{ maxHeight: 250 }}>
+              <ScrollView style={{ maxHeight: 240 }}>
                 {filteredServices.length === 0 ? (
                   <Text style={{ color: colors.muted, textAlign: 'center', paddingVertical: 20 }}>
                     {t('serviceSelector.empty')}
                   </Text>
                 ) : (
                   filteredServices.map((service) => {
-                const isSelected = selectedServices.includes(service.id);
-                return (
-                  <TouchableOpacity
-                    key={service.id}
-                    style={[styles.option, isSelected && { backgroundColor: colors.primarySoft }]}
-                    onPress={() => toggleService(service.id)}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <View style={{
-                        width: 24,
-                        height: 24,
-                        borderRadius: 6,
-                        borderWidth: 2,
-                        borderColor: isSelected ? colors.primary : colors.surfaceBorder,
-                        backgroundColor: isSelected ? colors.primary : 'transparent',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                      }}>
-                        {isSelected && <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>✓</Text>}
-                      </View>
-                      <View style={{ flex: 1 }}>
+                    const isSelected = selectedServiceId === service.id;
+                    return (
+                      <TouchableOpacity
+                        key={service.id}
+                        style={[styles.option, isSelected && { backgroundColor: colors.primarySoft }]}
+                        onPress={() => {
+                          if (isSelected && allowClear) {
+                            onSelect('');
+                          } else {
+                            onSelect(service.id);
+                          }
+                          setOpen(false);
+                        }}
+                      >
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                           <Text style={styles.optionTitle}>{service.name}</Text>
-                          {service.price && (
+                          {service.price != null && (
                             <Text style={styles.priceText}>{service.price.toFixed(2)}€</Text>
                           )}
                         </View>
@@ -347,14 +360,12 @@ export function ServiceSelector({
                         ) : null}
                         {service.category || service.subcategory ? (
                           <Text style={styles.optionMeta}>
-                            {[service.category, service.subcategory].filter(Boolean).join(' · ')}
+                            {[service.category, service.subcategory].filter(Boolean).join(' / ')}
                           </Text>
                         ) : null}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                  );
-                })
+                      </TouchableOpacity>
+                    );
+                  })
                 )}
               </ScrollView>
             </>

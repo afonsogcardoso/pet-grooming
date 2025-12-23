@@ -15,10 +15,8 @@ type ExistingCustomerFormProps = {
     | { type: 'pet'; customer: Customer; pet: Pet; label: string; subtitle?: string }
   >;
   loadingCustomers: boolean;
-  selectedCustomer: string;
   setSelectedCustomer: (id: string) => void;
-  setSelectedPet: (id: string) => void;
-  setShowPetList: (value: boolean) => void;
+  onSelectPet: (id: string) => void;
   selectedCustomerData?: Customer;
   customerPhone: string;
   setCustomerPhone: (value: string) => void;
@@ -27,9 +25,6 @@ type ExistingCustomerFormProps = {
   customerNif: string;
   setCustomerNif: (value: string) => void;
   addressPlaceholder: string;
-  showPetList: boolean;
-  selectedPet: string;
-  petOptions: Pet[];
   primarySoft: string;
 };
 
@@ -40,10 +35,8 @@ export function ExistingCustomerForm({
   setShowCustomerList,
   searchResults,
   loadingCustomers,
-  selectedCustomer,
   setSelectedCustomer,
-  setSelectedPet,
-  setShowPetList,
+  onSelectPet,
   selectedCustomerData,
   customerPhone,
   setCustomerPhone,
@@ -52,9 +45,6 @@ export function ExistingCustomerForm({
   customerNif,
   setCustomerNif,
   addressPlaceholder,
-  showPetList,
-  selectedPet,
-  petOptions,
   primarySoft,
 }: ExistingCustomerFormProps) {
   const { colors } = useBrandingTheme();
@@ -230,10 +220,9 @@ export function ExistingCustomerForm({
                         onPress={() => {
                           setSelectedCustomer(result.customer.id);
                           if (result.type === 'pet') {
-                            setSelectedPet(result.pet.id);
+                            onSelectPet(result.pet.id);
                           }
                           setShowCustomerList(false);
-                          setShowPetList(false);
                           setCustomerSearch('');
                         }}
                       >
@@ -322,10 +311,9 @@ export function ExistingCustomerForm({
                         onPress={() => {
                           setSelectedCustomer(result.customer.id);
                           if (result.type === 'pet') {
-                            setSelectedPet(result.pet.id);
+                            onSelectPet(result.pet.id);
                           }
                           setShowCustomerList(false);
-                          setShowPetList(false);
                           setCustomerSearch('');
                         }}
                       >
@@ -350,45 +338,6 @@ export function ExistingCustomerForm({
         )}
       </View>
 
-      <View style={styles.field}>
-        <Text style={styles.label}>{t('existingCustomerForm.petLabel')}</Text>
-        <TouchableOpacity
-          style={styles.select}
-          onPress={() => {
-            if (!selectedCustomer) return;
-            setShowPetList(!showPetList);
-          }}
-        >
-          <Text style={[styles.selectText, !petOptions.find((p) => p.id === selectedPet) && styles.placeholder]}>
-            {petOptions.find((p) => p.id === selectedPet)?.name ||
-              (selectedCustomer ? t('existingCustomerForm.selectPet') : t('existingCustomerForm.selectCustomerFirst'))}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {showPetList ? (
-        <View style={[styles.dropdown, { borderColor: primarySoft }]}>
-          {petOptions.length === 0 ? (
-            <Text style={styles.optionSubtitle}>{t('existingCustomerForm.noPets')}</Text>
-          ) : (
-            <ScrollView style={{ maxHeight: 160 }}>
-              {petOptions.map((pet) => (
-                <TouchableOpacity
-                  key={pet.id}
-                  style={styles.option}
-                  onPress={() => {
-                    setSelectedPet(pet.id);
-                    setShowPetList(false);
-                  }}
-                >
-                  <Text style={styles.optionTitle}>{pet.name}</Text>
-                  {pet.breed ? <Text style={styles.optionSubtitle}>{pet.breed}</Text> : null}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
-        </View>
-      ) : null}
     </>
   );
 }

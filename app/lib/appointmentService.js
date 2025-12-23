@@ -24,7 +24,8 @@ const APPOINTMENT_SELECT = `
         id,
         name,
         breed,
-        photo_url
+        photo_url,
+        weight
     ),
     services (
         id,

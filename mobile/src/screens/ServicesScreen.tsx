@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, TextInput, Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -20,6 +20,8 @@ export default function ServicesScreen({ navigation }: Props) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedSubcategory, setSelectedSubcategory] = useState('');
   const [localServices, setLocalServices] = useState<Service[]>([]);
   const queryClient = useQueryClient();
   const { t } = useTranslation();
@@ -58,12 +60,40 @@ export default function ServicesScreen({ navigation }: Props) {
 
   const filteredServices = useMemo(() => {
     const data = localServices.length > 0 ? localServices : services;
-    if (!searchQuery) return data;
-    const q = searchQuery.toLowerCase();
-    return data.filter(
-      (s) => s.name.toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q)
-    );
-  }, [localServices, services, searchQuery]);
+    const q = searchQuery.toLowerCase().trim();
+    return data.filter((service) => {
+      if (selectedCategory && service.category !== selectedCategory) return false;
+      if (selectedSubcategory && service.subcategory !== selectedSubcategory) return false;
+      if (!q) return true;
+      return (
+        service.name.toLowerCase().includes(q) ||
+        (service.description || '').toLowerCase().includes(q)
+      );
+    });
+  }, [localServices, services, searchQuery, selectedCategory, selectedSubcategory]);
+
+  const categories = useMemo(() => {
+    return Array.from(
+      new Set(
+        (services || [])
+          .map((service) => service.category)
+          .filter((value) => typeof value === 'string' && value.trim().length > 0)
+      )
+    ).sort((a, b) => String(a).localeCompare(String(b)));
+  }, [services]);
+
+  const subcategories = useMemo(() => {
+    const source = selectedCategory
+      ? (services || []).filter((service) => service.category === selectedCategory)
+      : (services || []);
+    return Array.from(
+      new Set(
+        source
+          .map((service) => service.subcategory)
+          .filter((value) => typeof value === 'string' && value.trim().length > 0)
+      )
+    ).sort((a, b) => String(a).localeCompare(String(b)));
+  }, [services, selectedCategory]);
 
   const handleNewService = () => navigation.navigate('ServiceForm', { mode: 'create' });
   const handleEditService = (service: Service) => navigation.navigate('ServiceForm', { mode: 'edit', serviceId: service.id });
@@ -105,6 +135,20 @@ export default function ServicesScreen({ navigation }: Props) {
                 <Text style={styles.serviceDescription} numberOfLines={2}>
                   {item.description}
                 </Text>
+              )}
+              {(item.category || item.subcategory) && (
+                <View style={styles.tagRow}>
+                  {item.category && (
+                    <View style={styles.tag}>
+                      <Text style={styles.tagText}>{item.category}</Text>
+                    </View>
+                  )}
+                  {item.subcategory && (
+                    <View style={styles.tag}>
+                      <Text style={styles.tagText}>{item.subcategory}</Text>
+                    </View>
+                  )}
+                </View>
               )}
               <View style={styles.serviceDetails}>
                 {item.price != null && <Text style={styles.detailText}>💰 {item.price.toFixed(2)}€</Text>}
@@ -156,6 +200,72 @@ export default function ServicesScreen({ navigation }: Props) {
             />
           </View>
 
+          {categories.length > 0 && (
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>{t('services.filters.categoryLabel')}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                <TouchableOpacity
+                  style={[styles.chip, !selectedCategory && styles.chipActive]}
+                  onPress={() => {
+                    setSelectedCategory('');
+                    setSelectedSubcategory('');
+                  }}
+                >
+                  <Text style={[styles.chipText, !selectedCategory && styles.chipTextActive]}>
+                    {t('services.filters.all')}
+                  </Text>
+                </TouchableOpacity>
+                {categories.map((category) => {
+                  const active = selectedCategory === category;
+                  return (
+                    <TouchableOpacity
+                      key={category}
+                      style={[styles.chip, active && styles.chipActive]}
+                      onPress={() => {
+                        setSelectedCategory(active ? '' : category);
+                        setSelectedSubcategory('');
+                      }}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                        {category}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+
+          {subcategories.length > 0 && (
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>{t('services.filters.subcategoryLabel')}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                <TouchableOpacity
+                  style={[styles.chip, !selectedSubcategory && styles.chipActive]}
+                  onPress={() => setSelectedSubcategory('')}
+                >
+                  <Text style={[styles.chipText, !selectedSubcategory && styles.chipTextActive]}>
+                    {t('services.filters.all')}
+                  </Text>
+                </TouchableOpacity>
+                {subcategories.map((subcategory) => {
+                  const active = selectedSubcategory === subcategory;
+                  return (
+                    <TouchableOpacity
+                      key={subcategory}
+                      style={[styles.chip, active && styles.chipActive]}
+                      onPress={() => setSelectedSubcategory(active ? '' : subcategory)}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                        {subcategory}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+
           {filteredServices.length === 0 ? (
             <EmptyState
               icon={searchQuery ? '🔍' : '🛎️'}
@@ -206,6 +316,39 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       flex: 1,
       fontSize: 16,
       color: colors.text,
+    },
+    filterGroup: {
+      marginBottom: 12,
+    },
+    filterLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 6,
+    },
+    chipRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    chip: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.surface,
+    },
+    chipActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primarySoft,
+    },
+    chipText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    chipTextActive: {
+      color: colors.primary,
     },
     loadingContainer: {
       flex: 1,
@@ -261,6 +404,22 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     serviceDetails: {
       flexDirection: 'row',
       gap: 16,
+    },
+    tagRow: {
+      flexDirection: 'row',
+      gap: 8,
+      flexWrap: 'wrap',
+    },
+    tag: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 999,
+      backgroundColor: colors.primarySoft,
+    },
+    tagText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.primary,
     },
     detailText: {
       fontSize: 13,

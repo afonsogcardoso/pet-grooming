@@ -15,10 +15,6 @@ type NewCustomerFormProps = {
   setCustomerAddress: (value: string) => void;
   customerNif: string;
   setCustomerNif: (value: string) => void;
-  petName: string;
-  setPetName: (value: string) => void;
-  petBreed: string;
-  setPetBreed: (value: string) => void;
   addressPlaceholder: string;
 };
 
@@ -33,10 +29,6 @@ export function NewCustomerForm({
   setCustomerAddress,
   customerNif,
   setCustomerNif,
-  petName,
-  setPetName,
-  petBreed,
-  setPetBreed,
   addressPlaceholder,
 }: NewCustomerFormProps) {
   const { colors } = useBrandingTheme();
@@ -126,27 +118,6 @@ export function NewCustomerForm({
         />
       </View>
 
-      <View style={styles.field}>
-        <Text style={styles.label}>{t('newCustomerForm.petNameLabel')}</Text>
-        <TextInput
-          value={petName}
-          onChangeText={setPetName}
-          placeholder={t('newCustomerForm.petNamePlaceholder')}
-          placeholderTextColor={colors.muted}
-          style={styles.input}
-        />
-      </View>
-
-      <View style={styles.field}>
-        <Text style={styles.label}>{t('newCustomerForm.petBreedLabel')}</Text>
-        <TextInput
-          value={petBreed}
-          onChangeText={setPetBreed}
-          placeholder={t('newCustomerForm.petBreedPlaceholder')}
-          placeholderTextColor={colors.muted}
-          style={styles.input}
-        />
-      </View>
     </>
   );
 }

@@ -16,7 +16,7 @@ const APPOINTMENT_CONFIRM_SELECT = `
   account_id,
   public_token,
   customers ( id, name, phone, address ),
-  pets ( id, name, breed, photo_url ),
+  pets ( id, name, breed, photo_url, weight ),
   services ( id, name )
 `
 const PET_PHOTO_BUCKET = 'pets'
@@ -26,6 +26,7 @@ function normalizeServiceSelections(rawSelections) {
   return rawSelections
     .map((selection) => ({
       service_id: selection?.service_id || null,
+      pet_id: selection?.pet_id || null,
       price_tier_id: selection?.price_tier_id || selection?.tier_id || null,
       price_tier_label: selection?.price_tier_label || null,
       price_tier_price: selection?.price_tier_price ?? null,
@@ -52,7 +53,7 @@ async function applyServiceSelections({ supabase, appointmentId, selections }) {
 
   const { data: appointmentServices, error: appointmentServicesError } = await supabase
     .from('appointment_services')
-    .select('id, service_id')
+    .select('id, service_id, pet_id')
     .eq('appointment_id', appointmentId)
 
   if (appointmentServicesError) {
@@ -60,12 +61,36 @@ async function applyServiceSelections({ supabase, appointmentId, selections }) {
     return
   }
 
-  const serviceToAppointmentService = new Map(
-    (appointmentServices || []).map((row) => [row.service_id, row.id])
-  )
+  const selectionBuckets = new Map()
+  ;(appointmentServices || []).forEach((row) => {
+    const key = `${row.service_id || ''}:${row.pet_id || ''}`
+    const bucket = selectionBuckets.get(key) || []
+    bucket.push(row.id)
+    selectionBuckets.set(key, bucket)
+  })
+
+  const fallbackBuckets = new Map()
+  ;(appointmentServices || []).forEach((row) => {
+    const bucket = fallbackBuckets.get(row.service_id) || []
+    bucket.push(row.id)
+    fallbackBuckets.set(row.service_id, bucket)
+  })
 
   for (const selection of normalizedSelections) {
-    const appointmentServiceId = serviceToAppointmentService.get(selection.service_id)
+    const key = `${selection.service_id || ''}:${selection.pet_id || ''}`
+    const keyBucket = selectionBuckets.get(key) || []
+    let appointmentServiceId = keyBucket.shift()
+    if (keyBucket.length > 0) {
+      selectionBuckets.set(key, keyBucket)
+    }
+
+    if (!appointmentServiceId && selection.service_id) {
+      const fallbackBucket = fallbackBuckets.get(selection.service_id) || []
+      appointmentServiceId = fallbackBucket.shift()
+      if (fallbackBucket.length > 0) {
+        fallbackBuckets.set(selection.service_id, fallbackBucket)
+      }
+    }
     if (!appointmentServiceId) continue
 
     if (selection.has_tier_field) {
@@ -198,14 +223,16 @@ router.get('/', async (req, res) => {
       after_photo_url,
       customers ( id, name, phone, address ),
       services ( id, name, price ),
-      pets ( id, name, breed, photo_url ),
+      pets ( id, name, breed, photo_url, weight ),
       appointment_services (
         id,
         service_id,
+        pet_id,
         price_tier_id,
         price_tier_label,
         price_tier_price,
         services ( id, name, price, display_order ),
+        pets ( id, name, breed, weight ),
         appointment_service_addons ( id, service_addon_id, name, price )
       )
     `
@@ -262,27 +289,36 @@ router.post('/', async (req, res) => {
   }
 
   // Insert appointment services if provided
-  if (serviceIds.length > 0 && appointment) {
-    const appointmentServices = serviceIds.map(serviceId => ({
-      appointment_id: appointment.id,
-      service_id: serviceId
-    }))
+  if (appointment) {
+    const hasSelections = Array.isArray(serviceSelections) && serviceSelections.length > 0
+    const appointmentServices = hasSelections
+      ? normalizeServiceSelections(serviceSelections).map((selection) => ({
+        appointment_id: appointment.id,
+        service_id: selection.service_id,
+        pet_id: selection.pet_id || null
+      }))
+      : serviceIds.map((serviceId) => ({
+        appointment_id: appointment.id,
+        service_id: serviceId
+      }))
 
-    const { error: servicesError } = await supabase
-      .from('appointment_services')
-      .insert(appointmentServices)
+    if (appointmentServices.length > 0) {
+      const { error: servicesError } = await supabase
+        .from('appointment_services')
+        .insert(appointmentServices)
 
-    if (servicesError) {
-      console.error('[api] create appointment services error', servicesError)
+      if (servicesError) {
+        console.error('[api] create appointment services error', servicesError)
+      }
     }
-  }
 
-  if (appointment && Array.isArray(serviceSelections) && serviceSelections.length > 0) {
-    await applyServiceSelections({
-      supabase,
-      appointmentId: appointment.id,
-      selections: serviceSelections
-    })
+    if (hasSelections) {
+      await applyServiceSelections({
+        supabase,
+        appointmentId: appointment.id,
+        selections: serviceSelections
+      })
+    }
   }
 
   res.status(201).json({ data: appointment })
@@ -310,14 +346,16 @@ router.get('/:id', async (req, res) => {
       after_photo_url,
       customers ( id, name, phone, address ),
       services ( id, name, price ),
-      pets ( id, name, breed, photo_url ),
+      pets ( id, name, breed, photo_url, weight ),
       appointment_services (
         id,
         service_id,
+        pet_id,
         price_tier_id,
         price_tier_label,
         price_tier_price,
         services ( id, name, price, display_order ),
+        pets ( id, name, breed, weight ),
         appointment_service_addons ( id, service_addon_id, name, price )
       )
     `
@@ -369,7 +407,7 @@ router.patch('/:id/status', async (req, res) => {
       status,
       customers ( id, name, phone, address ),
       services ( id, name, price ),
-      pets ( id, name, breed, photo_url )
+      pets ( id, name, breed, photo_url, weight )
     `
     )
   if (accountId) {
@@ -471,11 +509,32 @@ router.patch('/:id', async (req, res) => {
   }
 
   if (appointment && Array.isArray(serviceSelections) && serviceSelections.length > 0) {
-    await applyServiceSelections({
-      supabase,
-      appointmentId: id,
-      selections: serviceSelections
-    })
+    await supabase
+      .from('appointment_services')
+      .delete()
+      .eq('appointment_id', id)
+
+    const normalizedSelections = normalizeServiceSelections(serviceSelections)
+    if (normalizedSelections.length > 0) {
+      const appointmentServices = normalizedSelections.map((selection) => ({
+        appointment_id: id,
+        service_id: selection.service_id,
+        pet_id: selection.pet_id || null
+      }))
+      const { error: servicesError } = await supabase
+        .from('appointment_services')
+        .insert(appointmentServices)
+
+      if (servicesError) {
+        console.error('[api] update appointment services error', servicesError)
+      } else {
+        await applyServiceSelections({
+          supabase,
+          appointmentId: id,
+          selections: serviceSelections
+        })
+      }
+    }
   }
 
   res.json({ data: appointment })
@@ -728,7 +787,7 @@ router.get('/:id/share', async (req, res) => {
       before_photo_url,
       after_photo_url,
       customers ( id, name, phone ),
-      pets ( id, name, breed ),
+      pets ( id, name, breed, weight ),
       appointment_services ( 
         service_id,
         services ( id, name, price )
