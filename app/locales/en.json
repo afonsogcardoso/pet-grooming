@@ -193,6 +193,8 @@
       "customer": "Customer *",
       "pet": "Pet *",
       "service": "Service *",
+      "tier": "Tier",
+      "addons": "Add-ons",
       "duration": "Duration *",
       "payment": "Payment",
       "phone": "Phone Number",
@@ -214,13 +216,17 @@
       "selectCustomer": "Select a customer...",
       "selectPet": "Select a pet...",
       "selectService": "Select a service...",
+      "selectTier": "Select a tier...",
+      "tierDefault": "Tier",
       "selectTime": "Select a time...",
       "selectCustomerFirst": "Select a customer first",
       "date": "YYYY-MM-DD",
       "address": "Address (optional)",
       "phone": "Will autofill from customer",
       "notes": "Any special requests or notes...",
-      "noServices": "No services available. Add one below."
+      "noServices": "No services available. Add one below.",
+      "noTiers": "No tiers for this service.",
+      "noAddons": "No add-ons for this service."
     },
     "search": {
       "loading": "Loading pet & client index...",
@@ -240,7 +246,9 @@
     "loaders": {
       "customers": "Loading customers...",
       "pets": "Loading pets...",
-      "services": "Loading services..."
+      "services": "Loading services...",
+      "tiers": "Loading tiers...",
+      "addons": "Loading add-ons..."
     },
     "tooltips": {
       "addCustomer": "Add new customer",

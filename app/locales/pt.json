@@ -193,6 +193,8 @@
       "customer": "Cliente *",
       "pet": "Animal *",
       "service": "Serviço *",
+      "tier": "Escalão",
+      "addons": "Extras",
       "duration": "Duração *",
       "payment": "Pagamento",
       "phone": "Telefone",
@@ -214,18 +216,24 @@
       "selectCustomer": "Escolhe um cliente...",
       "selectPet": "Escolhe um animal...",
       "selectService": "Escolhe um serviço...",
+      "selectTier": "Escolhe um escalão...",
+      "tierDefault": "Escalão",
       "selectTime": "Escolhe uma hora...",
       "selectCustomerFirst": "Escolhe primeiro um cliente",
       "date": "AAAA-MM-DD",
       "address": "Morada (opcional)",
       "phone": "Preenche automaticamente pelo cliente",
       "notes": "Instruções ou notas especiais...",
-      "noServices": "Ainda não existem serviços. Adiciona um abaixo."
+      "noServices": "Ainda não existem serviços. Adiciona um abaixo.",
+      "noTiers": "Sem escalões para este serviço.",
+      "noAddons": "Sem extras para este serviço."
     },
     "loaders": {
       "customers": "A carregar clientes...",
       "pets": "A carregar animais...",
-      "services": "A carregar serviços..."
+      "services": "A carregar serviços...",
+      "tiers": "A carregar escalões...",
+      "addons": "A carregar extras..."
     },
     "tooltips": {
       "addCustomer": "Adicionar novo cliente",

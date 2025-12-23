@@ -24,13 +24,23 @@ export type Appointment = {
     price?: number | null;
   } | null;
   appointment_services?: Array<{
+    id?: string;
     service_id: string;
+    price_tier_id?: string | null;
+    price_tier_label?: string | null;
+    price_tier_price?: number | null;
     services: {
       id: string;
       name?: string | null;
       price?: number | null;
       display_order?: number | null;
     };
+    appointment_service_addons?: Array<{
+      id?: string;
+      service_addon_id?: string | null;
+      name?: string | null;
+      price?: number | null;
+    }> | null;
   }> | null;
   pets?: {
     id: string;
@@ -53,6 +63,12 @@ export type CreateAppointmentPayload = {
   customer_id: string;
   pet_id: string;
   service_id: string;
+  service_ids?: string[];
+  service_selections?: Array<{
+    service_id: string;
+    price_tier_id?: string | null;
+    addon_ids?: string[];
+  }>;
   duration?: number | null;
   notes?: string | null;
   payment_status?: string | null;
@@ -100,13 +116,14 @@ export async function getAppointments(params?: {
 }
 
 export async function createAppointment(payload: CreateAppointmentPayload): Promise<Appointment> {
-  const { service_ids, ...cleanPayload } = payload as any;
+  const { service_ids, service_selections, ...cleanPayload } = payload as any;
   const body = {
     payment_status: 'unpaid',
     ...cleanPayload,
     duration: payload.duration ?? null,
     notes: payload.notes ?? null,
     service_ids, // Keep this separate so backend can process it
+    service_selections,
   };
   const { data } = await api.post<CreateAppointmentResponse>('/appointments', body);
   return data.data;

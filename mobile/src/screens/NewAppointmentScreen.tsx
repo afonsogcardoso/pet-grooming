@@ -20,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { createAppointment, updateAppointment, getAppointment } from '../api/appointments';
 import type { Customer, Pet } from '../api/customers';
 import { createCustomer, createPet, getCustomers, updateCustomer } from '../api/customers';
-import { getServices } from '../api/services';
+import { getServices, getServicePriceTiers, getServiceAddons, ServicePriceTier, ServiceAddon } from '../api/services';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { FontAwesome } from '@expo/vector-icons';
 import { AddressAutocomplete } from '../components/appointment/AddressAutocomplete';
@@ -98,6 +98,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     setSelectedPetState(value);
   };
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [selectedTierId, setSelectedTierId] = useState('');
+  const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
   const [amountInput, setAmountInput] = useState('');
   const [amountEdited, setAmountEdited] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
@@ -121,6 +123,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const placesKey = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || process.env.GOOGLE_PLACES_KEY;
   const scrollViewRef = useRef<ScrollView>(null);
   const addressFieldRef = useRef<View>(null);
+  const lastPrimaryServiceIdRef = useRef<string | null>(null);
 
   const queryClient = useQueryClient();
   const { t } = useTranslation();
@@ -162,6 +165,18 @@ export default function NewAppointmentScreen({ navigation }: Props) {
         serviceIds.push(appointmentData.services.id);
       }
       setSelectedServices(serviceIds);
+
+      const primaryService = serviceIds[0];
+      const matchingService = appointmentData.appointment_services?.find(
+        (entry: any) => entry.service_id === primaryService
+      );
+      setSelectedTierId(matchingService?.price_tier_id || '');
+      const addonIds = matchingService?.appointment_service_addons
+        ? matchingService.appointment_service_addons
+            .map((addon: any) => addon.service_addon_id)
+            .filter(Boolean)
+        : [];
+      setSelectedAddonIds(addonIds);
       
       // Set customer and pet IDs
       const customerId = appointmentData.customers?.id || '';
@@ -196,6 +211,36 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const { data: servicesData, isLoading: loadingServices } = useQuery({
     queryKey: ['services'],
     queryFn: getServices,
+  });
+
+  const primaryServiceId = selectedServices.length === 1 ? selectedServices[0] : null;
+
+  useEffect(() => {
+    if (!primaryServiceId) {
+      setSelectedTierId('');
+      setSelectedAddonIds([]);
+      lastPrimaryServiceIdRef.current = primaryServiceId;
+      return;
+    }
+
+    if (lastPrimaryServiceIdRef.current && lastPrimaryServiceIdRef.current !== primaryServiceId) {
+      setSelectedTierId('');
+      setSelectedAddonIds([]);
+    }
+
+    lastPrimaryServiceIdRef.current = primaryServiceId;
+  }, [primaryServiceId]);
+
+  const { data: priceTiers = [], isLoading: loadingTiers } = useQuery<ServicePriceTier[]>({
+    queryKey: ['service-tiers', primaryServiceId],
+    queryFn: () => getServicePriceTiers(primaryServiceId || ''),
+    enabled: Boolean(primaryServiceId),
+  });
+
+  const { data: serviceAddons = [], isLoading: loadingAddons } = useQuery<ServiceAddon[]>({
+    queryKey: ['service-addons', primaryServiceId],
+    queryFn: () => getServiceAddons(primaryServiceId || ''),
+    enabled: Boolean(primaryServiceId),
   });
 
   const customers = customersData || [];
@@ -508,6 +553,16 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       }
     }
 
+    const serviceSelections = selectedServices.length === 1
+      ? [
+          {
+            service_id: selectedServices[0],
+            price_tier_id: selectedTierId || null,
+            addon_ids: selectedAddonIds,
+          },
+        ]
+      : [];
+
     await mutation.mutateAsync({
       appointment_date: date,
       appointment_time: formatHHMM(time).trim(),
@@ -519,6 +574,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       pet_id: petId,
       service_id: selectedServices[0] || null, // Keep for backward compatibility
       service_ids: selectedServices, // New field for multiple services
+      service_selections: serviceSelections,
     });
   };
 
@@ -624,6 +680,75 @@ export default function NewAppointmentScreen({ navigation }: Props) {
               setSelectedServices={setSelectedServices}
               setDuration={setDuration}
             />
+
+            {primaryServiceId ? (
+              <View style={styles.pricingCard}>
+                <Text style={styles.pricingTitle}>{t('appointmentForm.pricingSection')}</Text>
+
+                <Text style={styles.label}>{t('appointmentForm.tierLabel')}</Text>
+                {loadingTiers ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : priceTiers.length === 0 ? (
+                  <Text style={styles.helperText}>{t('appointmentForm.noTiers')}</Text>
+                ) : (
+                  <View style={styles.optionGroup}>
+                    {priceTiers.map((tier) => {
+                      const active = selectedTierId === tier.id;
+                      const rangeLabel = [tier.min_weight_kg ?? '-', tier.max_weight_kg ?? '+'].join(' - ');
+                      return (
+                        <TouchableOpacity
+                          key={tier.id}
+                          style={[styles.optionCard, active && styles.optionCardActive]}
+                          onPress={() => setSelectedTierId(active ? '' : tier.id)}
+                        >
+                          <View style={styles.optionRow}>
+                            <Text style={styles.optionTitle}>
+                              {tier.label || t('appointmentForm.tierDefault')}
+                            </Text>
+                            <Text style={styles.optionPrice}>{`€${tier.price}`}</Text>
+                          </View>
+                          <Text style={styles.optionSubtitle}>{`${rangeLabel} kg`}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+
+                <Text style={styles.label}>{t('appointmentForm.addonsLabel')}</Text>
+                {loadingAddons ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : serviceAddons.length === 0 ? (
+                  <Text style={styles.helperText}>{t('appointmentForm.noAddons')}</Text>
+                ) : (
+                  <View style={styles.optionGroup}>
+                    {serviceAddons.map((addon) => {
+                      const active = selectedAddonIds.includes(addon.id);
+                      return (
+                        <TouchableOpacity
+                          key={addon.id}
+                          style={[styles.optionCard, active && styles.optionCardActive]}
+                          onPress={() => {
+                            setSelectedAddonIds((prev) =>
+                              active ? prev.filter((id) => id !== addon.id) : [...prev, addon.id]
+                            );
+                          }}
+                        >
+                          <View style={styles.optionRow}>
+                            <Text style={styles.optionTitle}>{addon.name}</Text>
+                            <Text style={styles.optionPrice}>{`€${addon.price}`}</Text>
+                          </View>
+                          {addon.description ? (
+                            <Text style={styles.optionSubtitle}>{addon.description}</Text>
+                          ) : null}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            ) : selectedServices.length > 1 ? (
+              <Text style={styles.helperText}>{t('appointmentForm.multiServicePricingHint')}</Text>
+            ) : null}
 
             <View style={styles.field}>
               <View style={styles.amountHeader}>
@@ -1068,6 +1193,46 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.muted,
       fontSize: 13,
       marginTop: 4,
+    },
+    pricingCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      padding: 14,
+      marginTop: 12,
+      marginBottom: 8,
+    },
+    pricingTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 10,
+    },
+    optionGroup: {
+      gap: 8,
+      marginBottom: 12,
+    },
+    optionCard: {
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.background,
+      padding: 12,
+    },
+    optionCardActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primarySoft,
+    },
+    optionRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 8,
+    },
+    optionPrice: {
+      fontWeight: '700',
+      color: colors.text,
     },
   });
 }

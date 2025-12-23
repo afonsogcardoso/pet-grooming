@@ -13,7 +13,7 @@ import {
     createPet,
     updateCustomer
 } from '@/lib/customerService'
-import { loadServices } from '@/lib/serviceService'
+import { loadServices, loadServicePriceTiers, loadServiceAddons } from '@/lib/serviceService'
 import { useTranslation } from '@/components/TranslationProvider'
 import BreedSelect from '@/components/BreedSelect'
 
@@ -59,6 +59,12 @@ export default function AppointmentForm({
     const [loadingPets, setLoadingPets] = useState(false)
     const [services, setServices] = useState([])
     const [loadingServices, setLoadingServices] = useState(true)
+    const [loadingTiers, setLoadingTiers] = useState(false)
+    const [loadingAddons, setLoadingAddons] = useState(false)
+    const [priceTiers, setPriceTiers] = useState([])
+    const [serviceAddons, setServiceAddons] = useState([])
+    const [selectedTierId, setSelectedTierId] = useState('')
+    const [selectedAddonIds, setSelectedAddonIds] = useState([])
     const [showCustomerModal, setShowCustomerModal] = useState(false)
     const [showPetModal, setShowPetModal] = useState(false)
 
@@ -201,6 +207,28 @@ export default function AppointmentForm({
     }, [initialData])
 
     useEffect(() => {
+        if (!initialData?.appointment_services || !formData.service_id) {
+            if (!initialData) {
+                setSelectedTierId('')
+                setSelectedAddonIds([])
+            }
+            return
+        }
+
+        const matchingService = initialData.appointment_services.find(
+            (entry) => entry.service_id === formData.service_id
+        )
+
+        setSelectedTierId(matchingService?.price_tier_id || '')
+        const addonIds = matchingService?.appointment_service_addons
+            ? matchingService.appointment_service_addons
+                .map((addon) => addon.service_addon_id)
+                .filter(Boolean)
+            : []
+        setSelectedAddonIds(addonIds)
+    }, [initialData, formData.service_id])
+
+    useEffect(() => {
         return () => {
             if (beforePreviewRef.current) {
                 URL.revokeObjectURL(beforePreviewRef.current)
@@ -222,6 +250,10 @@ export default function AppointmentForm({
             setFormData((prev) => ({ ...prev, pet_id: '' }))
         }
     }, [formData.customer_id])
+
+    useEffect(() => {
+        fetchServicePricing(formData.service_id)
+    }, [formData.service_id])
 
     useEffect(() => {
         if (!formData.pet_id) {
@@ -264,6 +296,34 @@ export default function AppointmentForm({
             setServices(data)
         }
         setLoadingServices(false)
+    }
+
+    async function fetchServicePricing(serviceId) {
+        if (!serviceId) {
+            setPriceTiers([])
+            setServiceAddons([])
+            return
+        }
+
+        setLoadingTiers(true)
+        setLoadingAddons(true)
+
+        const [tiersResponse, addonsResponse] = await Promise.all([
+            loadServicePriceTiers(serviceId),
+            loadServiceAddons(serviceId)
+        ])
+
+        if (tiersResponse.error) {
+            console.error('Error loading service tiers:', tiersResponse.error)
+        }
+        if (addonsResponse.error) {
+            console.error('Error loading service addons:', addonsResponse.error)
+        }
+
+        setPriceTiers(tiersResponse.data || [])
+        setServiceAddons(addonsResponse.data || [])
+        setLoadingTiers(false)
+        setLoadingAddons(false)
     }
 
     async function fetchCustomerPetIndex() {
@@ -370,6 +430,8 @@ export default function AppointmentForm({
             service_id: serviceId,
             duration: service?.default_duration || prev.duration
         }))
+        setSelectedTierId('')
+        setSelectedAddonIds([])
     }
 
     async function handleCreateCustomer(e) {
@@ -577,6 +639,16 @@ export default function AppointmentForm({
             payment_status: formData.payment_status || 'unpaid'
         }
 
+        if (formData.service_id) {
+            payload.service_selections = [
+                {
+                    service_id: formData.service_id,
+                    price_tier_id: selectedTierId || null,
+                    addon_ids: selectedAddonIds
+                }
+            ]
+        }
+
         try {
             await onSubmit(
                 payload,
@@ -716,6 +788,77 @@ export default function AppointmentForm({
                             </select>
                         </div>
                     </div>
+
+                    {formData.service_id && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-800 mb-2">
+                                    {t('appointmentForm.fields.tier')}
+                                </label>
+                                {loadingTiers ? (
+                                    <div className="w-full px-3 sm:px-4 py-3 sm:py-4 border-2 border-gray-400 rounded-lg text-gray-600 bg-gray-50">
+                                        {t('appointmentForm.loaders.tiers')}
+                                    </div>
+                                ) : priceTiers.length === 0 ? (
+                                    <div className="w-full px-3 sm:px-4 py-3 sm:py-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 bg-gray-50">
+                                        {t('appointmentForm.placeholders.noTiers')}
+                                    </div>
+                                ) : (
+                                    <select
+                                        value={selectedTierId}
+                                        onChange={(e) => setSelectedTierId(e.target.value)}
+                                        className="w-full h-11 px-3 sm:px-4 py-3 sm:py-4 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)] text-sm sm:text-lg bg-white text-gray-900 font-medium"
+                                    >
+                                        <option value="">{t('appointmentForm.placeholders.selectTier')}</option>
+                                        {priceTiers.map((tier) => (
+                                            <option key={tier.id} value={tier.id}>
+                                                {(tier.label || t('appointmentForm.placeholders.tierDefault')) + ` · €${tier.price}`}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-800 mb-2">
+                                    {t('appointmentForm.fields.addons')}
+                                </label>
+                                {loadingAddons ? (
+                                    <div className="w-full px-3 sm:px-4 py-3 sm:py-4 border-2 border-gray-400 rounded-lg text-gray-600 bg-gray-50">
+                                        {t('appointmentForm.loaders.addons')}
+                                    </div>
+                                ) : serviceAddons.length === 0 ? (
+                                    <div className="w-full px-3 sm:px-4 py-3 sm:py-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 bg-gray-50">
+                                        {t('appointmentForm.placeholders.noAddons')}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {serviceAddons.map((addon) => {
+                                            const checked = selectedAddonIds.includes(addon.id)
+                                            return (
+                                                <label key={addon.id} className="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        onChange={() => {
+                                                            setSelectedAddonIds((prev) =>
+                                                                checked
+                                                                    ? prev.filter((id) => id !== addon.id)
+                                                                    : [...prev, addon.id]
+                                                            )
+                                                        }}
+                                                        className="h-4 w-4 rounded border-gray-300 text-brand-primary focus:ring-brand-primary"
+                                                    />
+                                                    <span className="font-medium">{addon.name}</span>
+                                                    <span className="text-xs text-gray-500">{`€${addon.price}`}</span>
+                                                </label>
+                                            )
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="space-y-2">
                         {!isEditing && (

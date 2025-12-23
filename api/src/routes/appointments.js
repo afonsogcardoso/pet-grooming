@@ -21,6 +21,123 @@ const APPOINTMENT_CONFIRM_SELECT = `
 `
 const PET_PHOTO_BUCKET = 'pets'
 
+function normalizeServiceSelections(rawSelections) {
+  if (!Array.isArray(rawSelections)) return []
+  return rawSelections
+    .map((selection) => ({
+      service_id: selection?.service_id || null,
+      price_tier_id: selection?.price_tier_id || selection?.tier_id || null,
+      price_tier_label: selection?.price_tier_label || null,
+      price_tier_price: selection?.price_tier_price ?? null,
+      addon_ids: Array.isArray(selection?.addon_ids)
+        ? selection.addon_ids.filter(Boolean)
+        : Array.isArray(selection?.addons)
+          ? selection.addons.map((addon) => addon?.id).filter(Boolean)
+          : null,
+      has_tier_field:
+        Object.prototype.hasOwnProperty.call(selection || {}, 'price_tier_id') ||
+        Object.prototype.hasOwnProperty.call(selection || {}, 'tier_id') ||
+        Object.prototype.hasOwnProperty.call(selection || {}, 'price_tier_label') ||
+        Object.prototype.hasOwnProperty.call(selection || {}, 'price_tier_price'),
+      has_addon_field:
+        Object.prototype.hasOwnProperty.call(selection || {}, 'addon_ids') ||
+        Object.prototype.hasOwnProperty.call(selection || {}, 'addons')
+    }))
+    .filter((selection) => Boolean(selection.service_id))
+}
+
+async function applyServiceSelections({ supabase, appointmentId, selections }) {
+  const normalizedSelections = normalizeServiceSelections(selections)
+  if (normalizedSelections.length === 0) return
+
+  const { data: appointmentServices, error: appointmentServicesError } = await supabase
+    .from('appointment_services')
+    .select('id, service_id')
+    .eq('appointment_id', appointmentId)
+
+  if (appointmentServicesError) {
+    console.error('[api] load appointment services error', appointmentServicesError)
+    return
+  }
+
+  const serviceToAppointmentService = new Map(
+    (appointmentServices || []).map((row) => [row.service_id, row.id])
+  )
+
+  for (const selection of normalizedSelections) {
+    const appointmentServiceId = serviceToAppointmentService.get(selection.service_id)
+    if (!appointmentServiceId) continue
+
+    if (selection.has_tier_field) {
+      let tierPayload = {
+        price_tier_id: null,
+        price_tier_label: null,
+        price_tier_price: null
+      }
+
+      if (selection.price_tier_id) {
+        const { data: tierData, error: tierError } = await supabase
+          .from('service_price_tiers')
+          .select('id, label, price, service_id')
+          .eq('id', selection.price_tier_id)
+          .maybeSingle()
+
+        if (tierError) {
+          console.error('[api] load price tier error', tierError)
+        } else if (tierData && tierData.service_id === selection.service_id) {
+          tierPayload = {
+            price_tier_id: tierData.id,
+            price_tier_label: tierData.label,
+            price_tier_price: tierData.price
+          }
+        }
+      } else if (selection.price_tier_label || selection.price_tier_price != null) {
+        tierPayload = {
+          price_tier_id: null,
+          price_tier_label: selection.price_tier_label,
+          price_tier_price: selection.price_tier_price
+        }
+      }
+
+      await supabase
+        .from('appointment_services')
+        .update(tierPayload)
+        .eq('id', appointmentServiceId)
+    }
+
+    if (selection.has_addon_field) {
+      await supabase
+        .from('appointment_service_addons')
+        .delete()
+        .eq('appointment_service_id', appointmentServiceId)
+
+      if (selection.addon_ids && selection.addon_ids.length > 0) {
+        const { data: addonsData, error: addonsError } = await supabase
+          .from('service_addons')
+          .select('id, name, price')
+          .in('id', selection.addon_ids)
+
+        if (addonsError) {
+          console.error('[api] load addon details error', addonsError)
+        } else if (addonsData && addonsData.length > 0) {
+          const rows = addonsData.map((addon) => ({
+            appointment_service_id: appointmentServiceId,
+            service_addon_id: addon.id,
+            name: addon.name,
+            price: addon.price
+          }))
+          const { error: insertError } = await supabase
+            .from('appointment_service_addons')
+            .insert(rows)
+          if (insertError) {
+            console.error('[api] insert appointment addons error', insertError)
+          }
+        }
+      }
+    }
+  }
+}
+
 function formatIcsDateUtc(date) {
   const pad = (n) => String(n).padStart(2, '0')
   return (
@@ -82,7 +199,15 @@ router.get('/', async (req, res) => {
       customers ( id, name, phone, address ),
       services ( id, name, price ),
       pets ( id, name, breed, photo_url ),
-      appointment_services ( service_id, services ( id, name, price, display_order ) )
+      appointment_services (
+        id,
+        service_id,
+        price_tier_id,
+        price_tier_label,
+        price_tier_price,
+        services ( id, name, price, display_order ),
+        appointment_service_addons ( id, service_addon_id, name, price )
+      )
     `
     )
     .order('appointment_date', { ascending: true })
@@ -120,8 +245,10 @@ router.post('/', async (req, res) => {
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
   const payload = { ...(req.body || {}) }
+  const serviceSelections = payload.service_selections
   const serviceIds = payload.service_ids || (payload.service_id ? [payload.service_id] : [])
   delete payload.service_ids
+  delete payload.service_selections
 
   if (accountId) {
     payload.account_id = accountId
@@ -150,6 +277,14 @@ router.post('/', async (req, res) => {
     }
   }
 
+  if (appointment && Array.isArray(serviceSelections) && serviceSelections.length > 0) {
+    await applyServiceSelections({
+      supabase,
+      appointmentId: appointment.id,
+      selections: serviceSelections
+    })
+  }
+
   res.status(201).json({ data: appointment })
 })
 
@@ -176,7 +311,15 @@ router.get('/:id', async (req, res) => {
       customers ( id, name, phone, address ),
       services ( id, name, price ),
       pets ( id, name, breed, photo_url ),
-      appointment_services ( service_id, services ( id, name, price, display_order ) )
+      appointment_services (
+        id,
+        service_id,
+        price_tier_id,
+        price_tier_label,
+        price_tier_price,
+        services ( id, name, price, display_order ),
+        appointment_service_addons ( id, service_addon_id, name, price )
+      )
     `
     )
     .eq('id', id)
@@ -249,7 +392,11 @@ router.patch('/:id', async (req, res) => {
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
   const { id } = req.params
   const payload = req.body || {}
-  const serviceIds = payload.service_ids
+  const serviceSelections = payload.service_selections
+  const serviceIds = Array.isArray(payload.service_ids)
+    ? payload.service_ids
+    : (payload.service_id ? [payload.service_id] : null)
+  delete payload.service_selections
 
   const allowed = [
     'status',
@@ -321,6 +468,14 @@ router.patch('/:id', async (req, res) => {
         console.error('[api] update appointment services error', servicesError)
       }
     }
+  }
+
+  if (appointment && Array.isArray(serviceSelections) && serviceSelections.length > 0) {
+    await applyServiceSelections({
+      supabase,
+      appointmentId: id,
+      selections: serviceSelections
+    })
   }
 
   res.json({ data: appointment })
