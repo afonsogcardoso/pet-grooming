@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { AddressAutocomplete } from './AddressAutocomplete';
 import type { Customer, Pet } from '../../api/customers';
+import { useEffect, useState } from 'react';
 
 type ExistingCustomerFormProps = {
   customerSearch: string;
@@ -15,6 +16,7 @@ type ExistingCustomerFormProps = {
     | { type: 'pet'; customer: Customer; pet: Pet; label: string; subtitle?: string }
   >;
   loadingCustomers: boolean;
+  selectedCustomerId?: string;
   setSelectedCustomer: (id: string) => void;
   onSelectPet: (id: string) => void;
   selectedCustomerData?: Customer;
@@ -35,6 +37,7 @@ export function ExistingCustomerForm({
   setShowCustomerList,
   searchResults,
   loadingCustomers,
+  selectedCustomerId,
   setSelectedCustomer,
   onSelectPet,
   selectedCustomerData,
@@ -49,6 +52,13 @@ export function ExistingCustomerForm({
 }: ExistingCustomerFormProps) {
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  useEffect(() => {
+    if (selectedCustomerId) {
+      setDetailsOpen(false);
+    }
+  }, [selectedCustomerId]);
 
   const styles = StyleSheet.create({
     field: {
@@ -170,6 +180,41 @@ export function ExistingCustomerForm({
       fontSize: 16,
       color: colors.text,
     },
+    customerHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      marginBottom: 8,
+    },
+    customerHeaderText: {
+      color: colors.text,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+    customerHeaderSubtext: {
+      color: colors.muted,
+      marginTop: 4,
+    },
+    customerActions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginTop: 8,
+    },
+    actionButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.background,
+    },
+    actionButtonText: {
+      color: colors.text,
+      fontWeight: '600',
+      fontSize: 13,
+    },
   });
 
   return (
@@ -247,46 +292,62 @@ export function ExistingCustomerForm({
         ) : (
           // Modo selecionado: mostrar dados do cliente com opção de trocar
           <View style={styles.customerCard}>
-            <View style={{ marginBottom: 12 }}>
-              <Text style={styles.selectText}>{selectedCustomerData.name}</Text>
-              <Text style={[styles.optionSubtitle, { marginTop: 4 }]}>
-                {selectedCustomerData.phone}
-              </Text>
+            <View style={styles.customerHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.customerHeaderText}>{selectedCustomerData.name}</Text>
+                {selectedCustomerData.phone ? (
+                  <Text style={styles.customerHeaderSubtext}>{selectedCustomerData.phone}</Text>
+                ) : null}
+              </View>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => setDetailsOpen((prev) => !prev)}
+              >
+                <Text style={styles.actionButtonText}>
+                  {detailsOpen ? t('existingCustomerForm.hideDetails') : t('existingCustomerForm.showDetails')}
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            <Text style={styles.customerDetailLabel}>📱 {t('common.phone')}</Text>
-            <TextInput
-              value={customerPhone}
-              onChangeText={setCustomerPhone}
-              placeholder={t('common.phone')}
-              placeholderTextColor={colors.muted}
-              style={[styles.input, styles.inlineInput]}
-              keyboardType="phone-pad"
-            />
-            <Text style={styles.customerDetailLabel}>📍 {t('customerDetail.address')}</Text>
-            <AddressAutocomplete
-              value={customerAddress}
-              onSelect={setCustomerAddress}
-              placeholder={addressPlaceholder}
-            />
-            <Text style={styles.customerDetailLabel}>🆔 {t('customerDetail.nif')}</Text>
-            <TextInput
-              value={customerNif}
-              onChangeText={setCustomerNif}
-              placeholder={t('customerDetail.nif')}
-              placeholderTextColor={colors.muted}
-              style={[styles.input, styles.inlineInput]}
-              keyboardType="number-pad"
-            />
+            <View style={styles.customerActions}>
+              <TouchableOpacity
+                style={styles.changeButton}
+                onPress={() => {
+                  setShowCustomerList(!showCustomerList);
+                }}
+              >
+                <Text style={styles.changeButtonText}>🔄 {t('existingCustomerForm.changeCustomer')}</Text>
+              </TouchableOpacity>
+            </View>
 
-            <TouchableOpacity
-              style={styles.changeButton}
-              onPress={() => {
-                setShowCustomerList(!showCustomerList);
-              }}
-            >
-              <Text style={styles.changeButtonText}>🔄 {t('existingCustomerForm.changeCustomer')}</Text>
-            </TouchableOpacity>
+            {detailsOpen ? (
+              <>
+                <Text style={styles.customerDetailLabel}>📱 {t('common.phone')}</Text>
+                <TextInput
+                  value={customerPhone}
+                  onChangeText={setCustomerPhone}
+                  placeholder={t('common.phone')}
+                  placeholderTextColor={colors.muted}
+                  style={[styles.input, styles.inlineInput]}
+                  keyboardType="phone-pad"
+                />
+                <Text style={styles.customerDetailLabel}>📍 {t('customerDetail.address')}</Text>
+                <AddressAutocomplete
+                  value={customerAddress}
+                  onSelect={setCustomerAddress}
+                  placeholder={addressPlaceholder}
+                />
+                <Text style={styles.customerDetailLabel}>🆔 {t('customerDetail.nif')}</Text>
+                <TextInput
+                  value={customerNif}
+                  onChangeText={setCustomerNif}
+                  placeholder={t('customerDetail.nif')}
+                  placeholderTextColor={colors.muted}
+                  style={[styles.input, styles.inlineInput]}
+                  keyboardType="number-pad"
+                />
+              </>
+            ) : null}
 
             {showCustomerList ? (
               <View style={[styles.dropdown, { borderColor: primarySoft, marginTop: 12 }]}>

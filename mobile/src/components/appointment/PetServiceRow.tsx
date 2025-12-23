@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
@@ -30,7 +30,7 @@ type PetServiceRowProps = {
   onChange: (updates: Partial<ServiceRow>) => void;
   onRemove: () => void;
   allowRemove: boolean;
-  onTotalsChange: (totals: RowTotals) => void;
+  onTotalsChange: (rowId: string, totals: RowTotals) => void;
 };
 
 export function PetServiceRow({
@@ -51,6 +51,8 @@ export function PetServiceRow({
     () => services.find((service) => service.id === row.serviceId) || null,
     [services, row.serviceId],
   );
+  const [showTierList, setShowTierList] = useState(false);
+  const [showAddonList, setShowAddonList] = useState(false);
 
   const { data: priceTiers = [], isLoading: loadingTiers } = useQuery<ServicePriceTier[]>({
     queryKey: ['service-tiers', row.serviceId],
@@ -83,8 +85,8 @@ export function PetServiceRow({
   const requiresTier = priceTiers.length > 0 && !row.priceTierId;
 
   useEffect(() => {
-    onTotalsChange({ price: rowTotal, duration, requiresTier });
-  }, [rowTotal, duration, requiresTier, onTotalsChange]);
+    onTotalsChange(row.id, { price: rowTotal, duration, requiresTier });
+  }, [row.id, rowTotal, duration, requiresTier, onTotalsChange]);
 
   useEffect(() => {
     if (!row.serviceId) return;
@@ -116,6 +118,15 @@ export function PetServiceRow({
     priceTiers.length > 0 &&
     (petWeight == null || Number.isNaN(Number(petWeight))) &&
     !row.priceTierId;
+
+  const tierLabel = selectedTier
+    ? `${selectedTier.label || t('appointmentForm.tierDefault')} · €${selectedTier.price}`
+    : t('appointmentForm.selectTierPlaceholder');
+  const addonCount = row.addonIds.length;
+  const addonLabel =
+    addonCount > 0
+      ? t('appointmentForm.addonsSelected', { count: addonCount })
+      : t('appointmentForm.selectAddonsPlaceholder');
 
   const styles = StyleSheet.create({
     card: {
@@ -191,6 +202,37 @@ export function PetServiceRow({
       color: colors.muted,
       marginTop: 2,
     },
+    select: {
+      borderWidth: 1,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      backgroundColor: colors.background,
+      borderColor: colors.surfaceBorder,
+    },
+    selectValue: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    dropdownList: {
+      borderWidth: 1,
+      borderRadius: 12,
+      padding: 10,
+      backgroundColor: colors.background,
+      borderColor: colors.surfaceBorder,
+      marginTop: 8,
+    },
+    checkbox: {
+      width: 20,
+      height: 20,
+      borderRadius: 5,
+      borderWidth: 1.5,
+      borderColor: colors.surfaceBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     helperText: {
       color: colors.muted,
       fontSize: 12,
@@ -235,83 +277,111 @@ export function PetServiceRow({
         placeholder={t('serviceSelector.placeholder')}
       />
 
-      {selectedService?.category || selectedService?.subcategory ? (
-        <Text style={styles.metaText}>
-          {[selectedService.category, selectedService.subcategory].filter(Boolean).join(' / ')}
-        </Text>
-      ) : null}
-
       {row.serviceId ? (
         <>
-          <Text style={styles.sectionLabel}>{t('appointmentForm.tierLabel')}</Text>
           {loadingTiers ? (
             <ActivityIndicator color={colors.primary} />
-          ) : priceTiers.length === 0 ? (
-            <Text style={styles.helperText}>{t('appointmentForm.noTiers')}</Text>
-          ) : (
-            <View style={styles.optionGroup}>
-              {priceTiers.map((tier) => {
-                const active = row.priceTierId === tier.id;
-                const rangeLabel = [tier.min_weight_kg ?? '-', tier.max_weight_kg ?? '+'].join(' - ');
-                return (
-                  <TouchableOpacity
-                    key={tier.id}
-                    style={[styles.optionCard, active && styles.optionCardActive]}
-                    onPress={() => {
-                      if (active) {
-                        onChange({ priceTierId: '', tierSelectionSource: null });
-                      } else {
-                        onChange({ priceTierId: tier.id, tierSelectionSource: 'manual' });
-                      }
-                    }}
-                  >
-                    <View style={styles.optionRow}>
-                      <Text style={styles.optionTitle}>{tier.label || t('appointmentForm.tierDefault')}</Text>
-                      <Text style={styles.optionPrice}>{`€${tier.price}`}</Text>
-                    </View>
-                    <Text style={styles.optionSubtitle}>{`${rangeLabel} kg`}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-          {showWeightHint ? (
-            <Text style={styles.helperText}>{t('appointmentForm.tierWeightHint')}</Text>
+          ) : priceTiers.length > 0 ? (
+            <>
+              <Text style={styles.sectionLabel}>{t('appointmentForm.tierLabel')}</Text>
+              <TouchableOpacity
+                style={styles.select}
+                onPress={() => {
+                  setShowTierList((prev) => !prev);
+                  setShowAddonList(false);
+                }}
+              >
+                <View style={styles.selectValue}>
+                  <Text style={styles.optionTitle}>{tierLabel}</Text>
+                  <Text style={styles.optionSubtitle}>v</Text>
+                </View>
+              </TouchableOpacity>
+              {showTierList ? (
+                <View style={styles.dropdownList}>
+                  <ScrollView style={{ maxHeight: 200 }}>
+                    {priceTiers.map((tier) => {
+                      const active = row.priceTierId === tier.id;
+                      const rangeLabel = [tier.min_weight_kg ?? '-', tier.max_weight_kg ?? '+'].join(' - ');
+                      return (
+                        <TouchableOpacity
+                          key={tier.id}
+                          style={[styles.option, active && styles.optionCardActive]}
+                          onPress={() => {
+                            onChange({ priceTierId: tier.id, tierSelectionSource: 'manual' });
+                            setShowTierList(false);
+                          }}
+                        >
+                          <View style={styles.optionRow}>
+                            <Text style={styles.optionTitle}>{tier.label || t('appointmentForm.tierDefault')}</Text>
+                            <Text style={styles.optionPrice}>{`€${tier.price}`}</Text>
+                          </View>
+                          <Text style={styles.optionSubtitle}>{`${rangeLabel} kg`}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              ) : null}
+              {showWeightHint ? (
+                <Text style={styles.helperText}>{t('appointmentForm.tierWeightHint')}</Text>
+              ) : null}
+            </>
           ) : null}
 
-          <Text style={styles.sectionLabel}>{t('appointmentForm.addonsLabel')}</Text>
           {loadingAddons ? (
             <ActivityIndicator color={colors.primary} />
-          ) : serviceAddons.length === 0 ? (
-            <Text style={styles.helperText}>{t('appointmentForm.noAddons')}</Text>
-          ) : (
-            <View style={styles.optionGroup}>
-              {serviceAddons.map((addon) => {
-                const active = row.addonIds.includes(addon.id);
-                return (
-                  <TouchableOpacity
-                    key={addon.id}
-                    style={[styles.optionCard, active && styles.optionCardActive]}
-                    onPress={() => {
-                      if (active) {
-                        onChange({ addonIds: row.addonIds.filter((id) => id !== addon.id) });
-                      } else {
-                        onChange({ addonIds: [...row.addonIds, addon.id] });
-                      }
-                    }}
-                  >
-                    <View style={styles.optionRow}>
-                      <Text style={styles.optionTitle}>{addon.name}</Text>
-                      <Text style={styles.optionPrice}>{`€${addon.price}`}</Text>
-                    </View>
-                    {addon.description ? (
-                      <Text style={styles.optionSubtitle}>{addon.description}</Text>
-                    ) : null}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
+          ) : serviceAddons.length > 0 ? (
+            <>
+              <Text style={styles.sectionLabel}>{t('appointmentForm.addonsLabel')}</Text>
+              <TouchableOpacity
+                style={styles.select}
+                onPress={() => {
+                  setShowAddonList((prev) => !prev);
+                  setShowTierList(false);
+                }}
+              >
+                <View style={styles.selectValue}>
+                  <Text style={styles.optionTitle}>{addonLabel}</Text>
+                  <Text style={styles.optionSubtitle}>v</Text>
+                </View>
+              </TouchableOpacity>
+              {showAddonList ? (
+                <View style={styles.dropdownList}>
+                  <ScrollView style={{ maxHeight: 220 }}>
+                    {serviceAddons.map((addon) => {
+                      const active = row.addonIds.includes(addon.id);
+                      return (
+                        <TouchableOpacity
+                          key={addon.id}
+                          style={[styles.option, active && styles.optionCardActive]}
+                          onPress={() => {
+                            if (active) {
+                              onChange({ addonIds: row.addonIds.filter((id) => id !== addon.id) });
+                            } else {
+                              onChange({ addonIds: [...row.addonIds, addon.id] });
+                            }
+                          }}
+                        >
+                          <View style={styles.optionRow}>
+                            <View style={styles.checkbox}>
+                              {active ? <Text style={styles.optionTitle}>x</Text> : null}
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.optionTitle}>{addon.name}</Text>
+                              {addon.description ? (
+                                <Text style={styles.optionSubtitle}>{addon.description}</Text>
+                              ) : null}
+                            </View>
+                            <Text style={styles.optionPrice}>{`€${addon.price}`}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              ) : null}
+            </>
+          ) : null}
         </>
       ) : (
         <Text style={styles.helperText}>{t('appointmentForm.selectServiceHint')}</Text>

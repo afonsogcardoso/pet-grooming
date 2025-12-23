@@ -1,7 +1,8 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   TextInput,
   TouchableOpacity,
@@ -617,9 +618,20 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     });
   };
 
-  const handleRowTotalsChange = (rowId: string, totals: RowTotals) => {
-    setRowTotals((prev) => ({ ...prev, [rowId]: totals }));
-  };
+  const handleRowTotalsChange = useCallback((rowId: string, totals: RowTotals) => {
+    setRowTotals((prev) => {
+      const existing = prev[rowId];
+      if (
+        existing &&
+        existing.price === totals.price &&
+        existing.duration === totals.duration &&
+        existing.requiresTier === totals.requiresTier
+      ) {
+        return prev;
+      }
+      return { ...prev, [rowId]: totals };
+    });
+  }, []);
 
   const handleAddNewPet = () => {
     setNewPets((prev) => [...prev, createDraftPet()]);
@@ -928,6 +940,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                 setShowCustomerList={setShowCustomerList}
                 searchResults={searchResults}
                 loadingCustomers={loadingCustomers}
+                selectedCustomerId={selectedCustomer}
                 setSelectedCustomer={handleSelectCustomer}
                 onSelectPet={handleSelectPet}
                 selectedCustomerData={selectedCustomerData}
@@ -1055,14 +1068,25 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                     return (
                       <View key={pet.id} style={styles.petCard}>
                         <View style={styles.petHeader}>
-                          <View>
-                            <Text style={styles.petTitle}>{pet.name}</Text>
-                            {pet.breed ? <Text style={styles.petMeta}>{pet.breed}</Text> : null}
-                            {pet.weight != null ? (
-                              <Text style={styles.petMeta}>
-                                {t('appointmentForm.petWeightInline', { value: pet.weight })}
-                              </Text>
-                            ) : null}
+                          <View style={styles.petHeaderLeft}>
+                            {pet.photo_url ? (
+                              <Image source={{ uri: pet.photo_url }} style={styles.petAvatar} />
+                            ) : (
+                              <View style={styles.petAvatarPlaceholder}>
+                                <Text style={styles.petAvatarText}>
+                                  {(pet.name || '?').trim().charAt(0).toUpperCase()}
+                                </Text>
+                              </View>
+                            )}
+                            <View>
+                              <Text style={styles.petTitle}>{pet.name}</Text>
+                              {pet.breed ? <Text style={styles.petMeta}>{pet.breed}</Text> : null}
+                              {pet.weight != null ? (
+                                <Text style={styles.petMeta}>
+                                  {t('appointmentForm.petWeightInline', { value: pet.weight })}
+                                </Text>
+                              ) : null}
+                            </View>
                           </View>
                         </View>
 
@@ -1077,7 +1101,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                             onChange={(updates) => handleUpdateServiceRow(pet.id, row.id, updates)}
                             onRemove={() => handleRemoveServiceRow(pet.id, row.id)}
                             allowRemove={rows.length > 1}
-                            onTotalsChange={(totals) => handleRowTotalsChange(row.id, totals)}
+                            onTotalsChange={handleRowTotalsChange}
                           />
                         ))}
 
@@ -1120,7 +1144,14 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                   return (
                     <View key={pet.id} style={styles.petCard}>
                       <View style={styles.petHeader}>
-                        <Text style={styles.petTitle}>{t('appointmentForm.petCardTitle', { index: index + 1 })}</Text>
+                        <View style={styles.petHeaderLeft}>
+                          <View style={styles.petAvatarPlaceholder}>
+                            <Text style={styles.petAvatarText}>
+                              {(pet.name || `${index + 1}`).trim().charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <Text style={styles.petTitle}>{t('appointmentForm.petCardTitle', { index: index + 1 })}</Text>
+                        </View>
                         {newPets.length > 1 ? (
                           <TouchableOpacity style={styles.removePetButton} onPress={() => handleRemoveNewPet(pet.id)}>
                             <Text style={styles.removePetText}>{t('appointmentForm.removePet')}</Text>
@@ -1176,7 +1207,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                           onChange={(updates) => handleUpdateServiceRow(pet.id, row.id, updates)}
                           onRemove={() => handleRemoveServiceRow(pet.id, row.id)}
                           allowRemove={rows.length > 1}
-                          onTotalsChange={(totals) => handleRowTotalsChange(row.id, totals)}
+                          onTotalsChange={handleRowTotalsChange}
                         />
                       ))}
 
@@ -1517,6 +1548,30 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       justifyContent: 'space-between',
       alignItems: 'center',
       marginBottom: 12,
+    },
+    petHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    petAvatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.surface,
+    },
+    petAvatarPlaceholder: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    petAvatarText: {
+      color: colors.primary,
+      fontWeight: '700',
+      fontSize: 16,
     },
     petTitle: {
       fontSize: 16,
