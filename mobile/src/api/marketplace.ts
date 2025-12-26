@@ -35,6 +35,8 @@ export type MarketplaceBookingPayload = {
   appointment_time: string;
   service_id?: string;
   service_ids?: string[];
+  pet_id?: string;
+  save_pet?: boolean;
   notes?: string | null;
   customer?: {
     name?: string | null;

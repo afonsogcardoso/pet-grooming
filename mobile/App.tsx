@@ -20,6 +20,10 @@ import PetFormScreen from './src/screens/PetFormScreen';
 import ServicesScreen from './src/screens/ServicesScreen';
 import ServiceFormScreen from './src/screens/ServiceFormScreen';
 import ConsumerHomeScreen from './src/screens/ConsumerHomeScreen';
+import ConsumerAppointmentsScreen from './src/screens/ConsumerAppointmentsScreen';
+import ConsumerAppointmentDetailScreen from './src/screens/ConsumerAppointmentDetailScreen';
+import ConsumerPetsScreen from './src/screens/ConsumerPetsScreen';
+import ConsumerPetFormScreen from './src/screens/ConsumerPetFormScreen';
 import MarketplaceScreen from './src/screens/MarketplaceScreen';
 import MarketplaceAccountScreen from './src/screens/MarketplaceAccountScreen';
 import MarketplaceRequestScreen from './src/screens/MarketplaceRequestScreen';
@@ -246,6 +250,10 @@ export default function App() {
                 userType === 'consumer' ? (
                   <>
                     <Stack.Screen name="ConsumerHome" component={ConsumerHomeScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="ConsumerAppointments" component={ConsumerAppointmentsScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="ConsumerAppointmentDetail" component={ConsumerAppointmentDetailScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="ConsumerPets" component={ConsumerPetsScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="ConsumerPetForm" component={ConsumerPetFormScreen} options={{ headerShown: false }} />
                     <Stack.Screen name="Marketplace" component={MarketplaceScreen} options={{ headerShown: false }} />
                     <Stack.Screen name="MarketplaceAccount" component={MarketplaceAccountScreen} options={{ headerShown: false }} />
                     <Stack.Screen name="MarketplaceRequest" component={MarketplaceRequestScreen} options={{ headerShown: false }} />

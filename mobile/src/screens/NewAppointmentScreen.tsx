@@ -238,8 +238,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       setCustomerPhone(
         appointmentData.customers?.phone ||
           buildPhone(
-            appointmentData.customers?.phone_country_code || null,
-            appointmentData.customers?.phone_number || null,
+            appointmentData.customers?.phoneCountryCode || null,
+            appointmentData.customers?.phoneNumber || null,
           ),
       );
       setCustomerAddress(appointmentData.customers?.address || '');
@@ -469,8 +469,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       setCustomerPhone(
         selectedCustomerData.phone ||
           buildPhone(
-            selectedCustomerData.phone_country_code || null,
-            selectedCustomerData.phone_number || null,
+            selectedCustomerData.phoneCountryCode || null,
+            selectedCustomerData.phoneNumber || null,
           ),
       );
       setCustomerAddress(selectedCustomerData.address || '');

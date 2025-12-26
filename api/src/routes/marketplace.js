@@ -34,6 +34,34 @@ const MARKETPLACE_SERVICE_SELECT = [
   'pricing_model'
 ].join(',')
 
+const CONSUMER_PET_SELECT = [
+  'id',
+  'name',
+  'breed',
+  'weight',
+  'photo_url'
+].join(',')
+
+const MARKETPLACE_APPOINTMENT_SELECT = `
+  id,
+  appointment_date,
+  appointment_time,
+  duration,
+  notes,
+  status,
+  payment_status,
+  account:accounts ( id, name, slug, logo_url, support_email, support_phone ),
+  customers!inner ( id, name, phone, email ),
+  pets ( id, name, breed, photo_url, weight ),
+  services ( id, name, price ),
+  appointment_services (
+    id,
+    service_id,
+    services ( id, name, price ),
+    pets ( id, name )
+  )
+`
+
 function normalizeSlug(value) {
   return value?.toString().trim().toLowerCase() || ''
 }
@@ -179,6 +207,262 @@ router.get('/accounts/:slug/services', async (req, res) => {
   res.json({ data: data || [] })
 })
 
+router.get('/pets', async (req, res) => {
+  const supabaseAdmin = getSupabaseServiceRoleClient()
+  if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
+
+  const user = await getAuthenticatedUser(req)
+  if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { data, error } = await supabaseAdmin
+    .from('consumer_pets')
+    .select(CONSUMER_PET_SELECT)
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    console.error('[marketplace] list consumer pets error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.json({ data: data || [] })
+})
+
+router.post('/pets', async (req, res) => {
+  const supabaseAdmin = getSupabaseServiceRoleClient()
+  if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
+
+  const user = await getAuthenticatedUser(req)
+  if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+  const payload = sanitizeBody(req.body || {})
+  const name = normalizeString(payload.name)
+  const breed = normalizeString(payload.breed)
+  const weight = normalizeNumber(payload.weight)
+  const photoUrl = normalizeString(payload.photo_url || payload.photoUrl)
+
+  if (!name) return res.status(400).json({ error: 'pet_required' })
+
+  const { data, error } = await supabaseAdmin
+    .from('consumer_pets')
+    .insert({
+      user_id: user.id,
+      name,
+      breed,
+      weight,
+      photo_url: photoUrl
+    })
+    .select(CONSUMER_PET_SELECT)
+    .single()
+
+  if (error) {
+    console.error('[marketplace] create consumer pet error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.status(201).json({ data })
+})
+
+router.patch('/pets/:id', async (req, res) => {
+  const supabaseAdmin = getSupabaseServiceRoleClient()
+  if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
+
+  const user = await getAuthenticatedUser(req)
+  if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+  const id = normalizeString(req.params.id)
+  if (!id) return res.status(400).json({ error: 'missing_id' })
+
+  const payload = sanitizeBody(req.body || {})
+  const updates = {}
+  if (payload.name !== undefined) updates.name = normalizeString(payload.name)
+  if (payload.breed !== undefined) updates.breed = normalizeString(payload.breed)
+  if (payload.weight !== undefined) updates.weight = normalizeNumber(payload.weight)
+  if (payload.photo_url !== undefined || payload.photoUrl !== undefined) {
+    updates.photo_url = normalizeString(payload.photo_url || payload.photoUrl)
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: 'missing_fields' })
+  }
+  if (updates.name === null) {
+    return res.status(400).json({ error: 'pet_required' })
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('consumer_pets')
+    .update(updates)
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .select(CONSUMER_PET_SELECT)
+    .maybeSingle()
+
+  if (error) {
+    console.error('[marketplace] update consumer pet error', error)
+    return res.status(500).json({ error: error.message })
+  }
+  if (!data) return res.status(404).json({ error: 'not_found' })
+
+  res.json({ data })
+})
+
+router.delete('/pets/:id', async (req, res) => {
+  const supabaseAdmin = getSupabaseServiceRoleClient()
+  if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
+
+  const user = await getAuthenticatedUser(req)
+  if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+  const id = normalizeString(req.params.id)
+  if (!id) return res.status(400).json({ error: 'missing_id' })
+
+  const { error } = await supabaseAdmin
+    .from('consumer_pets')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id)
+
+  if (error) {
+    console.error('[marketplace] delete consumer pet error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.status(204).send()
+})
+
+router.get('/my-appointments', async (req, res) => {
+  const supabaseAdmin = getSupabaseServiceRoleClient()
+  if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
+
+  const user = await getAuthenticatedUser(req)
+  if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+  const limit = coerceLimit(req.query?.limit, 24)
+  const offset = coerceOffset(req.query?.offset)
+  const statusFilter = normalizeString(req.query?.status)
+  const dateFrom = normalizeDate(req.query?.date_from)
+  const dateTo = normalizeDate(req.query?.date_to)
+
+  let query = supabaseAdmin
+    .from('appointments')
+    .select(MARKETPLACE_APPOINTMENT_SELECT)
+    .eq('customers.user_id', user.id)
+    .order('appointment_date', { ascending: false })
+    .order('appointment_time', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (statusFilter) {
+    query = query.eq('status', statusFilter)
+  }
+  if (dateFrom) {
+    query = query.gte('appointment_date', dateFrom)
+  }
+  if (dateTo) {
+    query = query.lte('appointment_date', dateTo)
+  }
+
+  const { data, error } = await query
+  if (error) {
+    console.error('[marketplace] list my appointments error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  const nextOffset = data && data.length === limit ? offset + limit : null
+  res.json({ data: data || [], meta: { nextOffset } })
+})
+
+router.get('/my-appointments/:id', async (req, res) => {
+  const supabaseAdmin = getSupabaseServiceRoleClient()
+  if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
+
+  const user = await getAuthenticatedUser(req)
+  if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+  const id = normalizeString(req.params.id)
+  if (!id) return res.status(400).json({ error: 'missing_id' })
+
+  const { data, error } = await supabaseAdmin
+    .from('appointments')
+    .select(MARKETPLACE_APPOINTMENT_SELECT)
+    .eq('id', id)
+    .eq('customers.user_id', user.id)
+    .maybeSingle()
+
+  if (error) {
+    console.error('[marketplace] load my appointment error', error)
+    return res.status(500).json({ error: error.message })
+  }
+  if (!data) return res.status(404).json({ error: 'not_found' })
+
+  res.json({ data })
+})
+
+router.patch('/my-appointments/:id/cancel', async (req, res) => {
+  const supabaseAdmin = getSupabaseServiceRoleClient()
+  if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
+
+  const user = await getAuthenticatedUser(req)
+  if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+  const id = normalizeString(req.params.id)
+  if (!id) return res.status(400).json({ error: 'missing_id' })
+
+  const { data: appointment, error: loadError } = await supabaseAdmin
+    .from('appointments')
+    .select('id, status, customer_id, customers!inner ( user_id )')
+    .eq('id', id)
+    .eq('customers.user_id', user.id)
+    .maybeSingle()
+
+  if (loadError) {
+    console.error('[marketplace] cancel load appointment error', loadError)
+    return res.status(500).json({ error: loadError.message })
+  }
+  if (!appointment) return res.status(404).json({ error: 'not_found' })
+
+  if (appointment.status === 'completed') {
+    return res.status(400).json({ error: 'cannot_cancel_completed' })
+  }
+  if (appointment.status === 'cancelled') {
+    const { data: cancelledData, error: cancelledError } = await supabaseAdmin
+      .from('appointments')
+      .select(MARKETPLACE_APPOINTMENT_SELECT)
+      .eq('id', id)
+      .eq('customers.user_id', user.id)
+      .maybeSingle()
+    if (cancelledError) {
+      console.error('[marketplace] reload cancelled appointment error', cancelledError)
+      return res.status(500).json({ error: cancelledError.message })
+    }
+    return res.json({ data: cancelledData })
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from('appointments')
+    .update({ status: 'cancelled' })
+    .eq('id', id)
+    .eq('customer_id', appointment.customer_id)
+
+  if (updateError) {
+    console.error('[marketplace] cancel appointment error', updateError)
+    return res.status(500).json({ error: updateError.message })
+  }
+
+  const { data: updated, error: updatedError } = await supabaseAdmin
+    .from('appointments')
+    .select(MARKETPLACE_APPOINTMENT_SELECT)
+    .eq('id', id)
+    .eq('customers.user_id', user.id)
+    .maybeSingle()
+
+  if (updatedError) {
+    console.error('[marketplace] reload cancelled appointment error', updatedError)
+    return res.status(500).json({ error: updatedError.message })
+  }
+
+  res.json({ data: updated })
+})
+
 router.post('/booking-requests', async (req, res) => {
   const supabaseAdmin = getSupabaseServiceRoleClient()
   if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
@@ -246,12 +530,33 @@ router.post('/booking-requests', async (req, res) => {
     normalizeString(user.user_metadata?.display_name) ||
     (user.email ? user.email.split('@')[0] : null)
   const customerEmail = normalizeEmail(customerPayload.email || user.email)
+  let rawPhone = null
+  if (customerPayload.phone) {
+    rawPhone = customerPayload.phone
+  } else if (user.phone) {
+    rawPhone = user.phone
+  } else if (user.user_metadata?.phone) {
+    rawPhone = user.user_metadata.phone
+  }
+
+  let rawCountryCode = null
+  if (customerPayload.phoneCountryCode) {
+    rawCountryCode = customerPayload.phoneCountryCode
+  } else if (user.user_metadata?.phone_country_code) {
+    rawCountryCode = user.user_metadata.phone_country_code
+  }
+
+  let rawPhoneNumber = null
+  if (customerPayload.phoneNumber) {
+    rawPhoneNumber = customerPayload.phoneNumber
+  } else if (user.user_metadata?.phone_number) {
+    rawPhoneNumber = user.user_metadata.phone_number
+  }
+
   const phoneParts = normalizePhoneParts({
-    phone: customerPayload.phone || user.phone || user.user_metadata?.phone || null,
-    phoneCountryCode:
-      customerPayload.phoneCountryCode || customerPayload.phone_country_code || user.user_metadata?.phone_country_code || null,
-    phoneNumber:
-      customerPayload.phoneNumber || customerPayload.phone_number || user.user_metadata?.phone_number || null
+    phone: rawPhone,
+    phoneCountryCode: rawCountryCode,
+    phoneNumber: rawPhoneNumber
   })
   const customerPhone = phoneParts.phone
   const customerPhoneCountryCode = phoneParts.phone_country_code
@@ -344,20 +649,74 @@ router.post('/booking-requests', async (req, res) => {
   }
 
   const petPayload = sanitizeBody(payload.pet || {})
-  const petName = normalizeString(petPayload.name)
-  const petBreed = normalizeString(petPayload.breed)
-  const petWeight = normalizeNumber(petPayload.weight)
+  const savePetProfile = payload.save_pet === true || payload.savePet === true
+  const rawConsumerPetId = payload.pet_id || payload.petId || payload.consumer_pet_id
+  const consumerPetId = normalizeString(rawConsumerPetId)
+
+  let consumerPet = null
+  if (consumerPetId) {
+    const { data: consumerPetData, error: consumerPetError } = await supabaseAdmin
+      .from('consumer_pets')
+      .select(CONSUMER_PET_SELECT)
+      .eq('id', consumerPetId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (consumerPetError) {
+      console.error('[marketplace] load consumer pet error', consumerPetError)
+      return res.status(500).json({ error: consumerPetError.message })
+    }
+    if (!consumerPetData) {
+      return res.status(400).json({ error: 'pet_not_found' })
+    }
+    consumerPet = consumerPetData
+  }
+
+  const petName = normalizeString(consumerPet?.name || petPayload.name)
+  const petBreed = normalizeString(consumerPet?.breed || petPayload.breed)
+  const petWeight = normalizeNumber(
+    consumerPet?.weight !== undefined && consumerPet?.weight !== null
+      ? consumerPet.weight
+      : petPayload.weight
+  )
 
   if (!petName) return res.status(400).json({ error: 'pet_required' })
 
+  let resolvedConsumerPetId = consumerPet?.id || null
+  if (!resolvedConsumerPetId && savePetProfile) {
+    const { data: newConsumerPet, error: newConsumerPetError } = await supabaseAdmin
+      .from('consumer_pets')
+      .insert({
+        user_id: user.id,
+        name: petName,
+        breed: petBreed,
+        weight: petWeight
+      })
+      .select(CONSUMER_PET_SELECT)
+      .single()
+
+    if (newConsumerPetError) {
+      console.error('[marketplace] create consumer pet error', newConsumerPetError)
+      return res.status(500).json({ error: newConsumerPetError.message })
+    }
+
+    resolvedConsumerPetId = newConsumerPet?.id || null
+  }
+
   let pet = null
-  const { data: existingPet, error: petError } = await supabaseAdmin
+  let petQuery = supabaseAdmin
     .from('pets')
-    .select('id, name')
+    .select('id, name, breed, weight, consumer_pet_id')
     .eq('account_id', account.id)
     .eq('customer_id', customer.id)
-    .eq('name', petName)
-    .maybeSingle()
+
+  if (resolvedConsumerPetId) {
+    petQuery = petQuery.eq('consumer_pet_id', resolvedConsumerPetId)
+  } else {
+    petQuery = petQuery.eq('name', petName)
+  }
+
+  const { data: existingPet, error: petError } = await petQuery.maybeSingle()
 
   if (petError) {
     console.error('[marketplace] find pet error', petError)
@@ -373,7 +732,8 @@ router.post('/booking-requests', async (req, res) => {
         customer_id: customer.id,
         name: petName,
         breed: petBreed,
-        weight: petWeight
+        weight: petWeight,
+        consumer_pet_id: resolvedConsumerPetId
       })
       .select()
       .single()
@@ -383,6 +743,31 @@ router.post('/booking-requests', async (req, res) => {
       return res.status(500).json({ error: newPetError.message })
     }
     pet = newPet
+  } else {
+    const petUpdates = {}
+    if (!pet.consumer_pet_id && resolvedConsumerPetId) {
+      petUpdates.consumer_pet_id = resolvedConsumerPetId
+    }
+    if (!pet.breed && petBreed) petUpdates.breed = petBreed
+    if (pet.weight === null || pet.weight === undefined) {
+      if (petWeight !== null && petWeight !== undefined) {
+        petUpdates.weight = petWeight
+      }
+    }
+
+    if (Object.keys(petUpdates).length) {
+      const { data: updatedPet, error: updatePetError } = await supabaseAdmin
+        .from('pets')
+        .update(petUpdates)
+        .eq('id', pet.id)
+        .select()
+        .maybeSingle()
+      if (updatePetError) {
+        console.error('[marketplace] update pet error', updatePetError)
+      } else if (updatedPet) {
+        pet = updatedPet
+      }
+    }
   }
 
   const { data: appointment, error: appointmentError } = await supabaseAdmin

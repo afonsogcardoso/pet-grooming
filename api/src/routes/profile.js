@@ -73,8 +73,6 @@ router.patch('/', async (req, res) => {
     phone,
     phoneCountryCode,
     phoneNumber,
-    phone_country_code,
-    phone_number,
     locale,
     avatarUrl
   } = req.body || {}
@@ -87,17 +85,26 @@ router.patch('/', async (req, res) => {
   if ((trimmedFirstName || trimmedLastName) && displayName === undefined) {
     metadataUpdates.display_name = [trimmedFirstName, trimmedLastName].filter(Boolean).join(' ') || null
   }
-  if (
-    phone !== undefined ||
-    phoneCountryCode !== undefined ||
-    phoneNumber !== undefined ||
-    phone_country_code !== undefined ||
-    phone_number !== undefined
-  ) {
+  let hasPhonePayload = false
+  if (phone !== undefined) hasPhonePayload = true
+  if (phoneCountryCode !== undefined) hasPhonePayload = true
+  if (phoneNumber !== undefined) hasPhonePayload = true
+
+  if (hasPhonePayload) {
+    let resolvedCountryCode = undefined
+    if (phoneCountryCode !== undefined) {
+      resolvedCountryCode = phoneCountryCode
+    }
+
+    let resolvedPhoneNumber = undefined
+    if (phoneNumber !== undefined) {
+      resolvedPhoneNumber = phoneNumber
+    }
+
     const normalized = normalizePhoneParts({
       phone,
-      phoneCountryCode: phoneCountryCode ?? phone_country_code,
-      phoneNumber: phoneNumber ?? phone_number
+      phoneCountryCode: resolvedCountryCode,
+      phoneNumber: resolvedPhoneNumber
     })
     if (!normalized.phone_number) {
       metadataUpdates.phone = null
@@ -141,10 +148,15 @@ router.patch('/', async (req, res) => {
     updatedUser?.email ||
     null
   const responsePhone = normalizePhoneParts({
-    phone: updatedUser?.user_metadata?.phone ?? null,
-    phoneCountryCode: updatedUser?.user_metadata?.phone_country_code ?? null,
-    phoneNumber: updatedUser?.user_metadata?.phone_number ?? null
+    phone: updatedUser?.user_metadata?.phone,
+    phoneCountryCode: updatedUser?.user_metadata?.phone_country_code,
+    phoneNumber: updatedUser?.user_metadata?.phone_number
   })
+  const responsePhoneCountryCode =
+    responsePhone.phone_country_code === undefined ? null : responsePhone.phone_country_code
+  const responsePhoneNumber =
+    responsePhone.phone_number === undefined ? null : responsePhone.phone_number
+
   return res.json({
     user: {
       id: updatedUser?.id,
@@ -152,13 +164,13 @@ router.patch('/', async (req, res) => {
       displayName: updatedDisplayName,
       firstName: updatedFirstName,
       lastName: updatedLastName,
-      phone: responsePhone.phone ?? null,
-      phoneCountryCode: responsePhone.phone_country_code ?? null,
-      phoneNumber: responsePhone.phone_number ?? null,
-      locale: updatedUser?.user_metadata?.preferred_locale ?? null,
-      avatarUrl: updatedUser?.user_metadata?.avatar_url ?? null,
-      lastLoginAt: updatedUser?.last_sign_in_at ?? null,
-      createdAt: updatedUser?.created_at ?? null,
+      phone: responsePhone.phone === undefined ? null : responsePhone.phone,
+      phoneCountryCode: responsePhoneCountryCode,
+      phoneNumber: responsePhoneNumber,
+      locale: updatedUser?.user_metadata?.preferred_locale === undefined ? null : updatedUser?.user_metadata?.preferred_locale,
+      avatarUrl: updatedUser?.user_metadata?.avatar_url === undefined ? null : updatedUser?.user_metadata?.avatar_url,
+      lastLoginAt: updatedUser?.last_sign_in_at === undefined ? null : updatedUser?.last_sign_in_at,
+      createdAt: updatedUser?.created_at === undefined ? null : updatedUser?.created_at,
       platformAdmin: isPlatformAdmin(updatedUser)
     }
   })

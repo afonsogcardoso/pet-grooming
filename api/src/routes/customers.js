@@ -4,25 +4,41 @@ import crypto from 'crypto'
 import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../authClient.js'
 import { sanitizeBody } from '../utils/payload.js'
 import { normalizePhoneParts } from '../utils/phone.js'
+import { mapCustomerForApi } from '../utils/customer.js'
 
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
 const PET_PHOTO_BUCKET = 'pets'
 
 function applyPhonePayload(payload) {
-  const hasPhonePayload =
-    payload.phone !== undefined ||
-    payload.phoneCountryCode !== undefined ||
-    payload.phoneNumber !== undefined ||
-    payload.phone_country_code !== undefined ||
-    payload.phone_number !== undefined
+  if (Object.prototype.hasOwnProperty.call(payload, 'phone_country_code')) {
+    delete payload.phone_country_code
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'phone_number')) {
+    delete payload.phone_number
+  }
+
+  let hasPhonePayload = false
+  if (payload.phone !== undefined) hasPhonePayload = true
+  if (payload.phoneCountryCode !== undefined) hasPhonePayload = true
+  if (payload.phoneNumber !== undefined) hasPhonePayload = true
 
   if (!hasPhonePayload) return payload
 
+  let phoneCountryCode = undefined
+  if (payload.phoneCountryCode !== undefined) {
+    phoneCountryCode = payload.phoneCountryCode
+  }
+
+  let phoneNumber = undefined
+  if (payload.phoneNumber !== undefined) {
+    phoneNumber = payload.phoneNumber
+  }
+
   const normalized = normalizePhoneParts({
     phone: payload.phone,
-    phoneCountryCode: payload.phoneCountryCode ?? payload.phone_country_code,
-    phoneNumber: payload.phoneNumber ?? payload.phone_number
+    phoneCountryCode,
+    phoneNumber
   })
 
   if (!normalized.phone_number) {
@@ -66,7 +82,7 @@ router.get('/', async (req, res) => {
       pet_count: Array.isArray(customer.pets) ? customer.pets.length : 0
     })) || []
 
-  res.json({ data: enriched })
+  res.json({ data: (enriched || []).map(mapCustomerForApi) })
 })
 
 router.post('/', async (req, res) => {
@@ -85,7 +101,7 @@ router.post('/', async (req, res) => {
     return res.status(500).json({ error: error.message })
   }
 
-  res.status(201).json({ data })
+  res.status(201).json({ data: (data || []).map(mapCustomerForApi) })
 })
 
 router.get('/:id/pets', async (req, res) => {
@@ -150,7 +166,7 @@ router.patch('/:customerId/pets/:petId', async (req, res) => {
     return res.status(500).json({ error: error.message })
   }
 
-  res.json({ data })
+  res.json({ data: (data || []).map(mapCustomerForApi) })
 })
 
 router.delete('/:customerId/pets/:petId', async (req, res) => {
@@ -179,7 +195,7 @@ router.patch('/:id', async (req, res) => {
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
   const { id } = req.params
-  const payload = sanitizeBody(req.body || {})
+  const payload = applyPhonePayload(sanitizeBody(req.body || {}))
 
   let query = supabase.from('customers').update(payload).eq('id', id)
   if (accountId) {
@@ -193,7 +209,7 @@ router.patch('/:id', async (req, res) => {
     return res.status(500).json({ error: error.message })
   }
 
-  res.json({ data })
+  res.json({ data: (data || []).map(mapCustomerForApi) })
 })
 
 router.delete('/:id', async (req, res) => {

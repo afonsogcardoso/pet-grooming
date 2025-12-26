@@ -29,8 +29,8 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
   const initialPhone =
     customer?.phone ||
     buildPhone(
-      customer?.phone_country_code || null,
-      customer?.phone_number || null,
+      customer?.phoneCountryCode || null,
+      customer?.phoneNumber || null,
     );
   const [phone, setPhone] = useState(initialPhone || '');
   const [email, setEmail] = useState(customer?.email || '');

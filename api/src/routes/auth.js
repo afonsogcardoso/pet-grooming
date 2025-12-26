@@ -64,6 +64,7 @@ router.post('/auth/login', async (req, res) => {
   const lastName = user?.user_metadata?.last_name?.toString().trim() || null
   const derivedName = [firstName, lastName].filter(Boolean).join(' ') || null
   const displayName = user?.user_metadata?.display_name || derivedName || user?.email || null
+
   return res.json({
     token: session.access_token,
     refreshToken: session.refresh_token,
@@ -84,8 +85,6 @@ router.post('/auth/signup', async (req, res) => {
     phone,
     phoneCountryCode,
     phoneNumber,
-    phone_country_code,
-    phone_number,
     userType
   } = req.body || {}
   const normalizedUserType = userType === 'consumer' ? 'consumer' : 'provider'
@@ -111,10 +110,20 @@ router.post('/auth/signup', async (req, res) => {
   const supabaseAdmin = getSupabaseServiceRoleClient()
   if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
 
+  let resolvedCountryCode = undefined
+  if (phoneCountryCode !== undefined) {
+    resolvedCountryCode = phoneCountryCode
+  }
+
+  let resolvedPhoneNumber = undefined
+  if (phoneNumber !== undefined) {
+    resolvedPhoneNumber = phoneNumber
+  }
+
   const phoneParts = normalizePhoneParts({
     phone,
-    phoneCountryCode: phoneCountryCode ?? phone_country_code,
-    phoneNumber: phoneNumber ?? phone_number
+    phoneCountryCode: resolvedCountryCode,
+    phoneNumber: resolvedPhoneNumber
   })
   const metadata = {
     display_name: `${trimmedFirstName} ${trimmedLastName}`,
@@ -212,6 +221,7 @@ router.post('/auth/signup', async (req, res) => {
   }
 
   const { session, user } = signInData
+
   return res.json({
     token: session.access_token,
     refreshToken: session.refresh_token,
@@ -289,6 +299,11 @@ router.get('/profile', async (req, res) => {
     phoneCountryCode: user.user_metadata?.phone_country_code,
     phoneNumber: user.user_metadata?.phone_number
   })
+  const responsePhone = profilePhone.phone === undefined ? null : profilePhone.phone
+  const responsePhoneCountryCode =
+    profilePhone.phone_country_code === undefined ? null : profilePhone.phone_country_code
+  const responsePhoneNumber =
+    profilePhone.phone_number === undefined ? null : profilePhone.phone_number
   return res.json({
     id: user.id,
     email: user.email,
@@ -299,9 +314,9 @@ router.get('/profile', async (req, res) => {
       null,
     firstName: user.user_metadata?.first_name ?? null,
     lastName: user.user_metadata?.last_name ?? null,
-    phone: profilePhone.phone ?? null,
-    phoneCountryCode: profilePhone.phone_country_code ?? null,
-    phoneNumber: profilePhone.phone_number ?? null,
+    phone: responsePhone,
+    phoneCountryCode: responsePhoneCountryCode,
+    phoneNumber: responsePhoneNumber,
     locale: user.user_metadata?.preferred_locale ?? 'pt',
     avatarUrl: user.user_metadata?.avatar_url ?? null,
     userType: user.user_metadata?.user_type ?? 'provider',

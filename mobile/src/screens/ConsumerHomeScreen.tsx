@@ -35,10 +35,22 @@ export default function ConsumerHomeScreen({ navigation }: Props) {
             style={styles.primaryButton}
           />
           <Button
+            title={t('consumerHome.appointmentsAction')}
+            onPress={() => navigation.navigate('ConsumerAppointments')}
+            variant="outline"
+            style={styles.secondaryButton}
+          />
+          <Button
+            title={t('consumerHome.petsAction')}
+            onPress={() => navigation.navigate('ConsumerPets')}
+            variant="outline"
+            style={styles.secondaryButton}
+          />
+          <Button
             title={t('consumerHome.profileAction')}
             onPress={() => navigation.navigate('Profile')}
             variant="outline"
-            style={styles.secondaryButton}
+            style={styles.tertiaryButton}
           />
         </View>
       </View>
@@ -90,6 +102,9 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginBottom: 10,
     },
     secondaryButton: {
+      marginTop: 2,
+    },
+    tertiaryButton: {
       marginTop: 2,
     },
   });

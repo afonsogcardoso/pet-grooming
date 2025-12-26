@@ -2,6 +2,7 @@ import { Router } from 'express'
 import multer from 'multer'
 import crypto from 'crypto'
 import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../authClient.js'
+import { mapAppointmentForApi } from '../utils/customer.js'
 
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
@@ -264,7 +265,7 @@ router.get('/', async (req, res) => {
 
   const nextOffset = data.length === limit ? offset + limit : null
 
-  res.json({ data, meta: { nextOffset } })
+  res.json({ data: (data || []).map(mapAppointmentForApi), meta: { nextOffset } })
 })
 
 router.post('/', async (req, res) => {
@@ -321,7 +322,7 @@ router.post('/', async (req, res) => {
     }
   }
 
-  res.status(201).json({ data: appointment })
+  res.status(201).json({ data: mapAppointmentForApi(appointment) })
 })
 
 // Get single appointment
@@ -378,7 +379,7 @@ router.get('/:id', async (req, res) => {
     return res.status(404).json({ error: 'Not found' })
   }
 
-  res.json({ data })
+  res.json({ data: mapAppointmentForApi(data) })
 })
 
 router.patch('/:id/status', async (req, res) => {
@@ -421,7 +422,7 @@ router.patch('/:id/status', async (req, res) => {
     return res.status(500).json({ error: error.message })
   }
 
-  res.json({ data })
+  res.json({ data: Array.isArray(data) ? data.map(mapAppointmentForApi) : mapAppointmentForApi(data) })
 })
 
 router.patch('/:id', async (req, res) => {
@@ -537,7 +538,7 @@ router.patch('/:id', async (req, res) => {
     }
   }
 
-  res.json({ data: appointment })
+  res.json({ data: mapAppointmentForApi(appointment) })
 })
 
 router.delete('/:id', async (req, res) => {
@@ -831,7 +832,7 @@ router.get('/:id/share', async (req, res) => {
       time: appointment.appointment_time,
       status: appointment.status,
       notes: appointment.notes,
-      customer: appointment.customers,
+      customer: mapAppointmentForApi({ customers: appointment.customers }).customers,
       pet: appointment.pets,
       services: appointment.appointment_services?.map(as => as.services) || [],
       photos: signedUrls

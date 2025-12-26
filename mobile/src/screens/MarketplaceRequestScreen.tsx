@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,16 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Switch,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Button, Input, PhoneInput } from '../components/common';
 import { DateTimePickerModal } from '../components/appointment/DateTimePickerModal';
-import { createMarketplaceBooking } from '../api/marketplace';
+import { createMarketplaceBooking, MarketplaceBookingPayload } from '../api/marketplace';
+import { getConsumerPets } from '../api/consumerPets';
 import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 
@@ -76,6 +78,28 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
   const [petBreed, setPetBreed] = useState('');
   const [petWeight, setPetWeight] = useState('');
   const [notes, setNotes] = useState('');
+  const [useProfilePet, setUseProfilePet] = useState(true);
+  const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
+  const [savePetProfile, setSavePetProfile] = useState(true);
+
+  const { data: profilePets = [], isLoading: loadingProfilePets } = useQuery({
+    queryKey: ['consumerPets'],
+    queryFn: getConsumerPets,
+  });
+  const hasProfilePets = profilePets.length > 0;
+
+  useEffect(() => {
+    if (!hasProfilePets) {
+      if (!loadingProfilePets) {
+        setUseProfilePet(false);
+        setSelectedPetId(null);
+      }
+      return;
+    }
+    if (useProfilePet && !selectedPetId) {
+      setSelectedPetId(profilePets[0]?.id || null);
+    }
+  }, [hasProfilePets, loadingProfilePets, profilePets, selectedPetId, useProfilePet]);
 
   const parsedDate = useMemo(() => new Date(`${date}T00:00:00`), [date]);
   const parsedTime = useMemo(() => new Date(`1970-01-01T${time}:00`), [time]);
@@ -133,14 +157,24 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
     const trimmedBreed = petBreed.trim();
     const trimmedNotes = notes.trim();
 
-    if (!trimmedName || !trimmedEmail || !trimmedPhone || !trimmedPetName) {
+    if (!trimmedName || !trimmedEmail || !trimmedPhone) {
+      Alert.alert(t('marketplaceRequest.errorTitle'), t('marketplaceRequest.missingFields'));
+      return;
+    }
+
+    if (useProfilePet && !selectedPetId) {
+      Alert.alert(t('marketplaceRequest.errorTitle'), t('marketplaceRequest.selectPet'));
+      return;
+    }
+
+    if (!useProfilePet && !trimmedPetName) {
       Alert.alert(t('marketplaceRequest.errorTitle'), t('marketplaceRequest.missingFields'));
       return;
     }
 
     const weightValue = petWeight ? Number(petWeight.replace(',', '.')) : null;
 
-    mutation.mutate({
+    const payload: MarketplaceBookingPayload = {
       account_slug: accountSlug,
       service_id: serviceId,
       appointment_date: date,
@@ -151,12 +185,20 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
         email: trimmedEmail,
         phone: trimmedPhone,
       },
-      pet: {
+    };
+
+    if (useProfilePet) {
+      payload.pet_id = selectedPetId;
+    } else {
+      payload.pet = {
         name: trimmedPetName,
         breed: trimmedBreed || null,
         weight: Number.isNaN(weightValue) ? null : weightValue,
-      },
-    });
+      };
+      payload.save_pet = savePetProfile;
+    }
+
+    mutation.mutate(payload);
   };
 
   return (
@@ -208,25 +250,102 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('marketplaceRequest.petTitle')}</Text>
-          <Input
-            label={t('marketplaceRequest.petName')}
-            value={petName}
-            onChangeText={setPetName}
-            placeholder={t('marketplaceRequest.petName')}
-          />
-          <Input
-            label={t('marketplaceRequest.petBreed')}
-            value={petBreed}
-            onChangeText={setPetBreed}
-            placeholder={t('marketplaceRequest.petBreed')}
-          />
-          <Input
-            label={t('marketplaceRequest.petWeight')}
-            value={petWeight}
-            onChangeText={setPetWeight}
-            placeholder={t('marketplaceRequest.petWeight')}
-            keyboardType={Platform.OS === 'ios' ? 'decimal-pad' : 'numeric'}
-          />
+          {hasProfilePets ? (
+            <View style={styles.petToggleRow}>
+              <TouchableOpacity
+                style={[
+                  styles.petToggleButton,
+                  useProfilePet && styles.petToggleButtonActive,
+                ]}
+                onPress={() => setUseProfilePet(true)}
+              >
+                <Text
+                  style={[
+                    styles.petToggleText,
+                    useProfilePet && styles.petToggleTextActive,
+                  ]}
+                >
+                  {t('marketplaceRequest.useProfilePet')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.petToggleButton,
+                  !useProfilePet && styles.petToggleButtonActive,
+                ]}
+                onPress={() => setUseProfilePet(false)}
+              >
+                <Text
+                  style={[
+                    styles.petToggleText,
+                    !useProfilePet && styles.petToggleTextActive,
+                  ]}
+                >
+                  {t('marketplaceRequest.addNewPet')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {useProfilePet && hasProfilePets ? (
+            <View style={styles.petOptions}>
+              {profilePets.map((pet) => {
+                const isSelected = pet.id === selectedPetId;
+                return (
+                  <TouchableOpacity
+                    key={pet.id}
+                    style={[
+                      styles.petOptionCard,
+                      isSelected && styles.petOptionCardActive,
+                    ]}
+                    onPress={() => setSelectedPetId(pet.id)}
+                  >
+                    <Text style={styles.petOptionName}>{pet.name}</Text>
+                    {pet.breed ? (
+                      <Text style={styles.petOptionMeta}>{pet.breed}</Text>
+                    ) : null}
+                    {pet.weight !== undefined && pet.weight !== null ? (
+                      <Text style={styles.petOptionMeta}>
+                        {pet.weight} {t('marketplaceRequest.weightUnit')}
+                      </Text>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : (
+            <>
+              <Input
+                label={t('marketplaceRequest.petName')}
+                value={petName}
+                onChangeText={setPetName}
+                placeholder={t('marketplaceRequest.petName')}
+              />
+              <Input
+                label={t('marketplaceRequest.petBreed')}
+                value={petBreed}
+                onChangeText={setPetBreed}
+                placeholder={t('marketplaceRequest.petBreed')}
+              />
+              <Input
+                label={t('marketplaceRequest.petWeight')}
+                value={petWeight}
+                onChangeText={setPetWeight}
+                placeholder={t('marketplaceRequest.petWeight')}
+                keyboardType={Platform.OS === 'ios' ? 'decimal-pad' : 'numeric'}
+              />
+              <View style={styles.savePetRow}>
+                <Text style={styles.savePetLabel}>{t('marketplaceRequest.savePet')}</Text>
+                <Switch
+                  value={savePetProfile}
+                  onValueChange={setSavePetProfile}
+                  trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                  thumbColor={savePetProfile ? colors.primary : colors.surface}
+                />
+              </View>
+              <Text style={styles.savePetHint}>{t('marketplaceRequest.savePetHint')}</Text>
+            </>
+          )}
           <Input
             label={t('marketplaceRequest.notes')}
             value={notes}
@@ -321,6 +440,74 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     notesInput: {
       minHeight: 80,
       textAlignVertical: 'top',
+    },
+    petToggleRow: {
+      flexDirection: 'row',
+      gap: 10,
+      marginBottom: 12,
+    },
+    petToggleButton: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: colors.surfaceBorder,
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+    },
+    petToggleButtonActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primarySoft,
+    },
+    petToggleText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    petToggleTextActive: {
+      color: colors.primary,
+    },
+    petOptions: {
+      gap: 10,
+      marginBottom: 12,
+    },
+    petOptionCard: {
+      padding: 12,
+      borderRadius: 14,
+      borderWidth: 1.2,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.surface,
+    },
+    petOptionCardActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primarySoft,
+    },
+    petOptionName: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 4,
+    },
+    petOptionMeta: {
+      fontSize: 12,
+      color: colors.muted,
+    },
+    savePetRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 6,
+      marginBottom: 4,
+    },
+    savePetLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    savePetHint: {
+      fontSize: 12,
+      color: colors.muted,
+      marginBottom: 8,
     },
     submitButton: {
       marginTop: 8,

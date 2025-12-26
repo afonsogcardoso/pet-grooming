@@ -15,6 +15,8 @@ export type Appointment = {
     id: string;
     name?: string | null;
     phone?: string | null;
+    phoneCountryCode?: string | null;
+    phoneNumber?: string | null;
     address?: string | null;
     nif?: string | null;
   } | null;

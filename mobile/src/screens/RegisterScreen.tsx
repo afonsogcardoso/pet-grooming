@@ -105,6 +105,7 @@ export default function RegisterScreen({ navigation }: Props) {
       setApiError(message);
     },
   });
+  const isSubmitting = isPending;
 
   const onSubmit = handleSubmit(async (values) => {
     if (values.registerAs === 'provider' && !values.accountName?.trim()) {

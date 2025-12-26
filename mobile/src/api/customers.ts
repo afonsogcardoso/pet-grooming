@@ -12,8 +12,8 @@ export type Customer = {
   id: string;
   name: string;
   phone?: string | null;
-  phone_country_code?: string | null;
-  phone_number?: string | null;
+  phoneCountryCode?: string | null;
+  phoneNumber?: string | null;
   email?: string | null;
   address?: string | null;
   nif?: string | null;
