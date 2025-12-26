@@ -65,9 +65,16 @@ router.patch('/', async (req, res) => {
   const user = await getAuthenticatedUser(req)
   if (!user) return res.status(401).json({ error: 'Unauthorized' })
 
-  const { displayName, phone, locale, avatarUrl } = req.body || {}
+  const { displayName, firstName, lastName, phone, locale, avatarUrl } = req.body || {}
   const metadataUpdates = {}
+  const trimmedFirstName = firstName?.toString().trim()
+  const trimmedLastName = lastName?.toString().trim()
+  if (trimmedFirstName !== undefined) metadataUpdates.first_name = trimmedFirstName || null
+  if (trimmedLastName !== undefined) metadataUpdates.last_name = trimmedLastName || null
   if (displayName !== undefined) metadataUpdates.display_name = displayName?.trim() || null
+  if ((trimmedFirstName || trimmedLastName) && displayName === undefined) {
+    metadataUpdates.display_name = [trimmedFirstName, trimmedLastName].filter(Boolean).join(' ') || null
+  }
   if (phone !== undefined) metadataUpdates.phone = phone?.trim() || null
   if (locale !== undefined) {
     const normalized = ALLOWED_LOCALES.includes(locale) ? locale : null
@@ -92,7 +99,29 @@ router.patch('/', async (req, res) => {
   })
 
   if (error) return res.status(500).json({ error: error.message })
-  return res.json({ user: data.user })
+  const updatedUser = data.user
+  const updatedFirstName = updatedUser?.user_metadata?.first_name ?? null
+  const updatedLastName = updatedUser?.user_metadata?.last_name ?? null
+  const updatedDisplayName =
+    updatedUser?.user_metadata?.display_name ||
+    [updatedFirstName, updatedLastName].filter(Boolean).join(' ') ||
+    updatedUser?.email ||
+    null
+  return res.json({
+    user: {
+      id: updatedUser?.id,
+      email: updatedUser?.email,
+      displayName: updatedDisplayName,
+      firstName: updatedFirstName,
+      lastName: updatedLastName,
+      phone: updatedUser?.user_metadata?.phone ?? null,
+      locale: updatedUser?.user_metadata?.preferred_locale ?? null,
+      avatarUrl: updatedUser?.user_metadata?.avatar_url ?? null,
+      lastLoginAt: updatedUser?.last_sign_in_at ?? null,
+      createdAt: updatedUser?.created_at ?? null,
+      platformAdmin: isPlatformAdmin(updatedUser)
+    }
+  })
 })
 
 router.post('/avatar', upload.single('file'), async (req, res) => {

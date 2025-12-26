@@ -15,6 +15,7 @@ import profileRouter from './routes/profile.js'
 import adminRouter from './routes/admin.js'
 import publicRouter from './routes/public.js'
 import accountMembersRouter from './routes/accountMembers.js'
+import marketplaceRouter from './routes/marketplace.js'
 
 const envResult = dotenv.config({ path: '.env.local' })
 if (envResult.error) {
@@ -185,7 +186,8 @@ const swaggerDefinition = {
     { name: 'Appointments', description: 'Appointments lifecycle' },
     { name: 'Customers', description: 'Customers and their pets' },
     { name: 'Services', description: 'Service catalog' },
-    { name: 'Branding', description: 'Branding/theme per tenant' }
+    { name: 'Branding', description: 'Branding/theme per tenant' },
+    { name: 'Marketplace', description: 'Marketplace discovery and requests' }
   ],
   servers: [
     {
@@ -737,5 +739,6 @@ app.use('/api/v1/branding', brandingRouter)
 app.use('/api/v1/account', accountMembersRouter)
 app.use('/api/v1/admin', adminRouter)
 app.use('/api/v1/public', publicRouter)
+app.use('/api/v1/marketplace', marketplaceRouter)
 
 export default app
