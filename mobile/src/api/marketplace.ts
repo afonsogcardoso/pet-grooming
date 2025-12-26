@@ -10,6 +10,10 @@ export type MarketplaceAccount = {
   support_phone?: string | null;
   marketplace_categories?: string[] | null;
   marketplace_description?: string | null;
+  marketplace_instagram_url?: string | null;
+  marketplace_facebook_url?: string | null;
+  marketplace_tiktok_url?: string | null;
+  marketplace_website_url?: string | null;
   brand_primary?: string | null;
   brand_primary_soft?: string | null;
   brand_accent?: string | null;

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image, Dimensions, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -57,71 +57,90 @@ export default function HomeScreen({ navigation }: Props) {
         )}
       </View>
 
-      {/* Hero Card */}
-      <View style={[styles.heroCard, { backgroundColor: primary }]}>
-        {heroImage ? (
-          <Image
-            source={{ uri: heroImage }}
-            style={styles.heroImage}
-            resizeMode="cover"
-          />
-        ) : null}
-        <View style={styles.heroOverlay}>
-          <View style={[styles.heroBadge, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
-          <Text style={styles.heroBadgeText}>✨ {accountName}</Text>
-        </View>
-        <Text style={styles.heroTitle}>{t('home.welcomeBack')}</Text>
-        <Text style={styles.heroSubtitle}>{t('home.heroSubtitle')}</Text>
-        </View>
-      </View>
-
-      {/* Quick Actions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('home.quickActions')}</Text>
-        
-        <TouchableOpacity 
-          style={[styles.primaryAction, { backgroundColor: primary }]}
-          onPress={() => navigation.navigate('NewAppointment')}
-        >
-          <View style={styles.actionIcon}>
-            <Text style={styles.actionIconText}>✨</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Hero Card */}
+        <View style={[styles.heroCard, { backgroundColor: primary }]}>
+          {heroImage ? (
+            <Image
+              source={{ uri: heroImage }}
+              style={styles.heroImage}
+              resizeMode="cover"
+            />
+          ) : null}
+          <View style={styles.heroOverlay}>
+            <View style={[styles.heroBadge, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
+              <Text style={styles.heroBadgeText}>✨ {accountName}</Text>
+            </View>
+            <Text style={styles.heroTitle}>{t('home.welcomeBack')}</Text>
+            <Text style={styles.heroSubtitle}>{t('home.heroSubtitle')}</Text>
           </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>{t('home.newAppointmentTitle')}</Text>
-            <Text style={styles.actionSubtitle}>{t('home.newAppointmentSubtitle')}</Text>
-          </View>
-          <Text style={styles.actionArrow}>→</Text>
-        </TouchableOpacity>
-
-        <View style={styles.secondaryActions}>
-          <TouchableOpacity 
-            style={styles.secondaryAction}
-            onPress={() => navigation.navigate('Appointments')}
-          >
-            <Text style={styles.secondaryActionIcon}>📅</Text>
-            <Text style={styles.secondaryActionTitle}>{t('home.appointmentsTitle')}</Text>
-            <Text style={styles.secondaryActionSubtitle}>{t('home.appointmentsSubtitle')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.secondaryAction}
-            onPress={() => navigation.navigate('Customers')}
-          >
-            <Text style={styles.secondaryActionIcon}>👥</Text>
-            <Text style={styles.secondaryActionTitle}>{t('home.customersTitle')}</Text>
-            <Text style={styles.secondaryActionSubtitle}>{t('home.customersSubtitle')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.secondaryAction}
-            onPress={() => navigation.navigate('Services')}
-          >
-            <Text style={styles.secondaryActionIcon}>✂️</Text>
-            <Text style={styles.secondaryActionTitle}>{t('home.servicesTitle')}</Text>
-            <Text style={styles.secondaryActionSubtitle}>{t('home.servicesSubtitle')}</Text>
-          </TouchableOpacity>
         </View>
-      </View>
+
+        {/* Quick Actions */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('home.quickActions')}</Text>
+          
+          <TouchableOpacity 
+            style={[styles.primaryAction, { backgroundColor: primary }]}
+            onPress={() => navigation.navigate('NewAppointment')}
+          >
+            <View style={styles.actionIcon}>
+              <Text style={styles.actionIconText}>✨</Text>
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>{t('home.newAppointmentTitle')}</Text>
+              <Text style={styles.actionSubtitle}>{t('home.newAppointmentSubtitle')}</Text>
+            </View>
+            <Text style={styles.actionArrow}>→</Text>
+          </TouchableOpacity>
+
+          <View style={styles.secondaryActions}>
+            <TouchableOpacity 
+              style={styles.secondaryAction}
+              onPress={() => navigation.navigate('Appointments')}
+            >
+              <Text style={styles.secondaryActionIcon}>📅</Text>
+              <Text style={styles.secondaryActionTitle}>{t('home.appointmentsTitle')}</Text>
+              <Text style={styles.secondaryActionSubtitle}>{t('home.appointmentsSubtitle')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.secondaryAction}
+              onPress={() => navigation.navigate('Customers')}
+            >
+              <Text style={styles.secondaryActionIcon}>👥</Text>
+              <Text style={styles.secondaryActionTitle}>{t('home.customersTitle')}</Text>
+              <Text style={styles.secondaryActionSubtitle}>{t('home.customersSubtitle')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.secondaryAction}
+              onPress={() => navigation.navigate('Services')}
+            >
+              <Text style={styles.secondaryActionIcon}>✂️</Text>
+              <Text style={styles.secondaryActionTitle}>{t('home.servicesTitle')}</Text>
+              <Text style={styles.secondaryActionSubtitle}>{t('home.servicesSubtitle')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.marketplaceSection}>
+            <Text style={styles.sectionTitle}>{t('home.marketplaceSection')}</Text>
+            <TouchableOpacity
+              style={[styles.marketplaceCard, { borderColor: primarySoft }]}
+              onPress={() => navigation.navigate('MarketplaceProfile')}
+            >
+              <View style={[styles.marketplaceIcon, { backgroundColor: primarySoft }]}>
+                <Text style={styles.marketplaceIconText}>🛍️</Text>
+              </View>
+              <View style={styles.marketplaceContent}>
+                <Text style={styles.marketplaceTitle}>{t('home.marketplaceProfileTitle')}</Text>
+                <Text style={styles.marketplaceSubtitle}>{t('home.marketplaceProfileSubtitle')}</Text>
+              </View>
+              <Text style={styles.marketplaceArrow}>→</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -133,6 +152,9 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     container: {
       flex: 1,
       backgroundColor: colors.background,
+    },
+    scrollContent: {
+      paddingBottom: 28,
     },
     header: {
       flexDirection: 'row',
@@ -240,7 +262,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     section: {
       paddingHorizontal: 20,
-      flex: 1,
     },
     sectionTitle: {
       fontSize: 20,
@@ -323,6 +344,52 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.muted,
       textAlign: 'center',
       fontWeight: '500',
+    },
+    marketplaceSection: {
+      marginTop: 20,
+    },
+    marketplaceCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 16,
+      borderWidth: 1,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    marketplaceIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    marketplaceIconText: {
+      fontSize: 22,
+    },
+    marketplaceContent: {
+      flex: 1,
+    },
+    marketplaceTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 2,
+    },
+    marketplaceSubtitle: {
+      fontSize: 13,
+      color: colors.muted,
+    },
+    marketplaceArrow: {
+      fontSize: 22,
+      color: colors.text,
+      fontWeight: '700',
+      marginLeft: 8,
     },
   });
 }

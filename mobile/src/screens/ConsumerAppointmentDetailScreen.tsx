@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -75,7 +76,8 @@ export default function ConsumerAppointmentDetailScreen({ route }: Props) {
     },
   });
 
-  const canCancel = appointment?.status && !['completed', 'cancelled'].includes(appointment.status);
+  const canCancel =
+    appointment?.status && !['completed', 'cancelled', 'in_progress'].includes(appointment.status);
   const statusColor = getStatusColor(appointment?.status);
   const serviceItems = appointment ? buildServiceItems(appointment, t('common.service')) : [];
   const dateLabel = appointment ? formatDate(appointment.appointment_date) || t('common.noDate') : '';
@@ -99,19 +101,25 @@ export default function ConsumerAppointmentDetailScreen({ route }: Props) {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['top', 'left', 'right']}
+      >
         <ScreenHeader title={t('consumerAppointmentDetail.title')} />
         <View style={styles.loadingState}>
           <ActivityIndicator color={colors.primary} />
           <Text style={styles.loadingText}>{t('common.loading')}</Text>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (error || !appointment) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['top', 'left', 'right']}
+      >
         <ScreenHeader title={t('consumerAppointmentDetail.title')} />
         <View style={styles.errorCard}>
           <Text style={styles.errorText}>⚠️ {t('consumerAppointmentDetail.loadError')}</Text>
@@ -122,12 +130,15 @@ export default function ConsumerAppointmentDetailScreen({ route }: Props) {
             style={styles.retryButton}
           />
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top', 'left', 'right']}
+    >
       <ScreenHeader title={t('consumerAppointmentDetail.title')} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.providerCard}>
@@ -209,7 +220,7 @@ export default function ConsumerAppointmentDetailScreen({ route }: Props) {
           style={styles.cancelButton}
         />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

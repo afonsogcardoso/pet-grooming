@@ -27,6 +27,7 @@ import ConsumerPetFormScreen from './src/screens/ConsumerPetFormScreen';
 import MarketplaceScreen from './src/screens/MarketplaceScreen';
 import MarketplaceAccountScreen from './src/screens/MarketplaceAccountScreen';
 import MarketplaceRequestScreen from './src/screens/MarketplaceRequestScreen';
+import MarketplaceProfileScreen from './src/screens/MarketplaceProfileScreen';
 import { useAuthStore } from './src/state/authStore';
 import { Branding, getBranding } from './src/api/branding';
 import { getProfile } from './src/api/profile';
@@ -272,6 +273,7 @@ export default function App() {
                     <Stack.Screen name="PetForm" component={PetFormScreen} options={{ headerShown: false }} />
                     <Stack.Screen name="Services" component={ServicesScreen} options={{ headerShown: false }} />
                     <Stack.Screen name="ServiceForm" component={ServiceFormScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="MarketplaceProfile" component={MarketplaceProfileScreen} options={{ headerShown: false }} />
                   </>
                 )
               ) : (

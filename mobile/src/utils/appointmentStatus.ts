@@ -1,6 +1,6 @@
 import i18n from '../i18n';
 
-export type AppointmentStatus = 'scheduled' | 'pending' | 'completed' | 'cancelled';
+export type AppointmentStatus = 'scheduled' | 'pending' | 'in_progress' | 'completed' | 'cancelled';
 
 /**
  * Retorna a cor associada a cada estado de marcação
@@ -10,7 +10,9 @@ export function getStatusColor(status?: string | null): string {
     case 'scheduled':
       return '#F47C1C'; // laranja principal
     case 'pending':
-      return '#FFA85C'; // laranja claro
+      return '#F59E0B'; // pendente
+    case 'in_progress':
+      return '#F97316'; // em progresso
     case 'completed':
       return '#10b981'; // verde
     case 'cancelled':
@@ -29,6 +31,8 @@ export function getStatusLabel(status?: string | null): string {
       return i18n.t('status.scheduled');
     case 'pending':
       return i18n.t('status.pending');
+    case 'in_progress':
+      return i18n.t('status.in_progress');
     case 'completed':
       return i18n.t('status.completed');
     case 'cancelled':
@@ -47,6 +51,8 @@ export function getStatusButtonLabel(status?: string | null): string {
       return i18n.t('status.button.scheduled');
     case 'pending':
       return i18n.t('status.button.pending');
+    case 'in_progress':
+      return i18n.t('status.button.in_progress');
     case 'completed':
       return i18n.t('status.button.completed');
     case 'cancelled':

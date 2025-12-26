@@ -139,9 +139,9 @@
   },
   "marketplaceRequest": {
     "title": "Pedido de marcação",
-    "scheduleTitle": "Agendamento",
-    "date": "Data",
-    "time": "Hora",
+    "scheduleTitle": "Agendamento preferencial",
+    "date": "Data preferencial",
+    "time": "Hora preferencial",
     "contactTitle": "Contactos",
     "petTitle": "Detalhes do animal",
     "petName": "Nome do animal",
@@ -175,7 +175,35 @@
     "customersTitle": "Clientes",
     "customersSubtitle": "Gerir clientes e animais",
     "servicesTitle": "Serviços",
-    "servicesSubtitle": "Gerir catálogo"
+    "servicesSubtitle": "Gerir catálogo",
+    "marketplaceSection": "Marketplace",
+    "marketplaceProfileTitle": "Perfil no marketplace",
+    "marketplaceProfileSubtitle": "Atualize nome, logótipo e redes sociais"
+  },
+  "marketplaceProfile": {
+    "title": "Perfil do marketplace",
+    "logoTitle": "Logótipo",
+    "logoHelper": "O logótipo aparece nas listagens.",
+    "changeLogo": "Alterar logótipo",
+    "businessSection": "Informação do negócio",
+    "nameLabel": "Nome no marketplace",
+    "namePlaceholder": "Nome do negócio",
+    "descriptionLabel": "Descrição",
+    "descriptionPlaceholder": "Apresente os seus serviços",
+    "socialTitle": "Redes sociais",
+    "instagramLabel": "Instagram",
+    "instagramPlaceholder": "https://instagram.com/...",
+    "facebookLabel": "Facebook",
+    "facebookPlaceholder": "https://facebook.com/...",
+    "tiktokLabel": "TikTok",
+    "tiktokPlaceholder": "https://tiktok.com/@...",
+    "websiteLabel": "Website",
+    "websitePlaceholder": "https://...",
+    "saveAction": "Guardar alterações",
+    "nameRequired": "O nome do negócio é obrigatório.",
+    "updateError": "Não foi possível guardar as alterações.",
+    "loadError": "Não foi possível carregar o perfil do marketplace.",
+    "logoUploadError": "Não foi possível carregar o logótipo."
   },
   "appointments": {
     "title": "Marcações",
@@ -220,13 +248,15 @@
     "legendToday": "Hoje"
   },
   "status": {
-    "scheduled": "Agendado",
-    "pending": "Em progresso",
+    "scheduled": "Confirmado",
+    "pending": "Pendente",
+    "in_progress": "Em progresso",
     "completed": "Concluído",
     "cancelled": "Cancelado",
     "button": {
-      "scheduled": "Agendar",
-      "pending": "Em progresso",
+      "scheduled": "Confirmar",
+      "pending": "Pendente",
+      "in_progress": "Iniciar",
       "completed": "Concluir",
       "cancelled": "Cancelar"
     }

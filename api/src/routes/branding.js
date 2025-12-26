@@ -17,7 +17,12 @@ const DEFAULT_BRANDING = {
   logo_url: null,
   portal_image_url: null,
   support_email: null,
-  support_phone: null
+  support_phone: null,
+  marketplace_description: null,
+  marketplace_instagram_url: null,
+  marketplace_facebook_url: null,
+  marketplace_tiktok_url: null,
+  marketplace_website_url: null
 }
 
 function getBearer(req) {
@@ -99,7 +104,12 @@ router.get('/', async (req, res) => {
       logo_url,
       portal_image_url,
       support_email,
-      support_phone
+      support_phone,
+      marketplace_description,
+      marketplace_instagram_url,
+      marketplace_facebook_url,
+      marketplace_tiktok_url,
+      marketplace_website_url
     `
     )
     .eq('id', accountId)
@@ -127,7 +137,16 @@ router.get('/', async (req, res) => {
       logo_url: data.logo_url || DEFAULT_BRANDING.logo_url,
       portal_image_url: data.portal_image_url || DEFAULT_BRANDING.portal_image_url,
       support_email: data.support_email || DEFAULT_BRANDING.support_email,
-      support_phone: data.support_phone || DEFAULT_BRANDING.support_phone
+      support_phone: data.support_phone || DEFAULT_BRANDING.support_phone,
+      marketplace_description: data.marketplace_description || DEFAULT_BRANDING.marketplace_description,
+      marketplace_instagram_url:
+        data.marketplace_instagram_url || DEFAULT_BRANDING.marketplace_instagram_url,
+      marketplace_facebook_url:
+        data.marketplace_facebook_url || DEFAULT_BRANDING.marketplace_facebook_url,
+      marketplace_tiktok_url:
+        data.marketplace_tiktok_url || DEFAULT_BRANDING.marketplace_tiktok_url,
+      marketplace_website_url:
+        data.marketplace_website_url || DEFAULT_BRANDING.marketplace_website_url
     }
   })
 })
@@ -153,18 +172,46 @@ router.patch('/', async (req, res) => {
     'portal_image_url',
     'support_email',
     'support_phone',
-    'name'
+    'name',
+    'marketplace_description',
+    'marketplace_instagram_url',
+    'marketplace_facebook_url',
+    'marketplace_tiktok_url',
+    'marketplace_website_url'
   ]
+
+  const nullableFields = new Set([
+    'logo_url',
+    'portal_image_url',
+    'support_email',
+    'support_phone',
+    'marketplace_description',
+    'marketplace_instagram_url',
+    'marketplace_facebook_url',
+    'marketplace_tiktok_url',
+    'marketplace_website_url'
+  ])
 
   const updates = Object.entries(req.body || {}).reduce((acc, [key, value]) => {
     if (!allowedFields.includes(key)) return acc
     if (typeof value === 'string') {
       const trimmed = value.trim()
-      if (!trimmed) return acc
+      if (!trimmed) {
+        if (nullableFields.has(key)) {
+          acc[key] = null
+        }
+        return acc
+      }
       acc[key] = trimmed
       return acc
     }
-    if (value === null || value === undefined) return acc
+    if (value === null) {
+      if (nullableFields.has(key)) {
+        acc[key] = null
+      }
+      return acc
+    }
+    if (value === undefined) return acc
     acc[key] = value
     return acc
   }, {})
@@ -190,7 +237,12 @@ router.patch('/', async (req, res) => {
       logo_url,
       portal_image_url,
       support_email,
-      support_phone
+      support_phone,
+      marketplace_description,
+      marketplace_instagram_url,
+      marketplace_facebook_url,
+      marketplace_tiktok_url,
+      marketplace_website_url
     `
     )
     .maybeSingle()
@@ -213,7 +265,16 @@ router.patch('/', async (req, res) => {
       logo_url: data?.logo_url || DEFAULT_BRANDING.logo_url,
       portal_image_url: data?.portal_image_url || DEFAULT_BRANDING.portal_image_url,
       support_email: data?.support_email || DEFAULT_BRANDING.support_email,
-      support_phone: data?.support_phone || DEFAULT_BRANDING.support_phone
+      support_phone: data?.support_phone || DEFAULT_BRANDING.support_phone,
+      marketplace_description: data?.marketplace_description || DEFAULT_BRANDING.marketplace_description,
+      marketplace_instagram_url:
+        data?.marketplace_instagram_url || DEFAULT_BRANDING.marketplace_instagram_url,
+      marketplace_facebook_url:
+        data?.marketplace_facebook_url || DEFAULT_BRANDING.marketplace_facebook_url,
+      marketplace_tiktok_url:
+        data?.marketplace_tiktok_url || DEFAULT_BRANDING.marketplace_tiktok_url,
+      marketplace_website_url:
+        data?.marketplace_website_url || DEFAULT_BRANDING.marketplace_website_url
     }
   })
 })

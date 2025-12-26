@@ -139,9 +139,9 @@
   },
   "marketplaceRequest": {
     "title": "Booking request",
-    "scheduleTitle": "Schedule",
-    "date": "Date",
-    "time": "Time",
+    "scheduleTitle": "Preferred schedule",
+    "date": "Preferred date",
+    "time": "Preferred time",
     "contactTitle": "Contact details",
     "petTitle": "Pet details",
     "petName": "Pet name",
@@ -175,7 +175,35 @@
     "customersTitle": "Customers",
     "customersSubtitle": "Manage clients and pets",
     "servicesTitle": "Services",
-    "servicesSubtitle": "Manage catalog"
+    "servicesSubtitle": "Manage catalog",
+    "marketplaceSection": "Marketplace",
+    "marketplaceProfileTitle": "Marketplace profile",
+    "marketplaceProfileSubtitle": "Update name, logo, and socials"
+  },
+  "marketplaceProfile": {
+    "title": "Marketplace profile",
+    "logoTitle": "Logo",
+    "logoHelper": "This logo appears in listings.",
+    "changeLogo": "Change logo",
+    "businessSection": "Business information",
+    "nameLabel": "Marketplace name",
+    "namePlaceholder": "Business name",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Introduce your services",
+    "socialTitle": "Social links",
+    "instagramLabel": "Instagram",
+    "instagramPlaceholder": "https://instagram.com/...",
+    "facebookLabel": "Facebook",
+    "facebookPlaceholder": "https://facebook.com/...",
+    "tiktokLabel": "TikTok",
+    "tiktokPlaceholder": "https://tiktok.com/@...",
+    "websiteLabel": "Website",
+    "websitePlaceholder": "https://...",
+    "saveAction": "Save changes",
+    "nameRequired": "Business name is required.",
+    "updateError": "Couldn't save changes.",
+    "loadError": "Couldn't load marketplace profile.",
+    "logoUploadError": "Couldn't upload the logo."
   },
   "appointments": {
     "title": "Appointments",
@@ -220,13 +248,15 @@
     "legendToday": "Today"
   },
   "status": {
-    "scheduled": "Scheduled",
-    "pending": "In progress",
+    "scheduled": "Confirmed",
+    "pending": "Pending",
+    "in_progress": "In progress",
     "completed": "Completed",
     "cancelled": "Cancelled",
     "button": {
-      "scheduled": "Schedule",
-      "pending": "In progress",
+      "scheduled": "Confirm",
+      "pending": "Pending",
+      "in_progress": "Start",
       "completed": "Complete",
       "cancelled": "Cancel"
     }

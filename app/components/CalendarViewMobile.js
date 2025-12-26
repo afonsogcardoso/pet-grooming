@@ -210,10 +210,17 @@ export default function CalendarViewMobile({
                       return (
                         <div
                           key={apt.id}
-                          className={`absolute left-1 right-1 rounded-lg border px-2 py-1 text-[11px] shadow-sm ${apt.status === 'completed'
-                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                            : 'bg-brand-primary-soft border-brand-primary text-slate-900'
-                            } ${isToday ? 'ring-2 ring-brand-primary/60' : ''}`}
+                          className={`absolute left-1 right-1 rounded-lg border px-2 py-1 text-[11px] shadow-sm ${
+                            apt.status === 'completed'
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                              : apt.status === 'cancelled'
+                                ? 'bg-rose-50 border-rose-200 text-rose-800'
+                                : apt.status === 'in_progress'
+                                  ? 'bg-orange-50 border-orange-200 text-orange-800'
+                                  : apt.status === 'pending'
+                                    ? 'bg-amber-50 border-amber-200 text-amber-800'
+                                    : 'bg-brand-primary-soft border-brand-primary text-slate-900'
+                          } ${isToday ? 'ring-2 ring-brand-primary/60' : ''}`}
                           style={{ top, height }}
                           onClick={() => onEdit(apt)}
                         >

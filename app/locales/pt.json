@@ -93,6 +93,13 @@
     "addressLink": "📍 Mapa",
     "addressMissing": "Sem morada",
     "statusCompleted": "Concluído",
+    "status": {
+      "pending": "Pendente",
+      "scheduled": "Confirmado",
+      "in_progress": "Em progresso",
+      "completed": "Concluído",
+      "cancelled": "Cancelado"
+    },
     "labels": {
       "pet": "🐕 Animal",
       "phone": "📱 Telefone",

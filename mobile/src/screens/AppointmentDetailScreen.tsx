@@ -93,6 +93,12 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const service = appointment?.services;
   const pet = appointment?.pets;
   const paymentStatus = appointment?.payment_status || 'unpaid';
+  const statusOptions = [
+    { value: 'pending', emoji: '⏳' },
+    { value: 'scheduled', emoji: '📅' },
+    { value: 'in_progress', emoji: '⚡' },
+    { value: 'completed', emoji: '✅' },
+  ];
   
   // Get all services (from appointment_services or fallback to single service)
   const services = useMemo(() => {
@@ -564,9 +570,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
             <View style={styles.statusCard}>
               <Text style={styles.statusCardTitle}>{t('appointmentDetail.changeStatus')}</Text>
               <View style={styles.statusGrid}>
-                {['scheduled', 'pending', 'completed'].map((value) => {
+                {statusOptions.map(({ value, emoji }) => {
                   const active = displayStatus === value;
-                  const emoji = value === 'scheduled' ? '📅' : value === 'pending' ? '⏳' : '✅';
                   const statusColor = getStatusColor(value);
                   
                   return (

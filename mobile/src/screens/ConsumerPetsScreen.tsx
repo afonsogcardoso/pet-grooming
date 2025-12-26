@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { EmptyState } from '../components/common';
 import { ConsumerPet, getConsumerPets } from '../api/consumerPets';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -51,19 +52,25 @@ export default function ConsumerPetsScreen({ navigation }: Props) {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['top', 'left', 'right']}
+      >
         <ScreenHeader title={t('consumerPets.title')} rightElement={rightElement} />
         <View style={styles.loadingState}>
           <ActivityIndicator color={colors.primary} />
           <Text style={styles.loadingText}>{t('common.loading')}</Text>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['top', 'left', 'right']}
+      >
         <ScreenHeader title={t('consumerPets.title')} rightElement={rightElement} />
         <EmptyState
           icon="⚠️"
@@ -72,13 +79,16 @@ export default function ConsumerPetsScreen({ navigation }: Props) {
           actionLabel={t('consumerPets.retryAction')}
           onAction={() => refetch()}
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!pets.length) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['top', 'left', 'right']}
+      >
         <ScreenHeader title={t('consumerPets.title')} rightElement={rightElement} />
         <EmptyState
           icon="🐾"
@@ -87,12 +97,15 @@ export default function ConsumerPetsScreen({ navigation }: Props) {
           actionLabel={t('consumerPets.emptyAction')}
           onAction={() => navigation.navigate('ConsumerPetForm')}
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top', 'left', 'right']}
+    >
       <ScreenHeader title={t('consumerPets.title')} rightElement={rightElement} />
       <FlatList
         data={pets}
@@ -100,10 +113,16 @@ export default function ConsumerPetsScreen({ navigation }: Props) {
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        refreshing={isRefetching}
-        onRefresh={() => refetch()}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={() => refetch()}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -15,6 +15,10 @@ const MARKETPLACE_ACCOUNT_SELECT = [
   'support_phone',
   'marketplace_categories',
   'marketplace_description',
+  'marketplace_instagram_url',
+  'marketplace_facebook_url',
+  'marketplace_tiktok_url',
+  'marketplace_website_url',
   'brand_primary',
   'brand_primary_soft',
   'brand_accent',
@@ -422,6 +426,9 @@ router.patch('/my-appointments/:id/cancel', async (req, res) => {
 
   if (appointment.status === 'completed') {
     return res.status(400).json({ error: 'cannot_cancel_completed' })
+  }
+  if (appointment.status === 'in_progress') {
+    return res.status(400).json({ error: 'cannot_cancel_in_progress' })
   }
   if (appointment.status === 'cancelled') {
     const { data: cancelledData, error: cancelledError } = await supabaseAdmin

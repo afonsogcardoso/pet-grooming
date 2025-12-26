@@ -115,11 +115,11 @@ export default function AppShell({ children }) {
   }, [])
 
   const isTenantPublicRoute = pathname?.startsWith('/portal/')
-  const publicRoutes = ['/login', '/appointments/confirm', '/marketplace']
+  const publicRoutes = ['/login', '/appointments/confirm', '/marketplace', '/planos']
   const isRootRoute = pathname === '/'
   const isPublicRoute =
     isRootRoute || isTenantPublicRoute || publicRoutes.some((route) => pathname?.startsWith(route))
-  const fullBleedPublicRoutes = ['/appointments/confirm', '/marketplace']
+  const fullBleedPublicRoutes = ['/appointments/confirm', '/marketplace', '/planos']
   const isFullBleedPublic =
     isRootRoute || (isPublicRoute && fullBleedPublicRoutes.some((route) => pathname?.startsWith(route)))
   const isLoginRoute = pathname?.startsWith('/login')

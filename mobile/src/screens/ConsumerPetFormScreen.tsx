@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -110,49 +111,51 @@ export default function ConsumerPetFormScreen({ navigation, route }: Props) {
   const saving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScreenHeader title={isEditing ? t('consumerPetsForm.editTitle') : t('consumerPetsForm.createTitle')} />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.card}>
-          <Input
-            label={t('consumerPetsForm.nameLabel')}
-            value={name}
-            onChangeText={setName}
-            placeholder={t('consumerPetsForm.namePlaceholder')}
-          />
-          <Input
-            label={t('consumerPetsForm.breedLabel')}
-            value={breed}
-            onChangeText={setBreed}
-            placeholder={t('consumerPetsForm.breedPlaceholder')}
-          />
-          <Input
-            label={t('consumerPetsForm.weightLabel')}
-            value={weight}
-            onChangeText={setWeight}
-            placeholder={t('consumerPetsForm.weightPlaceholder')}
-            keyboardType={Platform.OS === 'ios' ? 'decimal-pad' : 'numeric'}
-          />
-        </View>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScreenHeader title={isEditing ? t('consumerPetsForm.editTitle') : t('consumerPetsForm.createTitle')} />
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <View style={styles.card}>
+            <Input
+              label={t('consumerPetsForm.nameLabel')}
+              value={name}
+              onChangeText={setName}
+              placeholder={t('consumerPetsForm.namePlaceholder')}
+            />
+            <Input
+              label={t('consumerPetsForm.breedLabel')}
+              value={breed}
+              onChangeText={setBreed}
+              placeholder={t('consumerPetsForm.breedPlaceholder')}
+            />
+            <Input
+              label={t('consumerPetsForm.weightLabel')}
+              value={weight}
+              onChangeText={setWeight}
+              placeholder={t('consumerPetsForm.weightPlaceholder')}
+              keyboardType={Platform.OS === 'ios' ? 'decimal-pad' : 'numeric'}
+            />
+          </View>
 
-        <Button
-          title={isEditing ? t('consumerPetsForm.saveAction') : t('consumerPetsForm.createAction')}
-          onPress={handleSave}
-          loading={saving}
-          style={styles.saveButton}
-        />
-
-        {isEditing ? (
           <Button
-            title={t('consumerPetsForm.deleteAction')}
-            onPress={handleDelete}
-            loading={deleteMutation.isPending}
-            variant="danger"
-            style={styles.deleteButton}
+            title={isEditing ? t('consumerPetsForm.saveAction') : t('consumerPetsForm.createAction')}
+            onPress={handleSave}
+            loading={saving}
+            style={styles.saveButton}
           />
-        ) : null}
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+          {isEditing ? (
+            <Button
+              title={t('consumerPetsForm.deleteAction')}
+              onPress={handleDelete}
+              loading={deleteMutation.isPending}
+              variant="danger"
+              style={styles.deleteButton}
+            />
+          ) : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -161,6 +164,9 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     container: {
       flex: 1,
       backgroundColor: colors.background,
+    },
+    keyboard: {
+      flex: 1,
     },
     content: {
       paddingHorizontal: 20,

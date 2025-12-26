@@ -355,7 +355,7 @@ export function filterAppointments(appointments, filter) {
     switch (filter) {
         case 'upcoming':
             return appointments.filter(apt =>
-                apt.status !== 'completed' && apt.appointment_date >= today
+                !['completed', 'cancelled'].includes(apt.status) && apt.appointment_date >= today
             )
         case 'completed':
             return appointments.filter(apt => apt.status === 'completed')

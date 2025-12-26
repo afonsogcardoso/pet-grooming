@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Branding, getBranding } from '../api/branding';
 import { writeBrandingCache } from './brandingCache';
+import { useAuthStore } from '../state/authStore';
 
 type ThemeColors = {
   primary: string;
@@ -64,6 +65,7 @@ function withAlpha(color: string, alpha: number) {
 
 export function useBrandingTheme() {
   const queryClient = useQueryClient();
+  const userType = useAuthStore((state) => state.user?.userType);
   const query = useQuery({
     queryKey: ['branding'],
     // Query should already be primed by App bootstrap; keep fetch here as safety.
@@ -77,13 +79,14 @@ export function useBrandingTheme() {
 
   const colors: ThemeColors = useMemo(() => {
     const branding = query.data as Branding | undefined;
-    const background = normalizeHexColor(branding?.brand_background, '#FFF7EE');
+    const paletteBranding = userType === 'consumer' ? undefined : branding;
+    const background = normalizeHexColor(paletteBranding?.brand_background, '#FFF7EE');
     const backgroundIsLight = isLightColor(background);
 
-    const primary = normalizeHexColor(branding?.brand_primary, '#F47C1C');
-    const primarySoftCandidate = normalizeHexColor(branding?.brand_primary_soft, '');
+    const primary = normalizeHexColor(paletteBranding?.brand_primary, '#F47C1C');
+    const primarySoftCandidate = normalizeHexColor(paletteBranding?.brand_primary_soft, '');
     const primarySoft = primarySoftCandidate || '#FFA85C';
-    const accent = normalizeHexColor(branding?.brand_accent, '#D65A00');
+    const accent = normalizeHexColor(paletteBranding?.brand_accent, '#D65A00');
 
     const surface = primarySoftCandidate
       ? primarySoftCandidate
@@ -110,7 +113,7 @@ export function useBrandingTheme() {
       warning: '#d97706',
       success: '#059669',
     };
-  }, [query.data]);
+  }, [query.data, userType]);
 
   useEffect(() => {
     const data = query.data as Branding | undefined;

@@ -9,6 +9,7 @@ import {
   Platform,
   Switch,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -202,7 +203,10 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top', 'left', 'right']}
+    >
       <ScreenHeader title={t('marketplaceRequest.title')} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.summaryCard}>
@@ -210,7 +214,7 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
           <Text style={styles.summarySubtitle}>{serviceName}</Text>
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>{t('marketplaceRequest.scheduleTitle')}</Text>
           <View style={styles.dateRow}>
             <TouchableOpacity style={styles.dateButton} onPress={openDatePicker}>
@@ -224,7 +228,7 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
           </View>
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>{t('marketplaceRequest.contactTitle')}</Text>
           <Input
             label={t('common.name')}
@@ -248,7 +252,7 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
           />
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>{t('marketplaceRequest.petTitle')}</Text>
           {hasProfilePets ? (
             <View style={styles.petToggleRow}>
@@ -360,6 +364,7 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
           title={t('marketplaceRequest.submit')}
           onPress={handleSubmit}
           loading={mutation.isPending}
+          size="large"
           style={styles.submitButton}
         />
       </ScrollView>
@@ -375,7 +380,7 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
         onTimeChange={handleTimeChange}
         pickerTheme={pickerTheme}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -387,33 +392,50 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     content: {
       paddingHorizontal: 20,
       paddingBottom: 32,
+      gap: 16,
     },
     summaryCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 18,
-      padding: 16,
+      backgroundColor: colors.primary,
+      borderRadius: 22,
+      padding: 18,
       borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      marginBottom: 16,
+      borderColor: colors.primary,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.12,
+      shadowRadius: 14,
+      elevation: 4,
     },
     summaryTitle: {
       fontSize: 18,
-      fontWeight: '700',
-      color: colors.text,
+      fontWeight: '800',
+      color: colors.onPrimary,
     },
     summarySubtitle: {
       marginTop: 6,
       fontSize: 14,
-      color: colors.muted,
+      color: colors.onPrimary,
+      opacity: 0.85,
     },
-    section: {
-      marginBottom: 16,
+    sectionCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      elevation: 2,
     },
     sectionTitle: {
-      fontSize: 16,
+      fontSize: 13,
       fontWeight: '700',
-      color: colors.text,
+      color: colors.muted,
       marginBottom: 12,
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
     },
     dateRow: {
       flexDirection: 'row',
@@ -421,20 +443,22 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     dateButton: {
       flex: 1,
-      backgroundColor: colors.surface,
-      borderRadius: 14,
-      padding: 12,
+      backgroundColor: colors.background,
+      borderRadius: 16,
+      padding: 14,
       borderWidth: 1.5,
       borderColor: colors.surfaceBorder,
     },
     dateButtonLabel: {
-      fontSize: 12,
+      fontSize: 11,
       color: colors.muted,
       marginBottom: 6,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
     },
     dateButtonValue: {
       fontSize: 15,
-      fontWeight: '600',
+      fontWeight: '700',
       color: colors.text,
     },
     notesInput: {
@@ -510,7 +534,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginBottom: 8,
     },
     submitButton: {
-      marginTop: 8,
+      marginTop: 4,
     },
   });
 }

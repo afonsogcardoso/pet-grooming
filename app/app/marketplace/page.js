@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { getMarketplaceAccounts } from '@/lib/marketplace'
 import styles from './marketplace.module.css'
 
 export const metadata = {
@@ -59,44 +60,11 @@ const highlights = [
   }
 ]
 
-const listings = [
-  {
-    name: 'Studio Pêlo Feliz',
-    location: 'Lisboa',
-    price: 'desde €24',
-    rating: '4.9',
-    tags: ['Premium', 'Banho', 'Hidratação'],
-    joined: 'Entrou há 3 dias',
-    badge: 'Novo'
-  },
-  {
-    name: 'Nord Grooming Lab',
-    location: 'Porto',
-    price: 'desde €19',
-    rating: '4.8',
-    tags: ['Express', 'Tosquia', 'Recolha'],
-    joined: 'Entrou há 1 semana',
-    badge: 'Top'
-  },
-  {
-    name: 'Casa dos Patudos',
-    location: 'Braga',
-    price: 'desde €21',
-    rating: '4.9',
-    tags: ['Domicílio', 'Spa', 'Cachorros'],
-    joined: 'Entrou ontem',
-    badge: 'Novo'
-  },
-  {
-    name: 'Paws & Co.',
-    location: 'Cascais',
-    price: 'desde €28',
-    rating: '5.0',
-    tags: ['Luxo', 'Estética', 'Cuidados'],
-    joined: 'Entrou há 4 dias',
-    badge: 'A subir'
-  }
-]
+function normalizeSearchParam(value) {
+  if (Array.isArray(value)) return value[0] || ''
+  if (typeof value === 'string') return value.trim()
+  return ''
+}
 
 const steps = [
   {
@@ -120,40 +88,11 @@ const stats = [
   { value: '4.9/5', label: 'rating médio' }
 ]
 
-const pricingPlans = [
-  {
-    name: 'Starter',
-    price: '€0',
-    period: '/mês',
-    description: 'Para começar a testar o marketplace.',
-    features: ['Página pública no marketplace', 'Pedidos básicos', 'Suporte por email'],
-    cta: 'Começar'
-  },
-  {
-    name: 'Pro',
-    price: '€39',
-    period: '/mês',
-    description: 'Mais visibilidade e gestão completa.',
-    features: [
-      'Listagem com destaque',
-      'Pedidos ilimitados',
-      'App de gestão incluída',
-      'Notificações em tempo real'
-    ],
-    highlight: true,
-    cta: 'Subscrever Pro'
-  },
-  {
-    name: 'Scale',
-    price: '€79',
-    period: '/mês',
-    description: 'Para equipas e múltiplas localizações.',
-    features: ['Multi-unidades', 'Relatórios avançados', 'Suporte prioritário'],
-    cta: 'Falar com a equipa'
-  }
-]
+export default async function MarketplacePage({ searchParams }) {
+  const searchQuery = normalizeSearchParam(searchParams?.q)
+  const categoryFilter = normalizeSearchParam(searchParams?.category)
+  const providers = await getMarketplaceAccounts(searchQuery, categoryFilter, 24, 0)
 
-export default function MarketplacePage() {
   return (
     <div className={`${styles.page} ${styles.pawmiTheme} min-h-screen`}>
       <div className="relative z-10">
@@ -186,7 +125,7 @@ export default function MarketplacePage() {
                 <Link href="#como-funciona" className="transition hover:text-brand-primary">
                   Como funciona
                 </Link>
-                <Link href="#pricing" className="transition hover:text-brand-primary">
+                <Link href="/planos" className="transition hover:text-brand-primary">
                   Planos
                 </Link>
               </div>
@@ -232,7 +171,7 @@ export default function MarketplacePage() {
                   >
                     Explorar contas
                   </Link>
-                  <Link href="#pricing" className="btn-brand-outlined px-6 py-3 text-sm">
+                  <Link href="/planos" className="btn-brand-outlined px-6 py-3 text-sm">
                     Ver planos
                   </Link>
                 </div>
@@ -406,45 +345,67 @@ export default function MarketplacePage() {
             </div>
 
             <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {listings.map((listing, index) => (
-                <div
-                  key={listing.name}
-                  className={`${styles.stagger} rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg`}
-                  style={{ '--delay': `${index * 90}ms` }}
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-slate-900">{listing.name}</p>
-                    <div className="flex items-center gap-2">
-                      {listing.badge && (
-                        <span className="rounded-full bg-brand-primary-soft px-2 py-1 text-[11px] font-semibold text-brand-primary">
-                          {listing.badge}
-                        </span>
+              {providers.length > 0 ? (
+                providers.map((provider, index) => {
+                  const tags = Array.isArray(provider.marketplace_categories)
+                    ? provider.marketplace_categories.filter(Boolean)
+                    : []
+                  const supportLine = provider.support_phone || provider.support_email
+                  const description =
+                    provider.marketplace_description || 'Conta Pawmi disponível para novos pedidos.'
+                  const providerSlug = provider.slug || ''
+
+                  return (
+                    <div
+                      key={provider.id || provider.slug || index}
+                      className={`${styles.stagger} rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg`}
+                      style={{ '--delay': `${index * 90}ms` }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{provider.name}</p>
+                          <p className="mt-1 text-xs text-slate-500">{description}</p>
+                        </div>
+                        {provider.logo_url ? (
+                          <Image
+                            src={provider.logo_url}
+                            alt={`Logo ${provider.name}`}
+                            width={40}
+                            height={40}
+                            className="h-10 w-10 rounded-xl object-cover border border-slate-200 bg-white"
+                          />
+                        ) : (
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">
+                            Pawmi
+                          </div>
+                        )}
+                      </div>
+                      {supportLine && (
+                        <p className="mt-2 text-xs text-slate-500">{supportLine}</p>
                       )}
-                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
-                        {listing.rating}
-                      </span>
+                      {tags.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-600">
+                          {tags.slice(0, 4).map((tag) => (
+                            <span key={tag} className="rounded-full bg-slate-100 px-3 py-1">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <Link
+                        href={providerSlug ? `/marketplace/${providerSlug}` : '/marketplace'}
+                        className="mt-4 inline-flex text-xs font-semibold text-brand-primary hover:underline"
+                      >
+                        Ver conta
+                      </Link>
                     </div>
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">{listing.location}</p>
-                  <p className="mt-2 text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                    {listing.joined}
-                  </p>
-                  <p className="mt-4 text-lg font-semibold text-slate-900">{listing.price}</p>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-600">
-                    {listing.tags.map((tag) => (
-                      <span key={tag} className="rounded-full bg-slate-100 px-3 py-1">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                  <Link
-                    href="/login"
-                    className="mt-4 inline-flex text-xs font-semibold text-brand-primary hover:underline"
-                  >
-                    Ver conta
-                  </Link>
+                  )
+                })
+              ) : (
+                <div className="col-span-full rounded-2xl border border-dashed border-slate-200 bg-white/70 p-6 text-center text-sm text-slate-600">
+                  Ainda não existem prestadores ativos no marketplace.
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </section>
@@ -484,71 +445,6 @@ export default function MarketplacePage() {
           </div>
         </section>
 
-        <section id="pricing" className="px-6 py-12">
-          <div className="mx-auto max-w-6xl">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-brand-primary">
-                  Planos para prestadores
-                </p>
-                <h2 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
-                  Subscrição mensal, sem comissões.
-                </h2>
-                <p className="mt-3 text-sm text-slate-600">
-                  A subscrição ativa a visibilidade no marketplace e o acesso à plataforma de gestão.
-                </p>
-              </div>
-              <Link href="/login" className="text-sm font-semibold text-brand-primary">
-                Juntar conta
-              </Link>
-            </div>
-            <div className="mt-8 grid gap-4 md:grid-cols-3">
-              {pricingPlans.map((plan, index) => (
-                <div
-                  key={plan.name}
-                  className={`${styles.stagger} rounded-2xl border ${
-                    plan.highlight ? 'border-brand-primary bg-white shadow-brand-glow' : 'border-slate-200 bg-white'
-                  } p-6 shadow-sm`}
-                  style={{ '--delay': `${index * 100}ms` }}
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-lg font-semibold text-slate-900">{plan.name}</p>
-                    {plan.highlight && (
-                      <span className="rounded-full bg-brand-primary-soft px-3 py-1 text-[11px] font-semibold text-brand-primary">
-                        Mais escolhido
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-4 flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-slate-900">{plan.price}</span>
-                    <span className="text-sm text-slate-500">{plan.period}</span>
-                  </div>
-                  <p className="mt-3 text-sm text-slate-600">{plan.description}</p>
-                  <div className="mt-4 flex flex-col gap-2 text-xs font-semibold text-slate-600">
-                    {plan.features.map((feature) => (
-                      <span key={feature} className="rounded-full bg-slate-100 px-3 py-2">
-                        {feature}
-                      </span>
-                    ))}
-                  </div>
-                  <Link
-                    href="/login"
-                    className={`mt-5 inline-flex w-full items-center justify-center rounded-full px-4 py-2 text-sm font-semibold ${
-                      plan.highlight
-                        ? 'bg-brand-primary text-white shadow-brand-glow'
-                        : 'border border-slate-200 text-slate-700'
-                    }`}
-                  >
-                    {plan.cta}
-                  </Link>
-                </div>
-              ))}
-            </div>
-            <p className="mt-5 text-xs text-slate-500">
-              Sem comissões por marcação. Pagamento tratado diretamente entre cliente e prestador.
-            </p>
-          </div>
-        </section>
 
         <section className="px-6 py-12">
           <div className="mx-auto max-w-6xl">

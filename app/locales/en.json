@@ -93,6 +93,13 @@
     "addressLink": "📍 Map",
     "addressMissing": "No address",
     "statusCompleted": "Completed",
+    "status": {
+      "pending": "Pending",
+      "scheduled": "Confirmed",
+      "in_progress": "In progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
     "labels": {
       "pet": "🐕 Pet",
       "phone": "📱 Phone",

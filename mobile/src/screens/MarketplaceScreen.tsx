@@ -9,6 +9,7 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -87,8 +88,8 @@ export default function MarketplaceScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScreenHeader title={t('marketplace.title')} showBack={false} />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+      <ScreenHeader title={t('marketplace.title')} />
       <View style={styles.searchWrapper}>
         <TextInput
           placeholder={t('marketplace.searchPlaceholder')}
@@ -118,7 +119,7 @@ export default function MarketplaceScreen({ navigation }: Props) {
           showsVerticalScrollIndicator={false}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

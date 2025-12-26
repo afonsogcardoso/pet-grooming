@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -18,6 +19,7 @@ import {
 } from '../api/consumerAppointments';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { getStatusColor, getStatusLabel } from '../utils/appointmentStatus';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -98,19 +100,25 @@ export default function ConsumerAppointmentsScreen({ navigation }: Props) {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['top', 'left', 'right']}
+      >
         <ScreenHeader title={t('consumerAppointments.title')} />
         <View style={styles.loadingState}>
           <ActivityIndicator color={colors.primary} />
           <Text style={styles.loadingText}>{t('common.loading')}</Text>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['top', 'left', 'right']}
+      >
         <ScreenHeader title={t('consumerAppointments.title')} />
         <EmptyState
           icon="⚠️"
@@ -119,13 +127,16 @@ export default function ConsumerAppointmentsScreen({ navigation }: Props) {
           actionLabel={t('consumerAppointments.retryAction')}
           onAction={() => refetch()}
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (appointments.length === 0) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['top', 'left', 'right']}
+      >
         <ScreenHeader title={t('consumerAppointments.title')} />
         <EmptyState
           icon="🐾"
@@ -134,12 +145,15 @@ export default function ConsumerAppointmentsScreen({ navigation }: Props) {
           actionLabel={t('consumerAppointments.emptyAction')}
           onAction={() => navigation.navigate('Marketplace')}
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top', 'left', 'right']}
+    >
       <ScreenHeader title={t('consumerAppointments.title')} />
       <FlatList
         data={appointments}
@@ -147,10 +161,16 @@ export default function ConsumerAppointmentsScreen({ navigation }: Props) {
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        refreshing={isRefetching}
-        onRefresh={() => refetch()}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={() => refetch()}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

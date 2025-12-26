@@ -300,10 +300,17 @@ export default function CalendarView({
                                             return (
                                                 <div
                                                     key={apt.id}
-                                                    className={`absolute left-0 right-0 ${forceCompactCard ? 'p-1.5' : 'p-2'} rounded cursor-pointer hover:shadow-lg transition-all border-2 ${apt.status === 'completed'
-                                                        ? 'bg-brand-accent-soft border-brand-accent'
-                                                        : 'bg-brand-primary-soft border-brand-primary'
-                                                        } ${isToday ? 'ring-2 ring-[color:var(--brand-primary)]' : ''}`}
+                                                    className={`absolute left-0 right-0 ${forceCompactCard ? 'p-1.5' : 'p-2'} rounded cursor-pointer hover:shadow-lg transition-all border-2 ${
+                                                        apt.status === 'completed'
+                                                            ? 'bg-emerald-50 border-emerald-200'
+                                                            : apt.status === 'cancelled'
+                                                                ? 'bg-rose-50 border-rose-200'
+                                                                : apt.status === 'in_progress'
+                                                                    ? 'bg-orange-50 border-orange-200'
+                                                                    : apt.status === 'pending'
+                                                                        ? 'bg-amber-50 border-amber-200'
+                                                                        : 'bg-brand-primary-soft border-brand-primary'
+                                                    } ${isToday ? 'ring-2 ring-[color:var(--brand-primary)]' : ''}`}
                                                     style={{
                                                         top,
                                                         height

@@ -34,6 +34,43 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
     const phoneDigits = (phoneNumber || '').replace(/\D/g, '')
     const whatsappSentAt = appointment.whatsapp_sent_at
     const confirmationOpenedAt = appointment.confirmation_opened_at
+    const statusKey = appointment.status || 'scheduled'
+    const statusLabel = t(`appointmentCard.status.${statusKey}`)
+    const statusEmoji = {
+        pending: '⏳',
+        scheduled: '📅',
+        in_progress: '⚡',
+        completed: '✅',
+        cancelled: '⛔'
+    }[statusKey] || '📅'
+    const statusStyles = {
+        pending: {
+            badge: 'border-amber-200 bg-amber-50 text-amber-700',
+            border: 'border-amber-300',
+            card: 'bg-amber-50/30'
+        },
+        scheduled: {
+            badge: 'border-brand-primary/30 bg-brand-primary-soft text-brand-primary',
+            border: 'border-brand-primary',
+            card: 'bg-white'
+        },
+        in_progress: {
+            badge: 'border-orange-200 bg-orange-50 text-orange-700',
+            border: 'border-orange-300',
+            card: 'bg-orange-50/30'
+        },
+        completed: {
+            badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+            border: 'border-emerald-300',
+            card: 'bg-emerald-50/40'
+        },
+        cancelled: {
+            badge: 'border-rose-200 bg-rose-50 text-rose-700',
+            border: 'border-rose-300',
+            card: 'bg-rose-50/30'
+        }
+    }
+    const statusStyle = statusStyles[statusKey] || statusStyles.scheduled
 
     const handleCardClick = () => {
         if (onEdit) {
@@ -99,10 +136,7 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
 
     return (
         <div
-            className={`bg-white rounded-lg shadow-md p-5 sm:p-6 border-l-4 ${appointment.status === 'completed'
-                ? 'border-brand-accent bg-brand-accent-soft'
-                : 'border-brand-primary'
-                }`}
+            className={`${statusStyle.card} rounded-lg shadow-md p-5 sm:p-6 border-l-4 ${statusStyle.border}`}
             role={onEdit ? 'button' : undefined}
             tabIndex={onEdit ? 0 : -1}
             onClick={handleCardClick}
@@ -134,11 +168,10 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
                                 <h3 className="text-xl font-bold text-gray-800">
                                     {customerName}
                                 </h3>
-                                {appointment.status === 'completed' && (
-                                    <span className="bg-brand-accent text-white text-xs font-semibold px-2 py-1 rounded">
-                                        ✓ {t('appointmentCard.statusCompleted')}
-                                    </span>
-                                )}
+                                <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold ${statusStyle.badge}`}>
+                                    <span aria-hidden="true">{statusEmoji}</span>
+                                    <span>{statusLabel}</span>
+                                </span>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                                 <div className="inline-flex items-center gap-1 rounded-full border border-brand-primary bg-white px-3 py-1 text-xs font-semibold text-brand-primary shadow-sm">
@@ -342,7 +375,7 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
                             </span>
                         </button>
                     )}
-                    {appointment.status !== 'completed' && (
+                    {!['completed', 'cancelled'].includes(statusKey) && (
                         <button
                             onClick={(e) => {
                                 e.stopPropagation()
