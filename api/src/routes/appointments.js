@@ -15,7 +15,7 @@ const APPOINTMENT_CONFIRM_SELECT = `
   payment_status,
   account_id,
   public_token,
-  customers ( id, name, phone, address ),
+  customers ( id, name, phone, phone_country_code, phone_number, address ),
   pets ( id, name, breed, photo_url, weight ),
   services ( id, name )
 `
@@ -221,7 +221,7 @@ router.get('/', async (req, res) => {
       status,
       before_photo_url,
       after_photo_url,
-      customers ( id, name, phone, address ),
+      customers ( id, name, phone, phone_country_code, phone_number, address ),
       services ( id, name, price ),
       pets ( id, name, breed, photo_url, weight ),
       appointment_services (
@@ -344,7 +344,7 @@ router.get('/:id', async (req, res) => {
       status,
       before_photo_url,
       after_photo_url,
-      customers ( id, name, phone, address ),
+      customers ( id, name, phone, phone_country_code, phone_number, address ),
       services ( id, name, price ),
       pets ( id, name, breed, photo_url, weight ),
       appointment_services (
@@ -405,7 +405,7 @@ router.patch('/:id/status', async (req, res) => {
       notes,
       payment_status,
       status,
-      customers ( id, name, phone, address ),
+      customers ( id, name, phone, phone_country_code, phone_number, address ),
       services ( id, name, price ),
       pets ( id, name, breed, photo_url, weight )
     `
@@ -472,7 +472,7 @@ router.patch('/:id', async (req, res) => {
     notes,
     payment_status,
     status,
-    customers ( id, name, phone, address ),
+    customers ( id, name, phone, phone_country_code, phone_number, address ),
     services ( id, name, price ),
     pets ( id, name, breed, photo_url )
   `
@@ -786,7 +786,7 @@ router.get('/:id/share', async (req, res) => {
       notes,
       before_photo_url,
       after_photo_url,
-      customers ( id, name, phone ),
+      customers ( id, name, phone, phone_country_code, phone_number ),
       pets ( id, name, breed, weight ),
       appointment_services ( 
         service_id,

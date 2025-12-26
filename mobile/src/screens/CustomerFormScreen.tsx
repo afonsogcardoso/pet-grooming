@@ -7,10 +7,12 @@ import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { createCustomer, updateCustomer, uploadCustomerPhoto, type Customer } from '../api/customers';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Input } from '../components/common/Input';
+import { PhoneInput } from '../components/common/PhoneInput';
 import { Button } from '../components/common/Button';
 import { Avatar } from '../components/common/Avatar';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 import { useTranslation } from 'react-i18next';
+import { buildPhone, splitPhone } from '../utils/phone';
 
 type Props = NativeStackScreenProps<any, 'CustomerForm'>;
 
@@ -24,7 +26,13 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
   const { t } = useTranslation();
 
   const [name, setName] = useState(customer?.name || '');
-  const [phone, setPhone] = useState(customer?.phone || '');
+  const initialPhone =
+    customer?.phone ||
+    buildPhone(
+      customer?.phone_country_code || null,
+      customer?.phone_number || null,
+    );
+  const [phone, setPhone] = useState(initialPhone || '');
   const [email, setEmail] = useState(customer?.email || '');
   const [address, setAddress] = useState(customer?.address || '');
   const [nif, setNif] = useState(customer?.nif || '');
@@ -68,7 +76,8 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
       newErrors.email = t('customerForm.validationEmailInvalid');
     }
 
-    if (phone && !/^\d{9,}$/.test(phone.replace(/\s/g, ''))) {
+    const phoneDigits = splitPhone(phone).phoneNumber;
+    if (!phoneDigits || phoneDigits.length < 6) {
       newErrors.phone = t('customerForm.validationPhoneInvalid');
     }
 
@@ -273,14 +282,14 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
               editable={mode === 'create'}
             />
 
-            <Input
+            <PhoneInput
               label={t('common.phone')}
               placeholder={t('customerForm.phonePlaceholder')}
               value={phone}
-              onChangeText={setPhone}
-              error={errors.phone}
-              keyboardType="phone-pad"
+              onChange={setPhone}
+              disabled={createMutation.isPending || updateMutation.isPending}
             />
+            {errors.phone ? <Text style={styles.errorText}>{errors.phone}</Text> : null}
 
             <Input
               label={t('common.email')}
@@ -384,6 +393,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontSize: 13,
       color: colors.muted,
       fontStyle: 'italic',
+    },
+    errorText: {
+      color: colors.danger,
+      fontSize: 12,
+      marginTop: 6,
+      marginBottom: 4,
     },
     footer: {
       position: 'absolute',

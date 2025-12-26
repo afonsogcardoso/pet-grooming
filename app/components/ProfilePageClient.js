@@ -4,6 +4,7 @@ import { useState } from 'react'
 import ProfileMetadataForm from '@/components/ProfileMetadataForm'
 import ResetPasswordForm from '@/components/ResetPasswordForm'
 import { useTranslation } from '@/components/TranslationProvider'
+import { formatPhoneDisplay } from '@/lib/phone'
 
 function formatDate(value, locale, options = { dateStyle: 'medium' }) {
   if (!value) return '—'
@@ -24,7 +25,7 @@ export default function ProfilePageClient({ user, memberships = [] }) {
   const [activeTab, setActiveTab] = useState('profile')
   const metadata = user?.user_metadata || {}
   const displayName = metadata.display_name || user?.email
-  const phone = metadata.phone || '—'
+  const phone = formatPhoneDisplay(metadata.phone) || '—'
   const locale = metadata.preferred_locale || 'pt'
   const avatarUrl = metadata.avatar_url || ''
   const primaryMembership = memberships?.[0] || null

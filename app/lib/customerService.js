@@ -7,6 +7,7 @@ import { supabase } from './supabase'
 import { getCurrentAccountId } from './accountHelpers'
 import { apiGet, apiPost, apiPatch, hasExternalApi } from './apiClient'
 import { getStoredAccessToken } from './authTokens'
+import { buildPhone, splitPhone } from './phone'
 
 async function getApiToken() {
     return getStoredAccessToken() || null
@@ -30,6 +31,18 @@ async function fetchCustomersWithRelations(accountId) {
         .order('name', { ascending: true })
 
     return { data: data || [], error }
+}
+
+function applyPhoneFields(payload = {}) {
+    if (!payload.phone) return payload
+    const parts = splitPhone(payload.phone)
+    const normalizedPhone = buildPhone(parts.phoneCountryCode, parts.phoneNumber)
+    return {
+        ...payload,
+        phone: normalizedPhone || payload.phone,
+        phone_country_code: parts.phoneCountryCode,
+        phone_number: parts.phoneNumber
+    }
 }
 
 export async function loadCustomers() {
@@ -142,7 +155,7 @@ export async function createCustomer(customerData) {
         }
     }
     const accountId = await getCurrentAccountId()
-    const payload = { ...customerData, account_id: accountId }
+    const payload = { ...applyPhoneFields(customerData), account_id: accountId }
     const { data, error } = await supabase
         .from('customers')
         .insert([payload])
@@ -171,7 +184,7 @@ export async function updateCustomer(id, customerData) {
     const accountId = await getCurrentAccountId()
     const { data, error } = await supabase
         .from('customers')
-        .update(customerData)
+        .update(applyPhoneFields(customerData))
         .eq('account_id', accountId)
         .eq('id', id)
         .select()

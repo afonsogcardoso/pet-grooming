@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { compressImage } from '@/utils/image'
 import { useTranslation } from '@/components/TranslationProvider'
+import PhoneInput from '@/components/PhoneInput'
 
 export default function ProfileMetadataForm({
   initialDisplayName = '',
@@ -130,16 +131,12 @@ export default function ProfileMetadataForm({
           className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-slate-500 focus:outline-none"
         />
       </label>
-      <label className="block text-sm font-semibold text-slate-600">
-        {t('profile.form.phoneLabel')}
-        <input
-          type="tel"
-          value={form.phone}
-          onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
-          placeholder={t('profile.form.phonePlaceholder')}
-          className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-slate-500 focus:outline-none"
-        />
-      </label>
+      <PhoneInput
+        label={t('profile.form.phoneLabel')}
+        value={form.phone}
+        onChange={(value) => setForm((prev) => ({ ...prev, phone: value }))}
+        placeholder={t('profile.form.phonePlaceholder')}
+      />
       <label className="block text-sm font-semibold text-slate-600">
         {t('profile.form.localeLabel')}
         <select

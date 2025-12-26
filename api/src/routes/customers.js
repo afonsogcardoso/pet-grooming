@@ -3,10 +3,42 @@ import multer from 'multer'
 import crypto from 'crypto'
 import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../authClient.js'
 import { sanitizeBody } from '../utils/payload.js'
+import { normalizePhoneParts } from '../utils/phone.js'
 
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
 const PET_PHOTO_BUCKET = 'pets'
+
+function applyPhonePayload(payload) {
+  const hasPhonePayload =
+    payload.phone !== undefined ||
+    payload.phoneCountryCode !== undefined ||
+    payload.phoneNumber !== undefined ||
+    payload.phone_country_code !== undefined ||
+    payload.phone_number !== undefined
+
+  if (!hasPhonePayload) return payload
+
+  const normalized = normalizePhoneParts({
+    phone: payload.phone,
+    phoneCountryCode: payload.phoneCountryCode ?? payload.phone_country_code,
+    phoneNumber: payload.phoneNumber ?? payload.phone_number
+  })
+
+  if (!normalized.phone_number) {
+    payload.phone = null
+    payload.phone_country_code = null
+    payload.phone_number = null
+  } else {
+    payload.phone = normalized.phone
+    payload.phone_country_code = normalized.phone_country_code
+    payload.phone_number = normalized.phone_number
+  }
+
+  delete payload.phoneCountryCode
+  delete payload.phoneNumber
+  return payload
+}
 
 router.get('/', async (req, res) => {
   const accountId = req.accountId
@@ -18,7 +50,7 @@ router.get('/', async (req, res) => {
 
   const { data, error } = await supabase
     .from('customers')
-    .select('id,name,phone,email,address,nif,photo_url,account_id,pets(id,name,breed,photo_url,weight)')
+    .select('id,name,phone,phone_country_code,phone_number,email,address,nif,photo_url,account_id,pets(id,name,breed,photo_url,weight)')
     .eq('account_id', accountId)
     .order('name', { ascending: true })
     .limit(200)
@@ -41,7 +73,7 @@ router.post('/', async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
-  const payload = sanitizeBody(req.body || {})
+  const payload = applyPhonePayload(sanitizeBody(req.body || {}))
   if (accountId) {
     payload.account_id = accountId
   }
@@ -85,7 +117,7 @@ router.post('/:id/pets', async (req, res) => {
   if (!accountId) return res.status(400).json({ error: 'accountId is required' })
 
   const { id } = req.params
-  const payload = sanitizeBody(req.body || {})
+  const payload = applyPhonePayload(sanitizeBody(req.body || {}))
   payload.customer_id = id
   payload.account_id = accountId
 

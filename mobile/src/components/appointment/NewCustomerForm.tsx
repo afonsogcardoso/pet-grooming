@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { AddressAutocomplete } from './AddressAutocomplete';
 import { Input } from '../common/Input';
+import { PhoneInput } from '../common/PhoneInput';
 
 type NewCustomerFormProps = {
   customerName: string;
@@ -76,14 +77,11 @@ export function NewCustomerForm({
       
       <View style={styles.row}>
         <View style={[styles.field, { flex: 1 }]}>
-          <Text style={styles.label}>{t('common.phone')}</Text>
-          <TextInput
+          <PhoneInput
+            label={t('common.phone')}
             value={customerPhone}
-            onChangeText={setCustomerPhone}
+            onChange={setCustomerPhone}
             placeholder={t('common.phone')}
-            placeholderTextColor={colors.muted}
-            style={styles.input}
-            keyboardType="phone-pad"
           />
         </View>
         <View style={[styles.field, { flex: 1 }]}>

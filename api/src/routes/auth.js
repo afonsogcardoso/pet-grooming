@@ -1,6 +1,7 @@
 import express from 'express'
 import { createClient } from '@supabase/supabase-js'
 import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../authClient.js'
+import { normalizePhoneParts } from '../utils/phone.js'
 
 const router = express.Router()
 
@@ -74,7 +75,19 @@ router.post('/auth/login', async (req, res) => {
 })
 
 router.post('/auth/signup', async (req, res) => {
-  const { email, password, accountName, firstName, lastName, phone, userType } = req.body || {}
+  const {
+    email,
+    password,
+    accountName,
+    firstName,
+    lastName,
+    phone,
+    phoneCountryCode,
+    phoneNumber,
+    phone_country_code,
+    phone_number,
+    userType
+  } = req.body || {}
   const normalizedUserType = userType === 'consumer' ? 'consumer' : 'provider'
   if (!email || !password || (normalizedUserType === 'provider' && !accountName)) {
     const message =
@@ -98,11 +111,18 @@ router.post('/auth/signup', async (req, res) => {
   const supabaseAdmin = getSupabaseServiceRoleClient()
   if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
 
+  const phoneParts = normalizePhoneParts({
+    phone,
+    phoneCountryCode: phoneCountryCode ?? phone_country_code,
+    phoneNumber: phoneNumber ?? phone_number
+  })
   const metadata = {
     display_name: `${trimmedFirstName} ${trimmedLastName}`,
     first_name: trimmedFirstName,
     last_name: trimmedLastName,
-    phone: phone?.trim() || null,
+    phone: phoneParts.phone,
+    phone_country_code: phoneParts.phone_country_code,
+    phone_number: phoneParts.phone_number,
     user_type: normalizedUserType
   }
 
@@ -264,6 +284,11 @@ router.get('/profile', async (req, res) => {
     console.error('profile memberships error', membershipError)
   }
 
+  const profilePhone = normalizePhoneParts({
+    phone: user.user_metadata?.phone,
+    phoneCountryCode: user.user_metadata?.phone_country_code,
+    phoneNumber: user.user_metadata?.phone_number
+  })
   return res.json({
     id: user.id,
     email: user.email,
@@ -274,7 +299,9 @@ router.get('/profile', async (req, res) => {
       null,
     firstName: user.user_metadata?.first_name ?? null,
     lastName: user.user_metadata?.last_name ?? null,
-    phone: user.user_metadata?.phone ?? null,
+    phone: profilePhone.phone ?? null,
+    phoneCountryCode: profilePhone.phone_country_code ?? null,
+    phoneNumber: profilePhone.phone_number ?? null,
     locale: user.user_metadata?.preferred_locale ?? 'pt',
     avatarUrl: user.user_metadata?.avatar_url ?? null,
     userType: user.user_metadata?.user_type ?? 'provider',

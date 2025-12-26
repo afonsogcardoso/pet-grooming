@@ -19,7 +19,11 @@ export default function HomeScreen({ navigation }: Props) {
   const primarySoft = colors.primarySoft;
   const background = colors.background;
   const accountName = branding?.account_name || 'Pawmi';
-  const displayName = user?.displayName || user?.email?.split('@')[0] || t('common.user');
+  const firstName =
+    user?.firstName ||
+    user?.displayName?.split(' ')[0] ||
+    user?.email?.split('@')[0] ||
+    t('common.user');
   const avatarUrl = user?.avatarUrl || null;
   const heroImage = branding?.portal_image_url || branding?.logo_url || null;
 
@@ -27,9 +31,13 @@ export default function HomeScreen({ navigation }: Props) {
     <SafeAreaView style={[styles.container, { backgroundColor: background }]} edges={['top', 'left', 'right']}>
       {/* Header Section */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>{t('home.greeting')}</Text>
-          <Text style={styles.userName}>{displayName}</Text>
+        <View style={styles.headerText}>
+          <Text style={styles.greeting} numberOfLines={1} ellipsizeMode="tail">
+            {t('home.greeting')}
+          </Text>
+          <Text style={styles.userName} numberOfLines={1} ellipsizeMode="tail">
+            {firstName}
+          </Text>
         </View>
         {brandingLoading ? (
           <ActivityIndicator color={primary} />
@@ -42,7 +50,7 @@ export default function HomeScreen({ navigation }: Props) {
               <Image source={{ uri: avatarUrl }} style={styles.profileImage} />
             ) : (
               <View style={[styles.initialsCircle, { backgroundColor: colors.surface }]}> 
-                <Text style={styles.initialsText}>{String(displayName).slice(0,1).toUpperCase()}</Text>
+                <Text style={styles.initialsText}>{String(firstName).slice(0,1).toUpperCase()}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -133,6 +141,11 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       paddingHorizontal: 20,
       paddingTop: 12,
       paddingBottom: 20,
+    },
+    headerText: {
+      flex: 1,
+      minWidth: 0,
+      paddingRight: 12,
     },
     greeting: {
       fontSize: 16,

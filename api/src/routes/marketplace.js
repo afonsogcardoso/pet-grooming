@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../authClient.js'
 import { sanitizeBody } from '../utils/payload.js'
+import { normalizePhoneParts } from '../utils/phone.js'
 
 const router = Router()
 
@@ -46,11 +47,6 @@ function normalizeString(value) {
 function normalizeEmail(value) {
   const trimmed = normalizeString(value)
   return trimmed ? trimmed.toLowerCase() : null
-}
-
-function normalizePhone(value) {
-  const trimmed = normalizeString(value)
-  return trimmed || null
 }
 
 function normalizeNumber(value) {
@@ -250,9 +246,16 @@ router.post('/booking-requests', async (req, res) => {
     normalizeString(user.user_metadata?.display_name) ||
     (user.email ? user.email.split('@')[0] : null)
   const customerEmail = normalizeEmail(customerPayload.email || user.email)
-  const customerPhone = normalizePhone(
-    customerPayload.phone || user.phone || user.user_metadata?.phone || null
-  )
+  const phoneParts = normalizePhoneParts({
+    phone: customerPayload.phone || user.phone || user.user_metadata?.phone || null,
+    phoneCountryCode:
+      customerPayload.phoneCountryCode || customerPayload.phone_country_code || user.user_metadata?.phone_country_code || null,
+    phoneNumber:
+      customerPayload.phoneNumber || customerPayload.phone_number || user.user_metadata?.phone_number || null
+  })
+  const customerPhone = phoneParts.phone
+  const customerPhoneCountryCode = phoneParts.phone_country_code
+  const customerPhoneNumber = phoneParts.phone_number
   const customerAddress = normalizeString(customerPayload.address)
   const customerNif = normalizeString(customerPayload.nif)
 
@@ -265,11 +268,12 @@ router.post('/booking-requests', async (req, res) => {
   if (user.id) matchFilters.push(`user_id.eq.${user.id}`)
   if (customerEmail) matchFilters.push(`email.eq.${customerEmail}`)
   if (customerPhone) matchFilters.push(`phone.eq.${customerPhone}`)
+  if (customerPhoneNumber) matchFilters.push(`phone_number.eq.${customerPhoneNumber}`)
 
   if (matchFilters.length) {
     const { data: existingCustomers, error: customerError } = await supabaseAdmin
       .from('customers')
-      .select('id, user_id, name, phone, email')
+      .select('id, user_id, name, phone, phone_country_code, phone_number, email')
       .eq('account_id', account.id)
       .or(matchFilters.join(','))
       .order('created_at', { ascending: true })
@@ -290,6 +294,12 @@ router.post('/booking-requests', async (req, res) => {
     if (!customer.name && customerName) updates.name = customerName
     if (!customer.email && customerEmail) updates.email = customerEmail
     if (!customer.phone && customerPhone) updates.phone = customerPhone
+    if (!customer.phone_country_code && customerPhoneCountryCode) {
+      updates.phone_country_code = customerPhoneCountryCode
+    }
+    if (!customer.phone_number && customerPhoneNumber) {
+      updates.phone_number = customerPhoneNumber
+    }
     if (customerAddress) updates.address = customerAddress
     if (customerNif) updates.nif = customerNif
 
@@ -316,6 +326,8 @@ router.post('/booking-requests', async (req, res) => {
         name: customerName,
         email: customerEmail,
         phone: customerPhone,
+        phone_country_code: customerPhoneCountryCode,
+        phone_number: customerPhoneNumber,
         address: customerAddress,
         nif: customerNif,
         user_id: user.id

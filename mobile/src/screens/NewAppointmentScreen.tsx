@@ -31,6 +31,7 @@ import { DateTimePickerModal } from '../components/appointment/DateTimePickerMod
 import { ScreenHeader } from '../components/ScreenHeader';
 import { useTranslation } from 'react-i18next';
 import { getDateLocale } from '../i18n';
+import { buildPhone } from '../utils/phone';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -234,7 +235,13 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       setServiceRowsByPet(rowsByPet);
 
       setCustomerSearch(appointmentData.customers?.name || '');
-      setCustomerPhone(appointmentData.customers?.phone || '');
+      setCustomerPhone(
+        appointmentData.customers?.phone ||
+          buildPhone(
+            appointmentData.customers?.phone_country_code || null,
+            appointmentData.customers?.phone_number || null,
+          ),
+      );
       setCustomerAddress(appointmentData.customers?.address || '');
       setCustomerNif(appointmentData.customers?.nif || '');
     }
@@ -266,6 +273,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const background = colors.background;
   const pickerTheme = isHexLight(colors.background) ? 'light' : 'dark';
   const addressPlaceholder = t('appointmentForm.addressPlaceholder');
+  const displayTime = formatHHMM(time);
 
   const selectedCustomerData = useMemo(
     () => {
@@ -458,7 +466,13 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     setSendWhatsapp((prev) => prev || canSendWhatsapp);
 
     if (selectedCustomerData) {
-      setCustomerPhone(selectedCustomerData.phone || '');
+      setCustomerPhone(
+        selectedCustomerData.phone ||
+          buildPhone(
+            selectedCustomerData.phone_country_code || null,
+            selectedCustomerData.phone_number || null,
+          ),
+      );
       setCustomerAddress(selectedCustomerData.address || '');
       setCustomerNif(selectedCustomerData.nif || '');
     } else {
@@ -877,8 +891,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                   style={[styles.input, styles.pickInput]}
                   onPress={openTimePicker}
                 >
-                  <Text style={[styles.pickText, !time && styles.placeholder]}>
-                    {time || t('appointmentForm.timePlaceholder')}
+                  <Text style={[styles.pickText, !displayTime && styles.placeholder]}>
+                    {displayTime || t('appointmentForm.timePlaceholder')}
                   </Text>
                 </TouchableOpacity>
               </View>

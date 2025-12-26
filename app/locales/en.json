@@ -407,7 +407,7 @@
     },
     "placeholders": {
       "name": "John Doe",
-      "phone": "+351 912 345 678",
+      "phone": "912 345 678",
       "nif": "Portuguese tax ID (optional)",
       "email": "john@example.com",
       "address": "Full address or Google Maps link",
@@ -726,7 +726,7 @@
       "displayNameLabel": "Display name",
       "displayNamePlaceholder": "e.g. Maria Silva",
       "phoneLabel": "Phone",
-      "phonePlaceholder": "(+351) ...",
+      "phonePlaceholder": "912 345 678",
       "localeLabel": "Language",
       "localeHelper": "Choose the default language for your account.",
       "avatarLabel": "Profile photo",

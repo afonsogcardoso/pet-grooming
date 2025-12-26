@@ -1,0 +1,17 @@
+export const COUNTRY_CODES = [
+  { iso: 'PT', dial: '+351' },
+  { iso: 'ES', dial: '+34' },
+  { iso: 'FR', dial: '+33' },
+  { iso: 'GB', dial: '+44' },
+  { iso: 'IE', dial: '+353' },
+  { iso: 'DE', dial: '+49' },
+  { iso: 'IT', dial: '+39' },
+  { iso: 'NL', dial: '+31' },
+  { iso: 'BE', dial: '+32' },
+  { iso: 'CH', dial: '+41' },
+  { iso: 'US', dial: '+1' },
+  { iso: 'BR', dial: '+55' },
+  { iso: 'AO', dial: '+244' },
+  { iso: 'MZ', dial: '+258' },
+  { iso: 'CV', dial: '+238' },
+];

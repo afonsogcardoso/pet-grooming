@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import { useTranslation } from '@/components/TranslationProvider'
+import PhoneInput from '@/components/PhoneInput'
 
 export default function CustomerForm({ onSubmit, onCancel, onDelete, initialData = null }) {
     const { t } = useTranslation()
@@ -57,16 +58,14 @@ export default function CustomerForm({ onSubmit, onCancel, onDelete, initialData
                     </div>
 
                     <div>
-                        <label className="block text-sm font-bold text-gray-800 mb-2">
-                            {t('customerForm.labels.phone')}
-                        </label>
-                        <input
-                            type="tel"
-                            required
+                        <PhoneInput
+                            label={t('customerForm.labels.phone')}
                             value={formData.phone}
-                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                            className="w-full px-4 py-4 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)] text-lg bg-white text-gray-900 placeholder-gray-500 font-medium"
+                            onChange={(value) => setFormData({ ...formData, phone: value })}
                             placeholder={t('customerForm.placeholders.phone')}
+                            required
+                            selectClassName="border-gray-400"
+                            inputClassName="border-2 border-gray-400 text-lg font-medium px-4 py-4"
                         />
                     </div>
 

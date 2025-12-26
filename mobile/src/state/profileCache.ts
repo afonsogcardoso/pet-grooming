@@ -4,6 +4,9 @@ export type CachedProfile = {
   email?: string | null;
   displayName?: string | null;
   avatarUrl?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  userType?: 'consumer' | 'provider' | null;
 };
 
 const PROFILE_CACHE_KEY = 'profile_cache_v1';

@@ -5,11 +5,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 import { useTranslation } from 'react-i18next';
-import { getProfile, updateProfile, uploadAvatar, Profile } from '../api/profile';
+import { getProfile, updateProfile, uploadAvatar, resetPassword, Profile } from '../api/profile';
 import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { getDateLocale, normalizeLanguage, setAppLanguage } from '../i18n';
+import { PhoneInput } from '../components/common/PhoneInput';
+import { buildPhone, splitPhone } from '../utils/phone';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -38,18 +40,16 @@ export default function ProfileScreen({ navigation }: Props) {
   const dateLocale = getDateLocale();
   
   const [isEditing, setIsEditing] = useState(false);
-  const [editDisplayName, setEditDisplayName] = useState('');
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  const InfoPill = ({ label, value }: { label: string; value?: string | number | null }) => (
-    <View style={styles.pill}>
-      <Text style={styles.pillLabel}>{label}</Text>
-      <Text style={styles.pillValue}>{value ? String(value) : '—'}</Text>
-    </View>
-  );
-
-  const { data, isLoading, error, refetch, isRefetching } = useQuery({
+  const { data, isLoading, error, isRefetching } = useQuery({
     queryKey: ['profile'],
     queryFn: getProfile,
     retry: 1,
@@ -76,7 +76,11 @@ export default function ProfileScreen({ navigation }: Props) {
       }
     };
     applyIfProvided('displayName');
+    applyIfProvided('firstName');
+    applyIfProvided('lastName');
     applyIfProvided('phone');
+    applyIfProvided('phoneCountryCode');
+    applyIfProvided('phoneNumber');
     applyIfProvided('locale');
     applyIfProvided('avatarUrl');
     applyIfProvided('email');
@@ -97,6 +101,8 @@ export default function ProfileScreen({ navigation }: Props) {
           ? {
               email: user.email,
               displayName: user.displayName,
+              firstName: user.firstName,
+              lastName: user.lastName,
               avatarUrl: user.avatarUrl,
             }
           : undefined);
@@ -114,6 +120,8 @@ export default function ProfileScreen({ navigation }: Props) {
           ? {
               email: user.email,
               displayName: user.displayName,
+              firstName: user.firstName,
+              lastName: user.lastName,
               avatarUrl: user.avatarUrl,
             }
           : undefined);
@@ -123,6 +131,10 @@ export default function ProfileScreen({ navigation }: Props) {
         email: merged.email ?? user?.email,
         displayName:
           payload && 'displayName' in payload ? merged.displayName : merged.displayName ?? user?.displayName,
+        firstName:
+          payload && 'firstName' in payload ? merged.firstName : merged.firstName ?? user?.firstName,
+        lastName:
+          payload && 'lastName' in payload ? merged.lastName : merged.lastName ?? user?.lastName,
         avatarUrl:
           payload && 'avatarUrl' in payload ? merged.avatarUrl : merged.avatarUrl ?? user?.avatarUrl,
       };
@@ -165,6 +177,18 @@ export default function ProfileScreen({ navigation }: Props) {
       }
       Alert.alert(t('common.error'), t('profile.updateError'));
     },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: resetPassword,
+    onSuccess: () => {
+      setNewPassword('');
+      setConfirmPassword('');
+      setShowPasswordForm(false);
+      setPasswordError(null);
+      Alert.alert(t('common.done'), t('profile.passwordUpdated'));
+    },
+    onError: () => Alert.alert(t('common.error'), t('profile.passwordUpdateError')),
   });
 
   const requestAndroidPermissions = async () => {
@@ -299,14 +323,22 @@ export default function ProfileScreen({ navigation }: Props) {
   };
 
   const handleSave = () => {
+    if (!editFirstName.trim() || !editLastName.trim()) {
+      Alert.alert(t('common.warning'), t('profile.nameRequired'));
+      return;
+    }
     updateMutation.mutate({
-      displayName: editDisplayName.trim() || null,
+      firstName: editFirstName.trim() || null,
+      lastName: editLastName.trim() || null,
       phone: editPhone.trim() || null,
     });
   };
 
   const handleEdit = () => {
-    setEditDisplayName(data?.displayName || '');
+    const fallbackName = data?.displayName || user?.displayName || '';
+    const [fallbackFirst, ...fallbackLast] = fallbackName.split(' ');
+    setEditFirstName(data?.firstName || fallbackFirst || '');
+    setEditLastName(data?.lastName || fallbackLast.join(' ') || '');
     setEditPhone(data?.phone || '');
     setIsEditing(true);
   };
@@ -316,70 +348,161 @@ export default function ProfileScreen({ navigation }: Props) {
     languageMutation.mutate(language);
   };
 
-  const avatarFallback = data?.displayName ? data.displayName.charAt(0).toUpperCase() : '';
+  const handleOpenPasswordForm = () => {
+    if (isEditing || updateMutation.isPending || languageMutation.isPending) return;
+    setShowPasswordForm(true);
+    setPasswordError(null);
+  };
+
+  const handlePasswordCancel = () => {
+    if (resetPasswordMutation.isPending) return;
+    setShowPasswordForm(false);
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordError(null);
+  };
+
+  const handleNewPasswordChange = (value: string) => {
+    if (passwordError) setPasswordError(null);
+    setNewPassword(value);
+  };
+
+  const handleConfirmPasswordChange = (value: string) => {
+    if (passwordError) setPasswordError(null);
+    setConfirmPassword(value);
+  };
+
+  const handlePasswordSave = () => {
+    if (resetPasswordMutation.isPending) return;
+    if (newPassword.length < 8) {
+      setPasswordError(t('profile.passwordMinLength'));
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError(t('profile.passwordMismatch'));
+      return;
+    }
+    setPasswordError(null);
+    resetPasswordMutation.mutate(newPassword);
+  };
+
+  const displayName =
+    [data?.firstName, data?.lastName].filter(Boolean).join(' ') ||
+    data?.displayName ||
+    user?.displayName ||
+    t('common.user');
+  const emailValue = data?.email || user?.email || t('common.noData');
+  const createdAtValue = formatDate(data?.createdAt, dateLocale, t('common.noData'));
+  const phoneParts = splitPhone(data?.phone);
+  const phoneDisplay = buildPhone(
+    data?.phoneCountryCode || phoneParts.phoneCountryCode,
+    data?.phoneNumber || phoneParts.phoneNumber,
+  );
+  const avatarFallback = displayName.charAt(0).toUpperCase() || '?';
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScreenHeader title={t('profile.title')} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerCard}>
-          <TouchableOpacity style={styles.avatar} onPress={pickImage} disabled={uploadingAvatar || updateMutation.isPending}>
-            {data?.avatarUrl ? (
-              <Image source={{ uri: data.avatarUrl }} style={styles.avatarImage} />
-            ) : (
-              <Text style={styles.avatarText}>{avatarFallback}</Text>
-            )}
-            {uploadingAvatar ? (
-              <View style={styles.avatarLoading}>
-                <ActivityIndicator color="#fff" />
-              </View>
-            ) : (
-              <View style={styles.avatarBadge}>
-                <Text style={styles.avatarBadgeText}>📷</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.headerLabel}>{t('profile.header')}</Text>
-            {isEditing ? (
-              <>
-                <TextInput
-                  style={styles.editInput}
-                  value={editDisplayName}
-                  onChangeText={setEditDisplayName}
-                  placeholder={t('common.name')}
-                  placeholderTextColor={colors.muted}
-                />
-                <TextInput
-                  style={styles.editInput}
-                  value={editPhone}
-                  onChangeText={setEditPhone}
-                  placeholder={t('common.phone')}
-                  keyboardType="phone-pad"
-                  placeholderTextColor={colors.muted}
-                />
-              </>
-            ) : (
-              <>
-                <Text style={styles.headerTitle}>{data?.displayName}</Text>
-                <Text style={styles.headerSubtitle}>{data?.email}</Text>
-                <Text style={styles.headerMeta}>
-                  {t('profile.lastLogin', { date: formatDate(data?.lastLoginAt, dateLocale, t('common.noData')) })}
-                </Text>
-              </>
-            )}
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.avatar}
+              onPress={pickImage}
+              disabled={uploadingAvatar || updateMutation.isPending}
+            >
+              {data?.avatarUrl ? (
+                <Image source={{ uri: data.avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarText}>{avatarFallback}</Text>
+              )}
+              {uploadingAvatar ? (
+                <View style={styles.avatarLoading}>
+                  <ActivityIndicator color="#fff" />
+                </View>
+              ) : (
+                <View style={styles.avatarBadge}>
+                  <Text style={styles.avatarBadgeText}>📷</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <View style={styles.headerInfo}>
+              <Text style={styles.headerLabel}>{t('profile.header')}</Text>
+              <Text style={styles.headerTitle}>{displayName}</Text>
+              <Text style={styles.headerSubtitle}>{emailValue}</Text>
+              {phoneDisplay ? <Text style={styles.headerDetail}>{phoneDisplay}</Text> : null}
+              <Text style={styles.headerMeta}>
+                {t('profile.createdAt')}: {createdAtValue}
+              </Text>
+            </View>
           </View>
+          {!isEditing ? (
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={handleEdit}
+              disabled={updateMutation.isPending}
+            >
+              <Text style={styles.headerButtonText}>{t('profile.editProfile')}</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.editArea}>
+              <View style={styles.inputRow}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>{t('profile.firstNamePlaceholder')}</Text>
+                  <TextInput
+                    style={styles.editInput}
+                    value={editFirstName}
+                    onChangeText={setEditFirstName}
+                    placeholder={t('profile.firstNamePlaceholder')}
+                    placeholderTextColor={colors.muted}
+                  />
+                </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>{t('profile.lastNamePlaceholder')}</Text>
+                  <TextInput
+                    style={styles.editInput}
+                    value={editLastName}
+                    onChangeText={setEditLastName}
+                    placeholder={t('profile.lastNamePlaceholder')}
+                    placeholderTextColor={colors.muted}
+                  />
+                </View>
+              </View>
+              <View style={styles.inputGroup}>
+                <PhoneInput
+                  label={t('common.phone')}
+                  value={editPhone}
+                  onChange={setEditPhone}
+                  placeholder={t('common.phone')}
+                  disabled={updateMutation.isPending}
+                />
+              </View>
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[styles.button, styles.buttonInline]}
+                  onPress={handleSave}
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.buttonText}>{t('common.save')}</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.button, styles.secondary, styles.buttonInline]}
+                  onPress={() => setIsEditing(false)}
+                  disabled={updateMutation.isPending}
+                >
+                  <Text style={styles.buttonTextSecondary}>{t('common.cancel')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </View>
 
         {isLoading || isRefetching ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} /> : null}
         {error ? <Text style={styles.error}>{t('profile.loadError')}</Text> : null}
-
-        <View style={styles.infoGrid}>
-          <InfoPill label={t('profile.createdAt')} value={formatDate(data?.createdAt, dateLocale, t('common.noData'))} />
-          <InfoPill label={t('common.phone')} value={data?.phone || t('common.noData')} />
-          <InfoPill label={t('profile.language')} value={t(`language.${normalizeLanguage(data?.locale || 'pt')}`)} />
-          <InfoPill label={t('profile.associations')} value={0} />
-        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('profile.language')}</Text>
@@ -403,45 +526,71 @@ export default function ProfileScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.actions')}</Text>
-          {isEditing ? (
+          <Text style={styles.sectionTitle}>{t('profile.security')}</Text>
+          <Text style={styles.sectionText}>{t('profile.changePasswordDescription')}</Text>
+          {showPasswordForm ? (
             <>
-              <TouchableOpacity 
-                style={styles.button} 
-                onPress={handleSave}
-                disabled={updateMutation.isPending}
+              <TextInput
+                style={styles.editInput}
+                value={newPassword}
+                onChangeText={handleNewPasswordChange}
+                placeholder={t('profile.newPassword')}
+                placeholderTextColor={colors.muted}
+                autoCapitalize="none"
+                secureTextEntry
+              />
+              <TextInput
+                style={styles.editInput}
+                value={confirmPassword}
+                onChangeText={handleConfirmPasswordChange}
+                placeholder={t('profile.confirmPassword')}
+                placeholderTextColor={colors.muted}
+                autoCapitalize="none"
+                secureTextEntry
+              />
+              {passwordError ? <Text style={[styles.error, { marginTop: 6 }]}>{passwordError}</Text> : null}
+              <TouchableOpacity
+                style={styles.button}
+                onPress={handlePasswordSave}
+                disabled={resetPasswordMutation.isPending}
               >
-                {updateMutation.isPending ? (
+                {resetPasswordMutation.isPending ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.buttonText}>{t('common.save')}</Text>
                 )}
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.button, styles.secondary]} 
-                onPress={() => setIsEditing(false)}
+              <TouchableOpacity
+                style={[styles.button, styles.secondary]}
+                onPress={handlePasswordCancel}
+                disabled={resetPasswordMutation.isPending}
               >
                 <Text style={styles.buttonTextSecondary}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </>
           ) : (
-            <>
-              <TouchableOpacity style={styles.button} onPress={handleEdit}>
-                <Text style={styles.buttonText}>{t('profile.editProfile')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, styles.secondary]} onPress={() => refetch()}>
-                <Text style={styles.buttonTextSecondary}>{t('profile.reloadProfile')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, styles.danger]} onPress={async () => {
-                await useAuthStore.getState().clear();
-                navigation.replace('Login');
-              }}>
-                <Text style={styles.buttonText}>{t('profile.logout')}</Text>
-              </TouchableOpacity>
-            </>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={handleOpenPasswordForm}
+              disabled={isEditing || updateMutation.isPending || languageMutation.isPending}
+            >
+              <Text style={styles.buttonText}>{t('profile.changePassword')}</Text>
+            </TouchableOpacity>
           )}
         </View>
+
       </ScrollView>
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[styles.button, styles.danger]}
+          onPress={async () => {
+            await useAuthStore.getState().clear();
+            navigation.replace('Login');
+          }}
+        >
+          <Text style={styles.buttonText}>{t('profile.logout')}</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -455,14 +604,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     scrollContent: {
       padding: 24,
       paddingTop: 32,
-      paddingBottom: 40,
+      paddingBottom: 120,
     },
     headerCard: {
       backgroundColor: colors.surface,
-      borderRadius: 16,
-      padding: 16,
-      flexDirection: 'row',
-      alignItems: 'center',
+      borderRadius: 18,
+      padding: 18,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
       marginBottom: 16,
@@ -470,6 +617,10 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       shadowOpacity: 0.15,
       shadowRadius: 12,
       shadowOffset: { width: 0, height: 8 },
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
     },
     avatar: {
       height: 64,
@@ -481,6 +632,9 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 14,
+    },
+    headerInfo: {
+      flex: 1,
     },
     avatarText: {
       color: colors.primary,
@@ -502,10 +656,30 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.muted,
       marginTop: 2,
     },
+    headerDetail: {
+      color: colors.muted,
+      marginTop: 2,
+      fontSize: 13,
+    },
     headerMeta: {
       color: colors.muted,
       fontSize: 12,
       marginTop: 6,
+    },
+    headerButton: {
+      marginTop: 14,
+      backgroundColor: colors.primary,
+      borderRadius: 12,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    headerButtonText: {
+      color: colors.onPrimary,
+      fontWeight: '700',
+      fontSize: 14,
+    },
+    editArea: {
+      marginTop: 12,
     },
     avatarImage: {
       width: '100%',
@@ -554,31 +728,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.danger,
       marginBottom: 8,
     },
-    infoGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 12,
-      marginVertical: 12,
-    },
-    pill: {
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      paddingVertical: 12,
-      paddingHorizontal: 14,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      width: '47%',
-    },
-    pillLabel: {
-      color: colors.muted,
-      fontSize: 12,
-      marginBottom: 4,
-    },
-    pillValue: {
-      color: colors.text,
-      fontWeight: '700',
-      fontSize: 16,
-    },
     section: {
       marginTop: 10,
       backgroundColor: colors.surface,
@@ -586,6 +735,21 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       padding: 16,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
+    },
+    inputRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    inputGroup: {
+      flex: 1,
+      marginBottom: 10,
+    },
+    inputLabel: {
+      color: colors.muted,
+      fontSize: 11,
+      letterSpacing: 0.6,
+      textTransform: 'uppercase',
+      marginBottom: 6,
     },
     languageOptions: {
       flexDirection: 'row',
@@ -618,11 +782,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.text,
       fontWeight: '700',
       fontSize: 16,
-      marginBottom: 6,
     },
     sectionText: {
       color: colors.muted,
       marginBottom: 12,
+    },
+    actionRow: {
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 8,
     },
     button: {
       backgroundColor: colors.primary,
@@ -630,6 +798,10 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       paddingVertical: 12,
       alignItems: 'center',
       marginBottom: 10,
+    },
+    buttonInline: {
+      flex: 1,
+      marginBottom: 0,
     },
     buttonText: {
       color: colors.onPrimary,
@@ -648,7 +820,16 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     danger: {
       backgroundColor: '#ef4444',
-      marginTop: 20,
+    },
+    footer: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      padding: 16,
+      backgroundColor: colors.background,
+      borderTopWidth: 1,
+      borderTopColor: colors.surfaceBorder,
     },
   });
 }

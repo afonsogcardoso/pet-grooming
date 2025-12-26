@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import LoginScreen from './src/screens/LoginScreen';
+import RegisterScreen from './src/screens/RegisterScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AppointmentsScreen from './src/screens/AppointmentsScreen';
@@ -18,6 +19,10 @@ import CustomerFormScreen from './src/screens/CustomerFormScreen';
 import PetFormScreen from './src/screens/PetFormScreen';
 import ServicesScreen from './src/screens/ServicesScreen';
 import ServiceFormScreen from './src/screens/ServiceFormScreen';
+import ConsumerHomeScreen from './src/screens/ConsumerHomeScreen';
+import MarketplaceScreen from './src/screens/MarketplaceScreen';
+import MarketplaceAccountScreen from './src/screens/MarketplaceAccountScreen';
+import MarketplaceRequestScreen from './src/screens/MarketplaceRequestScreen';
 import { useAuthStore } from './src/state/authStore';
 import { Branding, getBranding } from './src/api/branding';
 import { getProfile } from './src/api/profile';
@@ -27,11 +32,53 @@ import { bootstrapLanguage, setAppLanguage } from './src/i18n';
 
 const Stack = createNativeStackNavigator();
 
+const NAMED_COLORS: Record<string, string> = {
+  white: '#ffffff',
+  black: '#000000',
+};
+
+function parseHex(input?: string | null) {
+  if (!input) return null;
+  const hex = input.trim().replace('#', '');
+  if (![3, 6].includes(hex.length)) return null;
+  const normalized = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
+  const int = Number.parseInt(normalized, 16);
+  const r = (int >> 16) & 255;
+  const g = (int >> 8) & 255;
+  const b = int & 255;
+  if ([r, g, b].some((v) => Number.isNaN(v))) return null;
+  return { r, g, b };
+}
+
+function normalizeColor(input?: string | null) {
+  if (!input) return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  const named = NAMED_COLORS[trimmed.toLowerCase()];
+  return named || trimmed;
+}
+
+function isLightColor(input?: string | null) {
+  const normalized = normalizeColor(input);
+  if (!normalized) return false;
+  const rgb = parseHex(normalized);
+  if (!rgb) return normalized.toLowerCase() === 'white';
+  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+  return luminance > 0.65;
+}
+
 export default function App() {
   const [queryClient] = useState(() => new QueryClient());
   const [brandingData, setBrandingData] = useState<Branding | null>(null);
   const [previousBranding, setPreviousBranding] = useState<Branding | null>(null);
-  const [profileData, setProfileData] = useState<{ email?: string | null; displayName?: string | null; avatarUrl?: string | null } | null>(null);
+  const [profileData, setProfileData] = useState<{
+    email?: string | null;
+    displayName?: string | null;
+    avatarUrl?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    userType?: 'consumer' | 'provider' | null;
+  } | null>(null);
   const token = useAuthStore((s) => s.token);
   const hydrated = useAuthStore((s) => s.hydrated);
   const brandingFade = useMemo(() => new Animated.Value(0), []);
@@ -147,12 +194,18 @@ export default function App() {
           email: fresh.email,
           displayName: fresh.displayName,
           avatarUrl: fresh.avatarUrl,
+          firstName: fresh.firstName,
+          lastName: fresh.lastName,
+          userType: fresh.userType,
         });
         queryClient.setQueryData(['profile'], fresh);
         await writeProfileCache({
           email: fresh.email,
           displayName: fresh.displayName,
           avatarUrl: fresh.avatarUrl,
+          firstName: fresh.firstName,
+          lastName: fresh.lastName,
+          userType: fresh.userType,
         });
         if (fresh.locale) {
           setAppLanguage(fresh.locale);
@@ -177,7 +230,11 @@ export default function App() {
     );
   }
 
+  const userType = profileData?.userType ?? 'provider';
+
   const overlayBackground = previousBranding?.brand_background || '#FFF7EE';
+  const statusBarBackground = brandingData?.brand_background || overlayBackground || '#FFF7EE';
+  const statusBarStyle = isLightColor(statusBarBackground) ? 'dark' : 'light';
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -186,25 +243,38 @@ export default function App() {
           <NavigationContainer>
             <Stack.Navigator>
               {token ? (
-              <>
-                <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="Appointments" component={AppointmentsScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="NewAppointment" component={NewAppointmentScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="Customers" component={CustomersScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="CustomerDetail" component={CustomerDetailScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="CustomerForm" component={CustomerFormScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="PetForm" component={PetFormScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="Services" component={ServicesScreen} options={{ headerShown: false }} />
-                <Stack.Screen name="ServiceForm" component={ServiceFormScreen} options={{ headerShown: false }} />
-              </>
-            ) : (
-              <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-            )}
+                userType === 'consumer' ? (
+                  <>
+                    <Stack.Screen name="ConsumerHome" component={ConsumerHomeScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="Marketplace" component={MarketplaceScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="MarketplaceAccount" component={MarketplaceAccountScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="MarketplaceRequest" component={MarketplaceRequestScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
+                  </>
+                ) : (
+                  <>
+                    <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="Appointments" component={AppointmentsScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="NewAppointment" component={NewAppointmentScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="Customers" component={CustomersScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="CustomerDetail" component={CustomerDetailScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="CustomerForm" component={CustomerFormScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="PetForm" component={PetFormScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="Services" component={ServicesScreen} options={{ headerShown: false }} />
+                    <Stack.Screen name="ServiceForm" component={ServiceFormScreen} options={{ headerShown: false }} />
+                  </>
+                )
+              ) : (
+                <>
+                  <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+                  <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
+                </>
+              )}
           </Stack.Navigator>
           </NavigationContainer>
-          <StatusBar style="light" />
+          <StatusBar style={statusBarStyle} backgroundColor={statusBarBackground} />
           {previousBranding ? (
             <Animated.View
               pointerEvents="none"

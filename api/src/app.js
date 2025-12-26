@@ -239,6 +239,8 @@ const swaggerDefinition = {
           email: { type: 'string', format: 'email' },
           displayName: { type: 'string', nullable: true },
           phone: { type: 'string', nullable: true },
+          phoneCountryCode: { type: 'string', nullable: true, example: '+351' },
+          phoneNumber: { type: 'string', nullable: true, example: '912345678' },
           locale: { type: 'string', nullable: true, example: 'pt' },
           avatarUrl: { type: 'string', nullable: true },
           lastLoginAt: { type: 'string', format: 'date-time', nullable: true },
@@ -265,6 +267,8 @@ const swaggerDefinition = {
           id: { type: 'string' },
           name: { type: 'string' },
           phone: { type: 'string' },
+          phoneCountryCode: { type: 'string', nullable: true },
+          phoneNumber: { type: 'string', nullable: true },
           address: { type: 'string' }
         }
       },

@@ -1,5 +1,16 @@
 import { useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
+} from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -48,12 +59,24 @@ export default function LoginScreen({ navigation }: Props) {
       // First store tokens temporarily to make authenticated requests
       await setTokens({ token: data.token, refreshToken: data.refreshToken });
       
-      // Fetch profile to get displayName and avatarUrl
+      // Fetch profile to get name and avatar
       try {
         const profile = await queryClient.fetchQuery({ queryKey: ['profile'], queryFn: getProfile });
-        setUser({ email: profile.email, displayName: profile.displayName, avatarUrl: profile.avatarUrl });
+        setUser({
+          email: profile.email,
+          displayName: profile.displayName,
+          avatarUrl: profile.avatarUrl,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          userType: profile.userType,
+        });
       } catch {
-        setUser({ email: data.email });
+        setUser({
+          email: data.email,
+          displayName: data.displayName,
+          firstName: data.firstName,
+          lastName: data.lastName,
+        });
       }
       
       // Wait for branding before navigating - app will show loading during this
@@ -74,20 +97,21 @@ export default function LoginScreen({ navigation }: Props) {
   });
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerSection}>
-        <View style={styles.iconCircle}>
-          <Image
-            source={logoSource}
-            style={styles.iconImage}
-            onError={() => setBrandingLogoFailed(true)}
-          />
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.headerSection}>
+          <View style={styles.iconCircle}>
+            <Image
+              source={logoSource}
+              style={styles.iconImage}
+              onError={() => setBrandingLogoFailed(true)}
+            />
+          </View>
+          <Text style={styles.welcomeText}>{t('login.welcomeBack')}</Text>
+          <Text style={styles.subtitle}>{t('login.subtitle')}</Text>
         </View>
-        <Text style={styles.welcomeText}>{t('login.welcomeBack')}</Text>
-        <Text style={styles.subtitle}>{t('login.subtitle')}</Text>
-      </View>
 
-      <View style={styles.formCard}>
+        <View style={styles.formCard}>
         <Controller
           control={control}
           name="email"
@@ -151,12 +175,20 @@ export default function LoginScreen({ navigation }: Props) {
             <Text style={styles.buttonText}>{t('login.signIn')}</Text>
           )}
         </TouchableOpacity>
-      </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>Pawmi App</Text>
-      </View>
-    </View>
+        <View style={styles.registerRow}>
+          <Text style={styles.registerText}>{t('login.noAccount')}</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+            <Text style={styles.registerLink}>{t('login.createAccount')}</Text>
+          </TouchableOpacity>
+        </View>
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Pawmi App</Text>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -165,8 +197,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     container: {
       flex: 1,
       backgroundColor: colors.background,
-      justifyContent: 'space-between',
       paddingVertical: 40,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: 'space-between',
+      paddingBottom: 24,
     },
     headerSection: {
       alignItems: 'center',
@@ -288,6 +324,21 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontWeight: '700',
       fontSize: 17,
       letterSpacing: 0.5,
+    },
+    registerRow: {
+      marginTop: 16,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 6,
+    },
+    registerText: {
+      color: colors.muted,
+      fontWeight: '500',
+    },
+    registerLink: {
+      color: colors.primary,
+      fontWeight: '700',
     },
     footer: {
       alignItems: 'center',

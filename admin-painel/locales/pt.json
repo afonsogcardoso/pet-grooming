@@ -355,7 +355,7 @@
     },
     "placeholders": {
       "name": "João Silva",
-      "phone": "+351 912 345 678",
+      "phone": "912 345 678",
       "nif": "Número de contribuinte (opcional)",
       "email": "joao@example.com",
       "address": "Morada completa ou link do Google Maps",
@@ -674,7 +674,7 @@
       "displayNameLabel": "Nome a apresentar",
       "displayNamePlaceholder": "Ex.: Maria Silva",
       "phoneLabel": "Telefone",
-      "phonePlaceholder": "(+351) ...",
+      "phonePlaceholder": "912 345 678",
       "localeLabel": "Idioma",
       "localeHelper": "Escolhe o idioma predefinido da tua conta.",
       "avatarLabel": "Fotografia de perfil",

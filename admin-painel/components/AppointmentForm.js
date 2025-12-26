@@ -16,18 +16,9 @@ import {
 import { loadServices } from '@/lib/serviceService'
 import { useTranslation } from '@/components/TranslationProvider'
 import BreedSelect from '@/components/BreedSelect'
+import PhoneInput from '@/components/PhoneInput'
 
 const formatTimeValue = (value) => (value ? value.substring(0, 5) : '')
-
-const formatPhoneInput = (value) => {
-    if (!value) return ''
-    const trimmed = value.trim()
-    const hasPlus = trimmed.startsWith('+')
-    const digits = trimmed.replace(/\D/g, '')
-    const groups = digits.match(/.{1,3}/g) || []
-    const spaced = groups.join(' ')
-    return hasPlus ? `+${spaced}` : spaced
-}
 
 const buildInitialFormState = (data) => ({
     customer_id: data?.customer_id || '',
@@ -829,18 +820,19 @@ export default function AppointmentForm({
                                         placeholder={t('customerForm.placeholders.name')}
                                         className="w-full rounded-lg border-2 border-gray-400 px-3 py-2 text-sm bg-white text-gray-900 font-medium focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)]"
                                     />
-                                    <input
-                                        type="tel"
-                                        required
+                                    <PhoneInput
+                                        label={t('customerForm.labels.phone')}
                                         value={customerFormData.phone}
-                                        onChange={(e) =>
+                                        onChange={(value) =>
                                             setCustomerFormData({
                                                 ...customerFormData,
-                                                phone: formatPhoneInput(e.target.value)
+                                                phone: value
                                             })
                                         }
                                         placeholder={t('customerForm.placeholders.phone')}
-                                        className="w-full rounded-lg border-2 border-gray-400 px-3 py-2 text-sm bg-white text-gray-900 font-medium focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)]"
+                                        required
+                                        selectClassName="border-gray-400"
+                                        inputClassName="border-2 border-gray-400 text-sm font-medium"
                                     />
                                     <input
                                         type="text"
@@ -977,20 +969,18 @@ export default function AppointmentForm({
                                         />
                                     </div>
                                     <div className="mt-2">
-                                        <label className="block text-xs sm:text-sm font-bold text-gray-800 mb-1 sm:mb-2">
-                                            {t('appointmentForm.fields.phone')}
-                                        </label>
-                                        <input
-                                            type="tel"
+                                        <PhoneInput
+                                            label={t('appointmentForm.fields.phone')}
                                             value={formData.phone}
-                                            onChange={(e) =>
+                                            onChange={(value) =>
                                                 setFormData((prev) => ({
                                                     ...prev,
-                                                    phone: formatPhoneInput(e.target.value),
+                                                    phone: value,
                                                 }))
                                             }
                                             placeholder={t('appointmentForm.placeholders.phone')}
-                                            className="w-full rounded-lg border-2 border-gray-300 px-3 py-2 text-sm sm:text-base bg-white text-gray-900 font-medium focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)]"
+                                            selectClassName="border-gray-300"
+                                            inputClassName="border-2 border-gray-300 text-sm sm:text-base font-medium"
                                         />
                                     </div>
                                     <div className="mt-2">
@@ -1340,21 +1330,19 @@ export default function AppointmentForm({
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-800 mb-2">
-                                        {t('customerForm.labels.phone')}
-                                    </label>
-                                    <input
-                                        type="tel"
-                                        required
+                                    <PhoneInput
+                                        label={t('customerForm.labels.phone')}
                                         value={customerFormData.phone}
-                                        onChange={(e) =>
+                                        onChange={(value) =>
                                             setCustomerFormData({
                                                 ...customerFormData,
-                                                phone: formatPhoneInput(e.target.value)
+                                                phone: value
                                             })
                                         }
-                                        className="w-full px-4 py-3 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)] text-base bg-white text-gray-900 font-medium"
                                         placeholder={t('customerForm.placeholders.phone')}
+                                        required
+                                        selectClassName="border-gray-400"
+                                        inputClassName="border-2 border-gray-400 text-base font-medium px-4 py-3"
                                     />
                                 </div>
                                 <div>

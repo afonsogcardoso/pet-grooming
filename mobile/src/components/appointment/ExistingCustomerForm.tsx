@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { AddressAutocomplete } from './AddressAutocomplete';
+import { PhoneInput } from '../common/PhoneInput';
 import type { Customer, Pet } from '../../api/customers';
 import { useEffect, useState } from 'react';
 
@@ -322,14 +323,11 @@ export function ExistingCustomerForm({
 
             {detailsOpen ? (
               <>
-                <Text style={styles.customerDetailLabel}>📱 {t('common.phone')}</Text>
-                <TextInput
+                <PhoneInput
+                  label={`📱 ${t('common.phone')}`}
                   value={customerPhone}
-                  onChangeText={setCustomerPhone}
+                  onChange={setCustomerPhone}
                   placeholder={t('common.phone')}
-                  placeholderTextColor={colors.muted}
-                  style={[styles.input, styles.inlineInput]}
-                  keyboardType="phone-pad"
                 />
                 <Text style={styles.customerDetailLabel}>📍 {t('customerDetail.address')}</Text>
                 <AddressAutocomplete

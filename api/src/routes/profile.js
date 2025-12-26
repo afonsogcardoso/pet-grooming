@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import multer from 'multer'
 import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../authClient.js'
+import { normalizePhoneParts } from '../utils/phone.js'
 
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
@@ -65,7 +66,18 @@ router.patch('/', async (req, res) => {
   const user = await getAuthenticatedUser(req)
   if (!user) return res.status(401).json({ error: 'Unauthorized' })
 
-  const { displayName, firstName, lastName, phone, locale, avatarUrl } = req.body || {}
+  const {
+    displayName,
+    firstName,
+    lastName,
+    phone,
+    phoneCountryCode,
+    phoneNumber,
+    phone_country_code,
+    phone_number,
+    locale,
+    avatarUrl
+  } = req.body || {}
   const metadataUpdates = {}
   const trimmedFirstName = firstName?.toString().trim()
   const trimmedLastName = lastName?.toString().trim()
@@ -75,7 +87,28 @@ router.patch('/', async (req, res) => {
   if ((trimmedFirstName || trimmedLastName) && displayName === undefined) {
     metadataUpdates.display_name = [trimmedFirstName, trimmedLastName].filter(Boolean).join(' ') || null
   }
-  if (phone !== undefined) metadataUpdates.phone = phone?.trim() || null
+  if (
+    phone !== undefined ||
+    phoneCountryCode !== undefined ||
+    phoneNumber !== undefined ||
+    phone_country_code !== undefined ||
+    phone_number !== undefined
+  ) {
+    const normalized = normalizePhoneParts({
+      phone,
+      phoneCountryCode: phoneCountryCode ?? phone_country_code,
+      phoneNumber: phoneNumber ?? phone_number
+    })
+    if (!normalized.phone_number) {
+      metadataUpdates.phone = null
+      metadataUpdates.phone_country_code = null
+      metadataUpdates.phone_number = null
+    } else {
+      metadataUpdates.phone = normalized.phone
+      metadataUpdates.phone_country_code = normalized.phone_country_code
+      metadataUpdates.phone_number = normalized.phone_number
+    }
+  }
   if (locale !== undefined) {
     const normalized = ALLOWED_LOCALES.includes(locale) ? locale : null
     metadataUpdates.preferred_locale = normalized || null
@@ -107,6 +140,11 @@ router.patch('/', async (req, res) => {
     [updatedFirstName, updatedLastName].filter(Boolean).join(' ') ||
     updatedUser?.email ||
     null
+  const responsePhone = normalizePhoneParts({
+    phone: updatedUser?.user_metadata?.phone ?? null,
+    phoneCountryCode: updatedUser?.user_metadata?.phone_country_code ?? null,
+    phoneNumber: updatedUser?.user_metadata?.phone_number ?? null
+  })
   return res.json({
     user: {
       id: updatedUser?.id,
@@ -114,7 +152,9 @@ router.patch('/', async (req, res) => {
       displayName: updatedDisplayName,
       firstName: updatedFirstName,
       lastName: updatedLastName,
-      phone: updatedUser?.user_metadata?.phone ?? null,
+      phone: responsePhone.phone ?? null,
+      phoneCountryCode: responsePhone.phone_country_code ?? null,
+      phoneNumber: responsePhone.phone_number ?? null,
       locale: updatedUser?.user_metadata?.preferred_locale ?? null,
       avatarUrl: updatedUser?.user_metadata?.avatar_url ?? null,
       lastLoginAt: updatedUser?.last_sign_in_at ?? null,

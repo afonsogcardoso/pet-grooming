@@ -31,6 +31,23 @@ function parseHex(input?: string | null) {
   return { r, g, b };
 }
 
+const NAMED_COLORS: Record<string, string> = {
+  white: '#ffffff',
+  black: '#000000',
+};
+
+function normalizeHexColor(value: string | null | undefined, fallback: string) {
+  if (!value) return fallback;
+  const trimmed = value.trim();
+  if (!trimmed) return fallback;
+  const named = NAMED_COLORS[trimmed.toLowerCase()];
+  if (named) return named;
+  const parsed = parseHex(trimmed);
+  if (!parsed) return fallback;
+  const toHex = (v: number) => v.toString(16).padStart(2, '0');
+  return `#${toHex(parsed.r)}${toHex(parsed.g)}${toHex(parsed.b)}`;
+}
+
 function isLightColor(color?: string | null) {
   const rgb = parseHex(color);
   if (!rgb) return false;
@@ -60,15 +77,16 @@ export function useBrandingTheme() {
 
   const colors: ThemeColors = useMemo(() => {
     const branding = query.data as Branding | undefined;
-    const background = branding?.brand_background || '#FFF7EE';
+    const background = normalizeHexColor(branding?.brand_background, '#FFF7EE');
     const backgroundIsLight = isLightColor(background);
 
-    const primary = branding?.brand_primary || '#F47C1C';
-    const primarySoft = branding?.brand_primary_soft || '#FFA85C';
-    const accent = branding?.brand_accent || '#D65A00';
+    const primary = normalizeHexColor(branding?.brand_primary, '#F47C1C');
+    const primarySoftCandidate = normalizeHexColor(branding?.brand_primary_soft, '');
+    const primarySoft = primarySoftCandidate || '#FFA85C';
+    const accent = normalizeHexColor(branding?.brand_accent, '#D65A00');
 
-    const surface = branding?.brand_primary_soft
-      ? branding.brand_primary_soft
+    const surface = primarySoftCandidate
+      ? primarySoftCandidate
       : backgroundIsLight
         ? '#FFF7EE'
         : '#1E1E1E';

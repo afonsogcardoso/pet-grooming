@@ -4,9 +4,14 @@ export type Profile = {
   id: string;
   email: string;
   displayName?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
   phone?: string | null;
+  phoneCountryCode?: string | null;
+  phoneNumber?: string | null;
   locale?: string | null;
   avatarUrl?: string | null;
+  userType?: 'consumer' | 'provider' | null;
   lastLoginAt?: string | null;
   createdAt?: string | null;
   memberships?: any[];
@@ -20,6 +25,8 @@ export async function getProfile(): Promise<Profile> {
 
 export async function updateProfile(payload: {
   displayName?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
   phone?: string | null;
   locale?: string | null;
   avatarUrl?: string | null;
@@ -32,5 +39,10 @@ export async function uploadAvatar(formData: FormData): Promise<{ url: string }>
   const { data } = await api.post<{ url: string }>('/profile/avatar', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+  return data;
+}
+
+export async function resetPassword(newPassword: string): Promise<{ ok: boolean }> {
+  const { data } = await api.post<{ ok: boolean }>('/profile/reset-password', { newPassword });
   return data;
 }
