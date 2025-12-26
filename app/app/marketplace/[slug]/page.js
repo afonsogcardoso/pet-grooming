@@ -90,12 +90,6 @@ export default async function MarketplaceProviderPage({ params }) {
                 >
                   {account.name}
                 </p>
-                <h1
-                  className={`${styles.stagger} text-4xl font-bold leading-tight text-slate-900 sm:text-5xl`}
-                  style={{ '--delay': '80ms' }}
-                >
-                  Serviços disponíveis no marketplace Pawmi.
-                </h1>
                 <p
                   className={`${styles.stagger} max-w-xl text-sm leading-relaxed text-slate-600 sm:text-[15px]`}
                   style={{ '--delay': '160ms' }}
