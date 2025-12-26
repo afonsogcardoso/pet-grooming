@@ -192,6 +192,8 @@
     "businessSection": "Business information",
     "nameLabel": "Marketplace name",
     "namePlaceholder": "Business name",
+    "regionLabel": "Region / city",
+    "regionPlaceholder": "Lisbon, Porto, Algarve",
     "descriptionLabel": "Description",
     "descriptionPlaceholder": "Introduce your services",
     "socialTitle": "Social links",

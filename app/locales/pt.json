@@ -643,6 +643,8 @@
       "title": "Marketplace",
       "description": "Define os textos e links públicos que aparecem no marketplace.",
       "fields": {
+        "region": "Região / cidade",
+        "regionPlaceholder": "Lisboa, Porto, Algarve",
         "description": "Descrição pública",
         "descriptionPlaceholder": "Apresente os seus serviços e diferenciação.",
         "instagram": "Instagram",

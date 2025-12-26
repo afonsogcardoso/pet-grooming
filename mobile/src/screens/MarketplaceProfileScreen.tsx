@@ -29,6 +29,7 @@ export default function MarketplaceProfileScreen() {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [region, setRegion] = useState('');
   const [instagram, setInstagram] = useState('');
   const [facebook, setFacebook] = useState('');
   const [tiktok, setTiktok] = useState('');
@@ -51,6 +52,7 @@ export default function MarketplaceProfileScreen() {
     if (!data) return;
     setName(data.account_name || '');
     setDescription(data.marketplace_description || '');
+    setRegion(data.marketplace_region || '');
     setInstagram(data.marketplace_instagram_url || '');
     setFacebook(data.marketplace_facebook_url || '');
     setTiktok(data.marketplace_tiktok_url || '');
@@ -249,6 +251,7 @@ export default function MarketplaceProfileScreen() {
 
     updateMutation.mutate({
       name: trimmedName,
+      marketplace_region: region.trim() || null,
       marketplace_description: description.trim() || null,
       marketplace_instagram_url: instagram.trim() || null,
       marketplace_facebook_url: facebook.trim() || null,
@@ -339,6 +342,12 @@ export default function MarketplaceProfileScreen() {
             value={name}
             onChangeText={setName}
             placeholder={t('marketplaceProfile.namePlaceholder')}
+          />
+          <Input
+            label={t('marketplaceProfile.regionLabel')}
+            value={region}
+            onChangeText={setRegion}
+            placeholder={t('marketplaceProfile.regionPlaceholder')}
           />
           <Input
             label={t('marketplaceProfile.descriptionLabel')}

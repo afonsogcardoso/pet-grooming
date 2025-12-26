@@ -171,7 +171,7 @@ export default async function MarketplacePage({ searchParams }) {
                     <input
                       type="text"
                       name="q"
-                      placeholder="Cidade, conta ou serviço"
+                      placeholder="Cidade, região ou conta"
                       className="flex-1 rounded-full border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400 shadow-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
                     />
                     <button
@@ -315,6 +315,7 @@ export default async function MarketplacePage({ searchParams }) {
                     : []
                   const supportLine =
                     formatPhoneDisplay(provider.support_phone) || provider.support_email
+                  const region = provider.marketplace_region
                   const description =
                     provider.marketplace_description || 'Conta Pawmi disponível para novos pedidos.'
                   const providerSlug = provider.slug || ''
@@ -329,6 +330,11 @@ export default async function MarketplacePage({ searchParams }) {
                         <div>
                           <p className="text-sm font-semibold text-slate-900">{provider.name}</p>
                           <p className="mt-1 text-xs text-slate-500">{description}</p>
+                          {region && (
+                            <p className="mt-1 text-xs font-semibold text-slate-500">
+                              {region}
+                            </p>
+                          )}
                         </div>
                         {provider.logo_url ? (
                           <Image

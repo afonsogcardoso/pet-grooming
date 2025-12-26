@@ -192,6 +192,8 @@
     "businessSection": "Informação do negócio",
     "nameLabel": "Nome no marketplace",
     "namePlaceholder": "Nome do negócio",
+    "regionLabel": "Região / cidade",
+    "regionPlaceholder": "Lisboa, Porto, Algarve",
     "descriptionLabel": "Descrição",
     "descriptionPlaceholder": "Apresente os seus serviços",
     "socialTitle": "Redes sociais",

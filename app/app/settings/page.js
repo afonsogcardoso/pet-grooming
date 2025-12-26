@@ -33,6 +33,7 @@ const normalizeBrandingData = (data = {}) => ({
   account_name: data.account_name ?? data.name ?? '',
   logo_url: data.logo_url ?? '',
   portal_image_url: data.portal_image_url ?? '',
+  marketplace_region: data.marketplace_region ?? '',
   marketplace_description: data.marketplace_description ?? '',
   marketplace_instagram_url: data.marketplace_instagram_url ?? '',
   marketplace_facebook_url: data.marketplace_facebook_url ?? '',
@@ -65,6 +66,7 @@ export default function SettingsPage() {
     account_name: '',
     logo_url: '',
     portal_image_url: '',
+    marketplace_region: '',
     marketplace_description: '',
     marketplace_instagram_url: '',
     marketplace_facebook_url: '',
@@ -261,6 +263,7 @@ export default function SettingsPage() {
           name: branding.account_name,
           logo_url: branding.logo_url,
           portal_image_url: branding.portal_image_url,
+          marketplace_region: branding.marketplace_region,
           marketplace_description: branding.marketplace_description,
           marketplace_instagram_url: branding.marketplace_instagram_url,
           marketplace_facebook_url: branding.marketplace_facebook_url,
@@ -859,6 +862,24 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <label className="flex flex-col gap-2 md:col-span-2">
+                      <span className={labelClass}>
+                        {t('settings.marketplace.fields.region')}
+                      </span>
+                      <input
+                        type="text"
+                        value={branding.marketplace_region}
+                        onChange={(e) =>
+                          setBranding((prev) => ({
+                            ...prev,
+                            marketplace_region: e.target.value
+                          }))
+                        }
+                        className={inputClass}
+                        placeholder={t('settings.marketplace.fields.regionPlaceholder')}
+                      />
+                    </label>
+
                     <label className="flex flex-col gap-2 md:col-span-2">
                       <span className={labelClass}>
                         {t('settings.marketplace.fields.description')}

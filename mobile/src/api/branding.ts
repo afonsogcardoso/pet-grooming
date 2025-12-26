@@ -12,6 +12,7 @@ export type Branding = {
   portal_image_url?: string | null;
   support_email?: string | null;
   support_phone?: string | null;
+  marketplace_region?: string | null;
   marketplace_description?: string | null;
   marketplace_instagram_url?: string | null;
   marketplace_facebook_url?: string | null;
@@ -35,6 +36,7 @@ export type BrandingUpdatePayload = {
   portal_image_url?: string | null;
   support_email?: string | null;
   support_phone?: string | null;
+  marketplace_region?: string | null;
   marketplace_description?: string | null;
   marketplace_instagram_url?: string | null;
   marketplace_facebook_url?: string | null;

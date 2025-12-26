@@ -13,6 +13,7 @@ const MARKETPLACE_ACCOUNT_SELECT = [
   'portal_image_url',
   'support_email',
   'support_phone',
+  'marketplace_region',
   'marketplace_categories',
   'marketplace_description',
   'marketplace_instagram_url',
@@ -161,7 +162,9 @@ router.get('/accounts', async (req, res) => {
 
   if (search) {
     const safe = search.replace(/%/g, '')
-    query = query.or(`name.ilike.%${safe}%,slug.ilike.%${safe}%,marketplace_description.ilike.%${safe}%`)
+    query = query.or(
+      `name.ilike.%${safe}%,slug.ilike.%${safe}%,marketplace_description.ilike.%${safe}%,marketplace_region.ilike.%${safe}%`
+    )
   }
 
   const { data, error } = await query

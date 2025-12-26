@@ -71,6 +71,7 @@ export default async function MarketplaceProviderPage({ params }) {
   const heroImage = account.portal_image_url || account.logo_url || null
   const supportPhone = formatPhoneDisplay(account.support_phone)
   const contactItems = [
+    { label: 'Região', value: account.marketplace_region },
     { label: 'Email', value: account.support_email },
     { label: 'Telefone', value: supportPhone }
   ].filter((item) => item.value)

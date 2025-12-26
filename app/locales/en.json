@@ -643,6 +643,8 @@
       "title": "Marketplace",
       "description": "Set the public copy and links shown on the marketplace.",
       "fields": {
+        "region": "Region / city",
+        "regionPlaceholder": "Lisbon, Porto, Algarve",
         "description": "Public description",
         "descriptionPlaceholder": "Introduce your services and differentiators.",
         "instagram": "Instagram",
