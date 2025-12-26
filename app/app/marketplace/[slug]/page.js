@@ -126,11 +126,8 @@ export default async function MarketplaceProviderPage({ params }) {
 
               <div className={`${styles.glassCard} rounded-3xl p-6`}>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-brand-primary">
-                  Perfil Pawmi
+                  {account.name}
                 </p>
-                <h2 className="mt-3 text-xl font-semibold text-slate-900">
-                  Informação pública do prestador.
-                </h2>
                 {heroImage ? (
                   <Image
                     src={heroImage}
@@ -174,9 +171,6 @@ export default async function MarketplaceProviderPage({ params }) {
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-brand-primary">
                   Serviços disponíveis
                 </p>
-                <h2 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
-                  Escolhe o serviço certo para o teu pet.
-                </h2>
               </div>
               <Link href="/login" className="text-sm font-semibold text-brand-primary">
                 Fazer pedido
