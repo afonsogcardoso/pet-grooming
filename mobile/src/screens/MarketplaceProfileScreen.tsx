@@ -19,7 +19,7 @@ import { launchCamera, launchImageLibrary, CameraOptions, ImageLibraryOptions } 
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Button, Input } from '../components/common';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { Branding, getBranding, updateBranding, uploadBrandLogo } from '../api/branding';
+import { Branding, getBranding, updateBranding, uploadBrandLogo, uploadPortalImage } from '../api/branding';
 
 export default function MarketplaceProfileScreen() {
   const { t } = useTranslation();
@@ -35,6 +35,8 @@ export default function MarketplaceProfileScreen() {
   const [website, setWebsite] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
+  const [uploadingHeroImage, setUploadingHeroImage] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
   const { data: branding, isLoading, error } = useQuery({
@@ -54,6 +56,7 @@ export default function MarketplaceProfileScreen() {
     setTiktok(data.marketplace_tiktok_url || '');
     setWebsite(data.marketplace_website_url || '');
     setLogoUrl(data.logo_url || null);
+    setHeroImageUrl(data.portal_image_url || null);
   };
 
   useEffect(() => {
@@ -122,7 +125,37 @@ export default function MarketplaceProfileScreen() {
     }
   };
 
-  const openCamera = async () => {
+  const uploadHeroImageFromUri = async (uri: string, fileName?: string | null) => {
+    try {
+      setUploadingHeroImage(true);
+      const formData = new FormData();
+      const timestamp = Date.now();
+      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
+      const safeExtension = extension === 'jpg' ? 'jpeg' : extension;
+      const filename = `portal-${timestamp}.${extension}`;
+      const fileType = `image/${safeExtension}`;
+
+      formData.append('file', {
+        uri,
+        type: fileType,
+        name: filename,
+      } as any);
+
+      const { url } = await uploadPortalImage(formData);
+      const updated = await updateBranding({ portal_image_url: url });
+      queryClient.setQueryData(['branding'], updated);
+      applyBranding(updated);
+    } catch (err) {
+      console.error('Erro ao carregar imagem de capa:', err);
+      Alert.alert(t('common.error'), t('marketplaceProfile.heroUploadError'));
+    } finally {
+      setUploadingHeroImage(false);
+    }
+  };
+
+  const openCamera = async (
+    onSelected: (uri: string, fileName?: string | null) => Promise<void>
+  ) => {
     const hasPermission = await requestAndroidPermissions();
     if (!hasPermission) {
       Alert.alert(t('profile.cameraPermissionDeniedTitle'), t('profile.cameraPermissionDeniedMessage'));
@@ -146,12 +179,14 @@ export default function MarketplaceProfileScreen() {
         return;
       }
       if (response.assets && response.assets[0]) {
-        await uploadLogoFromUri(response.assets[0].uri!, response.assets[0].fileName);
+        await onSelected(response.assets[0].uri!, response.assets[0].fileName);
       }
     });
   };
 
-  const openGallery = async () => {
+  const openGallery = async (
+    onSelected: (uri: string, fileName?: string | null) => Promise<void>
+  ) => {
     const options: ImageLibraryOptions = {
       mediaType: 'photo',
       quality: 0.8,
@@ -169,12 +204,12 @@ export default function MarketplaceProfileScreen() {
         return;
       }
       if (response.assets && response.assets[0]) {
-        await uploadLogoFromUri(response.assets[0].uri!, response.assets[0].fileName);
+        await onSelected(response.assets[0].uri!, response.assets[0].fileName);
       }
     });
   };
 
-  const pickLogo = () => {
+  const pickImage = (onSelected: (uri: string, fileName?: string | null) => Promise<void>) => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
@@ -183,9 +218,9 @@ export default function MarketplaceProfileScreen() {
         },
         (buttonIndex) => {
           if (buttonIndex === 1) {
-            openCamera();
+            openCamera(onSelected);
           } else if (buttonIndex === 2) {
-            openGallery();
+            openGallery(onSelected);
           }
         }
       );
@@ -195,12 +230,15 @@ export default function MarketplaceProfileScreen() {
         t('profile.choosePhotoMessage'),
         [
           { text: t('common.cancel'), style: 'cancel' },
-          { text: t('profile.takePhoto'), onPress: openCamera },
-          { text: t('profile.chooseFromGallery'), onPress: openGallery },
+          { text: t('profile.takePhoto'), onPress: () => openCamera(onSelected) },
+          { text: t('profile.chooseFromGallery'), onPress: () => openGallery(onSelected) },
         ]
       );
     }
   };
+
+  const pickLogo = () => pickImage(uploadLogoFromUri);
+  const pickHeroImage = () => pickImage(uploadHeroImageFromUri);
 
   const handleSave = async () => {
     const trimmedName = name.trim();
@@ -259,6 +297,39 @@ export default function MarketplaceProfileScreen() {
               />
             </View>
           </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{t('marketplaceProfile.heroTitle')}</Text>
+          <TouchableOpacity
+            style={styles.heroPreview}
+            onPress={pickHeroImage}
+            disabled={uploadingHeroImage}
+          >
+            {heroImageUrl ? (
+              <Image source={{ uri: heroImageUrl }} style={styles.heroImage} resizeMode="cover" />
+            ) : (
+              <View style={styles.heroPlaceholder}>
+                <Text style={styles.heroPlaceholderText}>
+                  {t('marketplaceProfile.heroPlaceholder')}
+                </Text>
+              </View>
+            )}
+            {uploadingHeroImage ? (
+              <View style={styles.heroLoading}>
+                <ActivityIndicator color={colors.onPrimary} />
+              </View>
+            ) : null}
+          </TouchableOpacity>
+          <Text style={styles.heroHelper}>{t('marketplaceProfile.heroHelper')}</Text>
+          <Button
+            title={t('marketplaceProfile.changeHero')}
+            onPress={pickHeroImage}
+            variant="outline"
+            size="small"
+            disabled={uploadingHeroImage}
+            style={styles.heroButton}
+          />
         </View>
 
         <View style={styles.card}>
@@ -321,7 +392,7 @@ export default function MarketplaceProfileScreen() {
           title={t('marketplaceProfile.saveAction')}
           onPress={handleSave}
           loading={updateMutation.isPending}
-          disabled={updateMutation.isPending || uploadingLogo}
+          disabled={updateMutation.isPending || uploadingLogo || uploadingHeroImage}
           style={styles.saveButton}
         />
       </ScrollView>
@@ -422,6 +493,48 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderRadius: 16,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    heroPreview: {
+      height: 140,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.background,
+      overflow: 'hidden',
+      marginBottom: 10,
+    },
+    heroImage: {
+      width: '100%',
+      height: '100%',
+    },
+    heroPlaceholder: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 16,
+    },
+    heroPlaceholderText: {
+      color: colors.muted,
+      fontSize: 13,
+      textAlign: 'center',
+    },
+    heroLoading: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.35)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    heroHelper: {
+      color: colors.muted,
+      fontSize: 13,
+      marginBottom: 8,
+    },
+    heroButton: {
+      alignSelf: 'flex-start',
     },
     textArea: {
       minHeight: 120,

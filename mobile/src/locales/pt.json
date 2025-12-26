@@ -27,7 +27,7 @@
     "selectCountryCode": "Selecionar indicativo"
   },
   "login": {
-    "welcomeBack": "Bem-vindo de volta",
+    "welcomeBack": "Bem-vindo",
     "subtitle": "Entre para gerir os seus agendamentos",
     "signIn": "Entrar →",
     "noAccount": "Ainda não tens conta?",
@@ -165,7 +165,7 @@
   },
   "home": {
     "greeting": "Olá! 👋",
-    "welcomeBack": "Bem-vindo de volta!",
+    "welcomeBack": "Bem-vindo!",
     "heroSubtitle": "Gerencie seus agendamentos com facilidade",
     "quickActions": "Ações Rápidas",
     "newAppointmentTitle": "Nova Marcação",
@@ -185,6 +185,10 @@
     "logoTitle": "Logótipo",
     "logoHelper": "O logótipo aparece nas listagens.",
     "changeLogo": "Alterar logótipo",
+    "heroTitle": "Imagem de capa",
+    "heroHelper": "Aparece no topo do marketplace.",
+    "heroPlaceholder": "Adicionar imagem de capa",
+    "changeHero": "Alterar imagem",
     "businessSection": "Informação do negócio",
     "nameLabel": "Nome no marketplace",
     "namePlaceholder": "Nome do negócio",
@@ -203,7 +207,8 @@
     "nameRequired": "O nome do negócio é obrigatório.",
     "updateError": "Não foi possível guardar as alterações.",
     "loadError": "Não foi possível carregar o perfil do marketplace.",
-    "logoUploadError": "Não foi possível carregar o logótipo."
+    "logoUploadError": "Não foi possível carregar o logótipo.",
+    "heroUploadError": "Não foi possível carregar a imagem de capa."
   },
   "appointments": {
     "title": "Marcações",

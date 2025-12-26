@@ -481,7 +481,12 @@ const swaggerDefinition = {
                         logo_url: { type: 'string', nullable: true },
                         portal_image_url: { type: 'string', nullable: true },
                         support_email: { type: 'string', nullable: true },
-                        support_phone: { type: 'string', nullable: true }
+                        support_phone: { type: 'string', nullable: true },
+                        marketplace_description: { type: 'string', nullable: true },
+                        marketplace_instagram_url: { type: 'string', nullable: true },
+                        marketplace_facebook_url: { type: 'string', nullable: true },
+                        marketplace_tiktok_url: { type: 'string', nullable: true },
+                        marketplace_website_url: { type: 'string', nullable: true }
                       }
                     }
                   }
@@ -512,7 +517,12 @@ const swaggerDefinition = {
                   logo_url: { type: 'string' },
                   portal_image_url: { type: 'string' },
                   support_email: { type: 'string' },
-                  support_phone: { type: 'string' }
+                  support_phone: { type: 'string' },
+                  marketplace_description: { type: 'string' },
+                  marketplace_instagram_url: { type: 'string' },
+                  marketplace_facebook_url: { type: 'string' },
+                  marketplace_tiktok_url: { type: 'string' },
+                  marketplace_website_url: { type: 'string' }
                 }
               }
             }
@@ -520,6 +530,98 @@ const swaggerDefinition = {
         },
         responses: {
           200: { description: 'Branding atualizado' },
+          401: { description: 'Não autenticado' },
+          403: { description: 'Sem permissões' }
+        }
+      }
+    },
+    '/branding/logo': {
+      post: {
+        tags: ['Branding'],
+        summary: 'Upload do logo da conta (owner/admin)',
+        security: [{ SupabaseBearer: [] }],
+        parameters: [
+          {
+            in: 'query',
+            name: 'accountId',
+            schema: { type: 'string' },
+            description: 'ID da conta. Se omitido, tenta inferir pelo utilizador autenticado.'
+          }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                properties: {
+                  file: { type: 'string', format: 'binary' }
+                },
+                required: ['file']
+              }
+            }
+          }
+        },
+        responses: {
+          200: {
+            description: 'Logo atualizado',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    url: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          401: { description: 'Não autenticado' },
+          403: { description: 'Sem permissões' }
+        }
+      }
+    },
+    '/branding/portal-image': {
+      post: {
+        tags: ['Branding'],
+        summary: 'Upload da imagem de capa do marketplace (owner/admin)',
+        security: [{ SupabaseBearer: [] }],
+        parameters: [
+          {
+            in: 'query',
+            name: 'accountId',
+            schema: { type: 'string' },
+            description: 'ID da conta. Se omitido, tenta inferir pelo utilizador autenticado.'
+          }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                properties: {
+                  file: { type: 'string', format: 'binary' }
+                },
+                required: ['file']
+              }
+            }
+          }
+        },
+        responses: {
+          200: {
+            description: 'Imagem de capa atualizada',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    url: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
           401: { description: 'Não autenticado' },
           403: { description: 'Sem permissões' }
         }

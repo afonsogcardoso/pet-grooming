@@ -1,6 +1,6 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import styles from '../marketplace/marketplace.module.css'
+import MarketplaceTopNav from '../marketplace/MarketplaceTopNav'
 
 export const metadata = {
   title: 'Planos Pawmi',
@@ -76,46 +76,7 @@ export default function PlanosPage() {
       <div className="relative z-10">
         <header className="px-6 pb-12 pt-10 lg:pt-14">
           <div className="mx-auto flex max-w-6xl flex-col gap-12">
-            <nav className="flex flex-wrap items-center justify-between gap-6">
-              <Link href="/marketplace" className="flex items-center gap-3">
-                <Image
-                  src="/brand-logo.png"
-                  alt="Pawmi logo"
-                  width={56}
-                  height={56}
-                  className="h-14 w-14 rounded-2xl object-cover bg-white/80 shadow-brand-glow"
-                  priority
-                />
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-brand-primary">
-                    Pawmi
-                  </p>
-                  <p className="text-lg font-semibold text-slate-900">Planos</p>
-                </div>
-              </Link>
-              <div className="hidden items-center gap-6 text-sm font-semibold text-slate-600 md:flex">
-                <Link href="/marketplace" className="transition hover:text-brand-primary">
-                  Marketplace
-                </Link>
-                <Link href="#planos" className="transition hover:text-brand-primary">
-                  Planos
-                </Link>
-                <Link href="#beneficios" className="transition hover:text-brand-primary">
-                  Benefícios
-                </Link>
-                <Link href="#faq" className="transition hover:text-brand-primary">
-                  FAQ
-                </Link>
-              </div>
-              <div className="flex items-center gap-2">
-                <Link href="/login" className="btn-brand-outlined px-4 py-2 text-sm">
-                  Entrar
-                </Link>
-                <Link href="/login" className="btn-brand px-4 py-2 text-sm shadow-brand-glow">
-                  Juntar conta
-                </Link>
-              </div>
-            </nav>
+            <MarketplaceTopNav />
 
             <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
               <div className="flex flex-col gap-6">

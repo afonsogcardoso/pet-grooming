@@ -59,3 +59,10 @@ export async function uploadBrandLogo(formData: FormData): Promise<{ url: string
   });
   return data;
 }
+
+export async function uploadPortalImage(formData: FormData): Promise<{ url: string }> {
+  const { data } = await api.post<{ url: string }>('/branding/portal-image', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}

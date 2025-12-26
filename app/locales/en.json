@@ -592,19 +592,37 @@
       "noAccess": "You don't have permission to manage this account.",
       "hint": "Only owners or admins can change branding and invite teammates."
     },
+    "page": {
+      "badge": "Workspace settings",
+      "title": "Settings",
+      "subtitle": "Manage your brand, marketplace presence, team, and custom domains in one place.",
+      "accountLabel": "Account",
+      "slugLabel": "Slug",
+      "roleLabel": "Role"
+    },
     "branding": {
       "title": "Branding & Theme",
       "description": "Customize how this account looks across the entire app.",
+      "actions": {
+        "editImage": "Edit image"
+      },
+      "sections": {
+        "identity": "Identity",
+        "contact": "Contact",
+        "theme": "Theme"
+      },
       "fields": {
         "accountName": "Account name",
         "accountNamePlaceholder": "e.g. Paws & Co",
-        "logo": "Logo URL",
-        "portalImage": "Portal login image URL",
-        "portalImageHelper": "Shown under the login description on the tenant portal.",
+        "logo": "Logo",
+        "portalImage": "Portal login image",
+        "portalImageHelper": "Shown under the login description on the tenant portal and as the marketplace hero image.",
         "supportEmail": "Support email",
         "supportEmailPlaceholder": "hello@yourbrand.com",
         "supportPhone": "WhatsApp / phone",
         "supportPhonePlaceholder": "+351 912 345 678",
+        "supportPhoneCodePlaceholder": "+351",
+        "supportPhoneNumberPlaceholder": "912 345 678",
         "supportPhoneHelper": "Used for the WhatsApp contact button on the portal.",
         "primary": "Primary color",
         "primarySoft": "Primary soft color",
@@ -615,9 +633,24 @@
       },
       "logoUploading": "Uploading logo...",
       "logoUploaded": "Logo updated!",
+      "portalImageUploading": "Uploading portal image...",
+      "portalImageUploaded": "Portal image updated!",
       "save": "Save branding",
       "saving": "Saving...",
       "success": "Branding updated!"
+    },
+    "marketplace": {
+      "title": "Marketplace",
+      "description": "Set the public copy and links shown on the marketplace.",
+      "fields": {
+        "description": "Public description",
+        "descriptionPlaceholder": "Introduce your services and differentiators.",
+        "instagram": "Instagram",
+        "facebook": "Facebook",
+        "tiktok": "TikTok",
+        "website": "Website",
+        "urlPlaceholder": "https://..."
+      }
     },
     "members": {
       "title": "Account members",

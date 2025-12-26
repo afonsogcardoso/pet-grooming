@@ -9,6 +9,7 @@ import Image from 'next/image'
 import { formatDate, formatTime } from '@/utils/dateUtils'
 import { getGoogleMapsLink, formatAddressForDisplay } from '@/utils/addressUtils'
 import { useTranslation } from '@/components/TranslationProvider'
+import { formatPhoneForWhatsapp } from '@/lib/phone'
 
 export default function AppointmentCard({ appointment, onComplete, onDelete, onEdit, onTogglePayment }) {
     const { t, resolvedLocale } = useTranslation()
@@ -31,7 +32,7 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
               )
             : null
     const paymentStatus = appointment.payment_status || 'unpaid'
-    const phoneDigits = (phoneNumber || '').replace(/\D/g, '')
+    const phoneDigits = formatPhoneForWhatsapp(phoneNumber)
     const whatsappSentAt = appointment.whatsapp_sent_at
     const confirmationOpenedAt = appointment.confirmation_opened_at
     const statusKey = appointment.status || 'scheduled'

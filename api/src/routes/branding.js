@@ -314,4 +314,39 @@ router.post('/logo', upload.single('file'), async (req, res) => {
   return res.json({ url: publicUrl })
 })
 
+router.post('/portal-image', upload.single('file'), async (req, res) => {
+  const supabase = getSupabaseServiceRoleClient()
+  const accountId = await resolveAccountId(req, supabase)
+  if (!supabase || !accountId) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  const allowed = await ensureOwnerOrAdmin(req, supabase, accountId)
+  if (!allowed.ok) return res.status(allowed.status).json({ error: allowed.error })
+
+  const file = req.file
+  if (!file) return res.status(400).json({ error: 'No file provided' })
+
+  const ext = (file.originalname?.split('.').pop() || 'jpg').toLowerCase()
+  const safeExt = ext.match(/^[a-z0-9]+$/) ? ext : 'jpg'
+  const path = `portal-images/${accountId}/${Date.now()}.${safeExt}`
+
+  const { error: uploadError } = await supabase.storage
+    .from(BRANDING_BUCKET)
+    .upload(path, file.buffer, {
+      contentType: file.mimetype || 'image/jpeg',
+      upsert: true
+    })
+
+  if (uploadError) {
+    return res.status(500).json({ error: uploadError.message })
+  }
+
+  const {
+    data: { publicUrl }
+  } = supabase.storage.from(BRANDING_BUCKET).getPublicUrl(path)
+
+  return res.json({ url: publicUrl })
+})
+
 export default router

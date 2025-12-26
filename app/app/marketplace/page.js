@@ -1,6 +1,8 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { getMarketplaceAccounts } from '@/lib/marketplace'
+import { formatPhoneDisplay } from '@/lib/phone'
+import MarketplaceTopNav from './MarketplaceTopNav'
 import styles from './marketplace.module.css'
 
 export const metadata = {
@@ -98,46 +100,7 @@ export default async function MarketplacePage({ searchParams }) {
       <div className="relative z-10">
         <header className="px-6 pb-14 pt-10 lg:pt-14">
           <div className="mx-auto flex max-w-6xl flex-col gap-12">
-            <nav className="flex flex-wrap items-center justify-between gap-6">
-              <div className="flex items-center gap-3">
-                <Image
-                  src="/brand-logo.png"
-                  alt="Pawmi logo"
-                  width={56}
-                  height={56}
-                  className="h-14 w-14 rounded-2xl object-cover bg-white/80 shadow-brand-glow"
-                  priority
-                />
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-brand-primary">
-                    Pawmi
-                  </p>
-                  <p className="text-lg font-semibold text-slate-900">Marketplace</p>
-                </div>
-              </div>
-              <div className="hidden items-center gap-6 text-sm font-semibold text-slate-600 md:flex">
-                <Link href="#categorias" className="transition hover:text-brand-primary">
-                  Categorias
-                </Link>
-                <Link href="#destaques" className="transition hover:text-brand-primary">
-                  Destaques
-                </Link>
-                <Link href="#como-funciona" className="transition hover:text-brand-primary">
-                  Como funciona
-                </Link>
-                <Link href="/planos" className="transition hover:text-brand-primary">
-                  Planos
-                </Link>
-              </div>
-              <div className="flex items-center gap-2">
-                <Link href="/login" className="btn-brand-outlined px-4 py-2 text-sm">
-                  Entrar
-                </Link>
-                <Link href="/login" className="btn-brand px-4 py-2 text-sm shadow-brand-glow">
-                  Juntar conta
-                </Link>
-              </div>
-            </nav>
+            <MarketplaceTopNav />
 
             <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
               <div className="flex flex-col gap-6">
@@ -350,7 +313,8 @@ export default async function MarketplacePage({ searchParams }) {
                   const tags = Array.isArray(provider.marketplace_categories)
                     ? provider.marketplace_categories.filter(Boolean)
                     : []
-                  const supportLine = provider.support_phone || provider.support_email
+                  const supportLine =
+                    formatPhoneDisplay(provider.support_phone) || provider.support_email
                   const description =
                     provider.marketplace_description || 'Conta Pawmi disponível para novos pedidos.'
                   const providerSlug = provider.slug || ''

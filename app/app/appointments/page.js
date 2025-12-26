@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/TranslationProvider'
 import { compressImage } from '@/utils/image'
 import { formatDate, formatTime, getWeekRangeText } from '@/utils/dateUtils'
+import { formatPhoneForWhatsapp } from '@/lib/phone'
 
 const APPOINTMENT_PHOTO_BUCKET = 'appointment-photos'
 
@@ -145,7 +146,7 @@ export default function CompactAppointmentsPage() {
       return
     }
     const phoneNumber = appointment.customers?.phone || ''
-    const phoneDigits = phoneNumber.replace(/\D/g, '')
+    const phoneDigits = formatPhoneForWhatsapp(phoneNumber)
     if (!phoneDigits) {
       alert(t('appointmentForm.messages.selectCustomerFirst'))
       return

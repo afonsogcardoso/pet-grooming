@@ -185,6 +185,10 @@
     "logoTitle": "Logo",
     "logoHelper": "This logo appears in listings.",
     "changeLogo": "Change logo",
+    "heroTitle": "Hero image",
+    "heroHelper": "Shown at the top of the marketplace page.",
+    "heroPlaceholder": "Add a hero image",
+    "changeHero": "Change image",
     "businessSection": "Business information",
     "nameLabel": "Marketplace name",
     "namePlaceholder": "Business name",
@@ -203,7 +207,8 @@
     "nameRequired": "Business name is required.",
     "updateError": "Couldn't save changes.",
     "loadError": "Couldn't load marketplace profile.",
-    "logoUploadError": "Couldn't upload the logo."
+    "logoUploadError": "Couldn't upload the logo.",
+    "heroUploadError": "Couldn't upload the hero image."
   },
   "appointments": {
     "title": "Appointments",

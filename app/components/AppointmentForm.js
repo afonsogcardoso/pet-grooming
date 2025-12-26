@@ -15,6 +15,7 @@ import {
 } from '@/lib/customerService'
 import { loadServices, loadServicePriceTiers, loadServiceAddons } from '@/lib/serviceService'
 import { useTranslation } from '@/components/TranslationProvider'
+import { formatPhoneForWhatsapp } from '@/lib/phone'
 import BreedSelect from '@/components/BreedSelect'
 import PhoneInput from '@/components/PhoneInput'
 
@@ -127,11 +128,10 @@ export default function AppointmentForm({
         [customers, formData.customer_id]
     )
 
-    const phoneDigits = (
-        creatingNew ? customerFormData.phone : selectedCustomer?.phone || formData.phone || initialData?.customers?.phone || ''
-    ).replace(
-        /\D/g,
-        ''
+    const phoneDigits = formatPhoneForWhatsapp(
+        creatingNew
+            ? customerFormData.phone
+            : selectedCustomer?.phone || formData.phone || initialData?.customers?.phone || ''
     )
     const photoPlaceholderClass =
         'flex items-center justify-center text-xs text-slate-500 text-center px-3'

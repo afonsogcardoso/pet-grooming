@@ -592,19 +592,37 @@
       "noAccess": "Não tem permissões para gerir esta conta.",
       "hint": "Apenas owners ou admins podem alterar branding e convidar colegas."
     },
+    "page": {
+      "badge": "Definições do workspace",
+      "title": "Definições",
+      "subtitle": "Gere o teu branding, presença no marketplace, equipa e domínios personalizados num só sítio.",
+      "accountLabel": "Conta",
+      "slugLabel": "Slug",
+      "roleLabel": "Função"
+    },
     "branding": {
       "title": "Branding e tema",
       "description": "Personalize o aspeto desta conta em toda a aplicação.",
+      "actions": {
+        "editImage": "Editar imagem"
+      },
+      "sections": {
+        "identity": "Identidade",
+        "contact": "Contacto",
+        "theme": "Tema"
+      },
       "fields": {
         "accountName": "Nome da conta",
         "accountNamePlaceholder": "ex.: Paws & Co",
-        "logo": "URL do logo",
+        "logo": "Logo",
         "portalImage": "Imagem do login do portal",
-        "portalImageHelper": "Mostrada por baixo da descrição no portal do tenant.",
+        "portalImageHelper": "Mostrada por baixo da descrição no portal do tenant e como imagem de capa no marketplace.",
         "supportEmail": "Email de suporte",
         "supportEmailPlaceholder": "ola@suaempresa.com",
         "supportPhone": "WhatsApp / telefone",
         "supportPhonePlaceholder": "+351 912 345 678",
+        "supportPhoneCodePlaceholder": "+351",
+        "supportPhoneNumberPlaceholder": "912 345 678",
         "supportPhoneHelper": "Utilizado no botão de contacto (WhatsApp) do portal.",
         "primary": "Cor primária",
         "primarySoft": "Cor primária suave",
@@ -615,9 +633,24 @@
       },
       "logoUploading": "A carregar logo...",
       "logoUploaded": "Logo atualizado!",
+      "portalImageUploading": "A carregar imagem do portal...",
+      "portalImageUploaded": "Imagem do portal atualizada!",
       "save": "Guardar branding",
       "saving": "A guardar...",
       "success": "Branding atualizado!"
+    },
+    "marketplace": {
+      "title": "Marketplace",
+      "description": "Define os textos e links públicos que aparecem no marketplace.",
+      "fields": {
+        "description": "Descrição pública",
+        "descriptionPlaceholder": "Apresente os seus serviços e diferenciação.",
+        "instagram": "Instagram",
+        "facebook": "Facebook",
+        "tiktok": "TikTok",
+        "website": "Website",
+        "urlPlaceholder": "https://..."
+      }
     },
     "members": {
       "title": "Membros da conta",
