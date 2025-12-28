@@ -115,7 +115,7 @@ export default function AppShell({ children }) {
   }, [])
 
   const isTenantPublicRoute = pathname?.startsWith('/portal/')
-  const publicRoutes = ['/login', '/appointments/confirm', '/marketplace', '/planos']
+  const publicRoutes = ['/login', '/auth/callback', '/appointments/confirm', '/marketplace', '/planos']
   const isRootRoute = pathname === '/'
   const isPublicRoute =
     isRootRoute || isTenantPublicRoute || publicRoutes.some((route) => pathname?.startsWith(route))
@@ -123,6 +123,7 @@ export default function AppShell({ children }) {
   const isFullBleedPublic =
     isRootRoute || (isPublicRoute && fullBleedPublicRoutes.some((route) => pathname?.startsWith(route)))
   const isLoginRoute = pathname?.startsWith('/login')
+  const isAuthCallbackRoute = pathname?.startsWith('/auth/callback')
   const isAdminRoute = pathname?.startsWith('/admin')
   const isCompactCalendar = pathname?.startsWith('/appointments/compact')
   const userMetadata = user?.user_metadata || {}
@@ -162,7 +163,7 @@ export default function AppShell({ children }) {
     return <div className="min-h-screen brand-background">{children}</div>
   }
 
-  if (isLoginRoute) {
+  if (isLoginRoute || isAuthCallbackRoute) {
     return <div className="min-h-screen brand-background">{children}</div>
   }
 

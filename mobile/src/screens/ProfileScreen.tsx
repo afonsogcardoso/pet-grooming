@@ -240,7 +240,7 @@ export default function ProfileScreen({ navigation }: Props) {
         return;
       }
 
-      const result = await AuthSession.startAsync({ authUrl, returnUrl: redirectUri });
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
       if (result.type === 'success') {
         Alert.alert(t('common.done'), t('profile.linkSuccess', { provider: providerLabel }));
       } else if (result.type !== 'cancel' && result.type !== 'dismiss') {

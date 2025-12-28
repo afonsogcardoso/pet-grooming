@@ -38,6 +38,19 @@ type Props = NativeStackScreenProps<any>;
 
 const OAUTH_REDIRECT_PATH = 'auth/callback';
 
+function parseAuthParams(url: string | undefined | null) {
+  if (!url) return {};
+  const fragment = url.split('#')[1];
+  const query = url.split('?')[1];
+  const paramsString = fragment ?? query ?? '';
+  const params = new URLSearchParams(paramsString);
+  const values: Record<string, string> = {};
+  params.forEach((value, key) => {
+    values[key] = value;
+  });
+  return values;
+}
+
 export default function LoginScreen({ navigation }: Props) {
   const [apiError, setApiError] = useState<string | null>(null);
   const [brandingLogoFailed, setBrandingLogoFailed] = useState(false);
@@ -127,6 +140,7 @@ export default function LoginScreen({ navigation }: Props) {
     const supabaseUrl = resolveSupabaseUrl();
     if (!supabaseUrl) {
       setApiError(t('login.errors.oauthConfig'));
+      console.warn('[auth] Missing Supabase URL. Check EXPO_PUBLIC_SUPABASE_URL and app config extra.');
       return;
     }
 
@@ -144,7 +158,9 @@ export default function LoginScreen({ navigation }: Props) {
     )}&response_type=token${scopeParam}`;
 
     try {
-      const result = await AuthSession.startAsync({ authUrl, returnUrl: redirectUri });
+      console.log('[auth] Starting OAuth', { provider, authUrl, redirectUri });
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+      console.log('[auth] OAuth result', { type: result.type, hasUrl: Boolean(result.url) });
 
       if (result.type !== 'success') {
         if (result.type !== 'cancel' && result.type !== 'dismiss') {
@@ -153,16 +169,30 @@ export default function LoginScreen({ navigation }: Props) {
         return;
       }
 
-      const accessToken = result.params?.access_token;
-      const refreshToken = result.params?.refresh_token;
+      const params = parseAuthParams(result.url);
+      if (params.error) {
+        console.warn('[auth] OAuth returned error params', params);
+        setApiError(t('login.errors.oauth', { provider: providerLabel }));
+        return;
+      }
+
+      const accessToken = params.access_token;
+      const refreshToken = params.refresh_token;
 
       if (!accessToken) {
+        console.warn('[auth] OAuth missing access token', { params: Object.keys(params) });
         setApiError(t('login.errors.oauth', { provider: providerLabel }));
         return;
       }
 
       await completeLogin({ token: accessToken, refreshToken: refreshToken ?? null });
-    } catch {
+    } catch (error: any) {
+      console.error('[auth] OAuth error', {
+        provider,
+        message: error?.message,
+        code: error?.code,
+        error,
+      });
       setApiError(t('login.errors.oauth', { provider: providerLabel }));
     } finally {
       setOauthLoading(null);
