@@ -4,6 +4,8 @@ import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
+import * as AuthSession from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
 import { useTranslation } from 'react-i18next';
 import { getProfile, updateProfile, uploadAvatar, resetPassword, Profile } from '../api/profile';
 import { useAuthStore } from '../state/authStore';
@@ -12,6 +14,9 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { getDateLocale, normalizeLanguage, setAppLanguage } from '../i18n';
 import { PhoneInput } from '../components/common/PhoneInput';
 import { buildPhone, splitPhone } from '../utils/phone';
+import { resolveSupabaseUrl } from '../config/supabase';
+
+WebBrowser.maybeCompleteAuthSession();
 
 type Props = NativeStackScreenProps<any>;
 
@@ -33,6 +38,7 @@ function formatDate(value: string | null | undefined, locale: string, fallback: 
 export default function ProfileScreen({ navigation }: Props) {
   const setUser = useAuthStore((s) => s.setUser);
   const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const queryClient = useQueryClient();
@@ -48,6 +54,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [linkingProvider, setLinkingProvider] = useState<'google' | 'apple' | null>(null);
 
   const { data, isLoading, error, isRefetching } = useQuery({
     queryKey: ['profile'],
@@ -190,6 +197,61 @@ export default function ProfileScreen({ navigation }: Props) {
     },
     onError: () => Alert.alert(t('common.error'), t('profile.passwordUpdateError')),
   });
+
+  const handleLinkProvider = async (provider: 'google' | 'apple') => {
+    if (linkingProvider || updateMutation.isPending || languageMutation.isPending) return;
+
+    const supabaseUrl = resolveSupabaseUrl();
+    if (!supabaseUrl || !token) {
+      Alert.alert(t('common.error'), t('profile.linkConfigError'));
+      return;
+    }
+
+    const providerLabel = t(`login.providers.${provider}`);
+    const redirectUri = AuthSession.makeRedirectUri({
+      scheme: 'pawmi',
+      path: 'auth/callback',
+    });
+    const scopeParam = provider === 'apple' ? '&scopes=name%20email' : '';
+    const requestUrl = `${supabaseUrl}/auth/v1/user/identities/authorize?provider=${provider}&redirect_to=${encodeURIComponent(
+      redirectUri
+    )}&response_type=token${scopeParam}`;
+
+    setLinkingProvider(provider);
+
+    try {
+      const response = await fetch(requestUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
+        return;
+      }
+
+      const payload = await response.json().catch(() => null);
+      const authUrl = payload?.url;
+
+      if (!authUrl) {
+        Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
+        return;
+      }
+
+      const result = await AuthSession.startAsync({ authUrl, returnUrl: redirectUri });
+      if (result.type === 'success') {
+        Alert.alert(t('common.done'), t('profile.linkSuccess', { provider: providerLabel }));
+      } else if (result.type !== 'cancel' && result.type !== 'dismiss') {
+        Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
+      }
+    } catch {
+      Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
+    } finally {
+      setLinkingProvider(null);
+    }
+  };
 
   const requestAndroidPermissions = async () => {
     if (Platform.OS === 'android') {
@@ -526,6 +588,47 @@ export default function ProfileScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('profile.linkTitle')}</Text>
+          <Text style={styles.sectionText}>{t('profile.linkDescription')}</Text>
+          <View style={styles.linkGroup}>
+            <TouchableOpacity
+              style={[
+                styles.linkButton,
+                linkingProvider && styles.buttonDisabled,
+              ]}
+              onPress={() => handleLinkProvider('google')}
+              disabled={Boolean(linkingProvider)}
+            >
+              {linkingProvider === 'google' ? (
+                <View style={styles.linkButtonContent}>
+                  <ActivityIndicator color={colors.text} />
+                  <Text style={styles.linkButtonText}>{t('profile.linking')}</Text>
+                </View>
+              ) : (
+                <Text style={styles.linkButtonText}>{t('profile.linkGoogle')}</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.linkButton,
+                linkingProvider && styles.buttonDisabled,
+              ]}
+              onPress={() => handleLinkProvider('apple')}
+              disabled={Boolean(linkingProvider)}
+            >
+              {linkingProvider === 'apple' ? (
+                <View style={styles.linkButtonContent}>
+                  <ActivityIndicator color={colors.text} />
+                  <Text style={styles.linkButtonText}>{t('profile.linking')}</Text>
+                </View>
+              ) : (
+                <Text style={styles.linkButtonText}>{t('profile.linkApple')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('profile.security')}</Text>
           <Text style={styles.sectionText}>{t('profile.changePasswordDescription')}</Text>
           {showPasswordForm ? (
@@ -786,6 +889,30 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     sectionText: {
       color: colors.muted,
       marginBottom: 12,
+    },
+    linkGroup: {
+      gap: 12,
+    },
+    linkButton: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 10,
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    linkButtonContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    linkButtonText: {
+      color: colors.text,
+      fontWeight: '700',
+      fontSize: 15,
+    },
+    buttonDisabled: {
+      opacity: 0.6,
     },
     actionRow: {
       flexDirection: 'row',

@@ -574,7 +574,20 @@
     },
     "actions": {
       "submit": "Entrar",
-      "loading": "A autenticar..."
+      "loading": "A autenticar...",
+      "google": "Continuar com Google",
+      "apple": "Continuar com Apple",
+      "back": "Voltar ao login"
+    },
+    "or": "ou",
+    "errors": {
+      "generic": "Não foi possível autenticar. Tenta novamente.",
+      "oauth": "Não foi possível autenticar com {{provider}}.",
+      "oauthCallback": "Não foi possível concluir o login. Tenta novamente."
+    },
+    "providers": {
+      "google": "Google",
+      "apple": "Apple"
     },
     "success": "Login efetuado! A redirecionar...",
     "help": {
@@ -838,6 +851,24 @@
     "passwordSection": {
       "title": "Password",
       "description": "Define uma nova password segura."
+    },
+    "linkSection": {
+      "title": "Contas ligadas",
+      "description": "Liga o Google ou Apple para entrar mais depressa.",
+      "actions": {
+        "google": "Ligar Google",
+        "apple": "Ligar Apple",
+        "linking": "A ligar..."
+      },
+      "providers": {
+        "google": "Google",
+        "apple": "Apple"
+      },
+      "success": "Conta {{provider}} ligada com sucesso.",
+      "errors": {
+        "missing": "Configuração de autenticação indisponível.",
+        "failed": "Não foi possível ligar {{provider}}."
+      }
     },
     "memberships": {
       "title": "Associações",

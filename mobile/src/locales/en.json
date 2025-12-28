@@ -29,10 +29,23 @@
   "login": {
     "welcomeBack": "Welcome back",
     "subtitle": "Sign in to manage your appointments",
+    "actions": {
+      "google": "Continue with Google",
+      "apple": "Continue with Apple"
+    },
+    "providers": {
+      "google": "Google",
+      "apple": "Apple"
+    },
+    "or": "or",
     "signIn": "Sign in →",
     "noAccount": "Don't have an account?",
     "createAccount": "Create account",
-    "errorFallback": "Login failed. Check your credentials."
+    "errorFallback": "Login failed. Check your credentials.",
+    "errors": {
+      "oauth": "Couldn't sign in with {{provider}}.",
+      "oauthConfig": "Auth configuration is missing."
+    }
   },
   "register": {
     "title": "Create account",
@@ -305,7 +318,15 @@
     "chooseFromGallery": "Choose from gallery",
     "openCameraError": "Could not open the camera",
     "openGalleryError": "Could not open the gallery",
-    "uploadError": "Could not upload the image"
+    "uploadError": "Could not upload the image",
+    "linkTitle": "Linked accounts",
+    "linkDescription": "Connect another login method to sign in faster.",
+    "linkGoogle": "Link Google",
+    "linkApple": "Link Apple",
+    "linking": "Linking...",
+    "linkSuccess": "{{provider}} linked successfully.",
+    "linkError": "Couldn't link {{provider}}.",
+    "linkConfigError": "Auth configuration is missing."
   },
   "appointmentDetail": {
     "title": "Details",

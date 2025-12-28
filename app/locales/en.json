@@ -574,7 +574,20 @@
     },
     "actions": {
       "submit": "Login",
-      "loading": "Signing you in..."
+      "loading": "Signing you in...",
+      "google": "Continue with Google",
+      "apple": "Continue with Apple",
+      "back": "Back to login"
+    },
+    "or": "or",
+    "errors": {
+      "generic": "We couldn't sign you in. Please try again.",
+      "oauth": "Couldn't sign in with {{provider}}.",
+      "oauthCallback": "Couldn't complete sign-in. Please try again."
+    },
+    "providers": {
+      "google": "Google",
+      "apple": "Apple"
     },
     "success": "Login successful! Redirecting...",
     "help": {
@@ -838,6 +851,24 @@
     "passwordSection": {
       "title": "Password",
       "description": "Set a new secure password."
+    },
+    "linkSection": {
+      "title": "Linked accounts",
+      "description": "Connect Google or Apple to sign in faster.",
+      "actions": {
+        "google": "Link Google",
+        "apple": "Link Apple",
+        "linking": "Linking..."
+      },
+      "providers": {
+        "google": "Google",
+        "apple": "Apple"
+      },
+      "success": "{{provider}} linked successfully.",
+      "errors": {
+        "missing": "Auth configuration is missing.",
+        "failed": "Couldn't link {{provider}}."
+      }
     },
     "memberships": {
       "title": "Memberships",

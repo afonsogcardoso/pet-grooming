@@ -11,6 +11,8 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
+import * as AuthSession from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,6 +24,9 @@ import { getBranding } from '../api/branding';
 import { getProfile } from '../api/profile';
 import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
+import { resolveSupabaseUrl } from '../config/supabase';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const schema = z.object({
   email: z.string().email(),
@@ -31,9 +36,12 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 type Props = NativeStackScreenProps<any>;
 
+const OAUTH_REDIRECT_PATH = 'auth/callback';
+
 export default function LoginScreen({ navigation }: Props) {
   const [apiError, setApiError] = useState<string | null>(null);
   const [brandingLogoFailed, setBrandingLogoFailed] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<'google' | 'apple' | null>(null);
   const setTokens = useAuthStore((s) => s.setTokens);
   const setUser = useAuthStore((s) => s.setUser);
   const queryClient = useQueryClient();
@@ -52,36 +60,57 @@ export default function LoginScreen({ navigation }: Props) {
     resolver: zodResolver(schema),
   });
 
+  const completeLogin = async ({
+    token,
+    refreshToken,
+    fallbackUser,
+  }: {
+    token: string;
+    refreshToken?: string | null;
+    fallbackUser?: {
+      email?: string | null;
+      displayName?: string | null;
+      avatarUrl?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
+      userType?: 'consumer' | 'provider' | null;
+    };
+  }) => {
+    setApiError(null);
+    await setTokens({ token, refreshToken });
+
+    try {
+      const profile = await queryClient.fetchQuery({ queryKey: ['profile'], queryFn: getProfile });
+      setUser({
+        email: profile.email,
+        displayName: profile.displayName,
+        avatarUrl: profile.avatarUrl,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        userType: profile.userType,
+      });
+    } catch {
+      if (fallbackUser) {
+        setUser(fallbackUser);
+      }
+    }
+
+    await queryClient.fetchQuery({ queryKey: ['branding'], queryFn: getBranding }).catch(() => null);
+  };
+
   const { mutateAsync, isPending } = useMutation({
     mutationFn: login,
     onSuccess: async (data) => {
-      setApiError(null);
-      // First store tokens temporarily to make authenticated requests
-      await setTokens({ token: data.token, refreshToken: data.refreshToken });
-      
-      // Fetch profile to get name and avatar
-      try {
-        const profile = await queryClient.fetchQuery({ queryKey: ['profile'], queryFn: getProfile });
-        setUser({
-          email: profile.email,
-          displayName: profile.displayName,
-          avatarUrl: profile.avatarUrl,
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          userType: profile.userType,
-        });
-      } catch {
-        setUser({
+      await completeLogin({
+        token: data.token,
+        refreshToken: data.refreshToken,
+        fallbackUser: {
           email: data.email,
           displayName: data.displayName,
           firstName: data.firstName,
           lastName: data.lastName,
-        });
-      }
-      
-      // Wait for branding before navigating - app will show loading during this
-      await queryClient.fetchQuery({ queryKey: ['branding'], queryFn: getBranding }).catch(() => null);
-      // Navigation happens automatically when token is set (already set above)
+        },
+      });
     },
     onError: (err: any) => {
       const message =
@@ -91,6 +120,54 @@ export default function LoginScreen({ navigation }: Props) {
       setApiError(message);
     },
   });
+
+  const handleOAuth = async (provider: 'google' | 'apple') => {
+    if (isPending || oauthLoading) return;
+
+    const supabaseUrl = resolveSupabaseUrl();
+    if (!supabaseUrl) {
+      setApiError(t('login.errors.oauthConfig'));
+      return;
+    }
+
+    setOauthLoading(provider);
+    setApiError(null);
+
+    const providerLabel = t(`login.providers.${provider}`);
+    const redirectUri = AuthSession.makeRedirectUri({
+      scheme: 'pawmi',
+      path: OAUTH_REDIRECT_PATH,
+    });
+    const scopeParam = provider === 'apple' ? '&scopes=name%20email' : '';
+    const authUrl = `${supabaseUrl}/auth/v1/authorize?provider=${provider}&redirect_to=${encodeURIComponent(
+      redirectUri
+    )}&response_type=token${scopeParam}`;
+
+    try {
+      const result = await AuthSession.startAsync({ authUrl, returnUrl: redirectUri });
+
+      if (result.type !== 'success') {
+        if (result.type !== 'cancel' && result.type !== 'dismiss') {
+          setApiError(t('login.errors.oauth', { provider: providerLabel }));
+        }
+        return;
+      }
+
+      const accessToken = result.params?.access_token;
+      const refreshToken = result.params?.refresh_token;
+
+      if (!accessToken) {
+        setApiError(t('login.errors.oauth', { provider: providerLabel }));
+        return;
+      }
+
+      await completeLogin({ token: accessToken, refreshToken: refreshToken ?? null });
+    } catch {
+      setApiError(t('login.errors.oauth', { provider: providerLabel }));
+    } finally {
+      setOauthLoading(null);
+    }
+  };
 
   const onSubmit = handleSubmit(async (values) => {
     await mutateAsync(values);
@@ -112,6 +189,50 @@ export default function LoginScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.formCard}>
+          <View style={styles.oauthGroup}>
+            <TouchableOpacity
+              style={[
+                styles.oauthButton,
+                (isPending || oauthLoading) && styles.buttonDisabled,
+              ]}
+              onPress={() => handleOAuth('google')}
+              disabled={isPending || oauthLoading !== null}
+            >
+              {oauthLoading === 'google' ? (
+                <View style={styles.oauthButtonContent}>
+                  <ActivityIndicator color={colors.text} size="small" />
+                  <Text style={styles.oauthButtonText}>{t('common.loading')}</Text>
+                </View>
+              ) : (
+                <Text style={styles.oauthButtonText}>{t('login.actions.google')}</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.oauthButton,
+                (isPending || oauthLoading) && styles.buttonDisabled,
+              ]}
+              onPress={() => handleOAuth('apple')}
+              disabled={isPending || oauthLoading !== null}
+            >
+              {oauthLoading === 'apple' ? (
+                <View style={styles.oauthButtonContent}>
+                  <ActivityIndicator color={colors.text} size="small" />
+                  <Text style={styles.oauthButtonText}>{t('common.loading')}</Text>
+                </View>
+              ) : (
+                <Text style={styles.oauthButtonText}>{t('login.actions.apple')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.separator}>
+            <View style={styles.separatorLine} />
+            <Text style={styles.separatorText}>{t('login.or')}</Text>
+            <View style={styles.separatorLine} />
+          </View>
+
         <Controller
           control={control}
           name="email"
@@ -176,12 +297,12 @@ export default function LoginScreen({ navigation }: Props) {
           )}
         </TouchableOpacity>
 
-        <View style={styles.registerRow}>
-          <Text style={styles.registerText}>{t('login.noAccount')}</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={styles.registerLink}>{t('login.createAccount')}</Text>
-          </TouchableOpacity>
-        </View>
+          <View style={styles.registerRow}>
+            <Text style={styles.registerText}>{t('login.noAccount')}</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+              <Text style={styles.registerLink}>{t('login.createAccount')}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.footer}>
@@ -245,6 +366,46 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     formCard: {
       paddingHorizontal: 24,
       paddingVertical: 8,
+    },
+    oauthGroup: {
+      gap: 12,
+      marginBottom: 16,
+    },
+    oauthButton: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      paddingVertical: 16,
+      alignItems: 'center',
+      borderWidth: 1.5,
+      borderColor: colors.surfaceBorder,
+    },
+    oauthButtonContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    oauthButtonText: {
+      color: colors.text,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+    separator: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    separatorLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: colors.surfaceBorder,
+    },
+    separatorText: {
+      marginHorizontal: 12,
+      color: colors.muted,
+      fontWeight: '600',
+      fontSize: 12,
+      letterSpacing: 0.4,
+      textTransform: 'uppercase',
     },
     field: {
       marginBottom: 20,

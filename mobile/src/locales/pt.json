@@ -29,10 +29,23 @@
   "login": {
     "welcomeBack": "Bem-vindo",
     "subtitle": "Entre para gerir os seus agendamentos",
+    "actions": {
+      "google": "Continuar com Google",
+      "apple": "Continuar com Apple"
+    },
+    "providers": {
+      "google": "Google",
+      "apple": "Apple"
+    },
+    "or": "ou",
     "signIn": "Entrar →",
     "noAccount": "Ainda não tens conta?",
     "createAccount": "Criar conta",
-    "errorFallback": "Falha no login. Verifique credenciais."
+    "errorFallback": "Falha no login. Verifique credenciais.",
+    "errors": {
+      "oauth": "Não foi possível autenticar com {{provider}}.",
+      "oauthConfig": "Configuração de autenticação indisponível."
+    }
   },
   "register": {
     "title": "Criar conta",
@@ -305,7 +318,15 @@
     "chooseFromGallery": "Escolher da galeria",
     "openCameraError": "Não foi possível abrir a câmara",
     "openGalleryError": "Não foi possível abrir a galeria",
-    "uploadError": "Não foi possível fazer upload da imagem"
+    "uploadError": "Não foi possível fazer upload da imagem",
+    "linkTitle": "Contas ligadas",
+    "linkDescription": "Associe o seu login a outras contas para entrar mais rápido.",
+    "linkGoogle": "Ligar Google",
+    "linkApple": "Ligar Apple",
+    "linking": "A ligar...",
+    "linkSuccess": "Conta {{provider}} ligada com sucesso.",
+    "linkError": "Não foi possível ligar {{provider}}.",
+    "linkConfigError": "Configuração de autenticação indisponível."
   },
   "appointmentDetail": {
     "title": "Detalhes",

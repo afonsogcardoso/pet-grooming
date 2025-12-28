@@ -10,7 +10,7 @@ Base do app mobile em TypeScript, consumindo sua API.
 ## Setup rápido
 ```bash
 # na raiz do projeto pawmi-mobile
-cp .env.example .env             # configure API_BASE_URL
+cp  .env                         # configure API_BASE_URL
 npm install                      # já executado na criação, rode se necessário
 npx expo start --ios             # abre no simulador
 ```

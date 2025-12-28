@@ -7,6 +7,7 @@ export default {
   name: 'Pawmi',
   slug: 'pawmi-mobile',
   version: '0.0.1',
+  scheme: 'pawmi',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -48,11 +49,14 @@ export default {
   },
   plugins: [
     'expo-font',
-    'expo-secure-store'
+    'expo-secure-store',
+    "expo-web-browser"
   ],
   extra: {
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL,
     googlePlacesKey: process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY,
+    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     eas: {
       projectId: '2d2a4865-75c5-47ab-9d03-c79206e7c1dc',
     },

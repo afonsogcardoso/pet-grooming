@@ -3,6 +3,7 @@
     "name": "Pawmi",
     "slug": "pawmi-mobile",
     "version": "0.0.1",
+    "scheme": "pawmi",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -37,6 +38,8 @@
     ],
     "extra": {
       "apiBaseUrl": "${API_BASE_URL}",
+      "supabaseUrl": "${EXPO_PUBLIC_SUPABASE_URL}",
+      "supabaseAnonKey": "${EXPO_PUBLIC_SUPABASE_ANON_KEY}",
       "eas": {
         "projectId": "2d2a4865-75c5-47ab-9d03-c79206e7c1dc"
       }

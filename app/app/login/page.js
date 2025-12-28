@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { setActiveAccountId } from '@/lib/accountHelpers'
 import { useTranslation } from '@/components/TranslationProvider'
 import { storeAuthTokens } from '@/lib/authTokens'
+import { supabase } from '@/lib/supabase'
 
 export default function LoginPage() {
   const { t } = useTranslation()
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [oauthLoading, setOauthLoading] = useState(null)
   const [message, setMessage] = useState(null)
   const [error, setError] = useState(null)
 
@@ -57,6 +59,48 @@ export default function LoginPage() {
     router.replace('/appointments')
   }
 
+  const handleOAuth = async (provider) => {
+    setOauthLoading(provider)
+    setError(null)
+    setMessage(null)
+
+    const providerLabel = t(`login.providers.${provider}`)
+
+    try {
+      if (typeof window === 'undefined') {
+        setError(t('login.errors.oauth', { provider: providerLabel }))
+        return
+      }
+
+      const redirectUrl = new URL('/auth/callback', window.location.origin)
+      redirectUrl.searchParams.set('next', '/appointments')
+      const options = {
+        redirectTo: redirectUrl.toString(),
+        skipBrowserRedirect: true
+      }
+
+      if (provider === 'apple') {
+        options.scopes = 'name email'
+      }
+
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options
+      })
+
+      if (oauthError || !data?.url) {
+        setError(t('login.errors.oauth', { provider: providerLabel }))
+        return
+      }
+
+      window.location.assign(data.url)
+    } catch {
+      setError(t('login.errors.oauth', { provider: providerLabel }))
+    } finally {
+      setOauthLoading(null)
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
       <div className="w-full max-w-lg space-y-6 rounded-3xl border border-white/50 bg-white/95 p-6 shadow-2xl backdrop-blur-lg sm:p-8">
@@ -71,6 +115,33 @@ export default function LoginPage() {
         <div className="rounded-2xl bg-gradient-to-r from-brand-primary via-brand-accent to-brand-primary p-4 text-white shadow-lg sm:hidden">
           <p className="text-sm font-semibold">{t('login.mobile.ctaTitle')}</p>
           <p className="text-xs opacity-90">{t('login.mobile.ctaText')}</p>
+        </div>
+
+        <div className="space-y-3">
+          <button
+            type="button"
+            className="flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-gray-200 bg-white px-4 py-3 text-base font-semibold text-gray-900 transition hover:border-brand-primary focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary"
+            onClick={() => handleOAuth('google')}
+            disabled={loading || oauthLoading !== null}
+            aria-busy={oauthLoading === 'google'}
+          >
+            {oauthLoading === 'google' ? t('login.actions.loading') : t('login.actions.google')}
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-gray-200 bg-white px-4 py-3 text-base font-semibold text-gray-900 transition hover:border-brand-primary focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary"
+            onClick={() => handleOAuth('apple')}
+            disabled={loading || oauthLoading !== null}
+            aria-busy={oauthLoading === 'apple'}
+          >
+            {oauthLoading === 'apple' ? t('login.actions.loading') : t('login.actions.apple')}
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
+          <span className="h-px flex-1 bg-gray-200" />
+          <span>{t('login.or')}</span>
+          <span className="h-px flex-1 bg-gray-200" />
         </div>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
