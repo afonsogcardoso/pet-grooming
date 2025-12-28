@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
@@ -25,6 +25,27 @@ function createOauthClient() {
 }
 
 export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={<AuthCallbackFallback />}>
+      <AuthCallbackContent />
+    </Suspense>
+  )
+}
+
+function AuthCallbackFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
+      <div className="w-full max-w-lg space-y-4 rounded-3xl border border-white/50 bg-white/95 p-6 text-center shadow-2xl backdrop-blur-lg sm:p-8">
+        <div className="mx-auto h-16 w-16 rounded-2xl bg-brand-primary/10 text-3xl leading-[64px] text-brand-primary">
+          🔐
+        </div>
+        <p className="text-lg font-semibold text-gray-900">Loading...</p>
+      </div>
+    </div>
+  )
+}
+
+function AuthCallbackContent() {
   const { t } = useTranslation()
   const router = useRouter()
   const searchParams = useSearchParams()
