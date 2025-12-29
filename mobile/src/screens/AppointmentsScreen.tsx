@@ -36,6 +36,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
   const [filterMode, setFilterMode] = useState<FilterMode>('upcoming');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [pendingOnly, setPendingOnly] = useState(false);
 
   const { branding: brandingData, colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -102,6 +103,15 @@ export default function AppointmentsScreen({ navigation }: Props) {
   });
 
   const appointments = appointmentsData?.items || [];
+  const pendingAppointments = useMemo(() => {
+    const source =
+      filterMode === 'unpaid'
+        ? appointments.filter((appointment) => (appointment.payment_status || 'unpaid') !== 'paid')
+        : appointments;
+    return source.filter((appointment) => appointment.status === 'pending');
+  }, [appointments, filterMode]);
+  const pendingCount = pendingAppointments.length;
+  const hasPendingAppointments = pendingCount > 0;
   const queryClient = useQueryClient();
 
   const deleteMutation = useMutation({
@@ -126,6 +136,12 @@ export default function AppointmentsScreen({ navigation }: Props) {
       try { delete (global as any).onDeleteAppointment; } catch {}
     };
   }, []);
+
+  useEffect(() => {
+    if (viewMode === 'list' && !hasPendingAppointments && pendingOnly) {
+      setPendingOnly(false);
+    }
+  }, [hasPendingAppointments, pendingOnly, viewMode]);
   const primary = colors.primary;
   const surface = colors.surface;
   const primarySoft = colors.primarySoft;
@@ -166,41 +182,55 @@ export default function AppointmentsScreen({ navigation }: Props) {
 
       {/* Filter for List view only */}
       {viewMode === 'list' && (
-        <View style={styles.segment}>
-          <TouchableOpacity
-            style={[
-              styles.segmentButton,
-              filterMode === 'upcoming' && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
-            ]}
-            onPress={() => setFilterMode('upcoming')}
-          >
-            <Text style={[styles.segmentText, { color: filterMode === 'upcoming' ? primary : colors.text }]}>
-              {t('appointments.filterUpcoming')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.segmentButton,
-              filterMode === 'past' && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
-            ]}
-            onPress={() => setFilterMode('past')}
-          >
-            <Text style={[styles.segmentText, { color: filterMode === 'past' ? primary : colors.text }]}>
-              {t('appointments.filterPast')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.segmentButton,
-              filterMode === 'unpaid' && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
-            ]}
-            onPress={() => setFilterMode('unpaid')}
-          >
-            <Text style={[styles.segmentText, { color: filterMode === 'unpaid' ? primary : colors.text }]}>
-              {t('appointments.filterUnpaid')}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <>
+          <View style={[styles.segment, hasPendingAppointments && { marginBottom: 6 }]}>
+            <TouchableOpacity
+              style={[
+                styles.segmentButton,
+                filterMode === 'upcoming' && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
+              ]}
+              onPress={() => setFilterMode('upcoming')}
+            >
+              <Text style={[styles.segmentText, { color: filterMode === 'upcoming' ? primary : colors.text }]}>
+                {t('appointments.filterUpcoming')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.segmentButton,
+                filterMode === 'past' && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
+              ]}
+              onPress={() => setFilterMode('past')}
+            >
+              <Text style={[styles.segmentText, { color: filterMode === 'past' ? primary : colors.text }]}>
+                {t('appointments.filterPast')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.segmentButton,
+                filterMode === 'unpaid' && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
+              ]}
+              onPress={() => setFilterMode('unpaid')}
+            >
+              <Text style={[styles.segmentText, { color: filterMode === 'unpaid' ? primary : colors.text }]}>
+                {t('appointments.filterUnpaid')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {hasPendingAppointments ? (
+            <View style={styles.chipRow}>
+              <TouchableOpacity
+                style={[styles.chip, pendingOnly && styles.chipActive]}
+                onPress={() => setPendingOnly((prev) => !prev)}
+              >
+                <Text style={[styles.chipText, pendingOnly && styles.chipTextActive]}>
+                  {t('appointments.filterPending', { count: pendingCount })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </>
       )}
 
       {/* Loading State */}
@@ -221,7 +251,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
         <>
           {viewMode === 'list' && (
             <ListView
-              appointments={appointments}
+              appointments={pendingOnly ? pendingAppointments : appointments}
               filterMode={filterMode}
               onAppointmentPress={handleAppointmentPress}
               onNewAppointment={handleNewAppointment}
@@ -324,6 +354,32 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     segmentText: {
       fontWeight: '700',
       color: colors.text,
+    },
+    chipRow: {
+      flexDirection: 'row',
+      gap: 8,
+      paddingHorizontal: 16,
+      marginBottom: 12,
+    },
+    chip: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.surface,
+    },
+    chipActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primarySoft,
+    },
+    chipText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    chipTextActive: {
+      color: colors.primary,
     },
     error: {
       color: colors.danger,

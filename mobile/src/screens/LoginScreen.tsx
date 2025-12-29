@@ -26,6 +26,7 @@ import { getProfile } from '../api/profile';
 import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { resolveSupabaseUrl } from '../config/supabase';
+import { formatVersionLabel } from '../utils/version';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -81,6 +82,7 @@ export default function LoginScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const { colors, branding } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const versionLabel = useMemo(() => formatVersionLabel(), []);
   const logoSource = useMemo(() => {
     if (!branding?.logo_url || brandingLogoFailed) {
       return require('../../assets/logo_180x180.png');
@@ -365,6 +367,7 @@ export default function LoginScreen({ navigation }: Props) {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Pawmi App</Text>
+          {versionLabel ? <Text style={styles.footerVersion}>{versionLabel}</Text> : null}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -567,6 +570,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.muted,
       fontSize: 13,
       fontWeight: '600',
+    },
+    footerVersion: {
+      marginTop: 4,
+      color: colors.muted,
+      fontSize: 11,
+      fontWeight: '500',
     },
   });
 }

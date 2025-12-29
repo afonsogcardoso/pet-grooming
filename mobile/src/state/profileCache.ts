@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
+import { resolveVersionTag } from '../utils/version';
 
 export type CachedProfile = {
   email?: string | null;
@@ -13,27 +13,8 @@ export type CachedProfile = {
 
 const PROFILE_CACHE_BASE_KEY = 'profile_cache_v2';
 
-function resolveProfileCacheVersionTag() {
-  const appVersion =
-    Constants.nativeAppVersion ||
-    Constants.expoConfig?.version ||
-    Constants.manifest?.version ||
-    // @ts-expect-error manifest2 is undocumented but present on some builds
-    Constants.manifest2?.version ||
-    // @ts-expect-error manifestExtra is new on SDK 54+
-    Constants.manifestExtra?.version ||
-    null;
-  const buildVersion =
-    Constants.nativeBuildVersion ||
-    Constants.expoConfig?.ios?.buildNumber ||
-    Constants.expoConfig?.android?.versionCode ||
-    null;
-  const tag = [appVersion, buildVersion].filter(Boolean).join('-');
-  return tag || null;
-}
-
 const PROFILE_CACHE_KEY = (() => {
-  const tag = resolveProfileCacheVersionTag();
+  const tag = resolveVersionTag();
   return tag ? `${PROFILE_CACHE_BASE_KEY}:${tag}` : PROFILE_CACHE_BASE_KEY;
 })();
 

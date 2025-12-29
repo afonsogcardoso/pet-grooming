@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Branding, getBranding } from '../api/branding';
 import { writeBrandingCache } from './brandingCache';
 import { useAuthStore } from '../state/authStore';
+import { useViewModeStore } from '../state/viewModeStore';
 
 type ThemeColors = {
   primary: string;
@@ -66,6 +67,7 @@ function withAlpha(color: string, alpha: number) {
 export function useBrandingTheme() {
   const queryClient = useQueryClient();
   const activeRole = useAuthStore((state) => state.user?.activeRole);
+  const viewMode = useViewModeStore((state) => state.viewMode);
   const query = useQuery({
     queryKey: ['branding'],
     // Query should already be primed by App bootstrap; keep fetch here as safety.
@@ -79,7 +81,13 @@ export function useBrandingTheme() {
 
   const colors: ThemeColors = useMemo(() => {
     const branding = query.data as Branding | undefined;
-    const paletteBranding = activeRole === 'consumer' ? undefined : branding;
+    const roleForTheme =
+      viewMode === 'consumer'
+        ? 'consumer'
+        : viewMode === 'private'
+          ? 'provider'
+          : activeRole;
+    const paletteBranding = roleForTheme === 'consumer' ? undefined : branding;
     const background = normalizeHexColor(paletteBranding?.brand_background, '#FFF7EE');
     const backgroundIsLight = isLightColor(background);
 
@@ -113,7 +121,7 @@ export function useBrandingTheme() {
       warning: '#d97706',
       success: '#059669',
     };
-  }, [query.data, activeRole]);
+  }, [query.data, activeRole, viewMode]);
 
   useEffect(() => {
     const data = query.data as Branding | undefined;

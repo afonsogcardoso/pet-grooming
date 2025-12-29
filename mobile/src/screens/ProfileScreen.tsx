@@ -10,12 +10,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { getProfile, updateProfile, uploadAvatar, resetPassword, Profile } from '../api/profile';
 import { useAuthStore } from '../state/authStore';
+import { useViewModeStore, ViewMode } from '../state/viewModeStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { getDateLocale, normalizeLanguage, setAppLanguage } from '../i18n';
 import { PhoneInput } from '../components/common/PhoneInput';
 import { buildPhone, splitPhone } from '../utils/phone';
 import { resolveSupabaseUrl } from '../config/supabase';
+import { formatVersionLabel } from '../utils/version';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -40,11 +42,14 @@ export default function ProfileScreen({ navigation }: Props) {
   const setUser = useAuthStore((s) => s.setUser);
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
+  const viewMode = useViewModeStore((s) => s.viewMode);
+  const setViewMode = useViewModeStore((s) => s.setViewMode);
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const queryClient = useQueryClient();
   const { t, i18n } = useTranslation();
   const dateLocale = getDateLocale();
+  const versionLabel = useMemo(() => formatVersionLabel(), []);
   
   const [isEditing, setIsEditing] = useState(false);
   const [editFirstName, setEditFirstName] = useState('');
@@ -75,12 +80,15 @@ export default function ProfileScreen({ navigation }: Props) {
   const googleButtonLabel = isGoogleLinked ? t('profile.linked') : t('profile.linkGoogle');
   const appleButtonLabel = isAppleLinked ? t('profile.linked') : t('profile.linkApple');
   const availableRoles = useMemo(() => {
-    const roles = Array.isArray(data?.availableRoles) ? data?.availableRoles : [];
+    const roles = Array.isArray(data?.availableRoles) ? data.availableRoles : [];
     if (roles.length) return Array.from(new Set(roles));
     if (data?.activeRole) return [data.activeRole];
+    if (user?.activeRole) return [user.activeRole];
     return [];
-  }, [data?.availableRoles, data?.activeRole]);
+  }, [data?.availableRoles, data?.activeRole, user?.activeRole]);
   const activeRole = data?.activeRole ?? user?.activeRole ?? 'provider';
+  const resolvedViewMode: ViewMode = viewMode ?? (activeRole === 'consumer' ? 'consumer' : 'private');
+  const canSwitchViewMode = availableRoles.includes('consumer') && availableRoles.includes('provider');
 
   const mergeProfileUpdate = (current: Profile | undefined, updated: Profile, payload?: Partial<Profile>) => {
     if (!current) return updated;
@@ -431,10 +439,21 @@ export default function ProfileScreen({ navigation }: Props) {
     languageMutation.mutate(language);
   };
 
-  const handleRoleChange = (role: 'consumer' | 'provider') => {
+  const handleViewModeChange = (mode: ViewMode) => {
     if (isEditing || updateMutation.isPending || languageMutation.isPending) return;
-    if (role === activeRole) return;
-    updateMutation.mutate({ activeRole: role });
+    if (mode === resolvedViewMode) return;
+    const previousViewMode = viewMode;
+    setViewMode(mode);
+    const nextRole = mode === 'consumer' ? 'consumer' : 'provider';
+    if (nextRole === activeRole) return;
+    updateMutation.mutate(
+      { activeRole: nextRole },
+      {
+        onError: () => {
+          setViewMode(previousViewMode ?? null);
+        },
+      }
+    );
   };
 
   const handleOpenPasswordForm = () => {
@@ -593,33 +612,29 @@ export default function ProfileScreen({ navigation }: Props) {
         {isLoading || isRefetching ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} /> : null}
         {error ? <Text style={styles.error}>{t('profile.loadError')}</Text> : null}
 
-        {availableRoles.length > 1 ? (
+        {canSwitchViewMode ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('profile.roleTitle')}</Text>
-            <Text style={styles.sectionText}>{t('profile.roleDescription')}</Text>
-            <View style={styles.roleOptions}>
-              {availableRoles.includes('provider') ? (
-                <TouchableOpacity
-                  style={[styles.roleOption, activeRole === 'provider' && styles.roleOptionActive]}
-                  onPress={() => handleRoleChange('provider')}
-                  disabled={updateMutation.isPending || languageMutation.isPending || isEditing}
-                >
-                  <Text style={[styles.roleOptionText, activeRole === 'provider' && styles.roleOptionTextActive]}>
-                    {t('profile.roleProvider')}
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-              {availableRoles.includes('consumer') ? (
-                <TouchableOpacity
-                  style={[styles.roleOption, activeRole === 'consumer' && styles.roleOptionActive]}
-                  onPress={() => handleRoleChange('consumer')}
-                  disabled={updateMutation.isPending || languageMutation.isPending || isEditing}
-                >
-                  <Text style={[styles.roleOptionText, activeRole === 'consumer' && styles.roleOptionTextActive]}>
-                    {t('profile.roleConsumer')}
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
+            <Text style={styles.sectionTitle}>{t('profile.viewModeTitle')}</Text>
+            <Text style={styles.sectionText}>{t('profile.viewModeDescription')}</Text>
+            <View style={styles.modeOptions}>
+              <TouchableOpacity
+                style={[styles.modeOption, resolvedViewMode === 'consumer' && styles.modeOptionActive]}
+                onPress={() => handleViewModeChange('consumer')}
+                disabled={updateMutation.isPending || languageMutation.isPending || isEditing}
+              >
+                <Text style={[styles.modeOptionText, resolvedViewMode === 'consumer' && styles.modeOptionTextActive]}>
+                  {t('profile.viewModeConsumer')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modeOption, resolvedViewMode === 'private' && styles.modeOptionActive]}
+                onPress={() => handleViewModeChange('private')}
+                disabled={updateMutation.isPending || languageMutation.isPending || isEditing}
+              >
+                <Text style={[styles.modeOptionText, resolvedViewMode === 'private' && styles.modeOptionTextActive]}>
+                  {t('profile.viewModePrivate')}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         ) : null}
@@ -745,6 +760,7 @@ export default function ProfileScreen({ navigation }: Props) {
         >
           <Text style={styles.buttonText}>{t('profile.logout')}</Text>
         </TouchableOpacity>
+        {versionLabel ? <Text style={styles.footerVersion}>{versionLabel}</Text> : null}
       </View>
     </SafeAreaView>
   );
@@ -933,12 +949,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.primary,
       fontWeight: '700',
     },
-    roleOptions: {
+    modeOptions: {
       flexDirection: 'row',
       gap: 12,
       marginTop: 8,
     },
-    roleOption: {
+    modeOption: {
       flex: 1,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
@@ -947,16 +963,16 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       paddingVertical: 12,
       alignItems: 'center',
     },
-    roleOptionActive: {
+    modeOptionActive: {
       borderColor: colors.primary,
       backgroundColor: colors.primarySoft,
     },
-    roleOptionText: {
+    modeOptionText: {
       color: colors.text,
       fontWeight: '600',
       fontSize: 14,
     },
-    roleOptionTextActive: {
+    modeOptionTextActive: {
       color: colors.primary,
       fontWeight: '700',
     },
@@ -1037,6 +1053,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       backgroundColor: colors.background,
       borderTopWidth: 1,
       borderTopColor: colors.surfaceBorder,
+    },
+    footerVersion: {
+      marginTop: 6,
+      color: colors.muted,
+      fontSize: 11,
+      textAlign: 'center',
     },
   });
 }

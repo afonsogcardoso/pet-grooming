@@ -29,6 +29,7 @@ import MarketplaceAccountScreen from './src/screens/MarketplaceAccountScreen';
 import MarketplaceRequestScreen from './src/screens/MarketplaceRequestScreen';
 import MarketplaceProfileScreen from './src/screens/MarketplaceProfileScreen';
 import { useAuthStore } from './src/state/authStore';
+import { useViewModeStore } from './src/state/viewModeStore';
 import { Branding, getBranding } from './src/api/branding';
 import { getProfile } from './src/api/profile';
 import { clearBrandingCache, readBrandingCache, writeBrandingCache } from './src/theme/brandingCache';
@@ -88,6 +89,8 @@ export default function App() {
   const token = useAuthStore((s) => s.token);
   const hydrated = useAuthStore((s) => s.hydrated);
   const storedActiveRole = useAuthStore((s) => s.user?.activeRole);
+  const viewMode = useViewModeStore((s) => s.viewMode);
+  const viewModeHydrated = useViewModeStore((s) => s.hydrated);
   const brandingFade = useMemo(() => new Animated.Value(0), []);
   const loaderColors = useMemo(() => {
     const primary = brandingData?.brand_primary || '#F47C1C';
@@ -116,6 +119,12 @@ export default function App() {
     // Hydrate auth token from SecureStore on app start.
     useAuthStore.getState().hydrate().catch((err) => {
       console.error('Failed to hydrate auth:', err);
+    });
+  }, []);
+
+  useEffect(() => {
+    useViewModeStore.getState().hydrate().catch((err) => {
+      console.error('Failed to hydrate view mode:', err);
     });
   }, []);
 
@@ -235,7 +244,7 @@ export default function App() {
     };
   }, [hydrated, token, queryClient]);
 
-  const showLoader = !hydrated || (token && (!brandingData || !profileData));
+  const showLoader = !hydrated || (token && (!brandingData || !profileData || !viewModeHydrated));
 
   if (showLoader) {
     return (
@@ -245,10 +254,8 @@ export default function App() {
     );
   }
 
-  const activeRole =
-    storedActiveRole ??
-    profileData?.activeRole ??
-    'provider';
+  const activeRole = storedActiveRole ?? profileData?.activeRole ?? 'provider';
+  const appMode = viewMode ?? (activeRole === 'consumer' ? 'consumer' : 'private');
 
   const overlayBackground = previousBranding?.brand_background || '#FFF7EE';
   const statusBarBackground = brandingData?.brand_background || overlayBackground || '#FFF7EE';
@@ -261,7 +268,7 @@ export default function App() {
           <NavigationContainer>
             <Stack.Navigator>
               {token ? (
-                activeRole === 'consumer' ? (
+                appMode === 'consumer' ? (
                   <>
                     <Stack.Screen name="ConsumerHome" component={ConsumerHomeScreen} options={{ headerShown: false }} />
                     <Stack.Screen name="ConsumerAppointments" component={ConsumerAppointmentsScreen} options={{ headerShown: false }} />

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { clearProfileCache } from './profileCache';
+import { useViewModeStore } from './viewModeStore';
 
 type AuthState = {
   token: string | null;
@@ -46,6 +47,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     await SecureStore.deleteItemAsync('authToken');
     await SecureStore.deleteItemAsync('refreshToken');
     await clearProfileCache();
+    await useViewModeStore.getState().clear();
     set({ token: null, refreshToken: null, user: null });
   },
   hydrate: async () => {
