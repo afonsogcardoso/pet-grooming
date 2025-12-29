@@ -154,10 +154,30 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const [customerNif, setCustomerNif] = useState('');
   const placesKey = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || process.env.GOOGLE_PLACES_KEY;
   const scrollViewRef = useRef<ScrollView>(null);
+  const scrollContentRef = useRef<View>(null);
+  const amountInputRef = useRef<TextInput>(null);
+  const notesInputRef = useRef<TextInput>(null);
 
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const dateLocale = getDateLocale();
+
+  const scrollToInput = useCallback((inputRef: React.RefObject<TextInput>) => {
+    const input = inputRef.current;
+    const content = scrollContentRef.current;
+    const scrollView = scrollViewRef.current;
+    if (!input || !content || !scrollView) return;
+
+    setTimeout(() => {
+      input.measureLayout(
+        content,
+        (_x, y) => {
+          scrollView.scrollTo({ y: Math.max(0, y - 24), animated: true });
+        },
+        () => null,
+      );
+    }, Platform.OS === 'android' ? 120 : 80);
+  }, []);
 
   // Debug: verificar se a chave está carregada
   useEffect(() => {
@@ -870,7 +890,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           keyboardDismissMode="on-drag"
           automaticallyAdjustKeyboardInsets={true}
         >
-        <View style={styles.content}>
+        <View ref={scrollContentRef} style={styles.content}>
           {/* Seção: Data e Hora */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t('appointmentForm.dateServiceSection')}</Text>
@@ -1283,6 +1303,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                 placeholder={t('appointmentForm.amountPlaceholder')}
                 placeholderTextColor={colors.muted}
                 keyboardType="decimal-pad"
+                ref={amountInputRef}
+                onFocus={() => scrollToInput(amountInputRef)}
                 style={[styles.input, styles.amountInput]}
               />
               {servicesTotal > 0 ? (
@@ -1305,6 +1327,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                 placeholder={t('appointmentForm.notesPlaceholder')}
                 placeholderTextColor={colors.muted}
                 multiline
+                ref={notesInputRef}
+                onFocus={() => scrollToInput(notesInputRef)}
                 style={[
                   styles.input,
                   { minHeight: 100, textAlignVertical: 'top' },

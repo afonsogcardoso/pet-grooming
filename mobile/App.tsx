@@ -266,7 +266,7 @@ export default function App() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <NavigationContainer>
-            <Stack.Navigator>
+            <Stack.Navigator key={appMode}>
               {token ? (
                 appMode === 'consumer' ? (
                   <>

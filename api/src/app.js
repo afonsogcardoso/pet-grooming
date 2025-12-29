@@ -282,7 +282,8 @@ const swaggerDefinition = {
           default_duration: { type: 'integer' },
           price: { type: 'number' },
           active: { type: 'boolean' },
-          description: { type: 'string' }
+          description: { type: 'string' },
+          image_url: { type: 'string', nullable: true }
         }
       }
     }

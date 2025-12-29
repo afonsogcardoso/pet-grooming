@@ -150,7 +150,13 @@
   },
   "marketplaceAccount": {
     "title": "Conta",
-    "servicesTitle": "Serviços"
+    "servicesTitle": "Serviços",
+    "socialTitle": "Encontra-nos online",
+    "socialInstagram": "Instagram",
+    "socialFacebook": "Facebook",
+    "socialTiktok": "TikTok",
+    "socialWebsite": "Website",
+    "socialOpenError": "Não foi possível abrir o link."
   },
   "marketplaceRequest": {
     "title": "Pedido de marcação",
@@ -497,6 +503,12 @@
     "namePlaceholder": "Ex: Banho e Tosquia",
     "descriptionLabel": "Descrição",
     "descriptionPlaceholder": "Descrição do serviço",
+    "imageTitle": "Imagem do serviço",
+    "imagePlaceholder": "Adicionar imagem do serviço",
+    "imageHelper": "Aparece no marketplace e nos cartões de serviço.",
+    "imageChangeAction": "Alterar imagem",
+    "imageSaveFirst": "Guarda o serviço antes de enviar a imagem.",
+    "imageUploadError": "Não foi possível enviar a imagem do serviço.",
     "priceLabel": "Preço (€)",
     "durationLabel": "Duração Padrão (minutos)",
     "durationDecrease": "Diminuir duração",

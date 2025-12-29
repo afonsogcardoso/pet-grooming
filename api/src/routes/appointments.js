@@ -20,6 +20,31 @@ const APPOINTMENT_CONFIRM_SELECT = `
   pets ( id, name, breed, photo_url, weight ),
   services ( id, name )
 `
+const APPOINTMENT_DETAIL_SELECT = `
+  id,
+  appointment_date,
+  appointment_time,
+  duration,
+  notes,
+  payment_status,
+  status,
+  before_photo_url,
+  after_photo_url,
+  customers ( id, name, phone, phone_country_code, phone_number, address ),
+  services ( id, name, price ),
+  pets ( id, name, breed, photo_url, weight ),
+  appointment_services (
+    id,
+    service_id,
+    pet_id,
+    price_tier_id,
+    price_tier_label,
+    price_tier_price,
+    services ( id, name, price, display_order ),
+    pets ( id, name, breed, weight ),
+    appointment_service_addons ( id, service_addon_id, name, price )
+  )
+`
 const PET_PHOTO_BUCKET = 'pets'
 
 function normalizeServiceSelections(rawSelections) {
@@ -334,33 +359,7 @@ router.get('/:id', async (req, res) => {
 
   let query = supabase
     .from('appointments')
-    .select(
-      `
-      id,
-      appointment_date,
-      appointment_time,
-      duration,
-      notes,
-      payment_status,
-      status,
-      before_photo_url,
-      after_photo_url,
-      customers ( id, name, phone, phone_country_code, phone_number, address ),
-      services ( id, name, price ),
-      pets ( id, name, breed, photo_url, weight ),
-      appointment_services (
-        id,
-        service_id,
-        pet_id,
-        price_tier_id,
-        price_tier_label,
-        price_tier_price,
-        services ( id, name, price, display_order ),
-        pets ( id, name, breed, weight ),
-        appointment_service_addons ( id, service_addon_id, name, price )
-      )
-    `
-    )
+    .select(APPOINTMENT_DETAIL_SELECT)
     .eq('id', id)
     .maybeSingle()
 
@@ -432,10 +431,16 @@ router.patch('/:id', async (req, res) => {
   const { id } = req.params
   const payload = req.body || {}
   const serviceSelections = payload.service_selections
-  const serviceIds = Array.isArray(payload.service_ids)
+  const normalizedSelections = normalizeServiceSelections(serviceSelections)
+  const serviceIdsFromPayload = Array.isArray(payload.service_ids)
     ? payload.service_ids
     : (payload.service_id ? [payload.service_id] : null)
+  const serviceIdsFromSelections = normalizedSelections.length > 0
+    ? Array.from(new Set(normalizedSelections.map((selection) => selection.service_id).filter(Boolean)))
+    : null
+  const serviceIds = serviceIdsFromPayload ?? serviceIdsFromSelections
   delete payload.service_selections
+  delete payload.service_ids
 
   const allowed = [
     'status',
@@ -455,67 +460,67 @@ router.patch('/:id', async (req, res) => {
     if (payload[key] !== undefined) updates[key] = payload[key]
   })
 
-  if (Object.keys(updates).length === 0) {
+  if (updates.service_id === undefined && Array.isArray(serviceIds)) {
+    updates.service_id = serviceIds[0] ?? null
+  }
+
+  const shouldUpdateAppointment = Object.keys(updates).length > 0
+  const shouldUpdateServices = normalizedSelections.length > 0 || Array.isArray(serviceIds)
+
+  if (!shouldUpdateAppointment && !shouldUpdateServices) {
     return res.status(400).json({ error: 'No fields to update' })
   }
 
-  let query = supabase.from('appointments').update(updates).eq('id', id)
-  if (accountId) {
-    query = query.eq('account_id', accountId)
-  }
+  let appointment = null
+  if (shouldUpdateAppointment) {
+    let query = supabase.from('appointments').update(updates).eq('id', id)
+    if (accountId) {
+      query = query.eq('account_id', accountId)
+    }
 
-  const { data: appointment, error } = await query.select(
+    const { data, error } = await query.select(
+      `
+      id,
+      appointment_date,
+      appointment_time,
+      duration,
+      notes,
+      payment_status,
+      status,
+      customers ( id, name, phone, phone_country_code, phone_number, address ),
+      services ( id, name, price ),
+      pets ( id, name, breed, photo_url )
     `
-    id,
-    appointment_date,
-    appointment_time,
-    duration,
-    notes,
-    payment_status,
-    status,
-    customers ( id, name, phone, phone_country_code, phone_number, address ),
-    services ( id, name, price ),
-    pets ( id, name, breed, photo_url )
-  `
-  ).single()
+    ).single()
 
-  if (error) {
-    console.error('[api] update appointment error', error)
-    return res.status(500).json({ error: error.message })
-  }
+    if (error) {
+      console.error('[api] update appointment error', error)
+      return res.status(500).json({ error: error.message })
+    }
 
-  // Update appointment services if provided
-  if (serviceIds && Array.isArray(serviceIds) && appointment) {
-    // Delete existing services
-    await supabase
-      .from('appointment_services')
-      .delete()
-      .eq('appointment_id', id)
-
-    // Insert new services
-    if (serviceIds.length > 0) {
-      const appointmentServices = serviceIds.map(serviceId => ({
-        appointment_id: id,
-        service_id: serviceId
-      }))
-
-      const { error: servicesError } = await supabase
-        .from('appointment_services')
-        .insert(appointmentServices)
-
-      if (servicesError) {
-        console.error('[api] update appointment services error', servicesError)
-      }
+    appointment = data
+  } else {
+    let authQuery = supabase.from('appointments').select('id').eq('id', id).maybeSingle()
+    if (accountId) {
+      authQuery = authQuery.eq('account_id', accountId)
+    }
+    const { data: existing, error: loadError } = await authQuery
+    if (loadError) {
+      console.error('[api] load appointment error', loadError)
+      return res.status(500).json({ error: loadError.message })
+    }
+    if (!existing) {
+      return res.status(404).json({ error: 'Not found' })
     }
   }
 
-  if (appointment && Array.isArray(serviceSelections) && serviceSelections.length > 0) {
+  // Update appointment services if provided
+  if (shouldUpdateServices) {
     await supabase
       .from('appointment_services')
       .delete()
       .eq('appointment_id', id)
 
-    const normalizedSelections = normalizeServiceSelections(serviceSelections)
     if (normalizedSelections.length > 0) {
       const appointmentServices = normalizedSelections.map((selection) => ({
         appointment_id: id,
@@ -535,10 +540,43 @@ router.patch('/:id', async (req, res) => {
           selections: serviceSelections
         })
       }
+    } else if (Array.isArray(serviceIds) && serviceIds.length > 0) {
+      const appointmentServices = serviceIds.map((serviceId) => ({
+        appointment_id: id,
+        service_id: serviceId
+      }))
+
+      const { error: servicesError } = await supabase
+        .from('appointment_services')
+        .insert(appointmentServices)
+
+      if (servicesError) {
+        console.error('[api] update appointment services error', servicesError)
+      }
     }
   }
 
-  res.json({ data: mapAppointmentForApi(appointment) })
+  let responseAppointment = appointment
+  let refreshQuery = supabase
+    .from('appointments')
+    .select(APPOINTMENT_DETAIL_SELECT)
+    .eq('id', id)
+    .maybeSingle()
+  if (accountId) {
+    refreshQuery = refreshQuery.eq('account_id', accountId)
+  }
+  const { data: refreshed, error: refreshError } = await refreshQuery
+  if (refreshError) {
+    console.error('[api] reload appointment error', refreshError)
+  } else if (refreshed) {
+    responseAppointment = refreshed
+  }
+
+  if (!responseAppointment) {
+    return res.status(404).json({ error: 'Not found' })
+  }
+
+  res.json({ data: mapAppointmentForApi(responseAppointment) })
 })
 
 router.delete('/:id', async (req, res) => {

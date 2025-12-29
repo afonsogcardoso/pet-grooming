@@ -42,6 +42,16 @@ function formatDuration(value) {
   return `${numeric} min`
 }
 
+function normalizeUrl(value) {
+  if (!value) return null
+  const trimmed = value.toString().trim()
+  if (!trimmed) return null
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return `https://${trimmed}`
+  }
+  return trimmed
+}
+
 function buildServiceTags(service) {
   return [
     service.category,
@@ -75,6 +85,12 @@ export default async function MarketplaceProviderPage({ params }) {
     { label: 'Email', value: account.support_email },
     { label: 'Telefone', value: supportPhone }
   ].filter((item) => item.value)
+  const socialLinks = [
+    { label: 'Instagram', url: normalizeUrl(account.marketplace_instagram_url) },
+    { label: 'Facebook', url: normalizeUrl(account.marketplace_facebook_url) },
+    { label: 'TikTok', url: normalizeUrl(account.marketplace_tiktok_url) },
+    { label: 'Website', url: normalizeUrl(account.marketplace_website_url) }
+  ].filter((item) => item.url)
 
   return (
     <div className={`${styles.page} ${styles.pawmiTheme} min-h-screen`}>
@@ -160,6 +176,21 @@ export default async function MarketplaceProviderPage({ params }) {
                     </p>
                   )}
                 </div>
+                {socialLinks.length > 0 && (
+                  <div className="mt-5 flex flex-wrap gap-2 text-xs font-semibold text-slate-600">
+                    {socialLinks.map((item) => (
+                      <a
+                        key={item.label}
+                        href={item.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-brand-primary transition hover:border-brand-primary"
+                      >
+                        {item.label}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -188,6 +219,15 @@ export default async function MarketplaceProviderPage({ params }) {
                       className={`${styles.stagger} rounded-2xl border border-white/70 bg-white/80 p-5 shadow-sm`}
                       style={{ '--delay': `${index * 90}ms` }}
                     >
+                      {service.image_url ? (
+                        <Image
+                          src={service.image_url}
+                          alt={service.name}
+                          width={520}
+                          height={320}
+                          className="mb-4 h-32 w-full rounded-xl object-cover"
+                        />
+                      ) : null}
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-[15px] font-semibold text-slate-900">{service.name}</p>

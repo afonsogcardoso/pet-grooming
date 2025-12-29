@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
@@ -12,6 +12,7 @@ import {
   MarketplaceService,
 } from '../api/marketplace';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
+import { Ionicons } from '@expo/vector-icons';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -38,6 +39,47 @@ export default function MarketplaceAccountScreen({ route, navigation }: Props) {
   });
 
   const categories = account?.marketplace_categories || [];
+  const normalizeUrl = (value?: string | null) => {
+    if (!value) return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (!/^https?:\/\//i.test(trimmed)) {
+      return `https://${trimmed}`;
+    }
+    return trimmed;
+  };
+  const websiteUrl = normalizeUrl(account?.marketplace_website_url);
+  const socialLinks = useMemo(
+    () =>
+      [
+        {
+          key: 'instagram',
+          label: t('marketplaceAccount.socialInstagram'),
+          icon: 'logo-instagram',
+          url: normalizeUrl(account?.marketplace_instagram_url),
+        },
+        {
+          key: 'facebook',
+          label: t('marketplaceAccount.socialFacebook'),
+          icon: 'logo-facebook',
+          url: normalizeUrl(account?.marketplace_facebook_url),
+        },
+        {
+          key: 'tiktok',
+          label: t('marketplaceAccount.socialTiktok'),
+          icon: 'logo-tiktok',
+          url: normalizeUrl(account?.marketplace_tiktok_url),
+        },
+        {
+          key: 'website',
+          label: t('marketplaceAccount.socialWebsite'),
+          icon: 'globe-outline',
+          url: websiteUrl,
+        },
+      ].filter((link) => Boolean(link.url)),
+    [account, t, websiteUrl]
+  );
+  const primaryLink = websiteUrl || socialLinks[0]?.url || null;
 
   const handleRequest = (service: MarketplaceService) => {
     if (!account) return;
@@ -49,6 +91,21 @@ export default function MarketplaceAccountScreen({ route, navigation }: Props) {
     });
   };
 
+  const openExternalLink = async (url?: string | null) => {
+    if (!url) return;
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        Alert.alert(t('common.error'), t('marketplaceAccount.socialOpenError'));
+        return;
+      }
+      await Linking.openURL(url);
+    } catch (error) {
+      console.error('Erro ao abrir link externo:', error);
+      Alert.alert(t('common.error'), t('marketplaceAccount.socialOpenError'));
+    }
+  };
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -58,16 +115,29 @@ export default function MarketplaceAccountScreen({ route, navigation }: Props) {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {account ? (
           <View style={styles.heroCard}>
+            {account.portal_image_url ? (
+              <Image
+                source={{ uri: account.portal_image_url }}
+                style={styles.heroCover}
+                resizeMode="cover"
+              />
+            ) : null}
             <View style={styles.heroHeader}>
-              {account.logo_url ? (
-                <Image source={{ uri: account.logo_url }} style={styles.heroLogo} />
-              ) : (
-                <View style={styles.heroLogoFallback}>
-                  <Text style={styles.heroLogoFallbackText}>
-                    {account.name?.slice(0, 1) || 'P'}
-                  </Text>
-                </View>
-              )}
+              <TouchableOpacity
+                style={styles.heroLogoWrapper}
+                onPress={() => openExternalLink(primaryLink)}
+                disabled={!primaryLink}
+              >
+                {account.logo_url ? (
+                  <Image source={{ uri: account.logo_url }} style={styles.heroLogo} />
+                ) : (
+                  <View style={styles.heroLogoFallback}>
+                    <Text style={styles.heroLogoFallbackText}>
+                      {account.name?.slice(0, 1) || 'P'}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
               <View style={styles.heroText}>
                 <Text style={styles.heroTitle}>{account.name}</Text>
                 <Text style={styles.heroSubtitle}>
@@ -84,6 +154,23 @@ export default function MarketplaceAccountScreen({ route, navigation }: Props) {
                 ))}
               </View>
             )}
+            {socialLinks.length > 0 && (
+              <View style={styles.socialSection}>
+                <Text style={styles.socialTitle}>{t('marketplaceAccount.socialTitle')}</Text>
+                <View style={styles.socialRow}>
+                  {socialLinks.map((link) => (
+                    <TouchableOpacity
+                      key={link.key}
+                      style={styles.socialButton}
+                      onPress={() => openExternalLink(link.url)}
+                    >
+                      <Ionicons name={link.icon as any} size={16} color={colors.primary} />
+                      <Text style={styles.socialText}>{link.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
         ) : null}
 
@@ -93,6 +180,13 @@ export default function MarketplaceAccountScreen({ route, navigation }: Props) {
             const price = formatPrice(service.price);
             return (
               <View key={service.id} style={styles.serviceCard}>
+                {service.image_url ? (
+                  <Image
+                    source={{ uri: service.image_url }}
+                    style={styles.serviceImage}
+                    resizeMode="cover"
+                  />
+                ) : null}
                 <View style={styles.serviceHeader}>
                   <Text style={styles.serviceName} numberOfLines={2}>
                     {service.name}
@@ -161,10 +255,21 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       elevation: 3,
       marginBottom: 18,
     },
+    heroCover: {
+      width: '100%',
+      height: 160,
+      borderRadius: 18,
+      marginBottom: 16,
+      backgroundColor: colors.background,
+    },
     heroHeader: {
       flexDirection: 'row',
       gap: 14,
       alignItems: 'center',
+    },
+    heroLogoWrapper: {
+      borderRadius: 20,
+      overflow: 'hidden',
     },
     heroLogo: {
       width: 62,
@@ -218,6 +323,36 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontWeight: '600',
       color: colors.primary,
     },
+    socialSection: {
+      marginTop: 16,
+    },
+    socialTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 10,
+    },
+    socialRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    socialButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: colors.background,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+    },
+    socialText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text,
+    },
     sectionTitle: {
       fontSize: 18,
       fontWeight: '800',
@@ -239,6 +374,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       shadowRadius: 10,
       elevation: 2,
       gap: 8,
+    },
+    serviceImage: {
+      width: '100%',
+      height: 140,
+      borderRadius: 16,
+      backgroundColor: colors.background,
     },
     serviceHeader: {
       flexDirection: 'row',

@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, TextInput, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, TextInput, Alert, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -122,6 +122,13 @@ export default function ServicesScreen({ navigation }: Props) {
             disabled={isActive}
             activeOpacity={0.7}
           >
+            {item.image_url ? (
+              <Image source={{ uri: item.image_url }} style={styles.serviceImage} />
+            ) : (
+              <View style={styles.serviceImagePlaceholder}>
+                <Ionicons name="image-outline" size={18} color={colors.muted} />
+              </View>
+            )}
             <View style={styles.serviceInfo}>
               <View style={styles.serviceHeader}>
                 <Text style={styles.serviceName}>{item.name}</Text>
@@ -366,6 +373,22 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       padding: 16,
       marginBottom: 12,
       gap: 12,
+    },
+    serviceImage: {
+      width: 56,
+      height: 56,
+      borderRadius: 12,
+      backgroundColor: colors.background,
+    },
+    serviceImagePlaceholder: {
+      width: 56,
+      height: 56,
+      borderRadius: 12,
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     serviceCardDragging: {
       opacity: 0.95,

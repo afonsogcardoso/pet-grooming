@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Button } from '../components/common';
+import { MiniMap } from '../components/common/MiniMap';
 import {
   cancelConsumerAppointment,
   getConsumerAppointment,
@@ -37,13 +38,17 @@ function formatTime(value?: string | null) {
 }
 
 function buildServiceItems(appointment: ConsumerAppointment, fallbackLabel: string) {
-  const items: Array<{ name: string; pet?: string | null }> = [];
+  const items: Array<{ name: string; pet?: string | null; price?: number | null }> = [];
   (appointment.appointment_services || []).forEach((entry) => {
     const name = entry.services?.name || fallbackLabel;
-    items.push({ name, pet: entry.pets?.name || null });
+    items.push({ name, pet: entry.pets?.name || null, price: entry.services?.price ?? null });
   });
   if (items.length === 0 && appointment.services?.name) {
-    items.push({ name: appointment.services.name, pet: appointment.pets?.name || null });
+    items.push({
+      name: appointment.services.name,
+      pet: appointment.pets?.name || null,
+      price: appointment.services?.price ?? null,
+    });
   }
   return items;
 }
@@ -80,6 +85,11 @@ export default function ConsumerAppointmentDetailScreen({ route }: Props) {
     appointment?.status && !['completed', 'cancelled', 'in_progress'].includes(appointment.status);
   const statusColor = getStatusColor(appointment?.status);
   const serviceItems = appointment ? buildServiceItems(appointment, t('common.service')) : [];
+  const servicesTotal = useMemo(
+    () => serviceItems.reduce((sum, item) => sum + (item.price || 0), 0),
+    [serviceItems]
+  );
+  const amount = appointment?.amount ?? (servicesTotal > 0 ? servicesTotal : null);
   const dateLabel = appointment ? formatDate(appointment.appointment_date) || t('common.noDate') : '';
   const timeLabel = appointment ? formatTime(appointment.appointment_time) || '--' : '';
 
@@ -183,16 +193,69 @@ export default function ConsumerAppointmentDetailScreen({ route }: Props) {
         <View style={styles.infoCard}>
           <Text style={styles.sectionTitle}>{t('consumerAppointmentDetail.services')}</Text>
           {serviceItems.length > 0 ? (
-            serviceItems.map((item, index) => (
-              <Text key={`${item.name}-${index}`} style={styles.listItem}>
-                • {item.name}
-                {item.pet ? ` (${item.pet})` : ''}
-              </Text>
-            ))
+            <View style={styles.serviceList}>
+              {serviceItems.map((item, index) => (
+                <View
+                  key={`${item.name}-${item.pet || 'no-pet'}-${index}`}
+                  style={[
+                    styles.serviceRow,
+                    index !== serviceItems.length - 1 && styles.serviceRowDivider,
+                  ]}
+                >
+                  <View style={styles.serviceInfo}>
+                    <Text style={styles.serviceName}>{item.name}</Text>
+                    {item.pet ? <Text style={styles.servicePet}>{item.pet}</Text> : null}
+                  </View>
+                  <Text style={styles.servicePrice}>
+                    {item.price != null ? `€${Number(item.price).toFixed(2)}` : t('marketplace.priceOnRequest')}
+                  </Text>
+                </View>
+              ))}
+            </View>
           ) : (
             <Text style={styles.infoValue}>{t('common.noData')}</Text>
           )}
+          {amount != null ? (
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>{t('appointmentDetail.totalValue')}</Text>
+              <Text style={styles.totalValue}>€{Number(amount).toFixed(2)}</Text>
+            </View>
+          ) : null}
         </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.sectionTitle}>📸 {t('appointmentDetail.servicePhotos')}</Text>
+          <View style={styles.photosGrid}>
+            <View style={styles.photoItem}>
+              <Text style={styles.photoLabel}>{t('appointmentDetail.before')}</Text>
+              {appointment.before_photo_url ? (
+                <Image source={{ uri: appointment.before_photo_url }} style={styles.photoItemImage} />
+              ) : (
+                <View style={styles.photoPlaceholder}>
+                  <Text style={styles.photoPlaceholderText}>{t('common.noData')}</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.photoItem}>
+              <Text style={styles.photoLabel}>{t('appointmentDetail.after')}</Text>
+              {appointment.after_photo_url ? (
+                <Image source={{ uri: appointment.after_photo_url }} style={styles.photoItemImage} />
+              ) : (
+                <View style={styles.photoPlaceholder}>
+                  <Text style={styles.photoPlaceholderText}>{t('common.noData')}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {appointment.customers?.address ? (
+          <View style={styles.infoCard}>
+            <Text style={styles.sectionTitle}>📍 {t('appointmentDetail.address')}</Text>
+            <Text style={styles.addressText}>{appointment.customers.address}</Text>
+            <MiniMap address={appointment.customers.address} />
+          </View>
+        ) : null}
 
         {appointment.pets?.name ? (
           <View style={styles.infoCard}>
@@ -330,10 +393,98 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.text,
       marginBottom: 4,
     },
-    listItem: {
-      fontSize: 13,
+    serviceList: {
+      gap: 12,
+    },
+    serviceRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 12,
+    },
+    serviceRowDivider: {
+      paddingBottom: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.surfaceBorder,
+    },
+    serviceInfo: {
+      flex: 1,
+    },
+    serviceName: {
+      fontSize: 14,
+      fontWeight: '600',
       color: colors.text,
-      lineHeight: 18,
+    },
+    servicePet: {
+      fontSize: 12,
+      color: colors.muted,
+      marginTop: 2,
+    },
+    servicePrice: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    totalRow: {
+      marginTop: 12,
+      paddingTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.surfaceBorder,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    totalLabel: {
+      fontSize: 13,
+      color: colors.muted,
+      fontWeight: '600',
+    },
+    totalValue: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    photosGrid: {
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 8,
+    },
+    photoItem: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    photoLabel: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    photoItemImage: {
+      width: '100%',
+      aspectRatio: 3 / 4,
+      borderRadius: 12,
+      backgroundColor: colors.background,
+    },
+    photoPlaceholder: {
+      width: '100%',
+      aspectRatio: 3 / 4,
+      borderRadius: 12,
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderStyle: 'dashed',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    photoPlaceholderText: {
+      fontSize: 12,
+      color: colors.muted,
+      fontWeight: '600',
+    },
+    addressText: {
+      fontSize: 14,
+      color: colors.text,
+      fontWeight: '600',
     },
     notesText: {
       fontSize: 13,

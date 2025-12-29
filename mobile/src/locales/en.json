@@ -150,7 +150,13 @@
   },
   "marketplaceAccount": {
     "title": "Account",
-    "servicesTitle": "Services"
+    "servicesTitle": "Services",
+    "socialTitle": "Find us online",
+    "socialInstagram": "Instagram",
+    "socialFacebook": "Facebook",
+    "socialTiktok": "TikTok",
+    "socialWebsite": "Website",
+    "socialOpenError": "Couldn't open the link."
   },
   "marketplaceRequest": {
     "title": "Booking request",
@@ -497,6 +503,12 @@
     "namePlaceholder": "e.g., Bath and Grooming",
     "descriptionLabel": "Description",
     "descriptionPlaceholder": "Service description",
+    "imageTitle": "Service image",
+    "imagePlaceholder": "Add a service image",
+    "imageHelper": "Shown on the marketplace and service cards.",
+    "imageChangeAction": "Change image",
+    "imageSaveFirst": "Save the service before uploading an image.",
+    "imageUploadError": "Couldn't upload the service image.",
     "priceLabel": "Price (€)",
     "durationLabel": "Default Duration (minutes)",
     "durationDecrease": "Decrease duration",

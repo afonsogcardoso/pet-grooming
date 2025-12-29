@@ -1,11 +1,15 @@
 import { Router } from 'express'
+import crypto from 'crypto'
+import multer from 'multer'
 import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../authClient.js'
 import { sanitizeBody } from '../utils/payload.js'
 
 const router = Router()
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
+const SERVICE_IMAGE_BUCKET = 'service-images'
 
 const SERVICE_SELECT_FIELDS =
-  'id,name,default_duration,price,active,description,display_order,category,subcategory,pet_type,pricing_model'
+  'id,name,default_duration,price,active,description,display_order,category,subcategory,pet_type,pricing_model,image_url'
 
 function parseNumber(value) {
   if (value == null || value === '') return null
@@ -151,6 +155,51 @@ router.delete('/:id', async (req, res) => {
   }
 
   res.json({ ok: true })
+})
+
+router.post('/:id/image', upload.single('file'), async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase || !accountId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { id } = req.params
+  const file = req.file
+  if (!file) return res.status(400).json({ error: 'No file provided' })
+
+  const access = await ensureServiceAccess({ supabase, serviceId: id, accountId })
+  if (access.error) return res.status(access.error.status).json({ error: access.error.message })
+
+  const ext = (file.originalname?.split('.').pop() || 'jpg').toLowerCase()
+  const safeExt = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) ? ext : 'jpg'
+  const uniqueId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`
+  const path = `services/${id}/${uniqueId}.${safeExt}`
+
+  const { error: uploadError } = await supabase.storage
+    .from(SERVICE_IMAGE_BUCKET)
+    .upload(path, file.buffer, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.mimetype || 'image/jpeg'
+    })
+
+  if (uploadError) {
+    console.error('[api] service image upload error', uploadError)
+    return res.status(500).json({ error: uploadError.message })
+  }
+
+  const {
+    data: { publicUrl }
+  } = supabase.storage.from(SERVICE_IMAGE_BUCKET).getPublicUrl(path)
+
+  if (publicUrl) {
+    await supabase
+      .from('services')
+      .update({ image_url: publicUrl })
+      .eq('id', id)
+      .eq('account_id', accountId)
+  }
+
+  return res.json({ url: publicUrl })
 })
 
 router.get('/:id/price-tiers', async (req, res) => {

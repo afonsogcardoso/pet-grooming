@@ -8,6 +8,9 @@ export type ConsumerAppointment = {
   notes?: string | null;
   status?: string | null;
   payment_status?: string | null;
+  amount?: number | null;
+  before_photo_url?: string | null;
+  after_photo_url?: string | null;
   account?: {
     id: string;
     name?: string | null;
@@ -21,6 +24,7 @@ export type ConsumerAppointment = {
     name?: string | null;
     phone?: string | null;
     email?: string | null;
+    address?: string | null;
   } | null;
   pets?: {
     id: string;

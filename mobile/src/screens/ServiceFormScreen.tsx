@@ -1,5 +1,19 @@
 import { useMemo, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Switch, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  Switch,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  ActionSheetIOS,
+  PermissionsAndroid,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -9,6 +23,7 @@ import {
   createService,
   updateService,
   deleteService,
+  uploadServiceImage,
   getServicePriceTiers,
   createServicePriceTier,
   deleteServicePriceTier,
@@ -23,6 +38,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { Input, Button } from '../components/common';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { launchCamera, launchImageLibrary, CameraOptions, ImageLibraryOptions } from 'react-native-image-picker';
 
 type Props = NativeStackScreenProps<any, 'ServiceForm'>;
 
@@ -43,6 +59,8 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
   const [petType, setPetType] = useState('');
   const [pricingModel, setPricingModel] = useState('');
   const [active, setActive] = useState(true);
+  const [serviceImageUrl, setServiceImageUrl] = useState<string | null>(null);
+  const [uploadingServiceImage, setUploadingServiceImage] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [tierLabel, setTierLabel] = useState('');
   const [tierMinWeight, setTierMinWeight] = useState('');
@@ -75,6 +93,9 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
       setPetType(service.pet_type || '');
       setPricingModel(service.pricing_model || '');
       setActive(service.active !== false);
+      setServiceImageUrl(service.image_url || null);
+    } else if (mode === 'create') {
+      setServiceImageUrl(null);
     }
   }, [mode, service]);
 
@@ -174,6 +195,144 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
       Alert.alert(t('common.error'), t('serviceForm.addonDeleteError'));
     },
   });
+
+  const requestAndroidPermissions = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const cameraGranted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+        );
+        const storageGranted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+        );
+        return cameraGranted === PermissionsAndroid.RESULTS.GRANTED &&
+          storageGranted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const uploadImageFromUri = async (uri: string, fileName?: string | null) => {
+    if (mode === 'create' || !serviceId) {
+      Alert.alert(t('common.warning'), t('serviceForm.imageSaveFirst'));
+      return;
+    }
+
+    try {
+      setUploadingServiceImage(true);
+      const formData = new FormData();
+      const timestamp = Date.now();
+      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
+      const safeExtension = extension === 'jpg' ? 'jpeg' : extension;
+      const filename = `service-${serviceId}-${timestamp}.${extension}`;
+      const fileType = `image/${safeExtension}`;
+
+      formData.append('file', {
+        uri,
+        name: filename,
+        type: fileType,
+      } as any);
+
+      const { url } = await uploadServiceImage(serviceId, formData);
+      setServiceImageUrl(url || null);
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+      queryClient.invalidateQueries({ queryKey: ['services', 'all'] });
+      queryClient.invalidateQueries({ queryKey: ['services', serviceId] });
+    } catch (error) {
+      console.error('Erro ao carregar imagem do serviço:', error);
+      Alert.alert(t('common.error'), t('serviceForm.imageUploadError'));
+    } finally {
+      setUploadingServiceImage(false);
+    }
+  };
+
+  const openCamera = async () => {
+    const hasPermission = await requestAndroidPermissions();
+    if (!hasPermission) {
+      Alert.alert(t('profile.cameraPermissionDeniedTitle'), t('profile.cameraPermissionDeniedMessage'));
+      return;
+    }
+
+    const options: CameraOptions = {
+      mediaType: 'photo',
+      quality: 0.8,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      includeBase64: false,
+      saveToPhotos: false,
+    };
+
+    launchCamera(options, async (response) => {
+      if (response.didCancel) return;
+      if (response.errorCode) {
+        console.error('Erro ao abrir câmara:', response.errorMessage);
+        Alert.alert(t('common.error'), t('profile.openCameraError'));
+        return;
+      }
+      if (response.assets && response.assets[0]) {
+        await uploadImageFromUri(response.assets[0].uri!, response.assets[0].fileName);
+      }
+    });
+  };
+
+  const openGallery = async () => {
+    const options: ImageLibraryOptions = {
+      mediaType: 'photo',
+      quality: 0.8,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      includeBase64: false,
+      selectionLimit: 1,
+    };
+
+    launchImageLibrary(options, async (response) => {
+      if (response.didCancel) return;
+      if (response.errorCode) {
+        console.error('Erro ao abrir galeria:', response.errorMessage);
+        Alert.alert(t('common.error'), t('profile.openGalleryError'));
+        return;
+      }
+      if (response.assets && response.assets[0]) {
+        await uploadImageFromUri(response.assets[0].uri!, response.assets[0].fileName);
+      }
+    });
+  };
+
+  const pickServiceImage = () => {
+    if (mode === 'create' || !serviceId) {
+      Alert.alert(t('common.warning'), t('serviceForm.imageSaveFirst'));
+      return;
+    }
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: [t('common.cancel'), t('profile.takePhoto'), t('profile.chooseFromGallery')],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            openCamera();
+          } else if (buttonIndex === 2) {
+            openGallery();
+          }
+        }
+      );
+    } else {
+      Alert.alert(
+        t('profile.choosePhotoTitle'),
+        t('profile.choosePhotoMessage'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('profile.takePhoto'), onPress: openCamera },
+          { text: t('profile.chooseFromGallery'), onPress: openGallery },
+        ]
+      );
+    }
+  };
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -334,6 +493,50 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
             numberOfLines={3}
             style={{ height: 80, textAlignVertical: 'top', paddingTop: 12 }}
           />
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('serviceForm.imageTitle')}</Text>
+            {mode === 'create' || !serviceId ? (
+              <Text style={styles.sectionHint}>{t('serviceForm.imageSaveFirst')}</Text>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.imagePreview}
+                  onPress={pickServiceImage}
+                  disabled={uploadingServiceImage}
+                >
+                  {serviceImageUrl ? (
+                    <Image
+                      source={{ uri: serviceImageUrl }}
+                      style={styles.imagePreviewImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.imagePlaceholder}>
+                      <Ionicons name="image-outline" size={24} color={colors.muted} />
+                      <Text style={styles.imagePlaceholderText}>
+                        {t('serviceForm.imagePlaceholder')}
+                      </Text>
+                    </View>
+                  )}
+                  {uploadingServiceImage ? (
+                    <View style={styles.imageLoading}>
+                      <ActivityIndicator color={colors.onPrimary} />
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+                <Text style={styles.imageHelper}>{t('serviceForm.imageHelper')}</Text>
+                <Button
+                  title={t('serviceForm.imageChangeAction')}
+                  onPress={pickServiceImage}
+                  variant="outline"
+                  size="small"
+                  disabled={uploadingServiceImage}
+                  style={styles.imageButton}
+                />
+              </>
+            )}
+          </View>
 
           <Input
             label={t('serviceForm.priceLabel')}
@@ -663,6 +866,49 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     sectionHint: {
       fontSize: 13,
       color: colors.muted,
+    },
+    imagePreview: {
+      height: 160,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.background,
+      overflow: 'hidden',
+      marginBottom: 10,
+    },
+    imagePreviewImage: {
+      width: '100%',
+      height: '100%',
+    },
+    imagePlaceholder: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingHorizontal: 16,
+    },
+    imagePlaceholderText: {
+      fontSize: 13,
+      color: colors.muted,
+      textAlign: 'center',
+    },
+    imageLoading: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.35)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    imageHelper: {
+      fontSize: 12,
+      color: colors.muted,
+      marginBottom: 8,
+    },
+    imageButton: {
+      alignSelf: 'flex-start',
     },
     rowCard: {
       flexDirection: 'row',

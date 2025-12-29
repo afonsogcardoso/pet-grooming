@@ -4,6 +4,7 @@ export type Service = {
   id: string;
   name: string;
   description?: string | null;
+  image_url?: string | null;
   default_duration?: number | null;
   price?: number | null;
   active?: boolean | null;
@@ -61,6 +62,13 @@ export async function updateService(id: string, service: Partial<Service>): Prom
 
 export async function deleteService(id: string): Promise<void> {
   await api.delete(`/services/${id}`);
+}
+
+export async function uploadServiceImage(serviceId: string, formData: FormData): Promise<{ url: string }> {
+  const { data } = await api.post<{ url: string }>(`/services/${serviceId}/image`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
 }
 
 export async function updateServiceOrder(services: Array<{ id: string; display_order: number }>): Promise<void> {

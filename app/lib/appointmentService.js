@@ -233,7 +233,24 @@ export async function updateAppointment(id, appointmentData) {
         })
     }
 
-    return { data, error: null }
+    const shouldRefresh =
+        Array.isArray(serviceIds) ||
+        (Array.isArray(serviceSelections) && serviceSelections.length > 0)
+    if (!shouldRefresh) {
+        return { data, error: null }
+    }
+
+    const { data: refreshed, error: refreshError } = await supabase
+        .from('appointments')
+        .select(APPOINTMENT_SELECT)
+        .eq('account_id', accountId)
+        .eq('id', id)
+
+    if (refreshError || !refreshed) {
+        return { data, error: null }
+    }
+
+    return { data: refreshed, error: null }
 }
 
 async function applyServiceSelectionsToAppointment({ appointmentId, selections }) {

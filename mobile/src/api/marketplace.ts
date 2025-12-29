@@ -25,6 +25,7 @@ export type MarketplaceService = {
   id: string;
   name: string;
   description?: string | null;
+  image_url?: string | null;
   price?: number | null;
   default_duration?: number | null;
   category?: string | null;
