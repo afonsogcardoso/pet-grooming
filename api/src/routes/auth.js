@@ -272,12 +272,6 @@ router.post('/auth/oauth-signup', async (req, res) => {
     return res.status(400).json({ error: 'Access token obrigatório' })
   }
 
-  const trimmedFirstName = firstName?.toString().trim()
-  const trimmedLastName = lastName?.toString().trim()
-  if (!trimmedFirstName || !trimmedLastName) {
-    return res.status(400).json({ error: 'Primeiro e último nome são obrigatórios' })
-  }
-
   if (normalizedUserType === 'provider' && !accountName?.toString().trim()) {
     return res.status(400).json({ error: 'Nome da conta é obrigatório' })
   }
@@ -291,6 +285,26 @@ router.post('/auth/oauth-signup', async (req, res) => {
   }
 
   const user = userData.user
+  const trimmedFirstName = firstName?.toString().trim() || null
+  const trimmedLastName = lastName?.toString().trim() || null
+  const userMetadata = user.user_metadata || {}
+  const resolvedFirstName =
+    trimmedFirstName ||
+    userMetadata.given_name ||
+    userMetadata.first_name ||
+    null
+  const resolvedLastName =
+    trimmedLastName ||
+    userMetadata.family_name ||
+    userMetadata.last_name ||
+    null
+  const resolvedDisplayName =
+    userMetadata.full_name ||
+    userMetadata.name ||
+    userMetadata.display_name ||
+    [resolvedFirstName, resolvedLastName].filter(Boolean).join(' ') ||
+    user.email ||
+    null
 
   let resolvedCountryCode = undefined
   if (phoneCountryCode !== undefined) {
@@ -309,9 +323,9 @@ router.post('/auth/oauth-signup', async (req, res) => {
   })
 
   const metadataUpdates = {
-    display_name: `${trimmedFirstName} ${trimmedLastName}`,
-    first_name: trimmedFirstName,
-    last_name: trimmedLastName,
+    ...(resolvedDisplayName ? { display_name: resolvedDisplayName } : {}),
+    ...(resolvedFirstName ? { first_name: resolvedFirstName } : {}),
+    ...(resolvedLastName ? { last_name: resolvedLastName } : {}),
     phone: phoneParts.phone,
     phone_country_code: phoneParts.phone_country_code,
     phone_number: phoneParts.phone_number,
@@ -385,7 +399,7 @@ router.post('/auth/oauth-signup', async (req, res) => {
   const updatedUser = updatedData?.user || user
   const displayName =
     updatedUser?.user_metadata?.display_name ||
-    `${trimmedFirstName} ${trimmedLastName}` ||
+    resolvedDisplayName ||
     updatedUser?.email ||
     null
 
@@ -394,8 +408,8 @@ router.post('/auth/oauth-signup', async (req, res) => {
     refreshToken,
     email: updatedUser?.email,
     displayName,
-    firstName: trimmedFirstName,
-    lastName: trimmedLastName,
+    firstName: resolvedFirstName,
+    lastName: resolvedLastName,
     accountId,
     accountSlug
   })

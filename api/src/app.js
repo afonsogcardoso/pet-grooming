@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import compression from 'compression'
 import { createClient } from '@supabase/supabase-js'
 import swaggerJsdoc from 'swagger-jsdoc'
 import swaggerUi from 'swagger-ui-express'
@@ -142,6 +143,7 @@ app.use(
   })
 )
 
+app.use(compression())
 app.use(express.json())
 app.use(apiKeyAuth)
 
