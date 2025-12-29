@@ -24,6 +24,34 @@ function createOauthClient() {
   })
 }
 
+function readOAuthErrorFromLocation() {
+  if (typeof window === 'undefined') return null
+  const url = new URL(window.location.href)
+  const hashParams = new URLSearchParams(url.hash.startsWith('#') ? url.hash.slice(1) : url.hash)
+  const error = url.searchParams.get('error') || hashParams.get('error')
+  const errorDescription =
+    url.searchParams.get('error_description') || hashParams.get('error_description')
+  const errorCode = url.searchParams.get('error_code') || hashParams.get('error_code')
+  if (!error && !errorDescription && !errorCode) return null
+  return { error, errorDescription, errorCode }
+}
+
+function isAccountExistsOAuthError({ error, errorDescription, errorCode }) {
+  const haystack = `${error || ''} ${errorCode || ''} ${errorDescription || ''}`.toLowerCase()
+  if (!haystack.trim()) return false
+  if (
+    haystack.includes('user_already_registered') ||
+    haystack.includes('email_already_registered') ||
+    haystack.includes('email_exists') ||
+    haystack.includes('user_already_exists')
+  ) {
+    return true
+  }
+  return /(email|user|account).*(already|exist|exists|registered)|(already|exist|exists|registered).*(email|user|account)/.test(
+    haystack
+  )
+}
+
 export default function AuthCallbackPage() {
   return (
     <Suspense fallback={<AuthCallbackFallback />}>
@@ -58,6 +86,18 @@ function AuthCallbackContent() {
       const supabase = createOauthClient()
       if (!supabase) {
         setError(t('login.errors.oauthCallback'))
+        return
+      }
+
+      const oauthError = readOAuthErrorFromLocation()
+      if (oauthError) {
+        if (!cancelled) {
+          setError(
+            isAccountExistsOAuthError(oauthError)
+              ? t('login.errors.oauthAccountExists')
+              : t('login.errors.oauthCallback')
+          )
+        }
         return
       }
 

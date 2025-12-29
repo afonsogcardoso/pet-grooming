@@ -40,15 +40,34 @@ const OAUTH_REDIRECT_PATH = 'auth/callback';
 
 function parseAuthParams(url: string | undefined | null) {
   if (!url) return {};
-  const fragment = url.split('#')[1];
-  const query = url.split('?')[1];
-  const paramsString = fragment ?? query ?? '';
-  const params = new URLSearchParams(paramsString);
+  const [base, fragment] = url.split('#');
+  const query = base?.split('?')[1];
+  const params = new URLSearchParams(query ?? '');
+  const fragmentParams = new URLSearchParams(fragment ?? '');
   const values: Record<string, string> = {};
   params.forEach((value, key) => {
     values[key] = value;
   });
+  fragmentParams.forEach((value, key) => {
+    values[key] = value;
+  });
   return values;
+}
+
+function isAccountExistsOAuthError(params: Record<string, string>) {
+  const haystack = `${params.error ?? ''} ${params.error_code ?? ''} ${params.error_description ?? ''}`.toLowerCase();
+  if (!haystack.trim()) return false;
+  if (
+    haystack.includes('user_already_registered') ||
+    haystack.includes('email_already_registered') ||
+    haystack.includes('email_exists') ||
+    haystack.includes('user_already_exists')
+  ) {
+    return true;
+  }
+  return /(email|user|account).*(already|exist|exists|registered)|(already|exist|exists|registered).*(email|user|account)/.test(
+    haystack
+  );
 }
 
 export default function LoginScreen({ navigation }: Props) {
@@ -140,7 +159,7 @@ export default function LoginScreen({ navigation }: Props) {
     const supabaseUrl = resolveSupabaseUrl();
     if (!supabaseUrl) {
       setApiError(t('login.errors.oauthConfig'));
-      console.warn('[auth] Missing Supabase URL. Check EXPO_PUBLIC_SUPABASE_URL and app config extra.');
+      console.warn('[auth] Missing Supabase URL. Check EXPO_PUBLIC_SUPABASE_URL.');
       return;
     }
 
@@ -155,12 +174,10 @@ export default function LoginScreen({ navigation }: Props) {
     const scopeParam = provider === 'apple' ? '&scopes=name%20email' : '';
     const authUrl = `${supabaseUrl}/auth/v1/authorize?provider=${provider}&redirect_to=${encodeURIComponent(
       redirectUri
-    )}&response_type=token${scopeParam}`;
+    )}${scopeParam}`;
 
     try {
-      console.log('[auth] Starting OAuth', { provider, authUrl, redirectUri });
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-      console.log('[auth] OAuth result', { type: result.type, hasUrl: Boolean(result.url) });
 
       if (result.type !== 'success') {
         if (result.type !== 'cancel' && result.type !== 'dismiss') {
@@ -172,7 +189,11 @@ export default function LoginScreen({ navigation }: Props) {
       const params = parseAuthParams(result.url);
       if (params.error) {
         console.warn('[auth] OAuth returned error params', params);
-        setApiError(t('login.errors.oauth', { provider: providerLabel }));
+        setApiError(
+          isAccountExistsOAuthError(params)
+            ? t('login.errors.oauthAccountExists')
+            : t('login.errors.oauth', { provider: providerLabel })
+        );
         return;
       }
 

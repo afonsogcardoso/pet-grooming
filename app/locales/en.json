@@ -583,7 +583,8 @@
     "errors": {
       "generic": "We couldn't sign you in. Please try again.",
       "oauth": "Couldn't sign in with {{provider}}.",
-      "oauthCallback": "Couldn't complete sign-in. Please try again."
+      "oauthCallback": "Couldn't complete sign-in. Please try again.",
+      "oauthAccountExists": "An account with this email already exists. Sign in with email and password, then link your social account in your profile."
     },
     "providers": {
       "google": "Google",

@@ -27,6 +27,16 @@ export type SignupPayload = {
   userType?: 'consumer' | 'provider';
 };
 
+export type OAuthSignupPayload = {
+  accessToken: string;
+  refreshToken?: string;
+  accountName?: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  userType?: 'consumer' | 'provider';
+};
+
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
   const { data } = await api.post<AuthResponse>('/auth/login', payload);
   return data;
@@ -34,6 +44,11 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
 
 export async function signup(payload: SignupPayload): Promise<AuthResponse> {
   const { data } = await api.post<AuthResponse>('/auth/signup', payload);
+  return data;
+}
+
+export async function oauthSignup(payload: OAuthSignupPayload): Promise<AuthResponse> {
+  const { data } = await api.post<AuthResponse>('/auth/oauth-signup', payload);
   return data;
 }
 

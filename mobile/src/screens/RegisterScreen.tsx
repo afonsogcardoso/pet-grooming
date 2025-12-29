@@ -11,18 +11,24 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
+import * as AuthSession from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
+import { Ionicons } from '@expo/vector-icons';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { signup } from '../api/auth';
+import { oauthSignup, signup } from '../api/auth';
 import { getBranding } from '../api/branding';
 import { getProfile } from '../api/profile';
 import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { PhoneInput } from '../components/common/PhoneInput';
+import { resolveSupabaseUrl } from '../config/supabase';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const schema = z.object({
   registerAs: z.enum(['consumer', 'provider']),
@@ -37,9 +43,44 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 type Props = NativeStackScreenProps<any>;
 
+const OAUTH_REDIRECT_PATH = 'auth/callback';
+
+function parseAuthParams(url: string | undefined | null) {
+  if (!url) return {};
+  const [base, fragment] = url.split('#');
+  const query = base?.split('?')[1];
+  const params = new URLSearchParams(query ?? '');
+  const fragmentParams = new URLSearchParams(fragment ?? '');
+  const values: Record<string, string> = {};
+  params.forEach((value, key) => {
+    values[key] = value;
+  });
+  fragmentParams.forEach((value, key) => {
+    values[key] = value;
+  });
+  return values;
+}
+
+function isAccountExistsOAuthError(params: Record<string, string>) {
+  const haystack = `${params.error ?? ''} ${params.error_code ?? ''} ${params.error_description ?? ''}`.toLowerCase();
+  if (!haystack.trim()) return false;
+  if (
+    haystack.includes('user_already_registered') ||
+    haystack.includes('email_already_registered') ||
+    haystack.includes('email_exists') ||
+    haystack.includes('user_already_exists')
+  ) {
+    return true;
+  }
+  return /(email|user|account).*(already|exist|exists|registered)|(already|exist|exists|registered).*(email|user|account)/.test(
+    haystack
+  );
+}
+
 export default function RegisterScreen({ navigation }: Props) {
   const [apiError, setApiError] = useState<string | null>(null);
   const [brandingLogoFailed, setBrandingLogoFailed] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<'google' | null>(null);
   const setTokens = useAuthStore((s) => s.setTokens);
   const setUser = useAuthStore((s) => s.setUser);
   const queryClient = useQueryClient();
@@ -53,7 +94,7 @@ export default function RegisterScreen({ navigation }: Props) {
     return { uri: branding.logo_url };
   }, [branding?.logo_url, brandingLogoFailed]);
 
-  const { control, handleSubmit, watch, setValue, clearErrors, setError } = useForm<FormValues>({
+  const { control, handleSubmit, watch, setValue, clearErrors, setError, getValues, trigger, formState } = useForm<FormValues>({
     defaultValues: {
       registerAs: 'consumer',
       accountName: '',
@@ -64,38 +105,68 @@ export default function RegisterScreen({ navigation }: Props) {
       password: '',
     },
     resolver: zodResolver(schema),
+    mode: 'onChange',
   });
   const registerAs = watch('registerAs');
+  const accountName = watch('accountName');
   const isProvider = registerAs === 'provider';
+  const isFormValid = formState.isValid;
+
+  const completeLogin = async ({
+    token,
+    refreshToken,
+    fallbackUser,
+  }: {
+    token: string;
+    refreshToken?: string | null;
+    fallbackUser?: {
+      email?: string | null;
+      displayName?: string | null;
+      avatarUrl?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
+      userType?: 'consumer' | 'provider' | null;
+    };
+  }) => {
+    setApiError(null);
+    await setTokens({ token, refreshToken });
+
+    try {
+      const profile = await queryClient.fetchQuery({ queryKey: ['profile'], queryFn: getProfile });
+      setUser({
+        email: profile.email,
+        displayName: profile.displayName,
+        avatarUrl: profile.avatarUrl,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        userType: profile.userType,
+      });
+    } catch {
+      if (fallbackUser) {
+        setUser(fallbackUser);
+      }
+    }
+
+    await queryClient.fetchQuery({ queryKey: ['branding'], queryFn: getBranding }).catch(() => null);
+  };
 
   const { mutateAsync, isPending } = useMutation({
     mutationFn: signup,
     onSuccess: async (data) => {
-      setApiError(null);
       if (!data.token) {
         setApiError(data.message || t('register.createdMessage'));
         return;
       }
-      await setTokens({ token: data.token, refreshToken: data.refreshToken });
-      try {
-        const profile = await queryClient.fetchQuery({ queryKey: ['profile'], queryFn: getProfile });
-        setUser({
-          email: profile.email,
-          displayName: profile.displayName,
-          avatarUrl: profile.avatarUrl,
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          userType: profile.userType,
-        });
-      } catch {
-        setUser({
+      await completeLogin({
+        token: data.token,
+        refreshToken: data.refreshToken,
+        fallbackUser: {
           email: data.email,
           displayName: data.displayName,
           firstName: data.firstName,
           lastName: data.lastName,
-        });
-      }
-      await queryClient.fetchQuery({ queryKey: ['branding'], queryFn: getBranding }).catch(() => null);
+        },
+      });
     },
     onError: (err: any) => {
       const message =
@@ -105,7 +176,8 @@ export default function RegisterScreen({ navigation }: Props) {
       setApiError(message);
     },
   });
-  const isSubmitting = isPending;
+  const isSubmitting = isPending || oauthLoading !== null;
+  const canOauthSubmit = isFormValid && (!isProvider || Boolean(accountName?.trim()));
 
   const onSubmit = handleSubmit(async (values) => {
     if (values.registerAs === 'provider' && !values.accountName?.trim()) {
@@ -122,6 +194,93 @@ export default function RegisterScreen({ navigation }: Props) {
       userType: values.registerAs,
     });
   });
+
+  const handleOAuthSignup = async () => {
+    if (isSubmitting) return;
+    setApiError(null);
+
+    const isValid = await trigger();
+    if (!isValid) return;
+
+    const values = getValues();
+    if (values.registerAs === 'provider' && !values.accountName?.trim()) {
+      setError('accountName', { type: 'manual', message: t('register.accountRequired') });
+      return;
+    }
+
+    const supabaseUrl = resolveSupabaseUrl();
+    if (!supabaseUrl) {
+      setApiError(t('login.errors.oauthConfig'));
+      return;
+    }
+
+    setOauthLoading('google');
+
+    const providerLabel = t('login.providers.google');
+    const redirectUri = AuthSession.makeRedirectUri({
+      scheme: 'pawmi',
+      path: OAUTH_REDIRECT_PATH,
+    });
+    const authUrl = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(
+      redirectUri
+    )}`;
+
+    try {
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+      if (result.type !== 'success') {
+        if (result.type !== 'cancel' && result.type !== 'dismiss') {
+          setApiError(t('login.errors.oauth', { provider: providerLabel }));
+        }
+        return;
+      }
+
+      const params = parseAuthParams(result.url);
+      if (params.error) {
+        setApiError(
+          isAccountExistsOAuthError(params)
+            ? t('login.errors.oauthAccountExists')
+            : t('login.errors.oauth', { provider: providerLabel })
+        );
+        return;
+      }
+
+      const accessToken = params.access_token;
+      const refreshToken = params.refresh_token;
+      if (!accessToken) {
+        setApiError(t('login.errors.oauth', { provider: providerLabel }));
+        return;
+      }
+
+      const response = await oauthSignup({
+        accessToken,
+        refreshToken,
+        accountName: values.registerAs === 'provider' ? values.accountName?.trim() : undefined,
+        firstName: values.firstName.trim(),
+        lastName: values.lastName.trim(),
+        phone: values.phone?.trim() || undefined,
+        userType: values.registerAs,
+      });
+
+      await completeLogin({
+        token: response.token || accessToken,
+        refreshToken: response.refreshToken || refreshToken || null,
+        fallbackUser: {
+          email: response.email,
+          displayName: response.displayName,
+          firstName: response.firstName,
+          lastName: response.lastName,
+        },
+      });
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.error ??
+        err?.response?.data?.message ??
+        t('login.errors.oauth', { provider: providerLabel });
+      setApiError(message);
+    } finally {
+      setOauthLoading(null);
+    }
+  };
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -303,9 +462,21 @@ export default function RegisterScreen({ navigation }: Props) {
         )}
 
         <TouchableOpacity
-          style={[styles.button, isPending && styles.buttonDisabled]}
+          style={[styles.oauthButton, (isSubmitting || !canOauthSubmit) && styles.buttonDisabled]}
+          onPress={handleOAuthSignup}
+          disabled={isSubmitting || !canOauthSubmit}
+        >
+          <View style={styles.oauthButtonContent}>
+            <Ionicons name="logo-google" size={18} color={colors.text} />
+            <Text style={styles.oauthButtonText}>{t('login.actions.google')}</Text>
+            {oauthLoading === 'google' ? <ActivityIndicator color={colors.text} size="small" /> : null}
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.button, isSubmitting && styles.buttonDisabled]}
           onPress={onSubmit}
-          disabled={isPending}
+          disabled={isSubmitting}
         >
           {isPending ? (
             <View style={styles.buttonContent}>
@@ -479,6 +650,25 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     secondaryText: {
       color: colors.primary,
       fontWeight: '600',
+    },
+    oauthButton: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 16,
+      paddingVertical: 12,
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    oauthButtonContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    oauthButtonText: {
+      color: colors.text,
+      fontWeight: '700',
+      fontSize: 15,
     },
   });
 }

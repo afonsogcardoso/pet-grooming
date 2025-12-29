@@ -583,7 +583,8 @@
     "errors": {
       "generic": "Não foi possível autenticar. Tenta novamente.",
       "oauth": "Não foi possível autenticar com {{provider}}.",
-      "oauthCallback": "Não foi possível concluir o login. Tenta novamente."
+      "oauthCallback": "Não foi possível concluir o login. Tenta novamente.",
+      "oauthAccountExists": "Já existe uma conta com este email. Faz login com email e palavra-passe e depois liga a conta social no perfil."
     },
     "providers": {
       "google": "Google",

@@ -6,6 +6,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
+import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { getProfile, updateProfile, uploadAvatar, resetPassword, Profile } from '../api/profile';
 import { useAuthStore } from '../state/authStore';
@@ -65,6 +66,14 @@ export default function ProfileScreen({ navigation }: Props) {
     placeholderData: () => queryClient.getQueryData(['profile']),
   });
   const currentLanguage = normalizeLanguage(data?.locale || i18n.language);
+  const authProviders = Array.isArray(data?.authProviders) ? data.authProviders : [];
+  const linkedProviders = new Set(
+    authProviders.map((provider) => provider?.toString().toLowerCase()).filter(Boolean)
+  );
+  const isGoogleLinked = linkedProviders.has('google');
+  const isAppleLinked = linkedProviders.has('apple');
+  const googleButtonLabel = isGoogleLinked ? t('profile.linked') : t('profile.linkGoogle');
+  const appleButtonLabel = isAppleLinked ? t('profile.linked') : t('profile.linkApple');
 
   const mergeProfileUpdate = (current: Profile | undefined, updated: Profile, payload?: Partial<Profile>) => {
     if (!current) return updated;
@@ -200,6 +209,7 @@ export default function ProfileScreen({ navigation }: Props) {
 
   const handleLinkProvider = async (provider: 'google' | 'apple') => {
     if (linkingProvider || updateMutation.isPending || languageMutation.isPending) return;
+    if (linkedProviders.has(provider)) return;
 
     const supabaseUrl = resolveSupabaseUrl();
     if (!supabaseUrl || !token) {
@@ -243,6 +253,7 @@ export default function ProfileScreen({ navigation }: Props) {
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
       if (result.type === 'success') {
         Alert.alert(t('common.done'), t('profile.linkSuccess', { provider: providerLabel }));
+        await queryClient.refetchQueries({ queryKey: ['profile'] });
       } else if (result.type !== 'cancel' && result.type !== 'dismiss') {
         Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
       }
@@ -594,36 +605,30 @@ export default function ProfileScreen({ navigation }: Props) {
             <TouchableOpacity
               style={[
                 styles.linkButton,
-                linkingProvider && styles.buttonDisabled,
+                (linkingProvider || isGoogleLinked) && styles.buttonDisabled,
               ]}
               onPress={() => handleLinkProvider('google')}
-              disabled={Boolean(linkingProvider)}
+              disabled={Boolean(linkingProvider) || isGoogleLinked}
             >
-              {linkingProvider === 'google' ? (
-                <View style={styles.linkButtonContent}>
-                  <ActivityIndicator color={colors.text} />
-                  <Text style={styles.linkButtonText}>{t('profile.linking')}</Text>
-                </View>
-              ) : (
-                <Text style={styles.linkButtonText}>{t('profile.linkGoogle')}</Text>
-              )}
+              <View style={styles.linkButtonContent}>
+                <Ionicons name="logo-google" size={18} color={colors.text} />
+                <Text style={styles.linkButtonText}>{googleButtonLabel}</Text>
+                {linkingProvider === 'google' ? <ActivityIndicator color={colors.text} /> : null}
+              </View>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.linkButton,
-                linkingProvider && styles.buttonDisabled,
+                (linkingProvider || isAppleLinked) && styles.buttonDisabled,
               ]}
               onPress={() => handleLinkProvider('apple')}
-              disabled={Boolean(linkingProvider)}
+              disabled={Boolean(linkingProvider) || isAppleLinked}
             >
-              {linkingProvider === 'apple' ? (
-                <View style={styles.linkButtonContent}>
-                  <ActivityIndicator color={colors.text} />
-                  <Text style={styles.linkButtonText}>{t('profile.linking')}</Text>
-                </View>
-              ) : (
-                <Text style={styles.linkButtonText}>{t('profile.linkApple')}</Text>
-              )}
+              <View style={styles.linkButtonContent}>
+                <Ionicons name="logo-apple" size={18} color={colors.text} />
+                <Text style={styles.linkButtonText}>{appleButtonLabel}</Text>
+                {linkingProvider === 'apple' ? <ActivityIndicator color={colors.text} /> : null}
+              </View>
             </TouchableOpacity>
           </View>
         </View>
@@ -904,6 +909,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     linkButtonContent: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
       gap: 10,
     },
     linkButtonText: {

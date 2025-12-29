@@ -44,7 +44,8 @@
     "errorFallback": "Falha no login. Verifique credenciais.",
     "errors": {
       "oauth": "Não foi possível autenticar com {{provider}}.",
-      "oauthConfig": "Configuração de autenticação indisponível."
+      "oauthConfig": "Configuração de autenticação indisponível.",
+      "oauthAccountExists": "Já existe uma conta com este email. Faz login com email e palavra-passe e depois liga a conta social no perfil."
     }
   },
   "register": {
@@ -323,6 +324,7 @@
     "linkDescription": "Associe o seu login a outras contas para entrar mais rápido.",
     "linkGoogle": "Ligar Google",
     "linkApple": "Ligar Apple",
+    "linked": "Ligado",
     "linking": "A ligar...",
     "linkSuccess": "Conta {{provider}} ligada com sucesso.",
     "linkError": "Não foi possível ligar {{provider}}.",

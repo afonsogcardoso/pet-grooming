@@ -57,6 +57,12 @@ router.get('/', async (req, res) => {
   const supabaseAdmin = getSupabaseServiceRoleClient()
   if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
 
+  let enrichedUser = user
+  const { data: adminUserData } = await supabaseAdmin.auth.admin.getUserById(user.id)
+  if (adminUserData?.user) {
+    enrichedUser = adminUserData.user
+  }
+
   const { data: memberships, error } = await supabaseAdmin
     .from('account_members')
     .select('id, account_id, role, status, created_at, accounts ( id, name, slug, logo_url, brand_primary, brand_primary_soft, brand_accent, brand_accent_soft, brand_background, brand_gradient )')
@@ -66,14 +72,14 @@ router.get('/', async (req, res) => {
   if (error) return res.status(500).json({ error: error.message })
 
   const payload = {
-    id: user.id,
-    email: user.email,
-    user_metadata: user.user_metadata || {},
-    app_metadata: user.app_metadata || {},
-    authProviders: collectAuthProviders(user),
-    created_at: user.created_at,
-    last_sign_in_at: user.last_sign_in_at,
-    platformAdmin: isPlatformAdmin(user),
+    id: enrichedUser.id,
+    email: enrichedUser.email,
+    user_metadata: enrichedUser.user_metadata || {},
+    app_metadata: enrichedUser.app_metadata || {},
+    authProviders: collectAuthProviders(enrichedUser),
+    created_at: enrichedUser.created_at,
+    last_sign_in_at: enrichedUser.last_sign_in_at,
+    platformAdmin: isPlatformAdmin(enrichedUser),
     memberships: (memberships || []).map((m) => ({
       ...m,
       account: m.accounts || null

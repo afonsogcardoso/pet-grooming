@@ -234,6 +234,153 @@ router.post('/auth/signup', async (req, res) => {
   })
 })
 
+router.post('/auth/oauth-signup', async (req, res) => {
+  const {
+    accessToken,
+    refreshToken,
+    accountName,
+    firstName,
+    lastName,
+    phone,
+    phoneCountryCode,
+    phoneNumber,
+    userType
+  } = req.body || {}
+  const normalizedUserType = userType === 'consumer' ? 'consumer' : 'provider'
+
+  if (!accessToken) {
+    return res.status(400).json({ error: 'Access token obrigatório' })
+  }
+
+  const trimmedFirstName = firstName?.toString().trim()
+  const trimmedLastName = lastName?.toString().trim()
+  if (!trimmedFirstName || !trimmedLastName) {
+    return res.status(400).json({ error: 'Primeiro e último nome são obrigatórios' })
+  }
+
+  if (normalizedUserType === 'provider' && !accountName?.toString().trim()) {
+    return res.status(400).json({ error: 'Nome da conta é obrigatório' })
+  }
+
+  const supabaseAdmin = getSupabaseServiceRoleClient()
+  if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
+
+  const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(accessToken)
+  if (userError || !userData?.user) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  const user = userData.user
+
+  let resolvedCountryCode = undefined
+  if (phoneCountryCode !== undefined) {
+    resolvedCountryCode = phoneCountryCode
+  }
+
+  let resolvedPhoneNumber = undefined
+  if (phoneNumber !== undefined) {
+    resolvedPhoneNumber = phoneNumber
+  }
+
+  const phoneParts = normalizePhoneParts({
+    phone,
+    phoneCountryCode: resolvedCountryCode,
+    phoneNumber: resolvedPhoneNumber
+  })
+
+  const metadataUpdates = {
+    display_name: `${trimmedFirstName} ${trimmedLastName}`,
+    first_name: trimmedFirstName,
+    last_name: trimmedLastName,
+    phone: phoneParts.phone,
+    phone_country_code: phoneParts.phone_country_code,
+    phone_number: phoneParts.phone_number,
+    user_type: normalizedUserType
+  }
+
+  let accountId = null
+  let accountSlug = null
+
+  if (normalizedUserType === 'provider') {
+    const { data: membership } = await supabaseAdmin
+      .from('account_members')
+      .select('account_id')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
+      .maybeSingle()
+
+    if (membership?.account_id) {
+      accountId = membership.account_id
+      const { data: account } = await supabaseAdmin
+        .from('accounts')
+        .select('slug')
+        .eq('id', accountId)
+        .maybeSingle()
+      accountSlug = account?.slug || null
+    } else {
+      const baseSlug = sanitizeSlug(accountName) || `account-${user.id.slice(0, 8)}`
+      const slug = await ensureUniqueSlug(supabaseAdmin, baseSlug)
+
+      const { data: account, error: accountError } = await supabaseAdmin
+        .from('accounts')
+        .insert({ name: accountName.trim(), slug, plan: 'standard' })
+        .select('id, slug')
+        .single()
+
+      if (accountError || !account?.id) {
+        return res.status(500).json({ error: accountError?.message || 'Erro ao criar conta' })
+      }
+
+      const { error: memberError } = await supabaseAdmin
+        .from('account_members')
+        .insert({
+          account_id: account.id,
+          user_id: user.id,
+          role: 'owner',
+          status: 'accepted'
+        })
+
+      if (memberError) {
+        return res.status(500).json({ error: memberError.message || 'Erro ao criar membro' })
+      }
+
+      accountId = account.id
+      accountSlug = account.slug
+    }
+  }
+
+  const mergedMetadata = {
+    ...(user.user_metadata || {}),
+    ...metadataUpdates,
+    ...(accountId ? { account_id: accountId } : {})
+  }
+
+  const { data: updatedData, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+    user.id,
+    { user_metadata: mergedMetadata }
+  )
+
+  if (updateError) return res.status(500).json({ error: updateError.message })
+
+  const updatedUser = updatedData?.user || user
+  const displayName =
+    updatedUser?.user_metadata?.display_name ||
+    `${trimmedFirstName} ${trimmedLastName}` ||
+    updatedUser?.email ||
+    null
+
+  return res.json({
+    token: accessToken,
+    refreshToken,
+    email: updatedUser?.email,
+    displayName,
+    firstName: trimmedFirstName,
+    lastName: trimmedLastName,
+    accountId,
+    accountSlug
+  })
+})
+
 router.post('/auth/refresh', async (req, res) => {
   const { refreshToken } = req.body || {}
   if (!refreshToken) {

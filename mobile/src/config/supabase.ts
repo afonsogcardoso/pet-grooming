@@ -21,3 +21,14 @@ export function resolveSupabaseUrl() {
 
   return candidate ? candidate.replace(/\/$/, '') : null;
 }
+
+export function resolveSupabaseAnonKey() {
+  const extra = resolveExtra();
+  const candidate = extra?.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || null;
+
+  if (!candidate) {
+    console.warn('[auth] Supabase anon key missing. Configure EXPO_PUBLIC_SUPABASE_ANON_KEY.');
+  }
+
+  return candidate || null;
+}

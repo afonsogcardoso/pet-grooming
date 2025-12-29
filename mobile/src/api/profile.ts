@@ -16,6 +16,7 @@ export type Profile = {
   createdAt?: string | null;
   memberships?: any[];
   platformAdmin?: boolean;
+  authProviders?: string[];
 };
 
 export async function getProfile(): Promise<Profile> {
