@@ -74,6 +74,13 @@ export default function ProfileScreen({ navigation }: Props) {
   const isAppleLinked = linkedProviders.has('apple');
   const googleButtonLabel = isGoogleLinked ? t('profile.linked') : t('profile.linkGoogle');
   const appleButtonLabel = isAppleLinked ? t('profile.linked') : t('profile.linkApple');
+  const availableRoles = useMemo(() => {
+    const roles = Array.isArray(data?.availableRoles) ? data?.availableRoles : [];
+    if (roles.length) return Array.from(new Set(roles));
+    if (data?.activeRole) return [data.activeRole];
+    return [];
+  }, [data?.availableRoles, data?.activeRole]);
+  const activeRole = data?.activeRole ?? user?.activeRole ?? 'provider';
 
   const mergeProfileUpdate = (current: Profile | undefined, updated: Profile, payload?: Partial<Profile>) => {
     if (!current) return updated;
@@ -99,6 +106,8 @@ export default function ProfileScreen({ navigation }: Props) {
     applyIfProvided('phoneNumber');
     applyIfProvided('locale');
     applyIfProvided('avatarUrl');
+    applyIfProvided('activeRole');
+    applyIfProvided('availableRoles');
     applyIfProvided('email');
     applyIfProvided('lastLoginAt');
     applyIfProvided('createdAt');
@@ -153,6 +162,7 @@ export default function ProfileScreen({ navigation }: Props) {
           payload && 'lastName' in payload ? merged.lastName : merged.lastName ?? user?.lastName,
         avatarUrl:
           payload && 'avatarUrl' in payload ? merged.avatarUrl : merged.avatarUrl ?? user?.avatarUrl,
+        activeRole: merged.activeRole ?? user?.activeRole,
       };
       setUser(nextUser);
       setIsEditing(false);
@@ -421,6 +431,12 @@ export default function ProfileScreen({ navigation }: Props) {
     languageMutation.mutate(language);
   };
 
+  const handleRoleChange = (role: 'consumer' | 'provider') => {
+    if (isEditing || updateMutation.isPending || languageMutation.isPending) return;
+    if (role === activeRole) return;
+    updateMutation.mutate({ activeRole: role });
+  };
+
   const handleOpenPasswordForm = () => {
     if (isEditing || updateMutation.isPending || languageMutation.isPending) return;
     setShowPasswordForm(true);
@@ -576,6 +592,37 @@ export default function ProfileScreen({ navigation }: Props) {
 
         {isLoading || isRefetching ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} /> : null}
         {error ? <Text style={styles.error}>{t('profile.loadError')}</Text> : null}
+
+        {availableRoles.length > 1 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('profile.roleTitle')}</Text>
+            <Text style={styles.sectionText}>{t('profile.roleDescription')}</Text>
+            <View style={styles.roleOptions}>
+              {availableRoles.includes('provider') ? (
+                <TouchableOpacity
+                  style={[styles.roleOption, activeRole === 'provider' && styles.roleOptionActive]}
+                  onPress={() => handleRoleChange('provider')}
+                  disabled={updateMutation.isPending || languageMutation.isPending || isEditing}
+                >
+                  <Text style={[styles.roleOptionText, activeRole === 'provider' && styles.roleOptionTextActive]}>
+                    {t('profile.roleProvider')}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+              {availableRoles.includes('consumer') ? (
+                <TouchableOpacity
+                  style={[styles.roleOption, activeRole === 'consumer' && styles.roleOptionActive]}
+                  onPress={() => handleRoleChange('consumer')}
+                  disabled={updateMutation.isPending || languageMutation.isPending || isEditing}
+                >
+                  <Text style={[styles.roleOptionText, activeRole === 'consumer' && styles.roleOptionTextActive]}>
+                    {t('profile.roleConsumer')}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('profile.language')}</Text>
@@ -883,6 +930,33 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontSize: 14,
     },
     languageOptionTextActive: {
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    roleOptions: {
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 8,
+    },
+    roleOption: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.background,
+      borderRadius: 10,
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    roleOptionActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primarySoft,
+    },
+    roleOptionText: {
+      color: colors.text,
+      fontWeight: '600',
+      fontSize: 14,
+    },
+    roleOptionTextActive: {
       color: colors.primary,
       fontWeight: '700',
     },

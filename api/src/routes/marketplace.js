@@ -1,7 +1,9 @@
 import { Router } from 'express'
-import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../authClient.js'
+import { getSupabaseServiceRoleClient } from '../authClient.js'
+import { getAuthenticatedUser } from '../utils/auth.js'
 import { sanitizeBody } from '../utils/payload.js'
 import { normalizePhoneParts } from '../utils/phone.js'
+import { normalizeSlug } from '../utils/slug.js'
 
 const router = Router()
 
@@ -67,10 +69,6 @@ const MARKETPLACE_APPOINTMENT_SELECT = `
   )
 `
 
-function normalizeSlug(value) {
-  return value?.toString().trim().toLowerCase() || ''
-}
-
 function normalizeString(value) {
   if (value === undefined || value === null) return null
   const trimmed = value.toString().trim()
@@ -112,14 +110,6 @@ function coerceOffset(value) {
   const parsed = Number.parseInt(value, 10)
   if (Number.isNaN(parsed)) return 0
   return Math.max(parsed, 0)
-}
-
-async function getAuthenticatedUser(req) {
-  const supabase = getSupabaseClientWithAuth(req)
-  if (!supabase) return null
-  const { data, error } = await supabase.auth.getUser()
-  if (error || !data?.user) return null
-  return data.user
 }
 
 async function loadMarketplaceAccountBySlug(supabaseAdmin, slug) {

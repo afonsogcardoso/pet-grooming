@@ -12,7 +12,14 @@
     },
     "logoAlt": "Logótipo de {{name}}",
     "profile": {
-      "viewProfile": "Ver perfil"
+      "viewProfile": "Ver perfil",
+      "switchRole": {
+        "label": "Ver como",
+        "provider": "Prestador",
+        "consumer": "Consumidor",
+        "updating": "A mudar...",
+        "error": "Não foi possível mudar de perfil."
+      }
     },
     "tenantSwitch": {
       "label": "Conta"
@@ -876,6 +883,8 @@
     },
     "memberships": {
       "title": "Associações",
+      "loading": "A carregar associações...",
+      "error": "Não foi possível carregar as associações.",
       "empty": "Este utilizador ainda não pertence a nenhuma conta.",
       "headers": {
         "account": "Conta",

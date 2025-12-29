@@ -12,7 +12,14 @@
     },
     "logoAlt": "Logo for {{name}}",
     "profile": {
-      "viewProfile": "View profile"
+      "viewProfile": "View profile",
+      "switchRole": {
+        "label": "View as",
+        "provider": "Provider",
+        "consumer": "Consumer",
+        "updating": "Switching...",
+        "error": "Couldn't switch profile."
+      }
     },
     "tenantSwitch": {
       "label": "Workspace"
@@ -876,6 +883,8 @@
     },
     "memberships": {
       "title": "Memberships",
+      "loading": "Loading memberships...",
+      "error": "Could not load memberships.",
       "empty": "This user is not part of any account yet.",
       "headers": {
         "account": "Account",

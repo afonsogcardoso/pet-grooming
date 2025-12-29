@@ -11,7 +11,8 @@ export type Profile = {
   phoneNumber?: string | null;
   locale?: string | null;
   avatarUrl?: string | null;
-  userType?: 'consumer' | 'provider' | null;
+  activeRole?: 'consumer' | 'provider' | null;
+  availableRoles?: Array<'consumer' | 'provider'>;
   lastLoginAt?: string | null;
   createdAt?: string | null;
   memberships?: any[];
@@ -20,7 +21,7 @@ export type Profile = {
 };
 
 export async function getProfile(): Promise<Profile> {
-  const { data } = await api.get<Profile>('/profile');
+  const { data } = await api.get<Profile>('/profile?includeMemberships=false');
   return data;
 }
 
@@ -31,6 +32,7 @@ export async function updateProfile(payload: {
   phone?: string | null;
   locale?: string | null;
   avatarUrl?: string | null;
+  activeRole?: 'consumer' | 'provider' | null;
 }): Promise<Profile> {
   const { data } = await api.patch<{ user: any }>('/profile', payload);
   return data.user;

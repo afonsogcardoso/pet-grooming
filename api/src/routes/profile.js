@@ -1,54 +1,21 @@
 import { Router } from 'express'
 import multer from 'multer'
-import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../authClient.js'
+import { getSupabaseServiceRoleClient } from '../authClient.js'
+import { getAuthenticatedUser } from '../utils/auth.js'
 import { normalizePhoneParts } from '../utils/phone.js'
+import {
+  collectAuthProviders,
+  isPlatformAdmin,
+  mergeAvailableRoles,
+  normalizeUserRole,
+  parseAvailableRoles,
+  resolveActiveRole
+} from '../utils/user.js'
 
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
 const ALLOWED_LOCALES = ['pt', 'en']
 const AVATAR_BUCKET = 'profiles'
-
-async function getAuthenticatedUser(req) {
-  const supabase = getSupabaseClientWithAuth(req)
-  if (!supabase) return null
-  const { data, error } = await supabase.auth.getUser()
-  if (error || !data?.user) return null
-  return data.user
-}
-
-function isPlatformAdmin(user) {
-  if (!user) return false
-  const metadata = user.user_metadata || {}
-  const appMeta = user.app_metadata || {}
-  const roles = Array.isArray(appMeta.roles) ? appMeta.roles : []
-  return (
-    metadata.platform_admin === true ||
-    metadata.platform_admin === 'true' ||
-    appMeta.platform_admin === true ||
-    appMeta.platform_admin === 'true' ||
-    roles.includes('platform_admin')
-  )
-}
-
-function collectAuthProviders(user) {
-  if (!user) return []
-  const providers = new Set()
-  const appMeta = user.app_metadata || {}
-  const metaProviders = Array.isArray(appMeta.providers) ? appMeta.providers : []
-  metaProviders.forEach((entry) => {
-    if (entry) providers.add(entry.toString().toLowerCase())
-  })
-  if (appMeta.provider) {
-    providers.add(appMeta.provider.toString().toLowerCase())
-  }
-  const identities = Array.isArray(user.identities) ? user.identities : []
-  identities.forEach((identity) => {
-    if (identity?.provider) {
-      providers.add(identity.provider.toString().toLowerCase())
-    }
-  })
-  return Array.from(providers)
-}
 
 router.get('/', async (req, res) => {
   const user = await getAuthenticatedUser(req)
@@ -86,6 +53,16 @@ router.get('/', async (req, res) => {
     }))
   }
 
+  const availableRoles = mergeAvailableRoles(
+    parseAvailableRoles(enrichedUser.user_metadata?.available_roles),
+    normalizeUserRole(enrichedUser.user_metadata?.active_role)
+  )
+  payload.availableRoles = availableRoles
+  payload.activeRole = resolveActiveRole({
+    availableRoles,
+    activeRole: enrichedUser.user_metadata?.active_role
+  })
+
   res.json(payload)
 })
 
@@ -101,7 +78,8 @@ router.patch('/', async (req, res) => {
     phoneCountryCode,
     phoneNumber,
     locale,
-    avatarUrl
+    avatarUrl,
+    activeRole
   } = req.body || {}
   const metadataUpdates = {}
   const trimmedFirstName = firstName?.toString().trim()
@@ -148,16 +126,54 @@ router.patch('/', async (req, res) => {
     metadataUpdates.preferred_locale = normalized || null
   }
   if (avatarUrl !== undefined) metadataUpdates.avatar_url = avatarUrl || null
-
-  if (!Object.keys(metadataUpdates).length) {
-    return res.status(400).json({ error: 'No updates provided' })
+  let normalizedActiveRole = null
+  if (activeRole !== undefined) {
+    normalizedActiveRole = normalizeUserRole(activeRole)
+    if (!normalizedActiveRole) {
+      return res.status(400).json({ error: 'Invalid role' })
+    }
   }
 
   const supabaseAdmin = getSupabaseServiceRoleClient()
   if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
 
+  let enrichedUser = user
+  const { data: adminUserData } = await supabaseAdmin.auth.admin.getUserById(user.id)
+  if (adminUserData?.user) {
+    enrichedUser = adminUserData.user
+  }
+
+  if (normalizedActiveRole) {
+    const existingMetadata = enrichedUser.user_metadata || {}
+    let availableRoles = mergeAvailableRoles(
+      parseAvailableRoles(existingMetadata.available_roles),
+      normalizeUserRole(existingMetadata.active_role)
+    )
+    if (normalizedActiveRole === 'provider' && !availableRoles.includes('provider')) {
+      const { data: membership } = await supabaseAdmin
+        .from('account_members')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'accepted')
+        .maybeSingle()
+      if (!membership) {
+        return res.status(400).json({ error: 'Provider role unavailable' })
+      }
+      availableRoles = mergeAvailableRoles(availableRoles, 'provider')
+    }
+    if (normalizedActiveRole === 'consumer') {
+      availableRoles = mergeAvailableRoles(availableRoles, 'consumer')
+    }
+    metadataUpdates.active_role = normalizedActiveRole
+    metadataUpdates.available_roles = availableRoles
+  }
+
+  if (!Object.keys(metadataUpdates).length) {
+    return res.status(400).json({ error: 'No updates provided' })
+  }
+
   const mergedMetadata = {
-    ...(user.user_metadata || {}),
+    ...(enrichedUser.user_metadata || {}),
     ...metadataUpdates
   }
 
@@ -183,6 +199,14 @@ router.patch('/', async (req, res) => {
     responsePhone.phone_country_code === undefined ? null : responsePhone.phone_country_code
   const responsePhoneNumber =
     responsePhone.phone_number === undefined ? null : responsePhone.phone_number
+  const availableRoles = mergeAvailableRoles(
+    parseAvailableRoles(updatedUser?.user_metadata?.available_roles),
+    normalizeUserRole(updatedUser?.user_metadata?.active_role)
+  )
+  const resolvedActiveRole = resolveActiveRole({
+    availableRoles,
+    activeRole: updatedUser?.user_metadata?.active_role
+  })
 
   return res.json({
     user: {
@@ -196,6 +220,8 @@ router.patch('/', async (req, res) => {
       phoneNumber: responsePhoneNumber,
       locale: updatedUser?.user_metadata?.preferred_locale === undefined ? null : updatedUser?.user_metadata?.preferred_locale,
       avatarUrl: updatedUser?.user_metadata?.avatar_url === undefined ? null : updatedUser?.user_metadata?.avatar_url,
+      activeRole: resolvedActiveRole,
+      availableRoles,
       lastLoginAt: updatedUser?.last_sign_in_at === undefined ? null : updatedUser?.last_sign_in_at,
       createdAt: updatedUser?.created_at === undefined ? null : updatedUser?.created_at,
       platformAdmin: isPlatformAdmin(updatedUser)

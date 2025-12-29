@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
+import { Ionicons } from '@expo/vector-icons';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -105,7 +106,7 @@ export default function LoginScreen({ navigation }: Props) {
       avatarUrl?: string | null;
       firstName?: string | null;
       lastName?: string | null;
-      userType?: 'consumer' | 'provider' | null;
+      activeRole?: 'consumer' | 'provider' | null;
     };
   }) => {
     setApiError(null);
@@ -119,7 +120,7 @@ export default function LoginScreen({ navigation }: Props) {
         avatarUrl: profile.avatarUrl,
         firstName: profile.firstName,
         lastName: profile.lastName,
-        userType: profile.userType,
+        activeRole: profile.activeRole,
       });
     } catch {
       if (fallbackUser) {
@@ -255,7 +256,10 @@ export default function LoginScreen({ navigation }: Props) {
                   <Text style={styles.oauthButtonText}>{t('common.loading')}</Text>
                 </View>
               ) : (
-                <Text style={styles.oauthButtonText}>{t('login.actions.google')}</Text>
+                <View style={styles.oauthButtonContent}>
+                  <Ionicons name="logo-google" size={18} color={colors.text} />
+                  <Text style={styles.oauthButtonText}>{t('login.actions.google')}</Text>
+                </View>
               )}
             </TouchableOpacity>
 
@@ -273,7 +277,10 @@ export default function LoginScreen({ navigation }: Props) {
                   <Text style={styles.oauthButtonText}>{t('common.loading')}</Text>
                 </View>
               ) : (
-                <Text style={styles.oauthButtonText}>{t('login.actions.apple')}</Text>
+                <View style={styles.oauthButtonContent}>
+                  <Ionicons name="logo-apple" size={18} color={colors.text} />
+                  <Text style={styles.oauthButtonText}>{t('login.actions.apple')}</Text>
+                </View>
               )}
             </TouchableOpacity>
           </View>

@@ -2,20 +2,19 @@ import express from 'express'
 import { createClient } from '@supabase/supabase-js'
 import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../authClient.js'
 import { normalizePhoneParts } from '../utils/phone.js'
+import { sanitizeSlug } from '../utils/slug.js'
+import {
+  collectAuthProviders,
+  mergeAvailableRoles,
+  normalizeUserRole,
+  parseAvailableRoles,
+  resolveActiveRole
+} from '../utils/user.js'
 
 const router = express.Router()
 
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
-
-function sanitizeSlug(slug) {
-  return slug
-    ?.toString()
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
 
 function ensureSupabaseConfig(res) {
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -23,26 +22,6 @@ function ensureSupabaseConfig(res) {
     return null
   }
   return createClient(supabaseUrl, supabaseAnonKey)
-}
-
-function collectAuthProviders(user) {
-  if (!user) return []
-  const providers = new Set()
-  const appMeta = user.app_metadata || {}
-  const metaProviders = Array.isArray(appMeta.providers) ? appMeta.providers : []
-  metaProviders.forEach((entry) => {
-    if (entry) providers.add(entry.toString().toLowerCase())
-  })
-  if (appMeta.provider) {
-    providers.add(appMeta.provider.toString().toLowerCase())
-  }
-  const identities = Array.isArray(user.identities) ? user.identities : []
-  identities.forEach((identity) => {
-    if (identity?.provider) {
-      providers.add(identity.provider.toString().toLowerCase())
-    }
-  })
-  return Array.from(providers)
 }
 
 async function ensureUniqueSlug(supabaseAdmin, baseSlug) {
@@ -105,12 +84,13 @@ router.post('/auth/signup', async (req, res) => {
     phone,
     phoneCountryCode,
     phoneNumber,
-    userType
+    role,
+    registerAs
   } = req.body || {}
-  const normalizedUserType = userType === 'consumer' ? 'consumer' : 'provider'
-  if (!email || !password || (normalizedUserType === 'provider' && !accountName)) {
+  const normalizedRole = normalizeUserRole(role || registerAs) || 'provider'
+  if (!email || !password || (normalizedRole === 'provider' && !accountName)) {
     const message =
-      normalizedUserType === 'provider'
+      normalizedRole === 'provider'
         ? 'Email, password e nome da conta são obrigatórios'
         : 'Email e password são obrigatórios'
     return res.status(400).json({ error: message })
@@ -145,6 +125,7 @@ router.post('/auth/signup', async (req, res) => {
     phoneCountryCode: resolvedCountryCode,
     phoneNumber: resolvedPhoneNumber
   })
+  const availableRoles = [normalizedRole]
   const metadata = {
     display_name: `${trimmedFirstName} ${trimmedLastName}`,
     first_name: trimmedFirstName,
@@ -152,7 +133,8 @@ router.post('/auth/signup', async (req, res) => {
     phone: phoneParts.phone,
     phone_country_code: phoneParts.phone_country_code,
     phone_number: phoneParts.phone_number,
-    user_type: normalizedUserType
+    available_roles: availableRoles,
+    active_role: normalizedRole
   }
 
   const { data: createdUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
@@ -166,7 +148,7 @@ router.post('/auth/signup', async (req, res) => {
     return res.status(400).json({ error: createUserError?.message || 'Erro ao criar utilizador' })
   }
 
-  if (normalizedUserType === 'consumer') {
+  if (normalizedRole === 'consumer') {
     const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -222,7 +204,11 @@ router.post('/auth/signup', async (req, res) => {
     user_metadata: {
       ...(createdUser.user.user_metadata || {}),
       account_id: account.id,
-      user_type: normalizedUserType
+      available_roles: mergeAvailableRoles(
+        parseAvailableRoles(createdUser.user.user_metadata?.available_roles),
+        normalizedRole
+      ),
+      active_role: normalizedRole
     }
   })
 
@@ -264,15 +250,16 @@ router.post('/auth/oauth-signup', async (req, res) => {
     phone,
     phoneCountryCode,
     phoneNumber,
-    userType
+    role,
+    registerAs
   } = req.body || {}
-  const normalizedUserType = userType === 'consumer' ? 'consumer' : 'provider'
+  const normalizedRole = normalizeUserRole(role || registerAs) || 'provider'
 
   if (!accessToken) {
     return res.status(400).json({ error: 'Access token obrigatório' })
   }
 
-  if (normalizedUserType === 'provider' && !accountName?.toString().trim()) {
+  if (normalizedRole === 'provider' && !accountName?.toString().trim()) {
     return res.status(400).json({ error: 'Nome da conta é obrigatório' })
   }
 
@@ -288,6 +275,9 @@ router.post('/auth/oauth-signup', async (req, res) => {
   const trimmedFirstName = firstName?.toString().trim() || null
   const trimmedLastName = lastName?.toString().trim() || null
   const userMetadata = user.user_metadata || {}
+  const existingRoles = parseAvailableRoles(userMetadata.available_roles)
+  const hasProviderAccount = Boolean(userMetadata.account_id)
+  let mergedRoles = mergeAvailableRoles(existingRoles, normalizedRole, hasProviderAccount ? 'provider' : null)
   const resolvedFirstName =
     trimmedFirstName ||
     userMetadata.given_name ||
@@ -329,13 +319,14 @@ router.post('/auth/oauth-signup', async (req, res) => {
     phone: phoneParts.phone,
     phone_country_code: phoneParts.phone_country_code,
     phone_number: phoneParts.phone_number,
-    user_type: normalizedUserType
+    available_roles: mergedRoles,
+    active_role: normalizedRole
   }
 
   let accountId = null
   let accountSlug = null
 
-  if (normalizedUserType === 'provider') {
+  if (normalizedRole === 'provider') {
     const { data: membership } = await supabaseAdmin
       .from('account_members')
       .select('account_id')
@@ -383,6 +374,11 @@ router.post('/auth/oauth-signup', async (req, res) => {
     }
   }
 
+  if (accountId) {
+    mergedRoles = mergeAvailableRoles(mergedRoles, 'provider')
+    metadataUpdates.available_roles = mergedRoles
+  }
+
   const mergedMetadata = {
     ...(user.user_metadata || {}),
     ...metadataUpdates,
@@ -411,7 +407,9 @@ router.post('/auth/oauth-signup', async (req, res) => {
     firstName: resolvedFirstName,
     lastName: resolvedLastName,
     accountId,
-    accountSlug
+    accountSlug,
+    activeRole: normalizeUserRole(updatedUser?.user_metadata?.active_role) || normalizedRole,
+    availableRoles: parseAvailableRoles(updatedUser?.user_metadata?.available_roles)
   })
 })
 
@@ -466,29 +464,64 @@ router.get('/profile', async (req, res) => {
     roles.includes('platform_admin')
 
   const membershipClient = supabaseAdmin || supabase
-  const { data: memberships, error: membershipError } = await membershipClient
-    .from('account_members')
-    .select(
-      `
-      account_id,
-      role,
-      status,
-      created_at,
-      account:accounts (id, name, slug, plan)
-    `
-    )
-    .eq('user_id', user.id)
-    .eq('status', 'accepted')
-    .order('created_at', { ascending: true })
+  const includeMemberships = ['1', 'true', 'yes'].includes(
+    String(req.query.includeMemberships || '').toLowerCase()
+  )
+  let memberships = []
+  let membershipCount = 0
 
-  if (membershipError) {
-    console.error('profile memberships error', membershipError)
+  if (includeMemberships) {
+    const { data: loadedMemberships, error: membershipError } = await membershipClient
+      .from('account_members')
+      .select(
+        `
+        account_id,
+        role,
+        status,
+        created_at,
+        account:accounts (id, name, slug, plan)
+      `
+      )
+      .eq('user_id', user.id)
+      .eq('status', 'accepted')
+      .order('created_at', { ascending: true })
+
+    if (membershipError) {
+      console.error('profile memberships error', membershipError)
+    }
+    memberships = loadedMemberships || []
+    membershipCount = memberships.length
+  } else {
+    const { count, error: countError } = await membershipClient
+      .from('account_members')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('status', 'accepted')
+
+    if (countError) {
+      console.error('profile memberships count error', countError)
+    }
+    membershipCount = count || 0
   }
 
   const profilePhone = normalizePhoneParts({
     phone: enrichedUser.user_metadata?.phone,
     phoneCountryCode: enrichedUser.user_metadata?.phone_country_code,
     phoneNumber: enrichedUser.user_metadata?.phone_number
+  })
+  let availableRoles = mergeAvailableRoles(
+    parseAvailableRoles(enrichedUser.user_metadata?.available_roles),
+    normalizeUserRole(enrichedUser.user_metadata?.active_role)
+  )
+  if (!availableRoles.length) {
+    availableRoles = ['provider']
+  }
+  if (membershipCount > 0) {
+    availableRoles = mergeAvailableRoles(availableRoles, 'provider')
+  }
+  const activeRole = resolveActiveRole({
+    availableRoles,
+    activeRole: enrichedUser.user_metadata?.active_role
   })
   const responsePhone = profilePhone.phone === undefined ? null : profilePhone.phone
   const responsePhoneCountryCode =
@@ -510,10 +543,12 @@ router.get('/profile', async (req, res) => {
     phoneNumber: responsePhoneNumber,
     locale: enrichedUser.user_metadata?.preferred_locale ?? 'pt',
     avatarUrl: enrichedUser.user_metadata?.avatar_url ?? null,
-    userType: enrichedUser.user_metadata?.user_type ?? 'provider',
+    activeRole,
+    availableRoles,
     lastLoginAt: enrichedUser.last_sign_in_at ?? null,
     createdAt: enrichedUser.created_at ?? null,
     authProviders: collectAuthProviders(enrichedUser),
+    membershipCount,
     memberships: memberships || [],
     platformAdmin
   })

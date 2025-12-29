@@ -65,7 +65,7 @@ function withAlpha(color: string, alpha: number) {
 
 export function useBrandingTheme() {
   const queryClient = useQueryClient();
-  const userType = useAuthStore((state) => state.user?.userType);
+  const activeRole = useAuthStore((state) => state.user?.activeRole);
   const query = useQuery({
     queryKey: ['branding'],
     // Query should already be primed by App bootstrap; keep fetch here as safety.
@@ -79,7 +79,7 @@ export function useBrandingTheme() {
 
   const colors: ThemeColors = useMemo(() => {
     const branding = query.data as Branding | undefined;
-    const paletteBranding = userType === 'consumer' ? undefined : branding;
+    const paletteBranding = activeRole === 'consumer' ? undefined : branding;
     const background = normalizeHexColor(paletteBranding?.brand_background, '#FFF7EE');
     const backgroundIsLight = isLightColor(background);
 
@@ -113,7 +113,7 @@ export function useBrandingTheme() {
       warning: '#d97706',
       success: '#059669',
     };
-  }, [query.data, userType]);
+  }, [query.data, activeRole]);
 
   useEffect(() => {
     const data = query.data as Branding | undefined;

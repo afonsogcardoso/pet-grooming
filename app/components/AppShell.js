@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -9,7 +9,7 @@ import { useTranslation } from './TranslationProvider'
 import { clearStoredAccountId } from '@/lib/accountHelpers'
 import { useAccount } from './AccountProvider'
 import AppShellMobile from './AppShellMobile'
-import { clearAuthTokens } from '@/lib/authTokens'
+import { clearAuthTokens, getStoredAccessToken } from '@/lib/authTokens'
 
 const navItems = [
   {
@@ -61,7 +61,7 @@ export default function AppShell({ children }) {
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useTranslation()
-  const { authenticated, account, membership, memberships, selectAccount, user } = useAccount()
+  const { authenticated, account, membership, memberships, selectAccount, user, refresh } = useAccount()
   const [logoError, setLogoError] = useState(false)
   const [compactCollapsed, setCompactCollapsed] = useState(true)
   const defaultLogo = '/brand-logo.png'
@@ -71,6 +71,8 @@ export default function AppShell({ children }) {
   const profileMenuRef = useRef(null)
   const compactProfileMenuRef = useRef(null)
   const [isMobile, setIsMobile] = useState(false)
+  const [roleUpdating, setRoleUpdating] = useState(false)
+  const [roleError, setRoleError] = useState(null)
 
   useEffect(() => {
     setMenuOpen(false)
@@ -133,6 +135,25 @@ export default function AppShell({ children }) {
   const [freshDisplayName, setFreshDisplayName] = useState(null)
   const profileAvatar = freshAvatar || baseAvatar
   const profileDisplayName = freshDisplayName || baseDisplayName
+  const derivedRoles = useMemo(() => {
+    const roles = Array.isArray(user?.availableRoles)
+      ? user.availableRoles
+      : Array.isArray(user?.user_metadata?.available_roles)
+        ? user.user_metadata.available_roles
+        : []
+    return roles
+      .map((role) => (role ? role.toString().toLowerCase() : null))
+      .filter((role) => role === 'consumer' || role === 'provider')
+  }, [user?.availableRoles, user?.user_metadata?.available_roles])
+  const derivedActiveRole = useMemo(() => {
+    const raw =
+      user?.activeRole ||
+      user?.user_metadata?.active_role ||
+      (derivedRoles.includes('provider') ? 'provider' : derivedRoles.includes('consumer') ? 'consumer' : null)
+    return raw ? raw.toString().toLowerCase() : null
+  }, [user?.activeRole, user?.user_metadata?.active_role, derivedRoles])
+  const [availableRoles, setAvailableRoles] = useState(derivedRoles)
+  const [activeRole, setActiveRole] = useState(derivedActiveRole)
   const availableNavItems = navItems.filter((item) => {
     if (item.href !== '/settings') return true
     return ['owner', 'admin', 'platform_admin'].includes(membership?.role)
@@ -148,6 +169,98 @@ export default function AppShell({ children }) {
       clearAuthTokens()
       router.push('/login')
     }
+  }
+
+  useEffect(() => {
+    setAvailableRoles(derivedRoles)
+    setActiveRole(derivedActiveRole)
+  }, [derivedRoles, derivedActiveRole])
+
+  const handleRoleSwitch = async (role) => {
+    if (!role || roleUpdating || role === activeRole) return
+    setRoleError(null)
+    setRoleUpdating(true)
+    const token = getStoredAccessToken()
+    if (!token) {
+      setRoleError(t('app.profile.switchRole.error'))
+      setRoleUpdating(false)
+      return
+    }
+    try {
+      const response = await fetch('/api/v1/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ activeRole: role })
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(body.error || t('app.profile.switchRole.error'))
+      }
+      const updated = body.user || body
+      if (Array.isArray(updated?.availableRoles)) {
+        setAvailableRoles(updated.availableRoles)
+      }
+      if (updated?.activeRole) {
+        setActiveRole(updated.activeRole)
+      } else {
+        setActiveRole(role)
+      }
+      await refresh?.()
+    } catch (error) {
+      setRoleError(error?.message || t('app.profile.switchRole.error'))
+    } finally {
+      setRoleUpdating(false)
+    }
+  }
+
+  const renderRoleSwitcher = () => {
+    if (availableRoles.length <= 1) return null
+    return (
+      <div className="border-t border-slate-100 px-3 py-2">
+        <p className="text-[10px] uppercase tracking-wide text-slate-500">
+          {t('app.profile.switchRole.label')}
+        </p>
+        <div className="mt-2 flex gap-2">
+          {availableRoles.includes('provider') ? (
+            <button
+              type="button"
+              className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition ${
+                activeRole === 'provider'
+                  ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-brand-primary'
+              } ${roleUpdating ? 'cursor-not-allowed opacity-60' : ''}`}
+              onClick={() => handleRoleSwitch('provider')}
+              disabled={roleUpdating}
+            >
+              {t('app.profile.switchRole.provider')}
+            </button>
+          ) : null}
+          {availableRoles.includes('consumer') ? (
+            <button
+              type="button"
+              className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition ${
+                activeRole === 'consumer'
+                  ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-brand-primary'
+              } ${roleUpdating ? 'cursor-not-allowed opacity-60' : ''}`}
+              onClick={() => handleRoleSwitch('consumer')}
+              disabled={roleUpdating}
+            >
+              {t('app.profile.switchRole.consumer')}
+            </button>
+          ) : null}
+        </div>
+        {roleUpdating ? (
+          <p className="mt-2 text-[11px] text-slate-500">{t('app.profile.switchRole.updating')}</p>
+        ) : null}
+        {roleError ? (
+          <p className="mt-2 text-[11px] text-rose-600">{roleError}</p>
+        ) : null}
+      </div>
+    )
   }
 
   if (isAdminRoute) {
@@ -251,13 +364,14 @@ export default function AppShell({ children }) {
                         href="/profile"
                         className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50"
                         onClick={() => setCompactProfileMenuOpen(false)}
-                      >
-                        👤 {t('app.profile.viewProfile')}
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setCompactProfileMenuOpen(false)
+                    >
+                      👤 {t('app.profile.viewProfile')}
+                    </Link>
+                  {renderRoleSwitcher()}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setCompactProfileMenuOpen(false)
                           await handleLogout()
                         }}
                         className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50"
@@ -453,10 +567,11 @@ export default function AppShell({ children }) {
                     >
                       👤 {t('app.profile.viewProfile')}
                     </Link>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setCompactProfileMenuOpen(false)
+                  {renderRoleSwitcher()}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setCompactProfileMenuOpen(false)
                         await handleLogout()
                       }}
                       className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50"

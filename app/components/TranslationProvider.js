@@ -42,7 +42,9 @@ export function TranslationProvider({ children }) {
 
       try {
         const base = (process.env.NEXT_PUBLIC_API_URL || process.env.API_BASE_URL || '').replace(/\/$/, '')
-        const url = base ? `${base}/api/v1/profile` : '/api/v1/profile'
+        const url = base
+          ? `${base}/api/v1/profile?includeMemberships=false`
+          : '/api/v1/profile?includeMemberships=false'
         const response = await fetch(url, {
           headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store'

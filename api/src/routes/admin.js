@@ -1,25 +1,13 @@
 import express from 'express'
 import crypto from 'crypto'
 import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../authClient.js'
+import { isPlatformAdmin } from '../utils/user.js'
+import { sanitizeSlug } from '../utils/slug.js'
 
 const router = express.Router()
 
 const MAX_PAGE_SIZE = 100
 const FACET_LIMIT = 200
-
-function isPlatformAdmin(user) {
-  if (!user) return false
-  const metadata = user.user_metadata || {}
-  const appMeta = user.app_metadata || {}
-  const roles = Array.isArray(appMeta.roles) ? appMeta.roles : []
-  return (
-    metadata.platform_admin === true ||
-    metadata.platform_admin === 'true' ||
-    appMeta.platform_admin === true ||
-    appMeta.platform_admin === 'true' ||
-    roles.includes('platform_admin')
-  )
-}
 
 async function requireAdmin(req, res) {
   const supabase = getSupabaseClientWithAuth(req)
@@ -52,10 +40,6 @@ function normalizeSearch(value) {
 
 function escapeSearch(value) {
   return value.replace(/%/g, '\\%').replace(/_/g, '\\_')
-}
-
-function sanitizeSlug(slug) {
-  return slug?.toString().trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '')
 }
 
 function clampPageSize(size) {
@@ -162,7 +146,7 @@ router.patch('/accounts', async (req, res) => {
   const { accountId, updates } = req.body || {}
   if (!accountId || !updates) return res.status(400).json({ error: 'Missing accountId or updates' })
 
-  const allowedFields = ['name', 'plan,', 'is_active']
+  const allowedFields = ['name', 'plan', 'is_active']
   const sanitizedUpdates = Object.entries(updates).reduce((acc, [key, value]) => {
     if (!allowedFields.includes(key)) return acc
     acc[key] = typeof value === 'string' ? value.trim() : value

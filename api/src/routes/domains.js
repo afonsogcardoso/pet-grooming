@@ -1,12 +1,10 @@
 import { Router } from 'express'
-import { createClient } from '@supabase/supabase-js'
-import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../authClient.js'
+import { getSupabaseServiceRoleClient } from '../authClient.js'
+import { getAuthenticatedUser } from '../utils/auth.js'
 import { sanitizeBody } from '../utils/payload.js'
 
 const router = Router()
 
-const SUPABASE_URL = process.env.SUPABASE_URL
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY
 const DOMAIN_ROUTER_TOKEN = process.env.DOMAIN_ROUTER_TOKEN
 const DOMAIN_REGEX = /^(?!-)(?:[a-z0-9-]{1,63}\.)+[a-z]{2,63}$/i
 const ALLOWED_RECORD_TYPES = ['txt', 'cname']
@@ -20,14 +18,6 @@ function isValidDomain(domain) {
   if (!domain) return false
   if (domain.includes('://') || domain.includes('/')) return false
   return DOMAIN_REGEX.test(domain)
-}
-
-async function getAuthenticatedUser(req) {
-  const supabase = getSupabaseClientWithAuth(req)
-  if (!supabase) return null
-  const { data, error } = await supabase.auth.getUser()
-  if (error || !data?.user) return null
-  return data.user
 }
 
 async function assertAccountAdmin(userId, accountId) {

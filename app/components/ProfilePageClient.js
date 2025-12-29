@@ -17,7 +17,7 @@ function formatDate(value, locale, options = { dateStyle: 'medium' }) {
   }
 }
 
-export default function ProfilePageClient({ user, memberships = [] }) {
+export default function ProfilePageClient({ user, memberships = [], membershipCount = 0 }) {
   const { t, resolvedLocale } = useTranslation()
   const tabs = [
     { id: 'profile', label: t('profile.tabs.profile') || 'Perfil' },
@@ -41,7 +41,10 @@ export default function ProfilePageClient({ user, memberships = [] }) {
   )
   const isGoogleLinked = linkedProviders.has('google')
   const isAppleLinked = linkedProviders.has('apple')
-  const primaryMembership = memberships?.[0] || null
+  const [membershipsList, setMembershipsList] = useState(memberships)
+  const [membershipsLoading, setMembershipsLoading] = useState(false)
+  const [membershipsError, setMembershipsError] = useState(null)
+  const primaryMembership = membershipsList?.[0] || null
   const primaryRole = primaryMembership?.role || t('profile.memberships.roles.member')
   const lastLogin = user?.last_sign_in_at
     ? formatDate(user.last_sign_in_at, resolvedLocale, {
@@ -51,6 +54,40 @@ export default function ProfilePageClient({ user, memberships = [] }) {
     : t('profile.common.notAvailable')
   const [linkingProvider, setLinkingProvider] = useState(null)
   const [linkStatus, setLinkStatus] = useState(null)
+
+  const loadMemberships = async () => {
+    if (membershipsLoading) return
+    const token = getStoredAccessToken()
+    if (!token) return
+
+    setMembershipsLoading(true)
+    setMembershipsError(null)
+
+    try {
+      const base = (process.env.NEXT_PUBLIC_API_URL || process.env.API_BASE_URL || '').replace(/\/$/, '')
+      const url = base
+        ? `${base}/api/v1/profile?includeMemberships=true`
+        : '/api/v1/profile?includeMemberships=true'
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (!response.ok) {
+        throw new Error('Failed to load memberships')
+      }
+      const body = await response.json().catch(() => null)
+      setMembershipsList(Array.isArray(body?.memberships) ? body.memberships : [])
+    } catch (error) {
+      setMembershipsError(error)
+    } finally {
+      setMembershipsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'memberships' && membershipsList.length === 0 && membershipCount > 0) {
+      loadMemberships()
+    }
+  }, [activeTab, membershipCount, membershipsList.length])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -258,7 +295,7 @@ export default function ProfilePageClient({ user, memberships = [] }) {
           </div>
           <div className="grid grid-cols-2 gap-3 md:w-auto md:min-w-[280px] text-sm">
             <InfoPill label={t('profile.basics.labels.createdAt')} value={formatDate(user.created_at, resolvedLocale)} />
-            <InfoPill label={t('profile.memberships.title')} value={memberships.length || 0} />
+            <InfoPill label={t('profile.memberships.title')} value={membershipCount || membershipsList.length || 0} />
             <InfoPill label={t('profile.memberships.headers.role')} value={t(`profile.memberships.roles.${primaryRole}`) || primaryRole} />
             <InfoPill label={t('profile.form.phoneLabel')} value={phone} />
             <InfoPill label={t('profile.form.localeLabel')} value={locale} />
@@ -414,14 +451,18 @@ export default function ProfilePageClient({ user, memberships = [] }) {
                   {t('profile.memberships.title')}
                 </h3>
                 <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 border border-slate-200">
-                  {memberships.length || 0}
+                  {membershipCount || membershipsList.length || 0}
                 </span>
               </div>
-              {!memberships?.length ? (
+              {membershipsLoading ? (
+                <p className="mt-3 text-sm text-slate-500">{t('profile.memberships.loading') || 'Loading...'}</p>
+              ) : membershipsError ? (
+                <p className="mt-3 text-sm text-rose-600">{t('profile.memberships.error') || 'Failed to load.'}</p>
+              ) : !membershipsList?.length ? (
                 <p className="mt-3 text-sm text-slate-500">{t('profile.memberships.empty')}</p>
               ) : (
                 <div className="mt-3 space-y-2">
-                  {memberships.map((entry) => (
+                  {membershipsList.map((entry) => (
                     <div
                       key={`${entry.account_id}-${entry.role}`}
                       className="flex items-start justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2"

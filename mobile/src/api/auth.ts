@@ -24,17 +24,17 @@ export type SignupPayload = {
   firstName: string;
   lastName: string;
   phone?: string;
-  userType?: 'consumer' | 'provider';
+  role?: 'consumer' | 'provider';
 };
 
 export type OAuthSignupPayload = {
   accessToken: string;
   refreshToken?: string;
   accountName?: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
   phone?: string;
-  userType?: 'consumer' | 'provider';
+  role?: 'consumer' | 'provider';
 };
 
 export async function login(payload: LoginPayload): Promise<AuthResponse> {

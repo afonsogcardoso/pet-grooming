@@ -212,7 +212,9 @@ function getStoredAccountPreference() {
 async function fetchProfile(token) {
   const base =
     (process.env.NEXT_PUBLIC_API_URL || process.env.API_BASE_URL || '').replace(/\/$/, '')
-  const url = base ? `${base}/api/v1/profile` : '/api/v1/profile'
+  const url = base
+    ? `${base}/api/v1/profile?includeMemberships=true`
+    : '/api/v1/profile?includeMemberships=true'
 
   try {
     const response = await fetch(url, {

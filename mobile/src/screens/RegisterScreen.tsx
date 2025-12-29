@@ -30,15 +30,30 @@ import { resolveSupabaseUrl } from '../config/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const schema = z.object({
+const baseSchema = {
   registerAs: z.enum(['consumer', 'provider']),
   accountName: z.string().min(2).optional().or(z.literal('')),
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
   phone: z.string().optional().or(z.literal('')),
-  email: z.string().email(),
-  password: z.string().min(8),
-});
+};
+
+const schema = z.discriminatedUnion('signupMethod', [
+  z.object({
+    signupMethod: z.literal('google'),
+    ...baseSchema,
+    firstName: z.string().optional().or(z.literal('')),
+    lastName: z.string().optional().or(z.literal('')),
+    email: z.string().optional().or(z.literal('')),
+    password: z.string().optional().or(z.literal('')),
+  }),
+  z.object({
+    signupMethod: z.literal('email'),
+    ...baseSchema,
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    email: z.string().email(),
+    password: z.string().min(8),
+  }),
+]);
 
 type FormValues = z.infer<typeof schema>;
 type Props = NativeStackScreenProps<any>;
@@ -94,8 +109,9 @@ export default function RegisterScreen({ navigation }: Props) {
     return { uri: branding.logo_url };
   }, [branding?.logo_url, brandingLogoFailed]);
 
-  const { control, handleSubmit, watch, setValue, clearErrors, setError, getValues, trigger, formState } = useForm<FormValues>({
+  const { control, handleSubmit, watch, setValue, clearErrors, setError, getValues, formState } = useForm<FormValues>({
     defaultValues: {
+      signupMethod: 'google',
       registerAs: 'consumer',
       accountName: '',
       firstName: '',
@@ -107,10 +123,12 @@ export default function RegisterScreen({ navigation }: Props) {
     resolver: zodResolver(schema),
     mode: 'onChange',
   });
+  const signupMethod = watch('signupMethod');
   const registerAs = watch('registerAs');
   const accountName = watch('accountName');
   const isProvider = registerAs === 'provider';
-  const isFormValid = formState.isValid;
+  const trimmedAccountName = accountName?.trim() || '';
+  const isEmailSignup = signupMethod === 'email';
 
   const completeLogin = async ({
     token,
@@ -125,7 +143,7 @@ export default function RegisterScreen({ navigation }: Props) {
       avatarUrl?: string | null;
       firstName?: string | null;
       lastName?: string | null;
-      userType?: 'consumer' | 'provider' | null;
+      activeRole?: 'consumer' | 'provider' | null;
     };
   }) => {
     setApiError(null);
@@ -139,7 +157,7 @@ export default function RegisterScreen({ navigation }: Props) {
         avatarUrl: profile.avatarUrl,
         firstName: profile.firstName,
         lastName: profile.lastName,
-        userType: profile.userType,
+        activeRole: profile.activeRole,
       });
     } catch {
       if (fallbackUser) {
@@ -177,21 +195,37 @@ export default function RegisterScreen({ navigation }: Props) {
     },
   });
   const isSubmitting = isPending || oauthLoading !== null;
-  const canOauthSubmit = isFormValid && (!isProvider || Boolean(accountName?.trim()));
+  const canOauthSubmit =
+    signupMethod === 'google' &&
+    !isSubmitting;
+  const canEmailSubmit =
+    signupMethod === 'email' &&
+    !isSubmitting &&
+    formState.isValid;
+  const handleSignupMethodChange = (method: 'google' | 'email') => {
+    setValue('signupMethod', method, { shouldValidate: true });
+    setApiError(null);
+    if (method === 'google') {
+      clearErrors(['firstName', 'lastName', 'email', 'password', 'phone']);
+    }
+  };
 
   const onSubmit = handleSubmit(async (values) => {
-    if (values.registerAs === 'provider' && !values.accountName?.trim()) {
+    if (values.signupMethod !== 'email') {
+      return;
+    }
+    if (values.registerAs === 'provider' && trimmedAccountName.length < 2) {
       setError('accountName', { type: 'manual', message: t('register.accountRequired') });
       return;
     }
     await mutateAsync({
       email: values.email.trim(),
       password: values.password,
-      accountName: values.registerAs === 'provider' ? values.accountName.trim() : undefined,
+      accountName: values.registerAs === 'provider' ? trimmedAccountName : undefined,
       firstName: values.firstName.trim(),
       lastName: values.lastName.trim(),
       phone: values.phone?.trim() || undefined,
-      userType: values.registerAs,
+      role: values.registerAs,
     });
   });
 
@@ -199,11 +233,11 @@ export default function RegisterScreen({ navigation }: Props) {
     if (isSubmitting) return;
     setApiError(null);
 
-    const isValid = await trigger();
-    if (!isValid) return;
-
     const values = getValues();
-    if (values.registerAs === 'provider' && !values.accountName?.trim()) {
+    if (values.signupMethod !== 'google') {
+      return;
+    }
+    if (values.registerAs === 'provider' && trimmedAccountName.length < 2) {
       setError('accountName', { type: 'manual', message: t('register.accountRequired') });
       return;
     }
@@ -251,14 +285,17 @@ export default function RegisterScreen({ navigation }: Props) {
         return;
       }
 
+      const trimmedFirstName = values.firstName?.trim();
+      const trimmedLastName = values.lastName?.trim();
+      const trimmedPhone = values.phone?.trim();
       const response = await oauthSignup({
         accessToken,
         refreshToken,
-        accountName: values.registerAs === 'provider' ? values.accountName?.trim() : undefined,
-        firstName: values.firstName.trim(),
-        lastName: values.lastName.trim(),
-        phone: values.phone?.trim() || undefined,
-        userType: values.registerAs,
+        accountName: values.registerAs === 'provider' ? trimmedAccountName : undefined,
+        firstName: trimmedFirstName || undefined,
+        lastName: trimmedLastName || undefined,
+        phone: trimmedPhone || undefined,
+        role: values.registerAs,
       });
 
       await completeLogin({
@@ -333,6 +370,54 @@ export default function RegisterScreen({ navigation }: Props) {
           </View>
         </View>
 
+        <View style={styles.methodSection}>
+          <Text style={styles.methodLabel}>{t('register.methodTitle')}</Text>
+          <View style={styles.methodToggle}>
+            <TouchableOpacity
+              style={[
+                styles.methodButton,
+                signupMethod === 'google' && styles.methodButtonActive,
+              ]}
+              onPress={() => handleSignupMethodChange('google')}
+            >
+              <Ionicons
+                name="logo-google"
+                size={18}
+                color={signupMethod === 'google' ? colors.primary : colors.text}
+              />
+              <Text
+                style={[
+                  styles.methodButtonText,
+                  signupMethod === 'google' && styles.methodButtonTextActive,
+                ]}
+              >
+                {t('login.providers.google')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.methodButton,
+                signupMethod === 'email' && styles.methodButtonActive,
+              ]}
+              onPress={() => handleSignupMethodChange('email')}
+            >
+              <Ionicons
+                name="mail-outline"
+                size={18}
+                color={signupMethod === 'email' ? colors.primary : colors.text}
+              />
+              <Text
+                style={[
+                  styles.methodButtonText,
+                  signupMethod === 'email' && styles.methodButtonTextActive,
+                ]}
+              >
+                {t('common.email')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {isProvider ? (
           <Controller
             control={control}
@@ -355,105 +440,109 @@ export default function RegisterScreen({ navigation }: Props) {
           />
         ) : null}
 
-        <Controller
-          control={control}
-          name="firstName"
-          render={({ field: { onChange, value }, fieldState: { error } }) => (
-            <View style={styles.field}>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.inputIcon}>👤</Text>
-                <TextInput
-                  style={[styles.input, error ? styles.inputError : null]}
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder={t('register.firstNamePlaceholder')}
-                  placeholderTextColor={colors.muted}
-                />
-              </View>
-              {error && <Text style={styles.error}>{error.message}</Text>}
-            </View>
-          )}
-        />
+        {isEmailSignup ? (
+          <>
+            <Controller
+              control={control}
+              name="firstName"
+              render={({ field: { onChange, value }, fieldState: { error } }) => (
+                <View style={styles.field}>
+                  <View style={styles.inputWrapper}>
+                    <Text style={styles.inputIcon}>👤</Text>
+                    <TextInput
+                      style={[styles.input, error ? styles.inputError : null]}
+                      value={value}
+                      onChangeText={onChange}
+                      placeholder={t('register.firstNamePlaceholder')}
+                      placeholderTextColor={colors.muted}
+                    />
+                  </View>
+                  {error && <Text style={styles.error}>{error.message}</Text>}
+                </View>
+              )}
+            />
 
-        <Controller
-          control={control}
-          name="lastName"
-          render={({ field: { onChange, value }, fieldState: { error } }) => (
-            <View style={styles.field}>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.inputIcon}>🪪</Text>
-                <TextInput
-                  style={[styles.input, error ? styles.inputError : null]}
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder={t('register.lastNamePlaceholder')}
-                  placeholderTextColor={colors.muted}
-                />
-              </View>
-              {error && <Text style={styles.error}>{error.message}</Text>}
-            </View>
-          )}
-        />
+            <Controller
+              control={control}
+              name="lastName"
+              render={({ field: { onChange, value }, fieldState: { error } }) => (
+                <View style={styles.field}>
+                  <View style={styles.inputWrapper}>
+                    <Text style={styles.inputIcon}>🪪</Text>
+                    <TextInput
+                      style={[styles.input, error ? styles.inputError : null]}
+                      value={value}
+                      onChangeText={onChange}
+                      placeholder={t('register.lastNamePlaceholder')}
+                      placeholderTextColor={colors.muted}
+                    />
+                  </View>
+                  {error && <Text style={styles.error}>{error.message}</Text>}
+                </View>
+              )}
+            />
 
-        <Controller
-          control={control}
-          name="phone"
-          render={({ field: { onChange, value }, fieldState: { error } }) => (
-            <View style={styles.field}>
-              <PhoneInput
-                label={t('common.phone')}
-                value={value}
-                onChange={onChange}
-                placeholder={t('common.phone')}
-                disabled={isSubmitting}
-              />
-              {error && <Text style={styles.error}>{error.message}</Text>}
-            </View>
-          )}
-        />
+            <Controller
+              control={control}
+              name="phone"
+              render={({ field: { onChange, value }, fieldState: { error } }) => (
+                <View style={styles.field}>
+                  <PhoneInput
+                    label={t('common.phone')}
+                    value={value}
+                    onChange={onChange}
+                    placeholder={t('common.phone')}
+                    disabled={isSubmitting}
+                  />
+                  {error && <Text style={styles.error}>{error.message}</Text>}
+                </View>
+              )}
+            />
 
-        <Controller
-          control={control}
-          name="email"
-          render={({ field: { onChange, value }, fieldState: { error } }) => (
-            <View style={styles.field}>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.inputIcon}>📧</Text>
-                <TextInput
-                  style={[styles.input, error ? styles.inputError : null]}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder={t('common.email')}
-                  placeholderTextColor={colors.muted}
-                />
-              </View>
-              {error && <Text style={styles.error}>{error.message}</Text>}
-            </View>
-          )}
-        />
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { onChange, value }, fieldState: { error } }) => (
+                <View style={styles.field}>
+                  <View style={styles.inputWrapper}>
+                    <Text style={styles.inputIcon}>📧</Text>
+                    <TextInput
+                      style={[styles.input, error ? styles.inputError : null]}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                      value={value}
+                      onChangeText={onChange}
+                      placeholder={t('common.email')}
+                      placeholderTextColor={colors.muted}
+                    />
+                  </View>
+                  {error && <Text style={styles.error}>{error.message}</Text>}
+                </View>
+              )}
+            />
 
-        <Controller
-          control={control}
-          name="password"
-          render={({ field: { onChange, value }, fieldState: { error } }) => (
-            <View style={styles.field}>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.inputIcon}>🔒</Text>
-                <TextInput
-                  style={[styles.input, error ? styles.inputError : null]}
-                  secureTextEntry
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder={t('register.passwordPlaceholder')}
-                  placeholderTextColor={colors.muted}
-                />
-              </View>
-              {error && <Text style={styles.error}>{error.message}</Text>}
-            </View>
-          )}
-        />
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, value }, fieldState: { error } }) => (
+                <View style={styles.field}>
+                  <View style={styles.inputWrapper}>
+                    <Text style={styles.inputIcon}>🔒</Text>
+                    <TextInput
+                      style={[styles.input, error ? styles.inputError : null]}
+                      secureTextEntry
+                      value={value}
+                      onChangeText={onChange}
+                      placeholder={t('register.passwordPlaceholder')}
+                      placeholderTextColor={colors.muted}
+                    />
+                  </View>
+                  {error && <Text style={styles.error}>{error.message}</Text>}
+                </View>
+              )}
+            />
+          </>
+        ) : null}
 
         {apiError && (
           <View style={styles.errorCard}>
@@ -461,32 +550,34 @@ export default function RegisterScreen({ navigation }: Props) {
           </View>
         )}
 
-        <TouchableOpacity
-          style={[styles.oauthButton, (isSubmitting || !canOauthSubmit) && styles.buttonDisabled]}
-          onPress={handleOAuthSignup}
-          disabled={isSubmitting || !canOauthSubmit}
-        >
-          <View style={styles.oauthButtonContent}>
-            <Ionicons name="logo-google" size={18} color={colors.text} />
-            <Text style={styles.oauthButtonText}>{t('login.actions.google')}</Text>
-            {oauthLoading === 'google' ? <ActivityIndicator color={colors.text} size="small" /> : null}
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.button, isSubmitting && styles.buttonDisabled]}
-          onPress={onSubmit}
-          disabled={isSubmitting}
-        >
-          {isPending ? (
-            <View style={styles.buttonContent}>
-              <ActivityIndicator color="#fff" size="small" />
-              <Text style={styles.buttonText}>{t('common.loading')}</Text>
+        {signupMethod === 'google' ? (
+          <TouchableOpacity
+            style={[styles.oauthButton, !canOauthSubmit && styles.buttonDisabled]}
+            onPress={handleOAuthSignup}
+            disabled={!canOauthSubmit}
+          >
+            <View style={styles.oauthButtonContent}>
+              <Ionicons name="logo-google" size={18} color={colors.text} />
+              <Text style={styles.oauthButtonText}>{t('login.actions.google')}</Text>
+              {oauthLoading === 'google' ? <ActivityIndicator color={colors.text} size="small" /> : null}
             </View>
-          ) : (
-            <Text style={styles.buttonText}>{t('register.createAccount')}</Text>
-          )}
-        </TouchableOpacity>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.button, !canEmailSubmit && styles.buttonDisabled]}
+            onPress={onSubmit}
+            disabled={!canEmailSubmit}
+          >
+            {isPending ? (
+              <View style={styles.buttonContent}>
+                <ActivityIndicator color="#fff" size="small" />
+                <Text style={styles.buttonText}>{t('common.loading')}</Text>
+              </View>
+            ) : (
+              <Text style={styles.buttonText}>{t('register.createAccount')}</Text>
+            )}
+          </TouchableOpacity>
+        )}
 
           <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.replace('Login')}>
             <Text style={styles.secondaryText}>{t('register.backToLogin')}</Text>
@@ -580,6 +671,43 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontSize: 13,
       color: colors.muted,
       lineHeight: 18,
+    },
+    methodSection: {
+      marginBottom: 16,
+    },
+    methodLabel: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 10,
+    },
+    methodToggle: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    methodButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 16,
+      paddingVertical: 12,
+      backgroundColor: colors.surface,
+    },
+    methodButtonActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primarySoft,
+    },
+    methodButtonText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    methodButtonTextActive: {
+      color: colors.primary,
     },
     field: {
       marginBottom: 16,

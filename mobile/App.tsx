@@ -82,10 +82,12 @@ export default function App() {
     avatarUrl?: string | null;
     firstName?: string | null;
     lastName?: string | null;
-    userType?: 'consumer' | 'provider' | null;
+    activeRole?: 'consumer' | 'provider' | null;
+    availableRoles?: Array<'consumer' | 'provider'>;
   } | null>(null);
   const token = useAuthStore((s) => s.token);
   const hydrated = useAuthStore((s) => s.hydrated);
+  const storedActiveRole = useAuthStore((s) => s.user?.activeRole);
   const brandingFade = useMemo(() => new Animated.Value(0), []);
   const loaderColors = useMemo(() => {
     const primary = brandingData?.brand_primary || '#F47C1C';
@@ -184,7 +186,14 @@ export default function App() {
       const cached = await readProfileCache();
       if (cached && !cancelled) {
         setProfileData(cached);
-        useAuthStore.getState().setUser(cached);
+        useAuthStore.getState().setUser({
+          email: cached.email,
+          displayName: cached.displayName,
+          avatarUrl: cached.avatarUrl,
+          firstName: cached.firstName,
+          lastName: cached.lastName,
+          activeRole: cached.activeRole,
+        });
         queryClient.setQueryData(['profile'], cached);
         if (cached.locale) {
           setAppLanguage(cached.locale);
@@ -201,7 +210,7 @@ export default function App() {
           avatarUrl: fresh.avatarUrl,
           firstName: fresh.firstName,
           lastName: fresh.lastName,
-          userType: fresh.userType,
+          activeRole: fresh.activeRole,
         });
         queryClient.setQueryData(['profile'], fresh);
         await writeProfileCache({
@@ -210,7 +219,8 @@ export default function App() {
           avatarUrl: fresh.avatarUrl,
           firstName: fresh.firstName,
           lastName: fresh.lastName,
-          userType: fresh.userType,
+          activeRole: fresh.activeRole,
+          availableRoles: fresh.availableRoles,
         });
         if (fresh.locale) {
           setAppLanguage(fresh.locale);
@@ -235,7 +245,10 @@ export default function App() {
     );
   }
 
-  const userType = profileData?.userType ?? 'provider';
+  const activeRole =
+    storedActiveRole ??
+    profileData?.activeRole ??
+    'provider';
 
   const overlayBackground = previousBranding?.brand_background || '#FFF7EE';
   const statusBarBackground = brandingData?.brand_background || overlayBackground || '#FFF7EE';
@@ -248,7 +261,7 @@ export default function App() {
           <NavigationContainer>
             <Stack.Navigator>
               {token ? (
-                userType === 'consumer' ? (
+                activeRole === 'consumer' ? (
                   <>
                     <Stack.Screen name="ConsumerHome" component={ConsumerHomeScreen} options={{ headerShown: false }} />
                     <Stack.Screen name="ConsumerAppointments" component={ConsumerAppointmentsScreen} options={{ headerShown: false }} />

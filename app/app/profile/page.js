@@ -20,8 +20,9 @@ export default async function ProfilePage() {
 
   const user = mapProfileToUser(profile)
   const memberships = profile.memberships || []
+  const membershipCount = profile.membershipCount || memberships.length || 0
 
-  return <ProfilePageClient user={user} memberships={memberships} />
+  return <ProfilePageClient user={user} memberships={memberships} membershipCount={membershipCount} />
 }
 
 function getProjectRef() {
@@ -47,7 +48,7 @@ function readAccessToken(cookieStore) {
 
 async function fetchProfile(token) {
   const base = (process.env.API_BASE_URL || '').replace(/\/$/, '')
-  const url = base ? `${base}/api/v1/profile` : '/api/v1/profile'
+  const url = base ? `${base}/api/v1/profile?includeMemberships=false` : '/api/v1/profile?includeMemberships=false'
 
   const response = await fetch(url, {
     headers: {
@@ -87,7 +88,9 @@ function mapProfileToUser(profile) {
       display_name: profile.displayName || null,
       phone: profile.phone || null,
       preferred_locale: profile.locale || null,
-      avatar_url: profile.avatarUrl || null
+      avatar_url: profile.avatarUrl || null,
+      active_role: profile.activeRole || null,
+      available_roles: Array.isArray(profile.availableRoles) ? profile.availableRoles : []
     }
   }
 }

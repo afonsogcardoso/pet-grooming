@@ -1,11 +1,8 @@
 import express from 'express'
 import { getSupabaseServiceRoleClient } from '../authClient.js'
+import { normalizeSlug } from '../utils/slug.js'
 
 const router = express.Router()
-
-function normalizeSlug(slug) {
-  return slug?.toString().trim().toLowerCase() || ''
-}
 
 router.get('/accounts/:slug', async (req, res) => {
   const slug = normalizeSlug(req.params.slug)

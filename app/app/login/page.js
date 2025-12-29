@@ -125,6 +125,14 @@ export default function LoginPage() {
             disabled={loading || oauthLoading !== null}
             aria-busy={oauthLoading === 'google'}
           >
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
+              <img
+                src="/icons/google.svg"
+                alt=""
+                className="h-4 w-4"
+                aria-hidden="true"
+              />
+            </span>
             {oauthLoading === 'google' ? t('login.actions.loading') : t('login.actions.google')}
           </button>
           <button
@@ -134,6 +142,14 @@ export default function LoginPage() {
             disabled={loading || oauthLoading !== null}
             aria-busy={oauthLoading === 'apple'}
           >
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
+              <img
+                src="/icons/apple.svg"
+                alt=""
+                className="h-4 w-4"
+                aria-hidden="true"
+              />
+            </span>
             {oauthLoading === 'apple' ? t('login.actions.loading') : t('login.actions.apple')}
           </button>
         </div>
