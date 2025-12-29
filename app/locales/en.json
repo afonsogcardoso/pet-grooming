@@ -860,6 +860,9 @@
         "apple": "Link Apple",
         "linking": "Linking..."
       },
+      "status": {
+        "linked": "Linked"
+      },
       "providers": {
         "google": "Google",
         "apple": "Apple"

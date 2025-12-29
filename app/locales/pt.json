@@ -860,6 +860,9 @@
         "apple": "Ligar Apple",
         "linking": "A ligar..."
       },
+      "status": {
+        "linked": "Ligada"
+      },
       "providers": {
         "google": "Google",
         "apple": "Apple"

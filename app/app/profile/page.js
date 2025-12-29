@@ -65,11 +65,24 @@ async function fetchProfile(token) {
 }
 
 function mapProfileToUser(profile) {
+  const appMetadata = profile.app_metadata || {}
+  const authProviders = Array.isArray(profile.authProviders) ? profile.authProviders : []
+  const mergedProviders = Array.from(
+    new Set([
+      ...(Array.isArray(appMetadata.providers) ? appMetadata.providers : []),
+      ...(authProviders || [])
+    ])
+  ).filter(Boolean)
+
   return {
     id: profile.id || null,
     email: profile.email || null,
     created_at: profile.createdAt || null,
     last_sign_in_at: profile.lastLoginAt || null,
+    app_metadata: {
+      ...appMetadata,
+      providers: mergedProviders
+    },
     user_metadata: {
       display_name: profile.displayName || null,
       phone: profile.phone || null,

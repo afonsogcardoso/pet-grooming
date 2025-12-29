@@ -12,6 +12,11 @@ const remotePatterns = [
     protocol: 'https',
     hostname: 'acarlotadastosquias.pt',
     pathname: '/**'
+  },
+  {
+    protocol: 'https',
+    hostname: 'lh3.googleusercontent.com',
+    pathname: '/**'
   }
 ]
 

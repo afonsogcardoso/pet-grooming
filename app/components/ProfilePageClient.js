@@ -26,10 +26,21 @@ export default function ProfilePageClient({ user, memberships = [] }) {
   ]
   const [activeTab, setActiveTab] = useState('profile')
   const metadata = user?.user_metadata || {}
+  const appMetadata = user?.app_metadata || {}
   const displayName = metadata.display_name || user?.email
   const phone = formatPhoneDisplay(metadata.phone) || '—'
   const locale = metadata.preferred_locale || 'pt'
   const avatarUrl = metadata.avatar_url || ''
+  const linkedProviders = new Set(
+    [
+      ...(Array.isArray(appMetadata.providers) ? appMetadata.providers : []),
+      appMetadata.provider
+    ]
+      .filter(Boolean)
+      .map((provider) => provider.toString().toLowerCase())
+  )
+  const isGoogleLinked = linkedProviders.has('google')
+  const isAppleLinked = linkedProviders.has('apple')
   const primaryMembership = memberships?.[0] || null
   const primaryRole = primaryMembership?.role || t('profile.memberships.roles.member')
   const lastLogin = user?.last_sign_in_at
@@ -136,7 +147,7 @@ export default function ProfilePageClient({ user, memberships = [] }) {
   }, [t])
 
   const handleLinkProvider = async (provider) => {
-    if (linkingProvider) return
+    if (linkingProvider || linkedProviders.has(provider)) return
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -313,9 +324,9 @@ export default function ProfilePageClient({ user, memberships = [] }) {
                 <div className="mt-3 flex flex-col gap-2">
                   <button
                     type="button"
-                    className={`group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-primary hover:shadow-md ${linkingProvider ? 'cursor-not-allowed opacity-60' : ''}`}
+                    className={`group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-primary hover:shadow-md ${linkingProvider || isGoogleLinked ? 'cursor-not-allowed opacity-60' : ''}`}
                     onClick={() => handleLinkProvider('google')}
-                    disabled={Boolean(linkingProvider)}
+                    disabled={Boolean(linkingProvider) || isGoogleLinked}
                   >
                     <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100">
                       <Image
@@ -328,19 +339,29 @@ export default function ProfilePageClient({ user, memberships = [] }) {
                       />
                     </span>
                     <span className="flex flex-col items-start">
-                      <span>{t('profile.linkSection.actions.google')}</span>
-                      {linkingProvider === 'google' && (
+                      <span>
+                        {isGoogleLinked
+                          ? t('profile.linkSection.providers.google')
+                          : t('profile.linkSection.actions.google')}
+                      </span>
+                      {linkingProvider === 'google' ? (
                         <span className="text-[11px] font-semibold text-slate-500">
                           {t('profile.linkSection.actions.linking')}
                         </span>
+                      ) : (
+                        isGoogleLinked && (
+                          <span className="text-[11px] font-semibold text-emerald-600">
+                            {t('profile.linkSection.status.linked')}
+                          </span>
+                        )
                       )}
                     </span>
                   </button>
                   <button
                     type="button"
-                    className={`group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-primary hover:shadow-md ${linkingProvider ? 'cursor-not-allowed opacity-60' : ''}`}
+                    className={`group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-primary hover:shadow-md ${linkingProvider || isAppleLinked ? 'cursor-not-allowed opacity-60' : ''}`}
                     onClick={() => handleLinkProvider('apple')}
-                    disabled={Boolean(linkingProvider)}
+                    disabled={Boolean(linkingProvider) || isAppleLinked}
                   >
                     <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100">
                       <Image
@@ -353,11 +374,21 @@ export default function ProfilePageClient({ user, memberships = [] }) {
                       />
                     </span>
                     <span className="flex flex-col items-start">
-                      <span>{t('profile.linkSection.actions.apple')}</span>
-                      {linkingProvider === 'apple' && (
+                      <span>
+                        {isAppleLinked
+                          ? t('profile.linkSection.providers.apple')
+                          : t('profile.linkSection.actions.apple')}
+                      </span>
+                      {linkingProvider === 'apple' ? (
                         <span className="text-[11px] font-semibold text-slate-500">
                           {t('profile.linkSection.actions.linking')}
                         </span>
+                      ) : (
+                        isAppleLinked && (
+                          <span className="text-[11px] font-semibold text-emerald-600">
+                            {t('profile.linkSection.status.linked')}
+                          </span>
+                        )
                       )}
                     </span>
                   </button>

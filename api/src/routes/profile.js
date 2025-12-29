@@ -30,6 +30,26 @@ function isPlatformAdmin(user) {
   )
 }
 
+function collectAuthProviders(user) {
+  if (!user) return []
+  const providers = new Set()
+  const appMeta = user.app_metadata || {}
+  const metaProviders = Array.isArray(appMeta.providers) ? appMeta.providers : []
+  metaProviders.forEach((entry) => {
+    if (entry) providers.add(entry.toString().toLowerCase())
+  })
+  if (appMeta.provider) {
+    providers.add(appMeta.provider.toString().toLowerCase())
+  }
+  const identities = Array.isArray(user.identities) ? user.identities : []
+  identities.forEach((identity) => {
+    if (identity?.provider) {
+      providers.add(identity.provider.toString().toLowerCase())
+    }
+  })
+  return Array.from(providers)
+}
+
 router.get('/', async (req, res) => {
   const user = await getAuthenticatedUser(req)
   if (!user) return res.status(401).json({ error: 'Unauthorized' })
@@ -50,6 +70,7 @@ router.get('/', async (req, res) => {
     email: user.email,
     user_metadata: user.user_metadata || {},
     app_metadata: user.app_metadata || {},
+    authProviders: collectAuthProviders(user),
     created_at: user.created_at,
     last_sign_in_at: user.last_sign_in_at,
     platformAdmin: isPlatformAdmin(user),
