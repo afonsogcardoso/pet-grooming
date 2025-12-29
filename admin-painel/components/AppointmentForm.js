@@ -15,6 +15,7 @@ import {
 } from '@/lib/customerService'
 import { loadServices } from '@/lib/serviceService'
 import { useTranslation } from '@/components/TranslationProvider'
+import { formatCustomerName } from '@/lib/customerName'
 import BreedSelect from '@/components/BreedSelect'
 import PhoneInput from '@/components/PhoneInput'
 
@@ -56,7 +57,8 @@ export default function AppointmentForm({
     const [formData, setFormData] = useState(() => buildInitialFormState(initialData))
 
     const [customerFormData, setCustomerFormData] = useState({
-        name: '',
+        firstName: '',
+        lastName: '',
         phone: '',
         nif: '',
         email: '',
@@ -184,8 +186,8 @@ export default function AppointmentForm({
             setRemoveAfterPhoto(false)
             setSendWhatsappAfterSave(false)
         }
-        if (initialData?.pets?.name && initialData?.customers?.name) {
-            setSearchTerm(formatSearchLabel(initialData.pets.name, initialData.customers.name))
+        if (initialData?.pets?.name && initialData?.customers) {
+            setSearchTerm(formatSearchLabel(initialData.pets.name, formatCustomerName(initialData.customers)))
         } else if (!initialData) {
             setSearchTerm('')
         }
@@ -333,8 +335,8 @@ export default function AppointmentForm({
             pet_id: '' // Reset pet selection
         }))
 
-        if (!skipSearchUpdate && customer?.name && !formData.pet_id) {
-            setSearchTerm(customer.name)
+        if (!skipSearchUpdate && customer && !formData.pet_id) {
+            setSearchTerm(formatCustomerName(customer))
         }
     }
 
@@ -365,8 +367,13 @@ export default function AppointmentForm({
 
     async function handleCreateCustomer(e) {
         e.preventDefault()
+        const fullName = [customerFormData.firstName, customerFormData.lastName]
+            .filter(Boolean)
+            .join(' ')
         const payload = {
-            name: customerFormData.name,
+            firstName: customerFormData.firstName,
+            lastName: customerFormData.lastName,
+            name: fullName,
             phone: customerFormData.phone,
             email: customerFormData.email,
             address: customerFormData.address,
@@ -379,11 +386,14 @@ export default function AppointmentForm({
             alert(t('customerForm.errors.create', { message: error.message }))
         } else {
             const newCustomer = data[0]
-            setCustomers((prev) => [...prev, newCustomer].sort((a, b) => a.name.localeCompare(b.name)))
+            setCustomers((prev) => [...prev, newCustomer].sort((a, b) =>
+                formatCustomerName(a).localeCompare(formatCustomerName(b))
+            ))
             handleCustomerChange(newCustomer.id, newCustomer)
-            setSearchTerm(newCustomer.name)
+            setSearchTerm(formatCustomerName(newCustomer))
             setCustomerFormData({
-                name: '',
+                firstName: '',
+                lastName: '',
                 phone: '',
                 email: '',
                 address: '',
@@ -418,7 +428,7 @@ export default function AppointmentForm({
             setPets((prev) => [...prev, newPet].sort((a, b) => a.name.localeCompare(b.name)))
             handlePetChange(newPet.id)
             const customer = customers.find((c) => c.id === formData.customer_id)
-            setSearchTerm(formatSearchLabel(newPet.name, customer?.name || ''))
+            setSearchTerm(formatSearchLabel(newPet.name, formatCustomerName(customer)))
             setPetFormData({
                 name: '',
                 breed: '',
@@ -486,13 +496,23 @@ export default function AppointmentForm({
         let petId = formData.pet_id || null
 
         if (creatingNew) {
-            if (!customerFormData.name || !customerFormData.phone || !petFormData.name) {
+            if (
+                !customerFormData.firstName ||
+                !customerFormData.lastName ||
+                !customerFormData.phone ||
+                !petFormData.name
+            ) {
                 alert(t('appointmentForm.messages.newCustomerPetRequired'))
                 return
             }
 
+            const fullName = [customerFormData.firstName, customerFormData.lastName]
+                .filter(Boolean)
+                .join(' ')
             const { data: newCustomer, error: customerError } = await createCustomer({
-                name: customerFormData.name,
+                firstName: customerFormData.firstName,
+                lastName: customerFormData.lastName,
+                name: fullName,
                 phone: customerFormData.phone,
                 nif: customerFormData.nif || null,
                 email: customerFormData.email || null,
@@ -810,16 +830,28 @@ export default function AppointmentForm({
                                     <p className="text-sm font-bold text-gray-800">
                                         {t('appointmentForm.fields.customer')}
                                     </p>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={customerFormData.name}
-                                        onChange={(e) =>
-                                            setCustomerFormData({ ...customerFormData, name: e.target.value })
-                                        }
-                                        placeholder={t('customerForm.placeholders.name')}
-                                        className="w-full rounded-lg border-2 border-gray-400 px-3 py-2 text-sm bg-white text-gray-900 font-medium focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)]"
-                                    />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <input
+                                            type="text"
+                                            required
+                                            value={customerFormData.firstName}
+                                            onChange={(e) =>
+                                                setCustomerFormData({ ...customerFormData, firstName: e.target.value })
+                                            }
+                                            placeholder={t('customerForm.placeholders.firstName')}
+                                            className="w-full rounded-lg border-2 border-gray-400 px-3 py-2 text-sm bg-white text-gray-900 font-medium focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)]"
+                                        />
+                                        <input
+                                            type="text"
+                                            required
+                                            value={customerFormData.lastName}
+                                            onChange={(e) =>
+                                                setCustomerFormData({ ...customerFormData, lastName: e.target.value })
+                                            }
+                                            placeholder={t('customerForm.placeholders.lastName')}
+                                            className="w-full rounded-lg border-2 border-gray-400 px-3 py-2 text-sm bg-white text-gray-900 font-medium focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)]"
+                                        />
+                                    </div>
                                     <PhoneInput
                                         label={t('customerForm.labels.phone')}
                                         value={customerFormData.phone}
@@ -948,7 +980,7 @@ export default function AppointmentForm({
                                                 </option>
                                                 {customers.map((customer) => (
                                                     <option key={customer.id} value={customer.id}>
-                                                        {customer.name} - {customer.phone}
+                                                        {formatCustomerName(customer)} - {customer.phone}
                                                     </option>
                                                 ))}
                                             </select>
@@ -1316,17 +1348,32 @@ export default function AppointmentForm({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-800 mb-2">
-                                        {t('customerForm.labels.name')}
+                                        {t('customerForm.labels.firstName')}
                                     </label>
                                     <input
                                         type="text"
                                         required
-                                        value={customerFormData.name}
+                                        value={customerFormData.firstName}
                                         onChange={(e) =>
-                                            setCustomerFormData({ ...customerFormData, name: e.target.value })
+                                            setCustomerFormData({ ...customerFormData, firstName: e.target.value })
                                         }
                                         className="w-full px-4 py-3 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)] text-base bg-white text-gray-900 font-medium"
-                                        placeholder={t('customerForm.placeholders.name')}
+                                        placeholder={t('customerForm.placeholders.firstName')}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-800 mb-2">
+                                        {t('customerForm.labels.lastName')}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={customerFormData.lastName}
+                                        onChange={(e) =>
+                                            setCustomerFormData({ ...customerFormData, lastName: e.target.value })
+                                        }
+                                        className="w-full px-4 py-3 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)] text-base bg-white text-gray-900 font-medium"
+                                        placeholder={t('customerForm.placeholders.lastName')}
                                     />
                                 </div>
                                 <div>
@@ -1411,7 +1458,8 @@ export default function AppointmentForm({
                                     onClick={() => {
                                         setShowCustomerModal(false)
                                         setCustomerFormData({
-                                            name: '',
+                                            firstName: '',
+                                            lastName: '',
                                             phone: '',
                                             email: '',
                                             address: '',

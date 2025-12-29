@@ -8,6 +8,7 @@ import { getCurrentAccountId } from './accountHelpers'
 import { apiGet, apiPost, apiPatch, hasExternalApi } from './apiClient'
 import { getStoredAccessToken } from './authTokens'
 import { buildPhone, splitPhone } from './phone'
+import { formatCustomerName, splitCustomerName } from './customerName'
 
 async function getApiToken() {
     return getStoredAccessToken() || null
@@ -28,7 +29,8 @@ async function fetchCustomersWithRelations(accountId) {
             appointments (id)
         `)
         .eq('account_id', accountId)
-        .order('name', { ascending: true })
+        .order('first_name', { ascending: true })
+        .order('last_name', { ascending: true })
 
     return { data: data || [], error }
 }
@@ -43,6 +45,38 @@ function applyPhoneFields(payload = {}) {
         phone_country_code: parts.phoneCountryCode,
         phone_number: parts.phoneNumber
     }
+}
+
+function applyNameFields(payload = {}) {
+    const next = { ...payload }
+    const hasFirstName = Object.prototype.hasOwnProperty.call(next, 'firstName') ||
+        Object.prototype.hasOwnProperty.call(next, 'first_name')
+    const hasLastName = Object.prototype.hasOwnProperty.call(next, 'lastName') ||
+        Object.prototype.hasOwnProperty.call(next, 'last_name')
+    const hasName = Object.prototype.hasOwnProperty.call(next, 'name')
+
+    if (hasFirstName) {
+        next.first_name = next.firstName ?? next.first_name
+        delete next.firstName
+    }
+    if (hasLastName) {
+        next.last_name = next.lastName ?? next.last_name
+        delete next.lastName
+    }
+
+    if (!hasFirstName && !hasLastName && hasName) {
+        const split = splitCustomerName(next.name)
+        if (next.first_name === undefined) next.first_name = split.firstName || null
+        if (next.last_name === undefined) next.last_name = split.lastName || null
+    }
+
+    const shouldUpdateName = hasName || (hasFirstName && hasLastName)
+    if (shouldUpdateName) {
+        const combined = [next.first_name, next.last_name].filter(Boolean).join(' ')
+        if (combined) next.name = combined
+    }
+
+    return next
 }
 
 export async function loadCustomers() {
@@ -91,9 +125,10 @@ export async function loadCustomerPetSearchIndex() {
             return []
         }
 
+        const customerName = formatCustomerName(customer)
         return customer.pets.map((pet) => ({
             customer_id: customer.id,
-            customer_name: customer.name,
+            customer_name: customerName,
             customer_phone: customer.phone,
             customer_nif: customer.nif,
             customer_address: customer.address,
@@ -155,7 +190,7 @@ export async function createCustomer(customerData) {
         }
     }
     const accountId = await getCurrentAccountId()
-    const payload = { ...applyPhoneFields(customerData), account_id: accountId }
+    const payload = { ...applyPhoneFields(applyNameFields(customerData)), account_id: accountId }
     const { data, error } = await supabase
         .from('customers')
         .insert([payload])
@@ -184,7 +219,7 @@ export async function updateCustomer(id, customerData) {
     const accountId = await getCurrentAccountId()
     const { data, error } = await supabase
         .from('customers')
-        .update(applyPhoneFields(customerData))
+        .update(applyPhoneFields(applyNameFields(customerData)))
         .eq('account_id', accountId)
         .eq('id', id)
         .select()
@@ -227,8 +262,9 @@ export async function searchCustomers(searchTerm) {
             const body = await apiGet('/customers', { token })
             const source = body?.data || []
             const filtered = source.filter((customer) => {
+                const customerName = formatCustomerName(customer)
                 const matchesField = [
-                    customer.name,
+                    customerName,
                     customer.phone,
                     customer.nif,
                     customer.email,
@@ -254,8 +290,9 @@ export async function searchCustomers(searchTerm) {
     }
 
     const filtered = data.filter((customer) => {
+        const customerName = formatCustomerName(customer)
         const matchesField = [
-            customer.name,
+            customerName,
             customer.phone,
             customer.nif,
             customer.email,
@@ -386,7 +423,7 @@ export async function loadCustomerAppointments(customerId) {
         .from('appointments')
         .select(`
             *,
-            customers (name, phone, nif),
+            customers (name, first_name, last_name, phone, nif),
             pets (name),
             services (name)
         `)

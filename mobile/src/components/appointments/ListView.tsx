@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { getDateLocale } from '../../i18n';
 import { matchesSearchQuery } from '../../utils/textHelpers';
+import { formatCustomerName } from '../../utils/customer';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
 import type { Appointment } from '../../api/appointments';
@@ -86,7 +87,7 @@ export function ListView({
         .filter((value): value is string => Boolean(value));
 
       const values = [
-        appointment.customers?.name,
+        formatCustomerName(appointment.customers),
         appointment.customers?.phone,
         appointment.customers?.address,
         appointment.pets?.name,
@@ -345,7 +346,13 @@ export function ListView({
       : [];
     const servicesTotal =
       appointmentServices.length > 0
-        ? appointmentServices.reduce((sum, entry) => sum + (entry.services?.price || 0), 0)
+        ? appointmentServices.reduce((sum, entry) => {
+            const basePrice = entry.price_tier_price ?? entry.services?.price ?? 0;
+            const addonsTotal = Array.isArray(entry.appointment_service_addons)
+              ? entry.appointment_service_addons.reduce((addonSum, addon) => addonSum + (addon.price || 0), 0)
+              : 0;
+            return sum + basePrice + addonsTotal;
+          }, 0)
         : item.services?.price ?? null;
     const amount = item.amount ?? servicesTotal;
     const serviceNames = appointmentServices
@@ -387,7 +394,7 @@ export function ListView({
                   : (item.services?.name || t('listView.serviceFallback'))}
               </Text>
               <Text style={styles.meta}>
-                {item.customers?.name} • {item.pets?.name}
+                {formatCustomerName(item.customers)} • {item.pets?.name}
               </Text>
               {amount !== undefined && amount !== null ? (
                 <Text style={styles.meta}>€ {Number(amount).toFixed(2)}</Text>
@@ -434,7 +441,7 @@ export function ListView({
                       onPress={() => {
                         const cleanPhone = phone.replace(/[^0-9]/g, '');
                         const formattedPhone = cleanPhone.startsWith('9') ? `351${cleanPhone}` : cleanPhone;
-                        const customerName = item.customers?.name || '';
+                        const customerName = formatCustomerName(item.customers) || '';
                         const message = t('listView.whatsappMessage', { name: customerName });
                         Linking.openURL(`whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`).catch(() => null);
                       }}

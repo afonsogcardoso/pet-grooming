@@ -10,6 +10,7 @@ import { useMemo } from 'react'
 import { getWeekDates, getWeekRangeText, formatTime } from '@/utils/dateUtils'
 import { getGoogleMapsLink } from '@/utils/addressUtils'
 import { useTranslation } from '@/components/TranslationProvider'
+import { formatCustomerName } from '@/lib/customerName'
 
 export default function CalendarViewMobile({
   appointments,
@@ -200,7 +201,7 @@ export default function CalendarViewMobile({
                     </div>
 
                     {appointmentsForDay.map((apt) => {
-                      const customerName = apt.customers?.name || t('appointmentCard.unknownCustomer')
+                      const customerName = formatCustomerName(apt.customers) || t('appointmentCard.unknownCustomer')
                       const petName = apt.pets?.name || t('appointmentCard.unknownPet')
                       const petBreed = apt.pets?.breed
                       const serviceName = apt.services?.name || t('appointmentCard.unknownService')

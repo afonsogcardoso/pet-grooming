@@ -5,6 +5,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
+import { formatCustomerName } from '../utils/customer';
 import { getCustomers, getPetsByCustomer, uploadCustomerPhoto, deleteCustomer, type Customer, type Pet } from '../api/customers';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Avatar } from '../components/common/Avatar';
@@ -211,7 +212,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
   const handleDeleteCustomer = () => {
     Alert.alert(
       t('customerDetail.deleteCustomerTitle'),
-      t('customerDetail.deleteCustomerMessage', { name: customer?.name || '' }),
+      t('customerDetail.deleteCustomerMessage', { name: displayName }),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -259,6 +260,8 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
     );
   }
 
+  const displayName = formatCustomerName(customer);
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScreenHeader
@@ -276,7 +279,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
         <View style={styles.customerCard}>
           <View style={styles.avatarContainer}>
             <Avatar 
-              name={customer.name} 
+              name={displayName} 
               size="large" 
               imageUrl={customer.photo_url}
               onPress={handleAvatarPress}
@@ -288,7 +291,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
             )}
           </View>
           
-          <Text style={styles.customerName}>{customer.name}</Text>
+          <Text style={styles.customerName}>{displayName}</Text>
           
           <View style={styles.infoGrid}>
             {customer.phone && (

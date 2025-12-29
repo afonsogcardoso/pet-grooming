@@ -6,8 +6,10 @@ import { Input } from '../common/Input';
 import { PhoneInput } from '../common/PhoneInput';
 
 type NewCustomerFormProps = {
-  customerName: string;
-  setCustomerName: (value: string) => void;
+  customerFirstName: string;
+  setCustomerFirstName: (value: string) => void;
+  customerLastName: string;
+  setCustomerLastName: (value: string) => void;
   customerPhone: string;
   setCustomerPhone: (value: string) => void;
   customerEmail: string;
@@ -20,8 +22,10 @@ type NewCustomerFormProps = {
 };
 
 export function NewCustomerForm({
-  customerName,
-  setCustomerName,
+  customerFirstName,
+  setCustomerFirstName,
+  customerLastName,
+  setCustomerLastName,
   customerPhone,
   setCustomerPhone,
   customerEmail,
@@ -64,37 +68,36 @@ export function NewCustomerForm({
 
   return (
     <>
-      <View style={styles.field}>
-        <Text style={styles.label}>{t('newCustomerForm.customerNameLabel')}</Text>
-        <TextInput
-          value={customerName}
-          onChangeText={setCustomerName}
-          placeholder={t('customerForm.namePlaceholder')}
-          placeholderTextColor={colors.muted}
-          style={styles.input}
-        />
-      </View>
-      
       <View style={styles.row}>
         <View style={[styles.field, { flex: 1 }]}>
-          <PhoneInput
-            label={t('common.phone')}
-            value={customerPhone}
-            onChange={setCustomerPhone}
-            placeholder={t('common.phone')}
+          <Text style={styles.label}>{t('profile.firstNamePlaceholder')}</Text>
+          <TextInput
+            value={customerFirstName}
+            onChangeText={setCustomerFirstName}
+            placeholder={t('profile.firstNamePlaceholder')}
+            placeholderTextColor={colors.muted}
+            style={styles.input}
           />
         </View>
         <View style={[styles.field, { flex: 1 }]}>
-          <Text style={styles.label}>{t('customerDetail.nif')}</Text>
+          <Text style={styles.label}>{t('profile.lastNamePlaceholder')}</Text>
           <TextInput
-            value={customerNif}
-            onChangeText={setCustomerNif}
-            placeholder={t('customerDetail.nif')}
+            value={customerLastName}
+            onChangeText={setCustomerLastName}
+            placeholder={t('profile.lastNamePlaceholder')}
             placeholderTextColor={colors.muted}
             style={styles.input}
-            keyboardType="number-pad"
           />
         </View>
+      </View>
+      
+      <View style={[styles.field, { marginBottom: 0 }]}>
+        <PhoneInput
+          label={t('common.phone')}
+          value={customerPhone}
+          onChange={setCustomerPhone}
+          placeholder={t('common.phone')}
+        />
       </View>
 
       <Input
@@ -106,6 +109,18 @@ export function NewCustomerForm({
         autoCapitalize="none"
         showEmailSuggestions
       />
+
+      <View style={styles.field}>
+        <Text style={styles.label}>{t('customerDetail.nif')}</Text>
+        <TextInput
+          value={customerNif}
+          onChangeText={setCustomerNif}
+          placeholder={t('customerDetail.nif')}
+          placeholderTextColor={colors.muted}
+          style={styles.input}
+          keyboardType="number-pad"
+        />
+      </View>
 
       <View style={styles.field}>
         <Text style={styles.label}>{t('customerDetail.address')}</Text>

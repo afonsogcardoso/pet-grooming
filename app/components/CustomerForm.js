@@ -7,14 +7,19 @@
 
 import { useEffect, useState } from 'react'
 import { useTranslation } from '@/components/TranslationProvider'
+import { splitCustomerName } from '@/lib/customerName'
 import PhoneInput from '@/components/PhoneInput'
 
 export default function CustomerForm({ onSubmit, onCancel, onDelete, initialData = null }) {
     const { t } = useTranslation()
     const buildState = (data = {}) => {
         const source = data || {}
+        const initialParts = source.firstName || source.lastName
+            ? { firstName: source.firstName || '', lastName: source.lastName || '' }
+            : splitCustomerName(source.name || '')
         return {
-            name: source.name || '',
+            firstName: initialParts.firstName,
+            lastName: initialParts.lastName,
             phone: source.phone || '',
             nif: source.nif || '',
             email: source.email || '',
@@ -33,7 +38,8 @@ export default function CustomerForm({ onSubmit, onCancel, onDelete, initialData
 
     const handleSubmit = (e) => {
         e.preventDefault()
-        onSubmit(formData)
+        const fullName = [formData.firstName, formData.lastName].filter(Boolean).join(' ')
+        onSubmit({ ...formData, name: fullName })
     }
 
     return (
@@ -45,15 +51,29 @@ export default function CustomerForm({ onSubmit, onCancel, onDelete, initialData
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-bold text-gray-800 mb-2">
-                            {t('customerForm.labels.name')}
+                            {t('customerForm.labels.firstName')}
                         </label>
                         <input
                             type="text"
                             required
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            value={formData.firstName}
+                            onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                             className="w-full px-4 py-4 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)] text-lg bg-white text-gray-900 placeholder-gray-500 font-medium"
-                            placeholder={t('customerForm.placeholders.name')}
+                            placeholder={t('customerForm.placeholders.firstName')}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-800 mb-2">
+                            {t('customerForm.labels.lastName')}
+                        </label>
+                        <input
+                            type="text"
+                            required
+                            value={formData.lastName}
+                            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                            className="w-full px-4 py-4 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)] text-lg bg-white text-gray-900 placeholder-gray-500 font-medium"
+                            placeholder={t('customerForm.placeholders.lastName')}
                         />
                     </div>
 

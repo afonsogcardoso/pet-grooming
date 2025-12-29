@@ -265,8 +265,8 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <NavigationContainer>
-            <Stack.Navigator key={appMode}>
+          <NavigationContainer key={appMode}>
+            <Stack.Navigator>
               {token ? (
                 appMode === 'consumer' ? (
                   <>

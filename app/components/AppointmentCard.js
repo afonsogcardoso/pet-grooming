@@ -9,6 +9,7 @@ import Image from 'next/image'
 import { formatDate, formatTime } from '@/utils/dateUtils'
 import { getGoogleMapsLink, formatAddressForDisplay } from '@/utils/addressUtils'
 import { useTranslation } from '@/components/TranslationProvider'
+import { formatCustomerName } from '@/lib/customerName'
 import { formatPhoneForWhatsapp } from '@/lib/phone'
 
 export default function AppointmentCard({ appointment, onComplete, onDelete, onEdit, onTogglePayment }) {
@@ -17,7 +18,7 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
     const fallbackAddress = t('appointmentCard.addressMissing')
     const dateText = formatDate(appointment.appointment_date, resolvedLocale)
     const timeText = formatTime(appointment.appointment_time, resolvedLocale)
-    const customerName = appointment.customers?.name || t('appointmentCard.unknownCustomer')
+    const customerName = formatCustomerName(appointment.customers) || t('appointmentCard.unknownCustomer')
     const phoneNumber = appointment.customers?.phone || ''
     const address = appointment.customers?.address
     const petName = appointment.pets?.name || t('appointmentCard.unknownPet')

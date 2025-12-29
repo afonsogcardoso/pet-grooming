@@ -16,6 +16,8 @@ const APPOINTMENT_SELECT = `
     customers (
         id,
         name,
+        first_name,
+        last_name,
         phone,
         nif,
         address

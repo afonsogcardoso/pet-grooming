@@ -32,6 +32,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { useTranslation } from 'react-i18next';
 import { getDateLocale } from '../i18n';
 import { buildPhone } from '../utils/phone';
+import { formatCustomerName } from '../utils/customer';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -138,7 +139,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const [customerSearch, setCustomerSearch] = useState('');
   const [petSearch, setPetSearch] = useState('');
   const [mode, setMode] = useState<'existing' | 'new'>(isEditMode ? 'existing' : 'new');
-  const [newCustomerName, setNewCustomerName] = useState('');
+  const [newCustomerFirstName, setNewCustomerFirstName] = useState('');
+  const [newCustomerLastName, setNewCustomerLastName] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
   const [newCustomerEmail, setNewCustomerEmail] = useState('');
   const [newCustomerAddress, setNewCustomerAddress] = useState('');
@@ -254,7 +256,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       setSelectedPetIds(Array.from(petIds));
       setServiceRowsByPet(rowsByPet);
 
-      setCustomerSearch(appointmentData.customers?.name || '');
+      setCustomerSearch(formatCustomerName(appointmentData.customers));
       setCustomerPhone(
         appointmentData.customers?.phone ||
           buildPhone(
@@ -294,6 +296,11 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const pickerTheme = isHexLight(colors.background) ? 'light' : 'dark';
   const addressPlaceholder = t('appointmentForm.addressPlaceholder');
   const displayTime = formatHHMM(time);
+  const newCustomerFullName = useMemo(() => {
+    const first = newCustomerFirstName.trim();
+    const last = newCustomerLastName.trim();
+    return [first, last].filter(Boolean).join(' ');
+  }, [newCustomerFirstName, newCustomerLastName]);
 
   const selectedCustomerData = useMemo(
     () => {
@@ -416,26 +423,27 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     const results: SearchResult[] = [];
     customers.forEach((customer) => {
       const baseSubtitle = customer.phone || customer.email || '';
+      const customerName = formatCustomerName(customer);
       const customerMatch = !term
         ? true
-        : `${customer.name} ${customer.phone ?? ''}`.toLowerCase().includes(term);
+        : `${customerName} ${customer.phone ?? ''}`.toLowerCase().includes(term);
       if (customerMatch) {
         results.push({
           type: 'customer',
           customer,
-          label: customer.name,
+          label: customerName,
           subtitle: baseSubtitle,
         });
       }
       (customer.pets || []).forEach((pet) => {
-        const haystack = `${pet.name} ${customer.name} ${customer.phone ?? ''}`.toLowerCase();
+        const haystack = `${pet.name} ${customerName} ${customer.phone ?? ''}`.toLowerCase();
         if (!term || haystack.includes(term)) {
           results.push({
             type: 'pet',
             customer,
             pet,
             label: pet.name,
-            subtitle: customer.name,
+            subtitle: customerName,
           });
         }
       });
@@ -548,7 +556,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const allServiceRows = Object.values(serviceRowsByPet).flat();
   const hasServiceSelection = allServiceRows.length > 0 && allServiceRows.every((row) => row.serviceId);
   const newPetsValid = newPets.length > 0 && newPets.every((pet) => pet.name.trim());
-  const hasNewSelection = Boolean(newCustomerName.trim() && newPetsValid);
+  const hasNewCustomerName = Boolean(newCustomerFirstName.trim() && newCustomerLastName.trim());
+  const hasNewSelection = Boolean(hasNewCustomerName && newPetsValid);
   const isSubmitting = mutation.isPending;
   const canSubmit =
     Boolean(
@@ -707,7 +716,9 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     if (mode === 'new') {
       try {
         createdCustomer = await createCustomer({
-          name: newCustomerName.trim(),
+          firstName: newCustomerFirstName.trim(),
+          lastName: newCustomerLastName.trim(),
+          name: newCustomerFullName,
           phone: newCustomerPhone.trim() || null,
           email: newCustomerEmail.trim() || null,
           address: newCustomerAddress.trim() || null,
@@ -819,7 +830,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       ? dateObj.toLocaleDateString(dateLocale, { weekday: 'short', day: '2-digit', month: 'short' })
       : date;
     const timeLabel = time || '—';
-    const customerName = mode === 'new' ? newCustomerName : selectedCustomerData?.name;
+    const customerName =
+      mode === 'new' ? newCustomerFullName : formatCustomerName(selectedCustomerData);
     const address = mode === 'new' ? newCustomerAddress : customerAddress || selectedCustomerData?.address;
 
     const serviceNameById = new Map(services.map((service) => [service.id, service.name]));
@@ -952,7 +964,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                 ]}
                 onPress={() => {
                   setMode('existing');
-                  setNewCustomerName('');
+                  setNewCustomerFirstName('');
+                  setNewCustomerLastName('');
                   setNewCustomerPhone('');
                   setNewCustomerEmail('');
                   setNewCustomerAddress('');
@@ -989,8 +1002,10 @@ export default function NewAppointmentScreen({ navigation }: Props) {
               />
             ) : (
               <NewCustomerForm
-                customerName={newCustomerName}
-                setCustomerName={setNewCustomerName}
+                customerFirstName={newCustomerFirstName}
+                setCustomerFirstName={setNewCustomerFirstName}
+                customerLastName={newCustomerLastName}
+                setCustomerLastName={setNewCustomerLastName}
                 customerPhone={newCustomerPhone}
                 setCustomerPhone={setNewCustomerPhone}
                 customerEmail={newCustomerEmail}

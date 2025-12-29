@@ -5,6 +5,7 @@ import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { getDateLocale } from '../../i18n';
 import type { Appointment } from '../../api/appointments';
 import { getStatusColor } from '../../utils/appointmentStatus';
+import { formatCustomerName } from '../../utils/customer';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
 
@@ -319,6 +320,7 @@ export function DayView({
               const duration = appointment.duration || 60;
               const height = (duration / 60) * HOUR_HEIGHT - 4;
               const customer = appointment.customers;
+              const customerName = formatCustomerName(customer);
               const phone = customer?.phone;
               const address = customer?.address;
               const appointmentServices = Array.isArray(appointment.appointment_services)
@@ -351,7 +353,7 @@ export function DayView({
                       {formatTime(appointment.appointment_time)}
                     </Text>
                     <Text style={styles.appointmentTitle} numberOfLines={1}>
-                      {appointment.pets?.name}{customer?.name ? ` | ${customer.name}` : ''}
+                      {appointment.pets?.name}{customerName ? ` | ${customerName}` : ''}
                     </Text>
                     {appointmentServiceLines.length > 0 ? (
                       appointmentServiceLines.map((label, idx) => (

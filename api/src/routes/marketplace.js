@@ -62,7 +62,7 @@ const MARKETPLACE_APPOINTMENT_SELECT = `
   before_photo_url,
   after_photo_url,
   account:accounts ( id, name, slug, logo_url, support_email, support_phone ),
-  customers!inner ( id, name, phone, email, address ),
+  customers!inner ( id, name, first_name, last_name, phone, email, address ),
   pets ( id, name, breed, photo_url, weight ),
   services ( id, name, price ),
   appointment_services (
@@ -102,6 +102,15 @@ function normalizeTime(value) {
   const [hh, mm] = trimmed.split(':')
   if (!hh || !mm) return trimmed.slice(0, 5)
   return `${hh.padStart(2, '0')}:${mm.padStart(2, '0')}`
+}
+
+function splitNameParts(value) {
+  const trimmed = normalizeString(value)
+  if (!trimmed) return { first: null, last: null }
+  const parts = trimmed.split(/\s+/)
+  const first = parts.shift() || null
+  const last = parts.length > 0 ? parts.join(' ') : null
+  return { first, last }
 }
 
 function coerceLimit(value, fallback = 24) {
@@ -529,10 +538,23 @@ router.post('/booking-requests', async (req, res) => {
   }
 
   const customerPayload = sanitizeBody(payload.customer || {})
-  const customerName =
-    normalizeString(customerPayload.name) ||
-    normalizeString(user.user_metadata?.display_name) ||
-    (user.email ? user.email.split('@')[0] : null)
+  const customerFirstName = normalizeString(customerPayload.firstName || customerPayload.first_name)
+  const customerLastName = normalizeString(customerPayload.lastName || customerPayload.last_name)
+  let customerName = null
+  let resolvedFirstName = customerFirstName
+  let resolvedLastName = customerLastName
+
+  if (resolvedFirstName || resolvedLastName) {
+    customerName = [resolvedFirstName, resolvedLastName].filter(Boolean).join(' ')
+  } else {
+    customerName =
+      normalizeString(customerPayload.name) ||
+      normalizeString(user.user_metadata?.display_name) ||
+      (user.email ? user.email.split('@')[0] : null)
+    const split = splitNameParts(customerName)
+    resolvedFirstName = split.first
+    resolvedLastName = split.last
+  }
   const customerEmail = normalizeEmail(customerPayload.email || user.email)
   let rawPhone = null
   if (customerPayload.phone) {
@@ -582,7 +604,7 @@ router.post('/booking-requests', async (req, res) => {
   if (matchFilters.length) {
     const { data: existingCustomers, error: customerError } = await supabaseAdmin
       .from('customers')
-      .select('id, user_id, name, phone, phone_country_code, phone_number, email')
+      .select('id, user_id, name, first_name, last_name, phone, phone_country_code, phone_number, email')
       .eq('account_id', account.id)
       .or(matchFilters.join(','))
       .order('created_at', { ascending: true })
@@ -601,6 +623,8 @@ router.post('/booking-requests', async (req, res) => {
     const updates = {}
     if (!customer.user_id && user.id) updates.user_id = user.id
     if (!customer.name && customerName) updates.name = customerName
+    if (!customer.first_name && resolvedFirstName) updates.first_name = resolvedFirstName
+    if (!customer.last_name && resolvedLastName) updates.last_name = resolvedLastName
     if (!customer.email && customerEmail) updates.email = customerEmail
     if (!customer.phone && customerPhone) updates.phone = customerPhone
     if (!customer.phone_country_code && customerPhoneCountryCode) {
@@ -633,6 +657,8 @@ router.post('/booking-requests', async (req, res) => {
       .insert({
         account_id: account.id,
         name: customerName,
+        first_name: resolvedFirstName,
+        last_name: resolvedLastName,
         email: customerEmail,
         phone: customerPhone,
         phone_country_code: customerPhoneCountryCode,

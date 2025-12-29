@@ -19,6 +19,7 @@ import { formatDate, formatTime } from '@/utils/dateUtils'
 import CustomerForm from './CustomerForm'
 import PetManager from './PetManager'
 import { useTranslation } from '@/components/TranslationProvider'
+import { formatCustomerName } from '@/lib/customerName'
 
 export default function CustomerManager() {
     const { t, resolvedLocale } = useTranslation()
@@ -208,7 +209,7 @@ export default function CustomerManager() {
                     onCancel={handleCancelForm}
                     onDelete={
                         editingCustomer
-                            ? () => handleDeleteCustomer(editingCustomer.id, editingCustomer.name)
+                            ? () => handleDeleteCustomer(editingCustomer.id, formatCustomerName(editingCustomer))
                             : undefined
                     }
                     initialData={editingCustomer}
@@ -229,7 +230,7 @@ export default function CustomerManager() {
                                 >
                                     <div className="flex items-center gap-2">
                                         <h3 className="text-2xl font-bold text-gray-800">
-                                            {selectedCustomer.name}
+                                            {formatCustomerName(selectedCustomer)}
                                         </h3>
                                         <span className="text-brand-primary text-xl">✏️</span>
                                     </div>
@@ -308,7 +309,7 @@ export default function CustomerManager() {
                     {/* Pet Manager */}
                     <PetManager
                         customerId={selectedCustomer.id}
-                        customerName={selectedCustomer.name}
+                        customerName={formatCustomerName(selectedCustomer)}
                     />
 
                     {/* Appointment History */}
@@ -381,7 +382,7 @@ export default function CustomerManager() {
                                 >
                                     <div className="flex justify-between items-start mb-2">
                                         <h4 className="text-lg font-bold text-gray-800">
-                                            {customer.name}
+                                            {formatCustomerName(customer)}
                                         </h4>
                                         <span className="text-xs text-gray-400 font-semibold uppercase">
                                             {t('customersPage.cards.viewDetails')}

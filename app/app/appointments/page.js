@@ -15,6 +15,7 @@ import { useTranslation } from '@/components/TranslationProvider'
 import { compressImage } from '@/utils/image'
 import { formatDate, formatTime, getWeekRangeText } from '@/utils/dateUtils'
 import { formatPhoneForWhatsapp } from '@/lib/phone'
+import { formatCustomerName } from '@/lib/customerName'
 
 const APPOINTMENT_PHOTO_BUCKET = 'appointment-photos'
 
@@ -154,7 +155,7 @@ export default function CompactAppointmentsPage() {
 
     const dateText = formatDate(appointment.appointment_date, resolvedLocale)
     const timeText = formatTime(appointment.appointment_time, resolvedLocale)
-    const customerName = appointment.customers?.name
+    const customerName = formatCustomerName(appointment.customers)
     const petName = appointment.pets?.name
     const petBreed = appointment.pets?.breed
     const serviceName = appointment.services?.name

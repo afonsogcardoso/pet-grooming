@@ -346,6 +346,8 @@
       "edit": "Editar cliente"
     },
     "labels": {
+      "firstName": "Primeiro nome *",
+      "lastName": "Último nome *",
       "name": "Nome do cliente *",
       "phone": "Telefone *",
       "nif": "NIF",
@@ -354,6 +356,8 @@
       "notes": "Notas"
     },
     "placeholders": {
+      "firstName": "João",
+      "lastName": "Silva",
       "name": "João Silva",
       "phone": "912 345 678",
       "nif": "Número de contribuinte (opcional)",

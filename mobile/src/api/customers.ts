@@ -10,7 +10,9 @@ export type Pet = {
 
 export type Customer = {
   id: string;
-  name: string;
+  name?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
   phone?: string | null;
   phoneCountryCode?: string | null;
   phoneNumber?: string | null;
@@ -31,7 +33,9 @@ type PetsResponse = {
 };
 
 type CreateCustomerPayload = {
-  name: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
   phone?: string | null;
   email?: string | null;
   address?: string | null;
@@ -59,7 +63,14 @@ export async function getPetsByCustomer(customerId: string): Promise<Pet[]> {
 
 export async function updateCustomer(
   id: string,
-  payload: { phone?: string | null; address?: string | null; nif?: string | null },
+  payload: {
+    firstName?: string | null;
+    lastName?: string | null;
+    name?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    nif?: string | null;
+  },
 ): Promise<Customer | null> {
   const { data } = await api.patch<{ data: Customer[] }>(`/customers/${id}`, payload);
   return data.data?.[0] || null;

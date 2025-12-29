@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from '@/components/TranslationProvider'
+import { formatCustomerName } from '@/lib/customerName'
 import { formatDate, formatTime } from '@/utils/dateUtils'
 import ConfirmationPetPhoto from './ConfirmationPetPhoto'
 import { compressImage } from '@/utils/image'
@@ -39,7 +40,7 @@ export default function ConfirmationPage({ appointment }) {
   }, [])
 
   const hasAppointment = Boolean(appointment)
-  const customer = appointment?.customers?.name || ''
+  const customer = formatCustomerName(appointment?.customers)
   const pet = appointment?.pets?.name || ''
   const petPhoto = petPhotoUrl || appointment?.pets?.photo_url || ''
   const service = appointment?.services?.name || ''

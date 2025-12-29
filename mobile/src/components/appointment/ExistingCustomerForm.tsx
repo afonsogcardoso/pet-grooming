@@ -6,6 +6,7 @@ import { AddressAutocomplete } from './AddressAutocomplete';
 import { PhoneInput } from '../common/PhoneInput';
 import type { Customer, Pet } from '../../api/customers';
 import { useEffect, useState } from 'react';
+import { formatCustomerName } from '../../utils/customer';
 
 type ExistingCustomerFormProps = {
   customerSearch: string;
@@ -295,7 +296,9 @@ export function ExistingCustomerForm({
           <View style={styles.customerCard}>
             <View style={styles.customerHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.customerHeaderText}>{selectedCustomerData.name}</Text>
+                <Text style={styles.customerHeaderText}>
+                  {formatCustomerName(selectedCustomerData)}
+                </Text>
                 {selectedCustomerData.phone ? (
                   <Text style={styles.customerHeaderSubtext}>{selectedCustomerData.phone}</Text>
                 ) : null}

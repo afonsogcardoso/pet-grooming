@@ -267,11 +267,15 @@ const swaggerDefinition = {
         type: 'object',
         properties: {
           id: { type: 'string' },
-          name: { type: 'string' },
+          firstName: { type: 'string', nullable: true },
+          lastName: { type: 'string', nullable: true },
+          name: { type: 'string', nullable: true },
           phone: { type: 'string' },
           phoneCountryCode: { type: 'string', nullable: true },
           phoneNumber: { type: 'string', nullable: true },
-          address: { type: 'string' }
+          address: { type: 'string' },
+          email: { type: 'string', nullable: true },
+          nif: { type: 'string', nullable: true }
         }
       },
       Service: {

@@ -13,6 +13,7 @@ import { Avatar } from '../components/common/Avatar';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 import { useTranslation } from 'react-i18next';
 import { buildPhone, splitPhone } from '../utils/phone';
+import { formatCustomerName } from '../utils/customer';
 
 type Props = NativeStackScreenProps<any, 'CustomerForm'>;
 
@@ -25,7 +26,22 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
-  const [name, setName] = useState(customer?.name || '');
+  const splitFullName = (value?: string | null) => {
+    if (!value) return { firstName: '', lastName: '' };
+    const parts = value.trim().split(/\s+/);
+    const firstName = parts.shift() || '';
+    const lastName = parts.length ? parts.join(' ') : '';
+    return { firstName, lastName };
+  };
+  const initialNameParts =
+    customer?.firstName || customer?.lastName
+      ? {
+          firstName: customer?.firstName || '',
+          lastName: customer?.lastName || '',
+        }
+      : splitFullName(customer?.name || '');
+  const [firstName, setFirstName] = useState(initialNameParts.firstName);
+  const [lastName, setLastName] = useState(initialNameParts.lastName);
   const initialPhone =
     customer?.phone ||
     buildPhone(
@@ -53,7 +69,14 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: { phone?: string | null; address?: string | null; nif?: string | null }) =>
+    mutationFn: (data: {
+      firstName?: string | null;
+      lastName?: string | null;
+      name?: string | null;
+      phone?: string | null;
+      address?: string | null;
+      nif?: string | null;
+    }) =>
       updateCustomer(customerId!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
@@ -68,8 +91,11 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!name.trim()) {
-      newErrors.name = t('customerForm.validationNameRequired');
+    if (!firstName.trim()) {
+      newErrors.firstName = t('customerForm.validationNameRequired');
+    }
+    if (!lastName.trim()) {
+      newErrors.lastName = t('customerForm.validationNameRequired');
     }
 
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -88,9 +114,12 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
   const handleSubmit = () => {
     if (!validate()) return;
 
+    const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
     if (mode === 'create') {
       createMutation.mutate({
-        name: name.trim(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        name: fullName,
         phone: phone.trim() || null,
         email: email.trim() || null,
         address: address.trim() || null,
@@ -98,6 +127,9 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
       });
     } else {
       updateMutation.mutate({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        name: fullName,
         phone: phone.trim() || null,
         address: address.trim() || null,
         nif: nif.trim() || null,
@@ -242,6 +274,10 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
   };
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
+  const displayName = formatCustomerName({
+    firstName,
+    lastName,
+  }) || t('customerForm.customerFallback');
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -257,7 +293,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
             <View style={styles.avatarSection}>
               <View style={styles.avatarContainer}>
                 <Avatar
-                  name={name || t('customerForm.customerFallback')}
+                  name={displayName}
                   imageUrl={photoUrl}
                   size="large"
                   onPress={mode === 'edit' ? handleAvatarPress : undefined}
@@ -273,14 +309,28 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
               )}
             </View>
 
-            <Input
-              label={t('customerForm.nameLabel')}
-              placeholder={t('customerForm.namePlaceholder')}
-              value={name}
-              onChangeText={setName}
-              error={errors.name}
-              editable={mode === 'create'}
-            />
+            <View style={styles.row}>
+              <View style={[styles.column, { flex: 1 }]}>
+                <Input
+                  label={t('customerForm.firstNameLabel')}
+                  placeholder={t('customerForm.firstNamePlaceholder')}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  error={errors.firstName}
+                  editable={mode === 'create'}
+                />
+              </View>
+              <View style={[styles.column, { flex: 1 }]}>
+                <Input
+                  label={t('customerForm.lastNameLabel')}
+                  placeholder={t('customerForm.lastNamePlaceholder')}
+                  value={lastName}
+                  onChangeText={setLastName}
+                  error={errors.lastName}
+                  editable={mode === 'create'}
+                />
+              </View>
+            </View>
 
             <PhoneInput
               label={t('common.phone')}
@@ -350,6 +400,13 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     container: {
       flex: 1,
       backgroundColor: colors.background,
+    },
+    row: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    column: {
+      flex: 1,
     },
     keyboardView: {
       flex: 1,

@@ -12,6 +12,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { MiniMap } from '../components/common/MiniMap';
 import { getStatusColor, getStatusLabel } from '../utils/appointmentStatus';
 import { getDateLocale } from '../i18n';
+import { formatCustomerName } from '../utils/customer';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -90,6 +91,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const appointment = data;
   const displayStatus = status ?? appointment?.status ?? 'scheduled';
   const customer = appointment?.customers;
+  const customerName = formatCustomerName(customer);
   const service = appointment?.services;
   const pet = appointment?.pets;
   const paymentStatus = appointment?.payment_status || 'unpaid';
@@ -100,21 +102,63 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     { value: 'completed', emoji: '✅' },
   ];
   
-  // Get all services (from appointment_services or fallback to single service)
-  const services = useMemo(() => {
+  const appointmentServices = useMemo(() => {
     if (appointment?.appointment_services && appointment.appointment_services.length > 0) {
-      return appointment.appointment_services
-        .map((entry) => entry.services)
-        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
-        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+      return appointment.appointment_services;
     }
-    return service ? [service] : [];
-  }, [appointment?.appointment_services, service]);
+    if (service) {
+      return [
+        {
+          id: service.id,
+          service_id: service.id,
+          services: service,
+          pets: pet || null,
+          price_tier_id: null,
+          price_tier_label: null,
+          price_tier_price: null,
+          appointment_service_addons: [],
+        },
+      ];
+    }
+    return [];
+  }, [appointment?.appointment_services, service, pet]);
+
+  const serviceDetails = useMemo(() => {
+    return appointmentServices.map((entry, index) => {
+      const addons = Array.isArray(entry.appointment_service_addons)
+        ? entry.appointment_service_addons
+        : [];
+      const basePrice = entry.price_tier_price ?? entry.services?.price ?? 0;
+      const addonsTotal = addons.reduce((sum, addon) => sum + (addon.price || 0), 0);
+      return {
+        key: entry.id || `${entry.service_id}-${index}`,
+        entry,
+        service: entry.services,
+        pet: entry.pets,
+        basePrice,
+        addons,
+        addonsTotal,
+        total: basePrice + addonsTotal,
+        hasTier: entry.price_tier_id || entry.price_tier_label || entry.price_tier_price != null,
+        hasAddons: addons.length > 0,
+      };
+    });
+  }, [appointmentServices]);
+
+  const services = useMemo(() => {
+    return serviceDetails
+      .map((detail) => detail.service)
+      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+      .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+  }, [serviceDetails]);
 
   const servicesTotal = useMemo(() => {
-    return services.reduce((sum, s) => sum + (s.price || 0), 0);
-  }, [services]);
+    return serviceDetails.reduce((sum, detail) => sum + detail.total, 0);
+  }, [serviceDetails]);
   const amount = appointment?.amount ?? (servicesTotal > 0 ? servicesTotal : null);
+  const showServiceBreakdown = serviceDetails.length > 0 && (
+    serviceDetails.length > 1 || serviceDetails.some((detail) => detail.hasTier || detail.hasAddons)
+  );
 
   const openMaps = async () => {
     const address = customer?.address;
@@ -158,7 +202,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     // Se começar com 9, adiciona +351 (Portugal)
     const formattedPhone = cleanPhone.startsWith('9') ? `351${cleanPhone}` : cleanPhone;
     const message = t('appointmentDetail.whatsappMessage', {
-      name: customer?.name || '',
+      name: customerName,
       dateTime: formatDateTime(
         appointment?.appointment_date,
         appointment?.appointment_time,
@@ -422,20 +466,56 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                 </View>
               </View>
               
-              {services.length > 1 && (
+              {showServiceBreakdown && (
                 <View style={styles.servicesDetailBox}>
                   <Text style={styles.servicesDetailTitle}>{t('appointmentDetail.servicesIncluded')}</Text>
-                  {services.map((s, idx) => (
-                    <View key={idx} style={styles.serviceDetailRow}>
-                      <View style={styles.serviceDetailLeft}>
-                        <View style={styles.serviceBullet} />
-                        <Text style={styles.serviceDetailName}>{s.name}</Text>
+                  {serviceDetails.map((detail, index) => {
+                    const tierLabel = detail.entry.price_tier_label || t('appointmentDetail.tierDefault');
+                    const tierPrice = detail.entry.price_tier_price;
+                    const addonsLabel = detail.addons
+                      .map((addon) => {
+                        const price = addon.price != null ? `€${Number(addon.price).toFixed(2)}` : '';
+                        return price ? `${addon.name} (${price})` : addon.name;
+                      })
+                      .filter(Boolean)
+                      .join(', ');
+                    const petName = detail.pet?.name;
+                    const showPrice = detail.total > 0 || detail.basePrice > 0 || detail.addonsTotal > 0;
+                    return (
+                      <View
+                        key={detail.key}
+                        style={[styles.serviceDetailRow, index === serviceDetails.length - 1 && styles.serviceDetailRowLast]}
+                      >
+                        <View style={styles.serviceDetailLeft}>
+                          <View style={styles.serviceBullet} />
+                          <View style={styles.serviceDetailInfo}>
+                            <Text style={styles.serviceDetailName}>
+                              {detail.service?.name || t('common.service')}
+                            </Text>
+                            {petName ? (
+                              <Text style={styles.serviceDetailMeta}>
+                                {t('appointmentDetail.pet')}: {petName}
+                              </Text>
+                            ) : null}
+                            {detail.hasTier ? (
+                              <Text style={styles.serviceDetailMeta}>
+                                {t('appointmentDetail.tierLabel')}: {tierLabel}
+                                {tierPrice != null ? ` · €${Number(tierPrice).toFixed(2)}` : ''}
+                              </Text>
+                            ) : null}
+                            {detail.hasAddons ? (
+                              <Text style={styles.serviceDetailMeta}>
+                                {t('appointmentDetail.addonsLabel')}: {addonsLabel}
+                              </Text>
+                            ) : null}
+                          </View>
+                        </View>
+                        {showPrice ? (
+                          <Text style={styles.serviceDetailPrice}>€{detail.total.toFixed(2)}</Text>
+                        ) : null}
                       </View>
-                      {s.price ? (
-                        <Text style={styles.serviceDetailPrice}>€{Number(s.price).toFixed(2)}</Text>
-                      ) : null}
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               )}
             </View>
@@ -448,7 +528,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                 activeOpacity={0.7}
               >
                 <Text style={styles.compactCardTitle}>👤 {t('appointmentDetail.customer')}</Text>
-                <Text style={styles.compactCardName}>{customer?.name || t('appointmentDetail.noCustomer')}</Text>
+                <Text style={styles.compactCardName}>{customerName || t('appointmentDetail.noCustomer')}</Text>
                 {customer?.phone ? (
                   <View style={styles.contactActions}>
                     <TouchableOpacity 
@@ -808,8 +888,11 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     serviceDetailLeft: {
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       gap: 10,
+      flex: 1,
+    },
+    serviceDetailInfo: {
       flex: 1,
     },
     serviceBullet: {
@@ -817,16 +900,25 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       height: 6,
       borderRadius: 3,
       backgroundColor: colors.primary,
+      marginTop: 6,
     },
     serviceDetailName: {
       fontSize: 15,
       color: colors.text,
       fontWeight: '500',
     },
+    serviceDetailMeta: {
+      fontSize: 12,
+      color: colors.muted,
+      marginTop: 2,
+    },
     serviceDetailPrice: {
       fontSize: 15,
       fontWeight: '700',
       color: colors.primary,
+    },
+    serviceDetailRowLast: {
+      borderBottomWidth: 0,
     },
     // Grid Row para Cliente/Pet
     gridRow: {

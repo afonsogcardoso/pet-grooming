@@ -346,6 +346,8 @@
       "edit": "Edit Customer"
     },
     "labels": {
+      "firstName": "First name *",
+      "lastName": "Last name *",
       "name": "Customer Name *",
       "phone": "Phone Number *",
       "nif": "NIF",
@@ -354,6 +356,8 @@
       "notes": "Notes"
     },
     "placeholders": {
+      "firstName": "John",
+      "lastName": "Doe",
       "name": "John Doe",
       "phone": "912 345 678",
       "nif": "Portuguese tax ID (optional)",

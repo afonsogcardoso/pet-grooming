@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { Avatar } from '../common/Avatar';
 import type { Customer } from '../../api/customers';
+import { formatCustomerName } from '../../utils/customer';
 
 interface CustomerCardProps {
   customer: Customer;
@@ -16,6 +17,7 @@ export function CustomerCard({ customer, onPress }: CustomerCardProps) {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const petCount = customer.pet_count || customer.pets?.length || 0;
+  const displayName = formatCustomerName(customer);
 
   return (
     <TouchableOpacity
@@ -23,11 +25,11 @@ export function CustomerCard({ customer, onPress }: CustomerCardProps) {
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <Avatar name={customer.name} imageUrl={customer.photo_url} size="medium" />
+      <Avatar name={displayName} imageUrl={customer.photo_url} size="medium" />
       
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>
-          {customer.name}
+          {displayName}
         </Text>
         <View style={styles.details}>
           {customer.phone && (

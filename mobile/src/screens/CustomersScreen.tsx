@@ -14,6 +14,7 @@ import { Input } from '../components/common/Input';
 import { EmptyState } from '../components/common/EmptyState';
 import { CustomerCard } from '../components/customers/CustomerCard';
 import { matchesSearchQuery } from '../utils/textHelpers';
+import { formatCustomerName } from '../utils/customer';
 import { useTranslation } from 'react-i18next';
 
 type Props = NativeStackScreenProps<any>;
@@ -40,11 +41,15 @@ export default function CustomersScreen({ navigation }: Props) {
   const filteredCustomers = useMemo(() => {
     if (!searchQuery.trim()) return customers;
     return customers.filter(
-      (c) =>
-        (c.name && matchesSearchQuery(c.name, searchQuery)) ||
-        (c.phone && matchesSearchQuery(c.phone, searchQuery)) ||
-        (c.email && matchesSearchQuery(c.email, searchQuery)) ||
-        (c.pets && c.pets.some(pet => pet.name && matchesSearchQuery(pet.name, searchQuery)))
+      (c) => {
+        const nameValue = formatCustomerName(c);
+        return (
+          (nameValue && matchesSearchQuery(nameValue, searchQuery)) ||
+          (c.phone && matchesSearchQuery(c.phone, searchQuery)) ||
+          (c.email && matchesSearchQuery(c.email, searchQuery)) ||
+          (c.pets && c.pets.some((pet) => pet.name && matchesSearchQuery(pet.name, searchQuery)))
+        );
+      }
     );
   }, [customers, searchQuery]);
 
@@ -112,7 +117,8 @@ export default function CustomersScreen({ navigation }: Props) {
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <SwipeableRow onDelete={() => {
-                  Alert.alert(t('customers.deleteTitle'), t('customers.deletePrompt', { name: item.name }), [
+                  const displayName = formatCustomerName(item);
+                  Alert.alert(t('customers.deleteTitle'), t('customers.deletePrompt', { name: displayName }), [
                     { text: t('common.cancel'), style: 'cancel' },
                     { text: t('customers.deleteAction'), style: 'destructive', onPress: () => deleteMutation.mutate(item.id) },
                   ]);
