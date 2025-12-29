@@ -25,6 +25,26 @@ function ensureSupabaseConfig(res) {
   return createClient(supabaseUrl, supabaseAnonKey)
 }
 
+function collectAuthProviders(user) {
+  if (!user) return []
+  const providers = new Set()
+  const appMeta = user.app_metadata || {}
+  const metaProviders = Array.isArray(appMeta.providers) ? appMeta.providers : []
+  metaProviders.forEach((entry) => {
+    if (entry) providers.add(entry.toString().toLowerCase())
+  })
+  if (appMeta.provider) {
+    providers.add(appMeta.provider.toString().toLowerCase())
+  }
+  const identities = Array.isArray(user.identities) ? user.identities : []
+  identities.forEach((identity) => {
+    if (identity?.provider) {
+      providers.add(identity.provider.toString().toLowerCase())
+    }
+  })
+  return Array.from(providers)
+}
+
 async function ensureUniqueSlug(supabaseAdmin, baseSlug) {
   let slug = baseSlug
   let attempt = 0
@@ -416,13 +436,23 @@ router.get('/profile', async (req, res) => {
   }
 
   const user = data.user
-  const roles = user?.app_metadata?.roles || []
+  const supabaseAdmin = getSupabaseServiceRoleClient()
+  let enrichedUser = user
+  if (supabaseAdmin) {
+    const { data: adminUserData } = await supabaseAdmin.auth.admin.getUserById(user.id)
+    if (adminUserData?.user) {
+      enrichedUser = adminUserData.user
+    }
+  }
+
+  const roles = enrichedUser?.app_metadata?.roles || []
   const platformAdmin =
-    Boolean(user?.user_metadata?.platform_admin) ||
-    Boolean(user?.app_metadata?.platform_admin) ||
+    Boolean(enrichedUser?.user_metadata?.platform_admin) ||
+    Boolean(enrichedUser?.app_metadata?.platform_admin) ||
     roles.includes('platform_admin')
 
-  const { data: memberships, error: membershipError } = await supabase
+  const membershipClient = supabaseAdmin || supabase
+  const { data: memberships, error: membershipError } = await membershipClient
     .from('account_members')
     .select(
       `
@@ -442,9 +472,9 @@ router.get('/profile', async (req, res) => {
   }
 
   const profilePhone = normalizePhoneParts({
-    phone: user.user_metadata?.phone,
-    phoneCountryCode: user.user_metadata?.phone_country_code,
-    phoneNumber: user.user_metadata?.phone_number
+    phone: enrichedUser.user_metadata?.phone,
+    phoneCountryCode: enrichedUser.user_metadata?.phone_country_code,
+    phoneNumber: enrichedUser.user_metadata?.phone_number
   })
   const responsePhone = profilePhone.phone === undefined ? null : profilePhone.phone
   const responsePhoneCountryCode =
@@ -452,23 +482,24 @@ router.get('/profile', async (req, res) => {
   const responsePhoneNumber =
     profilePhone.phone_number === undefined ? null : profilePhone.phone_number
   return res.json({
-    id: user.id,
-    email: user.email,
+    id: enrichedUser.id,
+    email: enrichedUser.email,
     displayName:
-      user.user_metadata?.display_name ||
-      [user.user_metadata?.first_name, user.user_metadata?.last_name].filter(Boolean).join(' ') ||
-      user.email ||
+      enrichedUser.user_metadata?.display_name ||
+      [enrichedUser.user_metadata?.first_name, enrichedUser.user_metadata?.last_name].filter(Boolean).join(' ') ||
+      enrichedUser.email ||
       null,
-    firstName: user.user_metadata?.first_name ?? null,
-    lastName: user.user_metadata?.last_name ?? null,
+    firstName: enrichedUser.user_metadata?.first_name ?? null,
+    lastName: enrichedUser.user_metadata?.last_name ?? null,
     phone: responsePhone,
     phoneCountryCode: responsePhoneCountryCode,
     phoneNumber: responsePhoneNumber,
-    locale: user.user_metadata?.preferred_locale ?? 'pt',
-    avatarUrl: user.user_metadata?.avatar_url ?? null,
-    userType: user.user_metadata?.user_type ?? 'provider',
-    lastLoginAt: user.last_sign_in_at ?? null,
-    createdAt: user.created_at ?? null,
+    locale: enrichedUser.user_metadata?.preferred_locale ?? 'pt',
+    avatarUrl: enrichedUser.user_metadata?.avatar_url ?? null,
+    userType: enrichedUser.user_metadata?.user_type ?? 'provider',
+    lastLoginAt: enrichedUser.last_sign_in_at ?? null,
+    createdAt: enrichedUser.created_at ?? null,
+    authProviders: collectAuthProviders(enrichedUser),
     memberships: memberships || [],
     platformAdmin
   })
