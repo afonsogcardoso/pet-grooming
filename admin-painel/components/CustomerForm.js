@@ -7,19 +7,15 @@
 
 import { useEffect, useState } from 'react'
 import { useTranslation } from '@/components/TranslationProvider'
-import { splitCustomerName } from '@/lib/customerName'
 import PhoneInput from '@/components/PhoneInput'
 
 export default function CustomerForm({ onSubmit, onCancel, onDelete, initialData = null }) {
     const { t } = useTranslation()
     const buildState = (data = {}) => {
         const source = data || {}
-        const initialParts = source.firstName || source.lastName
-            ? { firstName: source.firstName || '', lastName: source.lastName || '' }
-            : splitCustomerName(source.name || '')
         return {
-            firstName: initialParts.firstName,
-            lastName: initialParts.lastName,
+            firstName: source.firstName || '',
+            lastName: source.lastName || '',
             phone: source.phone || '',
             nif: source.nif || '',
             email: source.email || '',
@@ -38,8 +34,7 @@ export default function CustomerForm({ onSubmit, onCancel, onDelete, initialData
 
     const handleSubmit = (e) => {
         e.preventDefault()
-        const fullName = [formData.firstName, formData.lastName].filter(Boolean).join(' ')
-        onSubmit({ ...formData, name: fullName })
+        onSubmit(formData)
     }
 
     return (
@@ -89,6 +84,19 @@ export default function CustomerForm({ onSubmit, onCancel, onDelete, initialData
                         />
                     </div>
 
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-bold text-gray-800 mb-2">
+                            {t('customerForm.labels.email')}
+                        </label>
+                        <input
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            className="w-full px-4 py-4 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)] text-lg bg-white text-gray-900 placeholder-gray-500 font-medium"
+                            placeholder={t('customerForm.placeholders.email')}
+                        />
+                    </div>
+
                     <div>
                         <label className="block text-sm font-bold text-gray-800 mb-2">
                             {t('customerForm.labels.nif')}
@@ -101,19 +109,6 @@ export default function CustomerForm({ onSubmit, onCancel, onDelete, initialData
                             placeholder={t('customerForm.placeholders.nif')}
                             maxLength={20}
                             inputMode="numeric"
-                        />
-                    </div>
-
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-bold text-gray-800 mb-2">
-                            {t('customerForm.labels.email')}
-                        </label>
-                        <input
-                            type="email"
-                            value={formData.email}
-                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                            className="w-full px-4 py-4 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)] text-lg bg-white text-gray-900 placeholder-gray-500 font-medium"
-                            placeholder={t('customerForm.placeholders.email')}
                         />
                     </div>
 

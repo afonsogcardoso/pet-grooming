@@ -718,7 +718,6 @@ export default function NewAppointmentScreen({ navigation }: Props) {
         createdCustomer = await createCustomer({
           firstName: newCustomerFirstName.trim(),
           lastName: newCustomerLastName.trim(),
-          name: newCustomerFullName,
           phone: newCustomerPhone.trim() || null,
           email: newCustomerEmail.trim() || null,
           address: newCustomerAddress.trim() || null,

@@ -10,7 +10,6 @@ export type Pet = {
 
 export type Customer = {
   id: string;
-  name?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   phone?: string | null;
@@ -33,7 +32,6 @@ type PetsResponse = {
 };
 
 type CreateCustomerPayload = {
-  name?: string;
   firstName?: string;
   lastName?: string;
   phone?: string | null;
@@ -66,7 +64,6 @@ export async function updateCustomer(
   payload: {
     firstName?: string | null;
     lastName?: string | null;
-    name?: string | null;
     phone?: string | null;
     address?: string | null;
     nif?: string | null;

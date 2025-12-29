@@ -8,7 +8,7 @@ import { getCurrentAccountId } from './accountHelpers'
 import { apiGet, apiPost, apiPatch, hasExternalApi } from './apiClient'
 import { getStoredAccessToken } from './authTokens'
 import { buildPhone, splitPhone } from './phone'
-import { formatCustomerName, splitCustomerName } from './customerName'
+import { formatCustomerName } from './customerName'
 
 async function getApiToken() {
     return getStoredAccessToken() || null
@@ -49,33 +49,17 @@ function applyPhoneFields(payload = {}) {
 
 function applyNameFields(payload = {}) {
     const next = { ...payload }
-    const hasFirstName = Object.prototype.hasOwnProperty.call(next, 'firstName') ||
-        Object.prototype.hasOwnProperty.call(next, 'first_name')
-    const hasLastName = Object.prototype.hasOwnProperty.call(next, 'lastName') ||
-        Object.prototype.hasOwnProperty.call(next, 'last_name')
-    const hasName = Object.prototype.hasOwnProperty.call(next, 'name')
-
-    if (hasFirstName) {
-        next.first_name = next.firstName ?? next.first_name
+    if (Object.prototype.hasOwnProperty.call(next, 'firstName')) {
+        next.first_name = next.firstName
         delete next.firstName
     }
-    if (hasLastName) {
-        next.last_name = next.lastName ?? next.last_name
+    if (Object.prototype.hasOwnProperty.call(next, 'lastName')) {
+        next.last_name = next.lastName
         delete next.lastName
     }
-
-    if (!hasFirstName && !hasLastName && hasName) {
-        const split = splitCustomerName(next.name)
-        if (next.first_name === undefined) next.first_name = split.firstName || null
-        if (next.last_name === undefined) next.last_name = split.lastName || null
+    if (Object.prototype.hasOwnProperty.call(next, 'name')) {
+        delete next.name
     }
-
-    const shouldUpdateName = hasName || (hasFirstName && hasLastName)
-    if (shouldUpdateName) {
-        const combined = [next.first_name, next.last_name].filter(Boolean).join(' ')
-        if (combined) next.name = combined
-    }
-
     return next
 }
 
@@ -423,7 +407,7 @@ export async function loadCustomerAppointments(customerId) {
         .from('appointments')
         .select(`
             *,
-            customers (name, first_name, last_name, phone, nif),
+            customers (first_name, last_name, phone, nif),
             pets (name),
             services (name)
         `)

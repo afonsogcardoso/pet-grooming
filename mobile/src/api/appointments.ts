@@ -13,7 +13,6 @@ export type Appointment = {
   after_photo_url?: string | null;
   customers?: {
     id: string;
-    name?: string | null;
     firstName?: string | null;
     lastName?: string | null;
     phone?: string | null;

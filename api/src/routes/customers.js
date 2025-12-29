@@ -62,51 +62,24 @@ function normalizeNamePart(value) {
   return trimmed ? trimmed : null
 }
 
-function splitLegacyName(name) {
-  const trimmed = normalizeNamePart(name)
-  if (!trimmed) return { first: null, last: null }
-  const parts = trimmed.split(/\s+/)
-  const first = parts.shift() || null
-  const last = parts.length > 0 ? parts.join(' ') : null
-  return { first, last }
-}
-
-function applyNamePayload(payload, { forceName = false } = {}) {
-  const hasFirstName =
-    Object.prototype.hasOwnProperty.call(payload, 'firstName') ||
-    Object.prototype.hasOwnProperty.call(payload, 'first_name')
-  const hasLastName =
-    Object.prototype.hasOwnProperty.call(payload, 'lastName') ||
-    Object.prototype.hasOwnProperty.call(payload, 'last_name')
-  const hasName = Object.prototype.hasOwnProperty.call(payload, 'name')
-
-  if (hasFirstName) {
-    payload.first_name = normalizeNamePart(payload.firstName ?? payload.first_name)
+function applyNamePayload(payload) {
+  if (Object.prototype.hasOwnProperty.call(payload, 'firstName')) {
+    payload.first_name = normalizeNamePart(payload.firstName)
+    delete payload.firstName
   }
-  if (hasLastName) {
-    payload.last_name = normalizeNamePart(payload.lastName ?? payload.last_name)
+  if (Object.prototype.hasOwnProperty.call(payload, 'lastName')) {
+    payload.last_name = normalizeNamePart(payload.lastName)
+    delete payload.lastName
   }
-  if (Object.prototype.hasOwnProperty.call(payload, 'firstName')) delete payload.firstName
-  if (Object.prototype.hasOwnProperty.call(payload, 'lastName')) delete payload.lastName
-
-  if (!hasFirstName && !hasLastName && hasName) {
-    const split = splitLegacyName(payload.name)
-    if (payload.first_name === undefined) payload.first_name = split.first
-    if (payload.last_name === undefined) payload.last_name = split.last
+  if (Object.prototype.hasOwnProperty.call(payload, 'first_name')) {
+    payload.first_name = normalizeNamePart(payload.first_name)
   }
-
-  const shouldUpdateName = forceName || (hasFirstName && hasLastName) || hasName
-  if (shouldUpdateName) {
-    const combined = [payload.first_name, payload.last_name].filter(Boolean).join(' ')
-    if (combined) {
-      payload.name = combined
-    } else if (hasName) {
-      payload.name = normalizeNamePart(payload.name)
-    } else {
-      payload.name = null
-    }
+  if (Object.prototype.hasOwnProperty.call(payload, 'last_name')) {
+    payload.last_name = normalizeNamePart(payload.last_name)
   }
-
+  if (Object.prototype.hasOwnProperty.call(payload, 'name')) {
+    delete payload.name
+  }
   return payload
 }
 
@@ -120,7 +93,7 @@ router.get('/', async (req, res) => {
 
   const { data, error } = await supabase
     .from('customers')
-    .select('id,name,first_name,last_name,phone,phone_country_code,phone_number,email,address,nif,photo_url,account_id,pets(id,name,breed,photo_url,weight)')
+    .select('id,first_name,last_name,phone,phone_country_code,phone_number,email,address,nif,photo_url,account_id,pets(id,name,breed,photo_url,weight)')
     .eq('account_id', accountId)
     .order('first_name', { ascending: true })
     .order('last_name', { ascending: true })
@@ -144,7 +117,13 @@ router.post('/', async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
-  const payload = applyNamePayload(applyPhonePayload(sanitizeBody(req.body || {})), { forceName: true })
+  const payload = applyNamePayload(applyPhonePayload(sanitizeBody(req.body || {})))
+  if (!payload.first_name) {
+    return res.status(400).json({ error: 'first_name_required' })
+  }
+  if (!payload.last_name) {
+    return res.status(400).json({ error: 'last_name_required' })
+  }
   if (accountId) {
     payload.account_id = accountId
   }
@@ -251,6 +230,12 @@ router.patch('/:id', async (req, res) => {
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
   const { id } = req.params
   const payload = applyNamePayload(applyPhonePayload(sanitizeBody(req.body || {})))
+  if (Object.prototype.hasOwnProperty.call(payload, 'first_name') && !payload.first_name) {
+    return res.status(400).json({ error: 'first_name_required' })
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'last_name') && !payload.last_name) {
+    return res.status(400).json({ error: 'last_name_required' })
+  }
 
   let query = supabase.from('customers').update(payload).eq('id', id)
   if (accountId) {

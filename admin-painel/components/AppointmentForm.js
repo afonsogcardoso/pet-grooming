@@ -367,13 +367,9 @@ export default function AppointmentForm({
 
     async function handleCreateCustomer(e) {
         e.preventDefault()
-        const fullName = [customerFormData.firstName, customerFormData.lastName]
-            .filter(Boolean)
-            .join(' ')
         const payload = {
             firstName: customerFormData.firstName,
             lastName: customerFormData.lastName,
-            name: fullName,
             phone: customerFormData.phone,
             email: customerFormData.email,
             address: customerFormData.address,
@@ -506,13 +502,9 @@ export default function AppointmentForm({
                 return
             }
 
-            const fullName = [customerFormData.firstName, customerFormData.lastName]
-                .filter(Boolean)
-                .join(' ')
             const { data: newCustomer, error: customerError } = await createCustomer({
                 firstName: customerFormData.firstName,
                 lastName: customerFormData.lastName,
-                name: fullName,
                 phone: customerFormData.phone,
                 nif: customerFormData.nif || null,
                 email: customerFormData.email || null,
@@ -867,6 +859,15 @@ export default function AppointmentForm({
                                         inputClassName="border-2 border-gray-400 text-sm font-medium"
                                     />
                                     <input
+                                        type="email"
+                                        value={customerFormData.email}
+                                        onChange={(e) =>
+                                            setCustomerFormData({ ...customerFormData, email: e.target.value })
+                                        }
+                                        placeholder={t('customerForm.placeholders.email')}
+                                        className="w-full rounded-lg border-2 border-gray-200 px-3 py-2 text-sm bg-white text-gray-900 font-medium focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)]"
+                                    />
+                                    <input
                                         type="text"
                                         value={customerFormData.nif}
                                         onChange={(e) =>
@@ -876,15 +877,6 @@ export default function AppointmentForm({
                                             })
                                         }
                                         placeholder={t('customerForm.placeholders.nif')}
-                                        className="w-full rounded-lg border-2 border-gray-200 px-3 py-2 text-sm bg-white text-gray-900 font-medium focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)]"
-                                    />
-                                    <input
-                                        type="email"
-                                        value={customerFormData.email}
-                                        onChange={(e) =>
-                                            setCustomerFormData({ ...customerFormData, email: e.target.value })
-                                        }
-                                        placeholder={t('customerForm.placeholders.email')}
                                         className="w-full rounded-lg border-2 border-gray-200 px-3 py-2 text-sm bg-white text-gray-900 font-medium focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)]"
                                     />
                                     <input
@@ -1394,20 +1386,6 @@ export default function AppointmentForm({
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-800 mb-2">
-                                        {t('customerForm.labels.nif')}
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={customerFormData.nif}
-                                        onChange={(e) =>
-                                            setCustomerFormData({ ...customerFormData, nif: e.target.value.trim() })
-                                        }
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)] text-base bg-white text-gray-900 font-medium"
-                                        placeholder={t('customerForm.placeholders.nif')}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-800 mb-2">
                                         {t('customerForm.labels.email')}
                                     </label>
                                     <input
@@ -1418,6 +1396,20 @@ export default function AppointmentForm({
                                         }
                                         className="w-full px-4 py-3 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)] text-base bg-white text-gray-900 font-medium"
                                         placeholder={t('customerForm.placeholders.email')}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-800 mb-2">
+                                        {t('customerForm.labels.nif')}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={customerFormData.nif}
+                                        onChange={(e) =>
+                                            setCustomerFormData({ ...customerFormData, nif: e.target.value.trim() })
+                                        }
+                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[color:var(--brand-primary)] focus:border-[color:var(--brand-primary)] text-base bg-white text-gray-900 font-medium"
+                                        placeholder={t('customerForm.placeholders.nif')}
                                     />
                                 </div>
                                 <div>

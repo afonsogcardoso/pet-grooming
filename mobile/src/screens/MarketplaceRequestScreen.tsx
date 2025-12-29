@@ -70,9 +70,8 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
   const [showPicker, setShowPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [contactName, setContactName] = useState(
-    [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.displayName || ''
-  );
+  const [contactFirstName, setContactFirstName] = useState(user?.firstName || '');
+  const [contactLastName, setContactLastName] = useState(user?.lastName || '');
   const [contactEmail, setContactEmail] = useState(user?.email || '');
   const [contactPhone, setContactPhone] = useState('');
   const [petName, setPetName] = useState('');
@@ -151,14 +150,15 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
   };
 
   const handleSubmit = () => {
-    const trimmedName = contactName.trim();
+    const trimmedFirstName = contactFirstName.trim();
+    const trimmedLastName = contactLastName.trim();
     const trimmedEmail = contactEmail.trim();
     const trimmedPhone = contactPhone.trim();
     const trimmedPetName = petName.trim();
     const trimmedBreed = petBreed.trim();
     const trimmedNotes = notes.trim();
 
-    if (!trimmedName || !trimmedEmail || !trimmedPhone) {
+    if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !trimmedPhone) {
       Alert.alert(t('marketplaceRequest.errorTitle'), t('marketplaceRequest.missingFields'));
       return;
     }
@@ -182,7 +182,8 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
       appointment_time: time,
       notes: trimmedNotes || null,
       customer: {
-        name: trimmedName,
+        firstName: trimmedFirstName,
+        lastName: trimmedLastName,
         email: trimmedEmail,
         phone: trimmedPhone,
       },
@@ -230,12 +231,24 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>{t('marketplaceRequest.contactTitle')}</Text>
-          <Input
-            label={t('common.name')}
-            value={contactName}
-            onChangeText={setContactName}
-            placeholder={t('common.name')}
-          />
+          <View style={styles.nameRow}>
+            <View style={styles.nameColumn}>
+              <Input
+                label={t('marketplaceRequest.firstNameLabel')}
+                value={contactFirstName}
+                onChangeText={setContactFirstName}
+                placeholder={t('marketplaceRequest.firstNamePlaceholder')}
+              />
+            </View>
+            <View style={styles.nameColumn}>
+              <Input
+                label={t('marketplaceRequest.lastNameLabel')}
+                value={contactLastName}
+                onChangeText={setContactLastName}
+                placeholder={t('marketplaceRequest.lastNamePlaceholder')}
+              />
+            </View>
+          </View>
           <Input
             label={t('common.email')}
             value={contactEmail}
@@ -436,6 +449,13 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginBottom: 12,
       textTransform: 'uppercase',
       letterSpacing: 0.6,
+    },
+    nameRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    nameColumn: {
+      flex: 1,
     },
     dateRow: {
       flexDirection: 'row',

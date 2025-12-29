@@ -16,7 +16,7 @@ const APPOINTMENT_CONFIRM_SELECT = `
   payment_status,
   account_id,
   public_token,
-  customers ( id, name, first_name, last_name, phone, phone_country_code, phone_number, address ),
+  customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address ),
   pets ( id, name, breed, photo_url, weight ),
   services ( id, name )
 `
@@ -30,7 +30,7 @@ const APPOINTMENT_DETAIL_SELECT = `
   status,
   before_photo_url,
   after_photo_url,
-  customers ( id, name, first_name, last_name, phone, phone_country_code, phone_number, address ),
+  customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address ),
   services ( id, name, price ),
   pets ( id, name, breed, photo_url, weight ),
   appointment_services (
@@ -247,7 +247,7 @@ router.get('/', async (req, res) => {
       status,
       before_photo_url,
       after_photo_url,
-      customers ( id, name, first_name, last_name, phone, phone_country_code, phone_number, address ),
+      customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address ),
       services ( id, name, price ),
       pets ( id, name, breed, photo_url, weight ),
       appointment_services (
@@ -405,7 +405,7 @@ router.patch('/:id/status', async (req, res) => {
       notes,
       payment_status,
       status,
-      customers ( id, name, first_name, last_name, phone, phone_country_code, phone_number, address ),
+      customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address ),
       services ( id, name, price ),
       pets ( id, name, breed, photo_url, weight )
     `
@@ -487,7 +487,7 @@ router.patch('/:id', async (req, res) => {
       notes,
       payment_status,
       status,
-      customers ( id, name, first_name, last_name, phone, phone_country_code, phone_number, address ),
+      customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address ),
       services ( id, name, price ),
       pets ( id, name, breed, photo_url )
     `
@@ -824,7 +824,7 @@ router.get('/:id/share', async (req, res) => {
       notes,
       before_photo_url,
       after_photo_url,
-      customers ( id, name, first_name, last_name, phone, phone_country_code, phone_number ),
+      customers ( id, first_name, last_name, phone, phone_country_code, phone_number ),
       pets ( id, name, breed, weight ),
       appointment_services ( 
         service_id,

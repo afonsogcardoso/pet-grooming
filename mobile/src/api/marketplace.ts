@@ -44,7 +44,8 @@ export type MarketplaceBookingPayload = {
   save_pet?: boolean;
   notes?: string | null;
   customer?: {
-    name?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
     phone?: string | null;
     email?: string | null;
     address?: string | null;

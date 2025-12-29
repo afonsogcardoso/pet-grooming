@@ -26,22 +26,10 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
-  const splitFullName = (value?: string | null) => {
-    if (!value) return { firstName: '', lastName: '' };
-    const parts = value.trim().split(/\s+/);
-    const firstName = parts.shift() || '';
-    const lastName = parts.length ? parts.join(' ') : '';
-    return { firstName, lastName };
-  };
-  const initialNameParts =
-    customer?.firstName || customer?.lastName
-      ? {
-          firstName: customer?.firstName || '',
-          lastName: customer?.lastName || '',
-        }
-      : splitFullName(customer?.name || '');
-  const [firstName, setFirstName] = useState(initialNameParts.firstName);
-  const [lastName, setLastName] = useState(initialNameParts.lastName);
+  const initialFirstName = customer?.firstName || '';
+  const initialLastName = customer?.lastName || '';
+  const [firstName, setFirstName] = useState(initialFirstName);
+  const [lastName, setLastName] = useState(initialLastName);
   const initialPhone =
     customer?.phone ||
     buildPhone(
@@ -72,7 +60,6 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
     mutationFn: (data: {
       firstName?: string | null;
       lastName?: string | null;
-      name?: string | null;
       phone?: string | null;
       address?: string | null;
       nif?: string | null;
@@ -114,12 +101,10 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
   const handleSubmit = () => {
     if (!validate()) return;
 
-    const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
     if (mode === 'create') {
       createMutation.mutate({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        name: fullName,
         phone: phone.trim() || null,
         email: email.trim() || null,
         address: address.trim() || null,
@@ -129,7 +114,6 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
       updateMutation.mutate({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        name: fullName,
         phone: phone.trim() || null,
         address: address.trim() || null,
         nif: nif.trim() || null,
@@ -354,6 +338,15 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
             />
 
             <Input
+              label={t('customerDetail.nif')}
+              placeholder={t('customerForm.nifPlaceholder')}
+              value={nif}
+              onChangeText={setNif}
+              error={errors.nif}
+              keyboardType="number-pad"
+            />
+
+            <Input
               label={t('customerDetail.address')}
               placeholder={t('customerForm.addressPlaceholder')}
               value={address}
@@ -361,15 +354,6 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
               error={errors.address}
               multiline
               numberOfLines={3}
-            />
-
-            <Input
-              label={t('customerDetail.nif')}
-              placeholder={t('customerForm.nifPlaceholder')}
-              value={nif}
-              onChangeText={setNif}
-              error={errors.nif}
-              keyboardType="number-pad"
             />
 
             {mode === 'create' && (

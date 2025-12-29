@@ -9,8 +9,7 @@ function formatCustomerName(customer) {
   const first = normalizeNamePart(customer.first_name ?? customer.firstName)
   const last = normalizeNamePart(customer.last_name ?? customer.lastName)
   const combined = [first, last].filter(Boolean).join(' ')
-  if (combined) return combined
-  return normalizeNamePart(customer.name) || ''
+  return combined
 }
 
 function mapCustomerForApi(customer) {
@@ -32,8 +31,8 @@ function mapCustomerForApi(customer) {
     mapped.lastName = mapped.last_name
     delete mapped.last_name
   }
-  if (!mapped.name) {
-    mapped.name = formatCustomerName(mapped)
+  if (Object.prototype.hasOwnProperty.call(mapped, 'name')) {
+    delete mapped.name
   }
   return mapped
 }

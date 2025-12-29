@@ -15,7 +15,6 @@ const APPOINTMENT_SELECT = `
     whatsapp_sent_at,
     customers (
         id,
-        name,
         first_name,
         last_name,
         phone,

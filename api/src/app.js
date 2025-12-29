@@ -265,11 +265,11 @@ const swaggerDefinition = {
       },
       Customer: {
         type: 'object',
+        required: ['firstName', 'lastName'],
         properties: {
           id: { type: 'string' },
-          firstName: { type: 'string', nullable: true },
-          lastName: { type: 'string', nullable: true },
-          name: { type: 'string', nullable: true },
+          firstName: { type: 'string' },
+          lastName: { type: 'string' },
           phone: { type: 'string' },
           phoneCountryCode: { type: 'string', nullable: true },
           phoneNumber: { type: 'string', nullable: true },
