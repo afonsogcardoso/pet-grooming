@@ -13,7 +13,7 @@ import PetForm from './PetForm'
 import { useTranslation } from '@/components/TranslationProvider'
 import { compressImage } from '@/utils/image'
 
-const PET_PHOTO_BUCKET = 'pet-photos'
+const PET_PHOTO_BUCKET = 'pets'
 
 export default function PetManager({ customerId, customerName }) {
     const { t } = useTranslation()

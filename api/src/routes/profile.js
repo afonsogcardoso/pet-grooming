@@ -77,6 +77,7 @@ router.patch('/', async (req, res) => {
     phone,
     phoneCountryCode,
     phoneNumber,
+    address,
     locale,
     avatarUrl,
     activeRole
@@ -89,6 +90,10 @@ router.patch('/', async (req, res) => {
   if (displayName !== undefined) metadataUpdates.display_name = displayName?.trim() || null
   if ((trimmedFirstName || trimmedLastName) && displayName === undefined) {
     metadataUpdates.display_name = [trimmedFirstName, trimmedLastName].filter(Boolean).join(' ') || null
+  }
+  if (address !== undefined) {
+    const trimmedAddress = address?.toString().trim()
+    metadataUpdates.address = trimmedAddress || null
   }
   let hasPhonePayload = false
   if (phone !== undefined) hasPhonePayload = true
@@ -212,12 +217,13 @@ router.patch('/', async (req, res) => {
     user: {
       id: updatedUser?.id,
       email: updatedUser?.email,
-      displayName: updatedDisplayName,
-      firstName: updatedFirstName,
-      lastName: updatedLastName,
-      phone: responsePhone.phone === undefined ? null : responsePhone.phone,
-      phoneCountryCode: responsePhoneCountryCode,
-      phoneNumber: responsePhoneNumber,
+    displayName: updatedDisplayName,
+    firstName: updatedFirstName,
+    lastName: updatedLastName,
+    address: updatedUser?.user_metadata?.address ?? null,
+    phone: responsePhone.phone === undefined ? null : responsePhone.phone,
+    phoneCountryCode: responsePhoneCountryCode,
+    phoneNumber: responsePhoneNumber,
       locale: updatedUser?.user_metadata?.preferred_locale === undefined ? null : updatedUser?.user_metadata?.preferred_locale,
       avatarUrl: updatedUser?.user_metadata?.avatar_url === undefined ? null : updatedUser?.user_metadata?.avatar_url,
       activeRole: resolvedActiveRole,

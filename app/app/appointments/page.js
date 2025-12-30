@@ -17,7 +17,7 @@ import { formatDate, formatTime, getWeekRangeText } from '@/utils/dateUtils'
 import { formatPhoneForWhatsapp } from '@/lib/phone'
 import { formatCustomerName } from '@/lib/customerName'
 
-const APPOINTMENT_PHOTO_BUCKET = 'appointment-photos'
+const APPOINTMENT_PHOTO_BUCKET = 'appointments'
 
 const LoadingCard = ({ labelKey }) => {
   const { t } = useTranslation()

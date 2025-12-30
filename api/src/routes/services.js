@@ -6,7 +6,7 @@ import { sanitizeBody } from '../utils/payload.js'
 
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
-const SERVICE_IMAGE_BUCKET = 'service-images'
+const SERVICE_IMAGE_BUCKET = 'services'
 
 const SERVICE_SELECT_FIELDS =
   'id,name,default_duration,price,active,description,display_order,category,subcategory,pet_type,pricing_model,image_url'

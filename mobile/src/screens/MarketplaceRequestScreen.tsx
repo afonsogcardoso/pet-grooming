@@ -18,8 +18,10 @@ import { Button, Input, PhoneInput } from '../components/common';
 import { DateTimePickerModal } from '../components/appointment/DateTimePickerModal';
 import { createMarketplaceBooking, MarketplaceBookingPayload } from '../api/marketplace';
 import { getConsumerPets } from '../api/consumerPets';
+import { getProfile } from '../api/profile';
 import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
+import { buildPhone } from '../utils/phone';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -74,6 +76,7 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
   const [contactLastName, setContactLastName] = useState(user?.lastName || '');
   const [contactEmail, setContactEmail] = useState(user?.email || '');
   const [contactPhone, setContactPhone] = useState('');
+  const [contactAddress, setContactAddress] = useState('');
   const [petName, setPetName] = useState('');
   const [petBreed, setPetBreed] = useState('');
   const [petWeight, setPetWeight] = useState('');
@@ -85,6 +88,11 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
   const { data: profilePets = [], isLoading: loadingProfilePets } = useQuery({
     queryKey: ['consumerPets'],
     queryFn: getConsumerPets,
+  });
+  const { data: profile } = useQuery({
+    queryKey: ['profile'],
+    queryFn: getProfile,
+    staleTime: 1000 * 60 * 2,
   });
   const hasProfilePets = profilePets.length > 0;
 
@@ -100,6 +108,20 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
       setSelectedPetId(profilePets[0]?.id || null);
     }
   }, [hasProfilePets, loadingProfilePets, profilePets, selectedPetId, useProfilePet]);
+
+  useEffect(() => {
+    if (!profile) return;
+    setContactFirstName((prev) => (prev.trim() ? prev : profile.firstName || prev));
+    setContactLastName((prev) => (prev.trim() ? prev : profile.lastName || prev));
+    setContactEmail((prev) => (prev.trim() ? prev : profile.email || prev));
+    setContactPhone((prev) => {
+      if (prev.trim()) return prev;
+      const resolvedPhone =
+        profile.phone || buildPhone(profile.phoneCountryCode, profile.phoneNumber);
+      return resolvedPhone || prev;
+    });
+    setContactAddress((prev) => (prev.trim() ? prev : profile.address || prev));
+  }, [profile]);
 
   const parsedDate = useMemo(() => new Date(`${date}T00:00:00`), [date]);
   const parsedTime = useMemo(() => new Date(`1970-01-01T${time}:00`), [time]);
@@ -154,6 +176,7 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
     const trimmedLastName = contactLastName.trim();
     const trimmedEmail = contactEmail.trim();
     const trimmedPhone = contactPhone.trim();
+    const trimmedAddress = contactAddress.trim();
     const trimmedPetName = petName.trim();
     const trimmedBreed = petBreed.trim();
     const trimmedNotes = notes.trim();
@@ -186,6 +209,7 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
         lastName: trimmedLastName,
         email: trimmedEmail,
         phone: trimmedPhone,
+        address: trimmedAddress || null,
       },
     };
 
@@ -262,6 +286,12 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
             value={contactPhone}
             onChange={setContactPhone}
             placeholder={t('common.phone')}
+          />
+          <Input
+            label={t('marketplaceRequest.addressLabel')}
+            value={contactAddress}
+            onChangeText={setContactAddress}
+            placeholder={t('marketplaceRequest.addressPlaceholder')}
           />
         </View>
 

@@ -143,6 +143,7 @@ export default function RegisterScreen({ navigation }: Props) {
       avatarUrl?: string | null;
       firstName?: string | null;
       lastName?: string | null;
+      address?: string | null;
       activeRole?: 'consumer' | 'provider' | null;
     };
   }) => {
@@ -157,6 +158,7 @@ export default function RegisterScreen({ navigation }: Props) {
         avatarUrl: profile.avatarUrl,
         firstName: profile.firstName,
         lastName: profile.lastName,
+        address: profile.address,
         activeRole: profile.activeRole,
       });
     } catch {

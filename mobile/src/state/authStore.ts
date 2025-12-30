@@ -13,6 +13,7 @@ type AuthState = {
     avatarUrl?: string | null;
     firstName?: string | null;
     lastName?: string | null;
+    address?: string | null;
     activeRole?: 'consumer' | 'provider' | null;
   } | null;
   setTokens: (params: { token: string; refreshToken?: string | null }) => Promise<void>;
@@ -23,6 +24,7 @@ type AuthState = {
       avatarUrl?: string | null;
       firstName?: string | null;
       lastName?: string | null;
+      address?: string | null;
       activeRole?: 'consumer' | 'provider' | null;
     } | null
   ) => void;

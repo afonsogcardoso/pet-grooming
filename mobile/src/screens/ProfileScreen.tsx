@@ -121,6 +121,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editAddress, setEditAddress] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -173,27 +174,32 @@ export default function ProfileScreen({ navigation }: Props) {
       firstName: data?.firstName || fallbackFirst || '',
       lastName: data?.lastName || fallbackLast.join(' ') || '',
       phone: data?.phone || '',
+      address: data?.address || user?.address || '',
     };
   }, [
     data?.displayName,
     data?.firstName,
     data?.lastName,
     data?.phone,
+    data?.address,
     user?.displayName,
+    user?.address,
   ]);
   const isProfileDirty = useMemo(() => {
     return (
       editFirstName.trim() !== profileDefaults.firstName.trim() ||
       editLastName.trim() !== profileDefaults.lastName.trim() ||
-      editPhone.trim() !== profileDefaults.phone.trim()
+      editPhone.trim() !== profileDefaults.phone.trim() ||
+      editAddress.trim() !== profileDefaults.address.trim()
     );
-  }, [editFirstName, editLastName, editPhone, profileDefaults]);
+  }, [editFirstName, editLastName, editPhone, editAddress, profileDefaults]);
 
   useEffect(() => {
     if (hasProfileEdits) return;
     setEditFirstName(profileDefaults.firstName);
     setEditLastName(profileDefaults.lastName);
     setEditPhone(profileDefaults.phone);
+    setEditAddress(profileDefaults.address);
   }, [profileDefaults, hasProfileEdits]);
 
   const mergeProfileUpdate = (current: Profile | undefined, updated: Profile, payload?: Partial<Profile>) => {
@@ -215,6 +221,7 @@ export default function ProfileScreen({ navigation }: Props) {
     applyIfProvided('displayName');
     applyIfProvided('firstName');
     applyIfProvided('lastName');
+    applyIfProvided('address');
     applyIfProvided('phone');
     applyIfProvided('phoneCountryCode');
     applyIfProvided('phoneNumber');
@@ -242,6 +249,7 @@ export default function ProfileScreen({ navigation }: Props) {
               displayName: user.displayName,
               firstName: user.firstName,
               lastName: user.lastName,
+              address: user.address,
               avatarUrl: user.avatarUrl,
             }
           : undefined);
@@ -261,6 +269,7 @@ export default function ProfileScreen({ navigation }: Props) {
               displayName: user.displayName,
               firstName: user.firstName,
               lastName: user.lastName,
+              address: user.address,
               avatarUrl: user.avatarUrl,
             }
           : undefined);
@@ -274,16 +283,22 @@ export default function ProfileScreen({ navigation }: Props) {
           payload && 'firstName' in payload ? merged.firstName : merged.firstName ?? user?.firstName,
         lastName:
           payload && 'lastName' in payload ? merged.lastName : merged.lastName ?? user?.lastName,
+        address:
+          payload && 'address' in payload ? merged.address : merged.address ?? user?.address,
         avatarUrl:
           payload && 'avatarUrl' in payload ? merged.avatarUrl : merged.avatarUrl ?? user?.avatarUrl,
         activeRole: merged.activeRole ?? user?.activeRole,
       };
       setUser(nextUser);
-      if (payload && ('firstName' in payload || 'lastName' in payload || 'phone' in payload)) {
+      if (
+        payload &&
+        ('firstName' in payload || 'lastName' in payload || 'phone' in payload || 'address' in payload)
+      ) {
         setHasProfileEdits(false);
         setEditFirstName(merged.firstName ?? '');
         setEditLastName(merged.lastName ?? '');
         setEditPhone(merged.phone ?? '');
+        setEditAddress(merged.address ?? '');
       }
       // profile updated
     },
@@ -559,6 +574,7 @@ export default function ProfileScreen({ navigation }: Props) {
       firstName: editFirstName.trim() || null,
       lastName: editLastName.trim() || null,
       phone: editPhone.trim() || null,
+      address: editAddress.trim() || null,
     });
   };
 
@@ -566,6 +582,7 @@ export default function ProfileScreen({ navigation }: Props) {
     setEditFirstName(profileDefaults.firstName);
     setEditLastName(profileDefaults.lastName);
     setEditPhone(profileDefaults.phone);
+    setEditAddress(profileDefaults.address);
     setHasProfileEdits(false);
   };
 
@@ -581,6 +598,11 @@ export default function ProfileScreen({ navigation }: Props) {
 
   const handlePhoneChange = (value: string) => {
     setEditPhone(value);
+    setHasProfileEdits(true);
+  };
+
+  const handleAddressChange = (value: string) => {
+    setEditAddress(value);
     setHasProfileEdits(true);
   };
 
@@ -790,6 +812,17 @@ export default function ProfileScreen({ navigation }: Props) {
                   onChange={handlePhoneChange}
                   placeholder={t('common.phone')}
                   disabled={updateMutation.isPending}
+                />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>{t('profile.addressLabel')}</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editAddress}
+                  onChangeText={handleAddressChange}
+                  placeholder={t('profile.addressPlaceholder')}
+                  placeholderTextColor={colors.muted}
+                  editable={!updateMutation.isPending}
                 />
               </View>
               {isProfileDirty ? (
