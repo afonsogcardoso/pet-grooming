@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { getDateLocale } from '../../i18n';
 import { matchesSearchQuery } from '../../utils/textHelpers';
-import { formatCustomerName } from '../../utils/customer';
+import { formatCustomerName, getCustomerFirstName } from '../../utils/customer';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
 import type { Appointment } from '../../api/appointments';
@@ -349,8 +349,8 @@ const AppointmentRow = React.memo(function AppointmentRow({
                   onPress={() => {
                     const cleanPhone = phone.replace(/[^0-9]/g, '');
                     const formattedPhone = cleanPhone.startsWith('9') ? `351${cleanPhone}` : cleanPhone;
-                    const customerName = formatCustomerName(item.customers) || '';
-                    const message = t('listView.whatsappMessage', { name: customerName });
+                    const customerFirstName = getCustomerFirstName(item.customers);
+                    const message = t('listView.whatsappMessage', { name: customerFirstName });
                     Linking.openURL(`whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`).catch(() => null);
                   }}
                 >

@@ -1,6 +1,7 @@
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTranslation } from 'react-i18next';
+import { getDateLocale } from '../../i18n';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 
 type DateTimePickerModalProps = {
@@ -28,6 +29,11 @@ export function DateTimePickerModal({
 }: DateTimePickerModalProps) {
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
+  const dateLocale = getDateLocale();
+  const weekdayLabel =
+    parsedDate && !Number.isNaN(parsedDate.getTime())
+      ? parsedDate.toLocaleDateString(dateLocale, { weekday: 'long' })
+      : '';
 
   const styles = StyleSheet.create({
     modalOverlay: {
@@ -68,6 +74,12 @@ export function DateTimePickerModal({
     modalPickerContainer: {
       alignItems: 'center',
     },
+    modalWeekdayLabel: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '600',
+      marginBottom: 6,
+    },
   });
 
   if (!visible) return null;
@@ -90,6 +102,9 @@ export function DateTimePickerModal({
             </TouchableOpacity>
           </View>
           <View style={styles.modalPickerContainer}>
+            {showDatePicker && weekdayLabel ? (
+              <Text style={styles.modalWeekdayLabel}>{weekdayLabel}</Text>
+            ) : null}
             {showDatePicker ? (
               <DateTimePicker
                 value={parsedDate}

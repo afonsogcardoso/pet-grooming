@@ -10,6 +10,7 @@ import { Input } from '../components/common/Input';
 import { PhoneInput } from '../components/common/PhoneInput';
 import { Button } from '../components/common/Button';
 import { Avatar } from '../components/common/Avatar';
+import { AddressAutocomplete } from '../components/appointment/AddressAutocomplete';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 import { useTranslation } from 'react-i18next';
 import { buildPhone, splitPhone } from '../utils/phone';
@@ -81,9 +82,6 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
     if (!firstName.trim()) {
       newErrors.firstName = t('customerForm.validationNameRequired');
     }
-    if (!lastName.trim()) {
-      newErrors.lastName = t('customerForm.validationNameRequired');
-    }
 
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.email = t('customerForm.validationEmailInvalid');
@@ -104,7 +102,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
     if (mode === 'create') {
       createMutation.mutate({
         firstName: firstName.trim(),
-        lastName: lastName.trim(),
+        lastName: lastName.trim() || undefined,
         phone: phone.trim() || null,
         email: email.trim() || null,
         address: address.trim() || null,
@@ -113,7 +111,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
     } else {
       updateMutation.mutate({
         firstName: firstName.trim(),
-        lastName: lastName.trim(),
+        lastName: lastName.trim() || null,
         phone: phone.trim() || null,
         address: address.trim() || null,
         nif: nif.trim() || null,
@@ -301,7 +299,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
                   value={firstName}
                   onChangeText={setFirstName}
                   error={errors.firstName}
-                  editable={mode === 'create'}
+                  autoCapitalize="words"
                 />
               </View>
               <View style={[styles.column, { flex: 1 }]}>
@@ -311,7 +309,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
                   value={lastName}
                   onChangeText={setLastName}
                   error={errors.lastName}
-                  editable={mode === 'create'}
+                  autoCapitalize="words"
                 />
               </View>
             </View>
@@ -333,7 +331,6 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
               error={errors.email}
               keyboardType="email-address"
               autoCapitalize="none"
-              editable={mode === 'create'}
               showEmailSuggestions
             />
 
@@ -346,15 +343,15 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
               keyboardType="number-pad"
             />
 
-            <Input
-              label={t('customerDetail.address')}
-              placeholder={t('customerForm.addressPlaceholder')}
-              value={address}
-              onChangeText={setAddress}
-              error={errors.address}
-              multiline
-              numberOfLines={3}
-            />
+            <View style={styles.addressField}>
+              <Text style={styles.inputLabel}>{t('customerDetail.address')}</Text>
+              <AddressAutocomplete
+                value={address}
+                onSelect={setAddress}
+                placeholder={t('customerForm.addressPlaceholder')}
+              />
+              {errors.address ? <Text style={styles.errorText}>{errors.address}</Text> : null}
+            </View>
 
             {mode === 'create' && (
               <View style={styles.hint}>
@@ -426,6 +423,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontSize: 13,
       color: colors.muted,
       fontStyle: 'italic',
+    },
+    inputLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    addressField: {
+      marginBottom: 16,
     },
     hint: {
       marginTop: 8,

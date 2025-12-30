@@ -32,7 +32,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { useTranslation } from 'react-i18next';
 import { getDateLocale } from '../i18n';
 import { buildPhone } from '../utils/phone';
-import { formatCustomerName } from '../utils/customer';
+import { formatCustomerName, getCustomerFirstName } from '../utils/customer';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -188,7 +188,6 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerNif, setCustomerNif] = useState('');
-  const placesKey = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || process.env.GOOGLE_PLACES_KEY;
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollContentRef = useRef<View>(null);
   const amountInputRef = useRef<TextInput>(null);
@@ -215,10 +214,6 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     }, Platform.OS === 'android' ? 120 : 80);
   }, []);
 
-  // Debug: verificar se a chave está carregada
-  useEffect(() => {
-    console.log('Google Places Key:', placesKey ? 'Configurada ✓' : 'NÃO CONFIGURADA ✗');
-  }, []);
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -591,7 +586,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const allServiceRows = Object.values(serviceRowsByPet).flat();
   const hasServiceSelection = allServiceRows.length > 0 && allServiceRows.every((row) => row.serviceId);
   const newPetsValid = newPets.length > 0 && newPets.every((pet) => pet.name.trim());
-  const hasNewCustomerName = Boolean(newCustomerFirstName.trim() && newCustomerLastName.trim());
+  const hasNewCustomerName = Boolean(newCustomerFirstName.trim());
   const hasNewSelection = Boolean(hasNewCustomerName && newPetsValid);
   const isSubmitting = mutation.isPending;
   const canSubmit =
@@ -750,9 +745,11 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
     if (mode === 'new') {
       try {
+        const trimmedFirstName = newCustomerFirstName.trim();
+        const trimmedLastName = newCustomerLastName.trim();
         createdCustomer = await createCustomer({
-          firstName: newCustomerFirstName.trim(),
-          lastName: newCustomerLastName.trim(),
+          firstName: trimmedFirstName,
+          lastName: trimmedLastName || undefined,
           phone: newCustomerPhone.trim() || null,
           email: newCustomerEmail.trim() || null,
           address: newCustomerAddress.trim() || null,
@@ -864,8 +861,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       ? dateObj.toLocaleDateString(dateLocale, { weekday: 'short', day: '2-digit', month: 'short' })
       : date;
     const timeLabel = time || '—';
-    const customerName =
-      mode === 'new' ? newCustomerFullName : formatCustomerName(selectedCustomerData);
+    const customerFirstName =
+      mode === 'new' ? newCustomerFirstName.trim() : getCustomerFirstName(selectedCustomerData);
     const address = mode === 'new' ? newCustomerAddress : customerAddress || selectedCustomerData?.address;
 
     const serviceNameById = new Map(services.map((service) => [service.id, service.name]));
@@ -889,8 +886,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       return t('appointmentForm.whatsappPetServices', { pet: petLabel, services: serviceNames });
     });
 
-    const intro = customerName
-      ? t('appointmentForm.whatsappIntroWithName', { name: customerName, date: dateLabel, time: timeLabel })
+    const intro = customerFirstName
+      ? t('appointmentForm.whatsappIntroWithName', { name: customerFirstName, date: dateLabel, time: timeLabel })
       : t('appointmentForm.whatsappIntro', { date: dateLabel, time: timeLabel });
     const lines = [
       ...petLines,

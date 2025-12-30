@@ -13,3 +13,7 @@ export function formatCustomerName(customer: CustomerNameSource) {
   const combined = [first, last].filter(Boolean).join(' ');
   return combined;
 }
+
+export function getCustomerFirstName(customer: CustomerNameSource) {
+  return normalizePart(customer?.firstName ?? null);
+}

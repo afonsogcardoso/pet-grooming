@@ -15,6 +15,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Button, Input, PhoneInput } from '../components/common';
+import { AddressAutocomplete } from '../components/appointment/AddressAutocomplete';
 import { DateTimePickerModal } from '../components/appointment/DateTimePickerModal';
 import { createMarketplaceBooking, MarketplaceBookingPayload } from '../api/marketplace';
 import { getConsumerPets } from '../api/consumerPets';
@@ -287,12 +288,14 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
             onChange={setContactPhone}
             placeholder={t('common.phone')}
           />
-          <Input
-            label={t('marketplaceRequest.addressLabel')}
-            value={contactAddress}
-            onChangeText={setContactAddress}
-            placeholder={t('marketplaceRequest.addressPlaceholder')}
-          />
+          <View style={styles.addressField}>
+            <Text style={styles.inputLabel}>{t('marketplaceRequest.addressLabel')}</Text>
+            <AddressAutocomplete
+              value={contactAddress}
+              onSelect={setContactAddress}
+              placeholder={t('marketplaceRequest.addressPlaceholder')}
+            />
+          </View>
         </View>
 
         <View style={styles.sectionCard}>
@@ -479,6 +482,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginBottom: 12,
       textTransform: 'uppercase',
       letterSpacing: 0.6,
+    },
+    inputLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    addressField: {
+      marginBottom: 16,
     },
     nameRow: {
       flexDirection: 'row',

@@ -6,7 +6,7 @@ const buildNumber = process.env.IOS_BUILD_NUMBER || '1';
 export default {
   name: 'Pawmi',
   slug: 'pawmi-mobile',
-  version: '0.0.1',
+  version: '1.0.2',
   scheme: 'pawmi',
   orientation: 'portrait',
   icon: './assets/icon.png',

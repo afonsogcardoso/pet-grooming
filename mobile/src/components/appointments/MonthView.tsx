@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, PanResponder } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { getDateLocale } from '../../i18n';
@@ -12,6 +13,9 @@ type MonthViewProps = {
   onRefresh: () => void;
   isRefreshing: boolean;
 };
+
+const SWIPE_THRESHOLD = 60;
+const SWIPE_VELOCITY = 0.3;
 
 function getMonthDays(date: Date): Array<{ date: string; isCurrentMonth: boolean }> {
   const year = date.getFullYear();
@@ -85,6 +89,29 @@ export function MonthView({
     newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
     onDateChange(newDate);
   };
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_event, gestureState) => {
+          const { dx, dy } = gestureState;
+          return Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.2;
+        },
+        onPanResponderRelease: (_event, gestureState) => {
+          const { dx, vx } = gestureState;
+          if (dx <= -SWIPE_THRESHOLD || vx <= -SWIPE_VELOCITY) {
+            const nextDate = new Date(selectedDate);
+            nextDate.setMonth(nextDate.getMonth() + 1);
+            onDateChange(nextDate);
+          } else if (dx >= SWIPE_THRESHOLD || vx >= SWIPE_VELOCITY) {
+            const prevDate = new Date(selectedDate);
+            prevDate.setMonth(prevDate.getMonth() - 1);
+            onDateChange(prevDate);
+          }
+        },
+      }),
+    [selectedDate, onDateChange],
+  );
 
   const appointmentsByDay = appointments.reduce((acc, apt) => {
     if (apt.appointment_date) {
@@ -255,7 +282,7 @@ export function MonthView({
   const weekDayLabels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} {...panResponder.panHandlers}>
       <View style={styles.monthNav}>
         <View style={styles.navButtonWrap}>
           <TouchableOpacity style={styles.navButton} onPress={() => navigateMonth('prev')}>

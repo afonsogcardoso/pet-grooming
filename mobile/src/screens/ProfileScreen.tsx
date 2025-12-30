@@ -16,6 +16,7 @@ import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { getDateLocale, normalizeLanguage, setAppLanguage } from '../i18n';
 import { PhoneInput } from '../components/common/PhoneInput';
+import { AddressAutocomplete } from '../components/appointment/AddressAutocomplete';
 import { buildPhone, splitPhone } from '../utils/phone';
 import { resolveSupabaseAnonKey, resolveSupabaseUrl } from '../config/supabase';
 import { formatVersionLabel } from '../utils/version';
@@ -817,13 +818,10 @@ export default function ProfileScreen({ navigation }: Props) {
               </View>
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>{t('profile.addressLabel')}</Text>
-                <TextInput
-                  style={styles.editInput}
+                <AddressAutocomplete
                   value={editAddress}
-                  onChangeText={handleAddressChange}
+                  onSelect={handleAddressChange}
                   placeholder={t('profile.addressPlaceholder')}
-                  placeholderTextColor={colors.muted}
-                  editable={!updateMutation.isPending}
                 />
               </View>
               {isProfileDirty ? (

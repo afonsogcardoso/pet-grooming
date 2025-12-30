@@ -12,7 +12,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { MiniMap } from '../components/common/MiniMap';
 import { getStatusColor, getStatusLabel } from '../utils/appointmentStatus';
 import { getDateLocale } from '../i18n';
-import { formatCustomerName } from '../utils/customer';
+import { formatCustomerName, getCustomerFirstName } from '../utils/customer';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -202,7 +202,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     // Se começar com 9, adiciona +351 (Portugal)
     const formattedPhone = cleanPhone.startsWith('9') ? `351${cleanPhone}` : cleanPhone;
     const message = t('appointmentDetail.whatsappMessage', {
-      name: customerName,
+      name: getCustomerFirstName(customer),
       dateTime: formatDateTime(
         appointment?.appointment_date,
         appointment?.appointment_time,

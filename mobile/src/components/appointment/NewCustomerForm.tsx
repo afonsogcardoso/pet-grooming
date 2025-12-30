@@ -77,6 +77,7 @@ export function NewCustomerForm({
             placeholder={t('profile.firstNamePlaceholder')}
             placeholderTextColor={colors.muted}
             style={styles.input}
+            autoCapitalize="words"
           />
         </View>
         <View style={[styles.field, { flex: 1 }]}>
@@ -87,6 +88,7 @@ export function NewCustomerForm({
             placeholder={t('profile.lastNamePlaceholder')}
             placeholderTextColor={colors.muted}
             style={styles.input}
+            autoCapitalize="words"
           />
         </View>
       </View>

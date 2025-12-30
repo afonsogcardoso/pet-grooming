@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Alert, Pressable } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Alert, Pressable, PanResponder } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { getDateLocale } from '../../i18n';
@@ -19,6 +20,12 @@ const HOUR_HEIGHT = 60; // Height of each hour slot
 const TIME_COLUMN_WIDTH = 50; // Width of the time column on the left
 const START_HOUR = 7; // Start at 7 AM
 const END_HOUR = 21; // End at 9 PM
+const MIN_SLOT_MINUTES = 30;
+const MAX_SLOT_MINUTES = 60;
+const TAP_HIGHLIGHT_DURATION_MS = 700;
+const TAP_NAV_DELAY_MS = 120;
+const SWIPE_THRESHOLD = 60;
+const SWIPE_VELOCITY = 0.3;
 
 function getWeekDays(date: Date): Date[] {
   const day = date.getDay();
@@ -82,17 +89,85 @@ export function WeekView({
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
   const dateLocale = getDateLocale();
+  const [tapHighlight, setTapHighlight] = useState<{ day: string; top: number; height: number } | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+      if (navTimerRef.current) {
+        clearTimeout(navTimerRef.current);
+      }
+    };
+  }, []);
   const screenWidth = Dimensions.get('window').width;
   const dayColumnWidth = (screenWidth - TIME_COLUMN_WIDTH - 32) / 7; // 32 for padding
   
   const weekDays = getWeekDays(selectedDate);
   const today = new Date().toLocaleDateString('sv-SE');
 
+  const getAvailableSlotDuration = (dayAppointments: Appointment[], startMinutes: number) => {
+    const dayEndMinutes = END_HOUR * 60;
+    const nextStart = dayAppointments
+      .map((apt) => toMinutes(apt.appointment_time))
+      .filter((value): value is number => value !== null && value >= startMinutes)
+      .sort((a, b) => a - b)[0];
+    const limit = typeof nextStart === 'number' ? Math.min(nextStart, dayEndMinutes) : dayEndMinutes;
+    const availableMinutes = limit - startMinutes;
+    if (availableMinutes >= MAX_SLOT_MINUTES) return MAX_SLOT_MINUTES;
+    if (availableMinutes >= MIN_SLOT_MINUTES) return MIN_SLOT_MINUTES;
+    return 0;
+  };
+
+  const getSlotFromOffset = (offsetY: number, dayAppointments: Appointment[]) => {
+    const maxStartMinutes = END_HOUR * 60 - MIN_SLOT_MINUTES;
+    const totalMinutes = Math.min(
+      Math.max(Math.floor(offsetY / HOUR_HEIGHT * 60) + START_HOUR * 60, START_HOUR * 60),
+      maxStartMinutes,
+    );
+    const minutesRounded = totalMinutes - (totalMinutes % 30);
+    const durationMinutes = getAvailableSlotDuration(dayAppointments, minutesRounded);
+    if (!durationMinutes) return null;
+    const hh = `${Math.floor(minutesRounded / 60)}`.padStart(2, '0');
+    const mm = `${minutesRounded % 60}`.padStart(2, '0');
+    const timeStr = `${hh}:${mm}`;
+    const minutesFromStart = minutesRounded - START_HOUR * 60;
+    const highlightTop = (minutesFromStart / 60) * HOUR_HEIGHT;
+    const highlightHeight = (durationMinutes / 60) * HOUR_HEIGHT;
+    return { minutesRounded, timeStr, highlightTop, highlightHeight, durationMinutes };
+  };
+
   const navigateWeek = (direction: 'prev' | 'next') => {
     const date = new Date(selectedDate);
     date.setDate(date.getDate() + (direction === 'next' ? 7 : -7));
     onDateChange(date);
   };
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_event, gestureState) => {
+          const { dx, dy } = gestureState;
+          return Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.2;
+        },
+        onPanResponderRelease: (_event, gestureState) => {
+          const { dx, vx } = gestureState;
+          if (dx <= -SWIPE_THRESHOLD || vx <= -SWIPE_VELOCITY) {
+            const date = new Date(selectedDate);
+            date.setDate(date.getDate() + 7);
+            onDateChange(date);
+          } else if (dx >= SWIPE_THRESHOLD || vx >= SWIPE_VELOCITY) {
+            const date = new Date(selectedDate);
+            date.setDate(date.getDate() - 7);
+            onDateChange(date);
+          }
+        },
+      }),
+    [selectedDate, onDateChange],
+  );
 
   // Group appointments by day
   const appointmentsByDay = weekDays.reduce((acc, day) => {
@@ -103,23 +178,36 @@ export function WeekView({
   }, {} as Record<string, Appointment[]>);
 
   const handleCreateAtPosition = (dayStr: string, dayAppointments: Appointment[], offsetY: number) => {
-    const totalMinutes = Math.min(
-      Math.max(Math.floor(offsetY / HOUR_HEIGHT * 60) + START_HOUR * 60, START_HOUR * 60),
-      END_HOUR * 60 - 30,
-    );
-
-    const minutesRounded = totalMinutes - (totalMinutes % 30); // snap to 30min blocks
-    const hh = `${Math.floor(minutesRounded / 60)}`.padStart(2, '0');
-    const mm = `${minutesRounded % 60}`.padStart(2, '0');
-    const timeStr = `${hh}:${mm}`;
-
-    // Avoid creating over an existing appointment (using default 60m duration)
-    if (!isSlotFree(dayAppointments, minutesRounded, 60)) {
+    const slot = getSlotFromOffset(offsetY, dayAppointments);
+    if (!slot || !isSlotFree(dayAppointments, slot.minutesRounded, slot.durationMinutes)) {
+      setTapHighlight(null);
       Alert.alert(t('dayView.slotUnavailableTitle'), t('dayView.slotUnavailableMessage'));
       return;
     }
 
-    onNewAppointment(dayStr, timeStr);
+    if (navTimerRef.current) {
+      clearTimeout(navTimerRef.current);
+    }
+    navTimerRef.current = setTimeout(() => {
+      onNewAppointment(dayStr, slot.timeStr);
+    }, TAP_NAV_DELAY_MS);
+  };
+
+  const handlePressInAtPosition = (dayStr: string, dayAppointments: Appointment[], offsetY: number) => {
+    const slot = getSlotFromOffset(offsetY, dayAppointments);
+    if (!slot || !isSlotFree(dayAppointments, slot.minutesRounded, slot.durationMinutes)) {
+      setTapHighlight(null);
+      return;
+    }
+
+    setTapHighlight({ day: dayStr, top: slot.highlightTop, height: slot.highlightHeight });
+
+    if (highlightTimerRef.current) {
+      clearTimeout(highlightTimerRef.current);
+    }
+    highlightTimerRef.current = setTimeout(() => {
+      setTapHighlight(null);
+    }, TAP_HIGHLIGHT_DURATION_MS);
   };
 
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
@@ -245,6 +333,16 @@ export function WeekView({
       height: 1,
       backgroundColor: colors.surfaceBorder,
     },
+    tapHighlight: {
+      position: 'absolute',
+      left: 2,
+      right: 2,
+      backgroundColor: colors.primarySoft,
+      borderRadius: 4,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      opacity: 0.45,
+    },
     appointmentBlock: {
       position: 'absolute',
       left: 2,
@@ -290,7 +388,7 @@ export function WeekView({
     : `${formatDayLabel(weekStart, true)} - ${formatDayLabel(weekEnd, true)}`;
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} {...panResponder.panHandlers}>
       {/* Navigation Header */}
       <View style={styles.weekNav}>
         <View style={styles.navButtonWrap}>
@@ -357,6 +455,7 @@ export function WeekView({
                 <Pressable
                   key={dayStr}
                   style={styles.dayColumn}
+                  onPressIn={(e) => handlePressInAtPosition(dayStr, dayAppointments, e.nativeEvent.locationY)}
                   onPress={(e) => handleCreateAtPosition(dayStr, dayAppointments, e.nativeEvent.locationY)}
                 >
                   {/* Hour Lines */}
@@ -369,6 +468,15 @@ export function WeekView({
                       ]} 
                     />
                   ))}
+                  {tapHighlight && tapHighlight.day === dayStr ? (
+                    <View
+                      pointerEvents="none"
+                      style={[
+                        styles.tapHighlight,
+                        { top: tapHighlight.top, height: tapHighlight.height },
+                      ]}
+                    />
+                  ) : null}
 
                   {/* Appointments */}
                   {dayAppointments.map((appointment) => {
