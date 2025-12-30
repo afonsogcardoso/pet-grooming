@@ -50,7 +50,8 @@ export default {
   plugins: [
     'expo-font',
     'expo-secure-store',
-    "expo-web-browser"
+    'expo-web-browser',
+    'expo-notifications'
   ],
   extra: {
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL,

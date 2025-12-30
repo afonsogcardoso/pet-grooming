@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  Alert,
 } from 'react-native';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
@@ -25,7 +26,7 @@ import { getBranding } from '../api/branding';
 import { getProfile } from '../api/profile';
 import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { resolveSupabaseUrl } from '../config/supabase';
+import { resolveSupabaseAnonKey, resolveSupabaseUrl } from '../config/supabase';
 import { formatVersionLabel } from '../utils/version';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -76,6 +77,8 @@ export default function LoginScreen({ navigation }: Props) {
   const [apiError, setApiError] = useState<string | null>(null);
   const [brandingLogoFailed, setBrandingLogoFailed] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<'google' | 'apple' | null>(null);
+  const [linkingProvider, setLinkingProvider] = useState<'google' | 'apple' | null>(null);
+  const [pendingLinkProvider, setPendingLinkProvider] = useState<'google' | 'apple' | null>(null);
   const setTokens = useAuthStore((s) => s.setTokens);
   const setUser = useAuthStore((s) => s.setUser);
   const queryClient = useQueryClient();
@@ -131,6 +134,70 @@ export default function LoginScreen({ navigation }: Props) {
     }
 
     await queryClient.fetchQuery({ queryKey: ['branding'], queryFn: getBranding }).catch(() => null);
+
+    if (pendingLinkProvider && token) {
+      const providerToLink = pendingLinkProvider;
+      setPendingLinkProvider(null);
+      await handleLinkProvider(providerToLink, token);
+    }
+  };
+
+  const handleLinkProvider = async (provider: 'google' | 'apple', token: string) => {
+    if (linkingProvider) return;
+
+    const supabaseUrl = resolveSupabaseUrl();
+    const supabaseAnonKey = resolveSupabaseAnonKey();
+    if (!supabaseUrl || !supabaseAnonKey) {
+      Alert.alert(t('common.error'), t('profile.linkConfigError'));
+      return;
+    }
+
+    const providerLabel = t(`login.providers.${provider}`);
+    const redirectUri = AuthSession.makeRedirectUri({
+      scheme: 'pawmi',
+      path: OAUTH_REDIRECT_PATH,
+    });
+    const scopeParam = provider === 'apple' ? '&scopes=name%20email' : '';
+    const requestUrl = `${supabaseUrl}/auth/v1/user/identities/authorize?provider=${provider}&redirect_to=${encodeURIComponent(
+      redirectUri
+    )}&skip_http_redirect=true${scopeParam}`;
+
+    setLinkingProvider(provider);
+
+    try {
+      const response = await fetch(requestUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          apikey: supabaseAnonKey,
+          Accept: 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
+        return;
+      }
+
+      const payload = await response.json().catch(() => null);
+      const authUrl = payload?.url;
+
+      if (!authUrl) {
+        Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
+        return;
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+      if (result.type === 'success') {
+        Alert.alert(t('common.done'), t('profile.linkSuccess', { provider: providerLabel }));
+        await queryClient.refetchQueries({ queryKey: ['profile'] });
+      } else if (result.type !== 'cancel' && result.type !== 'dismiss') {
+        Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
+      }
+    } catch {
+      Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
+    } finally {
+      setLinkingProvider(null);
+    }
   };
 
   const { mutateAsync, isPending } = useMutation({
@@ -192,11 +259,12 @@ export default function LoginScreen({ navigation }: Props) {
       const params = parseAuthParams(result.url);
       if (params.error) {
         console.warn('[auth] OAuth returned error params', params);
-        setApiError(
-          isAccountExistsOAuthError(params)
-            ? t('login.errors.oauthAccountExists')
-            : t('login.errors.oauth', { provider: providerLabel })
-        );
+        if (isAccountExistsOAuthError(params)) {
+          setPendingLinkProvider(provider);
+          setApiError(t('login.errors.oauthAccountExists'));
+        } else {
+          setApiError(t('login.errors.oauth', { provider: providerLabel }));
+        }
         return;
       }
 

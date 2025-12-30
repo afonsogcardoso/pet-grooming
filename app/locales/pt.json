@@ -796,6 +796,19 @@
       "phonePlaceholder": "912 345 678",
       "localeLabel": "Idioma",
       "localeHelper": "Escolhe o idioma predefinido da tua conta.",
+      "notificationsTitle": "Notificações",
+      "notificationsHelper": "Escolhe que alertas queres receber.",
+      "notificationsPush": "Notificações push",
+      "notificationsAppointments": "Marcações",
+      "notificationsAppointmentsCreated": "Criações",
+      "notificationsAppointmentsConfirmed": "Confirmações",
+      "notificationsAppointmentsCancelled": "Cancelamentos",
+      "notificationsAppointmentsReminder": "Lembretes",
+      "notificationsMarketplace": "Marketplace",
+      "notificationsMarketplaceRequests": "Pedidos de marcação",
+      "notificationsPayments": "Pagamentos",
+      "notificationsPaymentsUpdated": "Atualizações de pagamento",
+      "notificationsMarketing": "Marketing",
       "avatarLabel": "Fotografia de perfil",
       "avatarHelper": "Clica na imagem para alterar.",
       "localeOptions": {
@@ -803,7 +816,8 @@
         "en": "Inglês"
       },
       "errors": {
-        "update": "Falha ao atualizar o perfil."
+        "update": "Falha ao atualizar o perfil.",
+        "notifications": "Falha ao atualizar as notificações."
       },
       "success": "Perfil atualizado.",
       "saving": "A guardar...",

@@ -796,6 +796,19 @@
       "phonePlaceholder": "912 345 678",
       "localeLabel": "Language",
       "localeHelper": "Choose the default language for your account.",
+      "notificationsTitle": "Notifications",
+      "notificationsHelper": "Choose which alerts you want to receive.",
+      "notificationsPush": "Push notifications",
+      "notificationsAppointments": "Appointments",
+      "notificationsAppointmentsCreated": "Created",
+      "notificationsAppointmentsConfirmed": "Confirmed",
+      "notificationsAppointmentsCancelled": "Cancelled",
+      "notificationsAppointmentsReminder": "Reminders",
+      "notificationsMarketplace": "Marketplace",
+      "notificationsMarketplaceRequests": "Booking requests",
+      "notificationsPayments": "Payments",
+      "notificationsPaymentsUpdated": "Payment updates",
+      "notificationsMarketing": "Marketing",
       "avatarLabel": "Profile photo",
       "avatarHelper": "Click on the image to load a new one.",
       "localeOptions": {
@@ -803,7 +816,8 @@
         "en": "English"
       },
       "errors": {
-        "update": "Failed to update profile."
+        "update": "Failed to update profile.",
+        "notifications": "Failed to update notification settings."
       },
       "success": "Profile updated.",
       "saving": "Saving...",

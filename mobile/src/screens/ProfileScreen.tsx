@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Image, TextInput, Alert, Platform, ActionSheetIOS, PermissionsAndroid } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Image, TextInput, Alert, Platform, ActionSheetIOS, PermissionsAndroid, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
@@ -9,6 +9,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { getProfile, updateProfile, uploadAvatar, resetPassword, Profile } from '../api/profile';
+import { getNotificationPreferences, registerPushToken, updateNotificationPreferences, NotificationPreferences, NotificationPreferencesPayload } from '../api/notifications';
 import { useAuthStore } from '../state/authStore';
 import { useViewModeStore, ViewMode } from '../state/viewModeStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
@@ -16,8 +17,9 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { getDateLocale, normalizeLanguage, setAppLanguage } from '../i18n';
 import { PhoneInput } from '../components/common/PhoneInput';
 import { buildPhone, splitPhone } from '../utils/phone';
-import { resolveSupabaseUrl } from '../config/supabase';
+import { resolveSupabaseAnonKey, resolveSupabaseUrl } from '../config/supabase';
 import { formatVersionLabel } from '../utils/version';
+import { registerForPushNotifications } from '../utils/pushNotifications';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -36,6 +38,68 @@ function formatDate(value: string | null | undefined, locale: string, fallback: 
   } catch {
     return value;
   }
+}
+
+const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  push: {
+    enabled: false,
+    appointments: {
+      created: true,
+      confirmed: true,
+      cancelled: true,
+      reminder: true,
+    },
+    marketplace: {
+      request: true,
+    },
+    payments: {
+      updated: true,
+    },
+    marketing: false,
+  },
+};
+
+function mergeNotificationPreferences(
+  current: NotificationPreferences,
+  updates: NotificationPreferencesPayload
+): NotificationPreferences {
+  const source = updates?.push || {};
+  const appointments = source.appointments || {};
+  const marketplace = source.marketplace || {};
+  const payments = source.payments || {};
+
+  return {
+    push: {
+      enabled: typeof source.enabled === 'boolean' ? source.enabled : current.push.enabled,
+      appointments: {
+        created: typeof appointments.created === 'boolean'
+          ? appointments.created
+          : current.push.appointments.created,
+        confirmed: typeof appointments.confirmed === 'boolean'
+          ? appointments.confirmed
+          : current.push.appointments.confirmed,
+        cancelled: typeof appointments.cancelled === 'boolean'
+          ? appointments.cancelled
+          : current.push.appointments.cancelled,
+        reminder: typeof appointments.reminder === 'boolean'
+          ? appointments.reminder
+          : current.push.appointments.reminder,
+      },
+      marketplace: {
+        request: typeof marketplace.request === 'boolean'
+          ? marketplace.request
+          : current.push.marketplace.request,
+      },
+      payments: {
+        updated: typeof payments.updated === 'boolean'
+          ? payments.updated
+          : current.push.payments.updated,
+      },
+      marketing: typeof source.marketing === 'boolean'
+        ? source.marketing
+        : current.push.marketing,
+    },
+  };
 }
 
 export default function ProfileScreen({ navigation }: Props) {
@@ -70,6 +134,15 @@ export default function ProfileScreen({ navigation }: Props) {
     refetchOnMount: false,
     placeholderData: () => queryClient.getQueryData(['profile']),
   });
+  const {
+    data: notificationPreferences,
+    isLoading: loadingNotifications,
+  } = useQuery({
+    queryKey: ['notificationPreferences'],
+    queryFn: getNotificationPreferences,
+    retry: 1,
+    staleTime: 1000 * 60 * 5,
+  });
   const currentLanguage = normalizeLanguage(data?.locale || i18n.language);
   const authProviders = Array.isArray(data?.authProviders) ? data.authProviders : [];
   const linkedProviders = new Set(
@@ -89,6 +162,8 @@ export default function ProfileScreen({ navigation }: Props) {
   const activeRole = data?.activeRole ?? user?.activeRole ?? 'provider';
   const resolvedViewMode: ViewMode = viewMode ?? (activeRole === 'consumer' ? 'consumer' : 'private');
   const canSwitchViewMode = availableRoles.includes('consumer') && availableRoles.includes('provider');
+  const resolvedNotificationPreferences = notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES;
+  const pushEnabled = resolvedNotificationPreferences.push?.enabled ?? false;
 
   const mergeProfileUpdate = (current: Profile | undefined, updated: Profile, payload?: Partial<Profile>) => {
     if (!current) return updated;
@@ -225,12 +300,36 @@ export default function ProfileScreen({ navigation }: Props) {
     onError: () => Alert.alert(t('common.error'), t('profile.passwordUpdateError')),
   });
 
+  const preferencesMutation = useMutation({
+    mutationFn: updateNotificationPreferences,
+    onMutate: async (payload) => {
+      await queryClient.cancelQueries({ queryKey: ['notificationPreferences'] });
+      const previous =
+        queryClient.getQueryData<NotificationPreferences>(['notificationPreferences']) ||
+        resolvedNotificationPreferences;
+      const merged = mergeNotificationPreferences(previous, payload);
+      queryClient.setQueryData(['notificationPreferences'], merged);
+      return { previous };
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['notificationPreferences'], updated);
+    },
+    onError: (_error, _payload, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['notificationPreferences'], context.previous);
+      }
+      Alert.alert(t('common.error'), t('profile.notificationsUpdateError'));
+    },
+  });
+  const notificationsDisabled = preferencesMutation.isPending || loadingNotifications;
+
   const handleLinkProvider = async (provider: 'google' | 'apple') => {
     if (linkingProvider || updateMutation.isPending || languageMutation.isPending) return;
     if (linkedProviders.has(provider)) return;
 
     const supabaseUrl = resolveSupabaseUrl();
-    if (!supabaseUrl || !token) {
+    const supabaseAnonKey = resolveSupabaseAnonKey();
+    if (!supabaseUrl || !supabaseAnonKey || !token) {
       Alert.alert(t('common.error'), t('profile.linkConfigError'));
       return;
     }
@@ -243,7 +342,7 @@ export default function ProfileScreen({ navigation }: Props) {
     const scopeParam = provider === 'apple' ? '&scopes=name%20email' : '';
     const requestUrl = `${supabaseUrl}/auth/v1/user/identities/authorize?provider=${provider}&redirect_to=${encodeURIComponent(
       redirectUri
-    )}&response_type=token${scopeParam}`;
+    )}&skip_http_redirect=true${scopeParam}`;
 
     setLinkingProvider(provider);
 
@@ -251,6 +350,7 @@ export default function ProfileScreen({ navigation }: Props) {
       const response = await fetch(requestUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
+          apikey: supabaseAnonKey,
           Accept: 'application/json',
         },
       });
@@ -480,6 +580,33 @@ export default function ProfileScreen({ navigation }: Props) {
     setConfirmPassword(value);
   };
 
+  const updatePreferences = (payload: NotificationPreferencesPayload) => {
+    if (preferencesMutation.isPending) return;
+    preferencesMutation.mutate(payload);
+  };
+
+  const handleTogglePushNotifications = async (value: boolean) => {
+    if (preferencesMutation.isPending) return;
+    if (value) {
+      const result = await registerForPushNotifications();
+      if (!result.token) {
+        const message =
+          result.status === 'unavailable'
+            ? t('profile.notificationsUnavailableMessage')
+            : t('profile.notificationsPermissionMessage');
+        Alert.alert(t('common.warning'), message);
+        return;
+      }
+      try {
+        await registerPushToken({ pushToken: result.token, platform: Platform.OS });
+      } catch {
+        Alert.alert(t('common.error'), t('profile.notificationsRegisterError'));
+        return;
+      }
+    }
+    updatePreferences({ push: { enabled: value } });
+  };
+
   const handlePasswordSave = () => {
     if (resetPasswordMutation.isPending) return;
     if (newPassword.length < 8) {
@@ -657,6 +784,113 @@ export default function ProfileScreen({ navigation }: Props) {
                 </TouchableOpacity>
               );
             })}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('profile.notificationsTitle')}</Text>
+          <Text style={styles.sectionText}>{t('profile.notificationsDescription')}</Text>
+          {loadingNotifications ? (
+            <ActivityIndicator color={colors.primary} style={{ marginBottom: 12 }} />
+          ) : null}
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleTextGroup}>
+              <Text style={styles.toggleLabel}>{t('profile.notificationsPush')}</Text>
+              <Text style={styles.toggleHelper}>{t('profile.notificationsPushHelper')}</Text>
+            </View>
+            <Switch
+              value={pushEnabled}
+              onValueChange={handleTogglePushNotifications}
+              disabled={notificationsDisabled}
+              thumbColor={pushEnabled ? colors.primary : colors.surfaceBorder}
+              trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+            />
+          </View>
+
+          <View style={styles.toggleGroup}>
+            <Text style={styles.toggleGroupLabel}>{t('profile.notificationsAppointments')}</Text>
+            <View style={styles.toggleRow}>
+              <Text style={styles.toggleLabel}>{t('profile.notificationsAppointmentsCreated')}</Text>
+              <Switch
+                value={resolvedNotificationPreferences.push.appointments.created}
+                onValueChange={(value) => updatePreferences({ push: { appointments: { created: value } } })}
+                disabled={!pushEnabled || notificationsDisabled}
+                thumbColor={resolvedNotificationPreferences.push.appointments.created ? colors.primary : colors.surfaceBorder}
+                trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+              />
+            </View>
+            <View style={styles.toggleRow}>
+              <Text style={styles.toggleLabel}>{t('profile.notificationsAppointmentsConfirmed')}</Text>
+              <Switch
+                value={resolvedNotificationPreferences.push.appointments.confirmed}
+                onValueChange={(value) => updatePreferences({ push: { appointments: { confirmed: value } } })}
+                disabled={!pushEnabled || notificationsDisabled}
+                thumbColor={resolvedNotificationPreferences.push.appointments.confirmed ? colors.primary : colors.surfaceBorder}
+                trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+              />
+            </View>
+            <View style={styles.toggleRow}>
+              <Text style={styles.toggleLabel}>{t('profile.notificationsAppointmentsCancelled')}</Text>
+              <Switch
+                value={resolvedNotificationPreferences.push.appointments.cancelled}
+                onValueChange={(value) => updatePreferences({ push: { appointments: { cancelled: value } } })}
+                disabled={!pushEnabled || notificationsDisabled}
+                thumbColor={resolvedNotificationPreferences.push.appointments.cancelled ? colors.primary : colors.surfaceBorder}
+                trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+              />
+            </View>
+            <View style={styles.toggleRow}>
+              <Text style={styles.toggleLabel}>{t('profile.notificationsAppointmentsReminder')}</Text>
+              <Switch
+                value={resolvedNotificationPreferences.push.appointments.reminder}
+                onValueChange={(value) => updatePreferences({ push: { appointments: { reminder: value } } })}
+                disabled={!pushEnabled || notificationsDisabled}
+                thumbColor={resolvedNotificationPreferences.push.appointments.reminder ? colors.primary : colors.surfaceBorder}
+                trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+              />
+            </View>
+          </View>
+
+          <View style={styles.toggleGroup}>
+            <Text style={styles.toggleGroupLabel}>{t('profile.notificationsMarketplace')}</Text>
+            <View style={styles.toggleRow}>
+              <Text style={styles.toggleLabel}>{t('profile.notificationsMarketplaceRequests')}</Text>
+              <Switch
+                value={resolvedNotificationPreferences.push.marketplace.request}
+                onValueChange={(value) => updatePreferences({ push: { marketplace: { request: value } } })}
+                disabled={!pushEnabled || notificationsDisabled}
+                thumbColor={resolvedNotificationPreferences.push.marketplace.request ? colors.primary : colors.surfaceBorder}
+                trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+              />
+            </View>
+          </View>
+
+          <View style={styles.toggleGroup}>
+            <Text style={styles.toggleGroupLabel}>{t('profile.notificationsPayments')}</Text>
+            <View style={styles.toggleRow}>
+              <Text style={styles.toggleLabel}>{t('profile.notificationsPaymentsUpdated')}</Text>
+              <Switch
+                value={resolvedNotificationPreferences.push.payments.updated}
+                onValueChange={(value) => updatePreferences({ push: { payments: { updated: value } } })}
+                disabled={!pushEnabled || notificationsDisabled}
+                thumbColor={resolvedNotificationPreferences.push.payments.updated ? colors.primary : colors.surfaceBorder}
+                trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+              />
+            </View>
+          </View>
+
+          <View style={styles.toggleGroup}>
+            <Text style={styles.toggleGroupLabel}>{t('profile.notificationsMarketing')}</Text>
+            <View style={styles.toggleRow}>
+              <Text style={styles.toggleLabel}>{t('profile.notificationsMarketing')}</Text>
+              <Switch
+                value={resolvedNotificationPreferences.push.marketing}
+                onValueChange={(value) => updatePreferences({ push: { marketing: value } })}
+                disabled={!pushEnabled || notificationsDisabled}
+                thumbColor={resolvedNotificationPreferences.push.marketing ? colors.primary : colors.surfaceBorder}
+                trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+              />
+            </View>
           </View>
         </View>
 
@@ -984,6 +1218,39 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     sectionText: {
       color: colors.muted,
       marginBottom: 12,
+    },
+    toggleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 6,
+    },
+    toggleTextGroup: {
+      flex: 1,
+      paddingRight: 12,
+    },
+    toggleLabel: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    toggleHelper: {
+      color: colors.muted,
+      fontSize: 12,
+      marginTop: 2,
+    },
+    toggleGroup: {
+      marginTop: 12,
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.surfaceBorder,
+    },
+    toggleGroupLabel: {
+      color: colors.muted,
+      fontSize: 11,
+      letterSpacing: 0.6,
+      textTransform: 'uppercase',
+      marginBottom: 6,
     },
     linkGroup: {
       gap: 12,

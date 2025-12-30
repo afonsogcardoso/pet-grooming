@@ -6,11 +6,81 @@ import { compressImage } from '@/utils/image'
 import { useTranslation } from '@/components/TranslationProvider'
 import PhoneInput from '@/components/PhoneInput'
 
+const DEFAULT_NOTIFICATION_PREFERENCES = {
+  push: {
+    enabled: false,
+    appointments: {
+      created: true,
+      confirmed: true,
+      cancelled: true,
+      reminder: true
+    },
+    marketplace: {
+      request: true
+    },
+    payments: {
+      updated: true
+    },
+    marketing: false
+  }
+}
+
+function normalizeNotificationPreferences(input) {
+  const source = input && typeof input === 'object' ? input : {}
+  const push = source.push && typeof source.push === 'object' ? source.push : {}
+  const appointments =
+    push.appointments && typeof push.appointments === 'object' ? push.appointments : {}
+  const marketplace =
+    push.marketplace && typeof push.marketplace === 'object' ? push.marketplace : {}
+  const payments = push.payments && typeof push.payments === 'object' ? push.payments : {}
+
+  return {
+    push: {
+      enabled: typeof push.enabled === 'boolean' ? push.enabled : DEFAULT_NOTIFICATION_PREFERENCES.push.enabled,
+      appointments: {
+        created:
+          typeof appointments.created === 'boolean'
+            ? appointments.created
+            : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.created,
+        confirmed:
+          typeof appointments.confirmed === 'boolean'
+            ? appointments.confirmed
+            : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.confirmed,
+        cancelled:
+          typeof appointments.cancelled === 'boolean'
+            ? appointments.cancelled
+            : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.cancelled,
+        reminder:
+          typeof appointments.reminder === 'boolean'
+            ? appointments.reminder
+            : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.reminder
+      },
+      marketplace: {
+        request:
+          typeof marketplace.request === 'boolean'
+            ? marketplace.request
+            : DEFAULT_NOTIFICATION_PREFERENCES.push.marketplace.request
+      },
+      payments: {
+        updated:
+          typeof payments.updated === 'boolean'
+            ? payments.updated
+            : DEFAULT_NOTIFICATION_PREFERENCES.push.payments.updated
+      },
+      marketing:
+        typeof push.marketing === 'boolean'
+          ? push.marketing
+          : DEFAULT_NOTIFICATION_PREFERENCES.push.marketing
+    }
+  }
+}
+
 export default function ProfileMetadataForm({
   initialDisplayName = '',
   initialPhone = '',
   initialLocale = 'pt',
-  initialAvatarUrl = ''
+  initialAvatarUrl = '',
+  initialNotificationPreferences = null
 }) {
   const { t, setLocale: setAppLocale, availableLocales } = useTranslation()
   const [form, setForm] = useState({
@@ -18,6 +88,9 @@ export default function ProfileMetadataForm({
     phone: initialPhone,
     locale: initialLocale
   })
+  const [notificationPreferences, setNotificationPreferences] = useState(() =>
+    normalizeNotificationPreferences(initialNotificationPreferences)
+  )
   const [avatarPreview, setAvatarPreview] = useState(initialAvatarUrl || '')
   const [avatarFile, setAvatarFile] = useState(null)
   const fileInputRef = useRef(null)
@@ -31,6 +104,7 @@ export default function ProfileMetadataForm({
       })),
     [availableLocales, t]
   )
+  const pushEnabled = notificationPreferences.push.enabled
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -59,6 +133,17 @@ export default function ProfileMetadataForm({
       if (!response.ok) {
         throw new Error(body.error || t('profile.form.errors.update'))
       }
+
+      const notificationsResponse = await fetch('/api/v1/notifications/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferences: notificationPreferences })
+      })
+      const notificationsBody = await notificationsResponse.json().catch(() => ({}))
+      if (!notificationsResponse.ok) {
+        throw new Error(notificationsBody.error || t('profile.form.errors.notifications'))
+      }
+
       setStatus({ type: 'success', text: t('profile.form.success') })
       if (form.locale) {
         setAppLocale?.(form.locale)
@@ -154,6 +239,202 @@ export default function ProfileMetadataForm({
           {t('profile.form.localeHelper')}
         </p>
       </label>
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div className="text-sm font-semibold text-slate-600">
+          {t('profile.form.notificationsTitle')}
+        </div>
+        <p className="mt-1 text-xs text-slate-500">
+          {t('profile.form.notificationsHelper')}
+        </p>
+        <div className="mt-3 space-y-3">
+          <label className="flex items-center justify-between gap-3 text-sm text-slate-700">
+            <span>{t('profile.form.notificationsPush')}</span>
+            <input
+              type="checkbox"
+              checked={notificationPreferences.push.enabled}
+              onChange={(event) =>
+                setNotificationPreferences((prev) => ({
+                  ...prev,
+                  push: { ...prev.push, enabled: event.target.checked }
+                }))
+              }
+              className="h-4 w-4 accent-slate-900"
+            />
+          </label>
+          <div className="pt-2 border-t border-slate-200">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              {t('profile.form.notificationsAppointments')}
+            </p>
+            <div className="mt-2 space-y-2">
+              <label className="flex items-center justify-between gap-3 text-sm text-slate-700">
+                <span>{t('profile.form.notificationsAppointmentsCreated')}</span>
+                <input
+                  type="checkbox"
+                  checked={notificationPreferences.push.appointments.created}
+                  disabled={!pushEnabled}
+                  onChange={(event) =>
+                    setNotificationPreferences((prev) => ({
+                      ...prev,
+                      push: {
+                        ...prev.push,
+                        appointments: {
+                          ...prev.push.appointments,
+                          created: event.target.checked
+                        }
+                      }
+                    }))
+                  }
+                  className="h-4 w-4 accent-slate-900 disabled:opacity-40"
+                />
+              </label>
+              <label className="flex items-center justify-between gap-3 text-sm text-slate-700">
+                <span>{t('profile.form.notificationsAppointmentsConfirmed')}</span>
+                <input
+                  type="checkbox"
+                  checked={notificationPreferences.push.appointments.confirmed}
+                  disabled={!pushEnabled}
+                  onChange={(event) =>
+                    setNotificationPreferences((prev) => ({
+                      ...prev,
+                      push: {
+                        ...prev.push,
+                        appointments: {
+                          ...prev.push.appointments,
+                          confirmed: event.target.checked
+                        }
+                      }
+                    }))
+                  }
+                  className="h-4 w-4 accent-slate-900 disabled:opacity-40"
+                />
+              </label>
+              <label className="flex items-center justify-between gap-3 text-sm text-slate-700">
+                <span>{t('profile.form.notificationsAppointmentsCancelled')}</span>
+                <input
+                  type="checkbox"
+                  checked={notificationPreferences.push.appointments.cancelled}
+                  disabled={!pushEnabled}
+                  onChange={(event) =>
+                    setNotificationPreferences((prev) => ({
+                      ...prev,
+                      push: {
+                        ...prev.push,
+                        appointments: {
+                          ...prev.push.appointments,
+                          cancelled: event.target.checked
+                        }
+                      }
+                    }))
+                  }
+                  className="h-4 w-4 accent-slate-900 disabled:opacity-40"
+                />
+              </label>
+              <label className="flex items-center justify-between gap-3 text-sm text-slate-700">
+                <span>{t('profile.form.notificationsAppointmentsReminder')}</span>
+                <input
+                  type="checkbox"
+                  checked={notificationPreferences.push.appointments.reminder}
+                  disabled={!pushEnabled}
+                  onChange={(event) =>
+                    setNotificationPreferences((prev) => ({
+                      ...prev,
+                      push: {
+                        ...prev.push,
+                        appointments: {
+                          ...prev.push.appointments,
+                          reminder: event.target.checked
+                        }
+                      }
+                    }))
+                  }
+                  className="h-4 w-4 accent-slate-900 disabled:opacity-40"
+                />
+              </label>
+            </div>
+          </div>
+          <div className="pt-2 border-t border-slate-200">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              {t('profile.form.notificationsMarketplace')}
+            </p>
+            <div className="mt-2">
+              <label className="flex items-center justify-between gap-3 text-sm text-slate-700">
+                <span>{t('profile.form.notificationsMarketplaceRequests')}</span>
+                <input
+                  type="checkbox"
+                  checked={notificationPreferences.push.marketplace.request}
+                  disabled={!pushEnabled}
+                  onChange={(event) =>
+                    setNotificationPreferences((prev) => ({
+                      ...prev,
+                      push: {
+                        ...prev.push,
+                        marketplace: {
+                          ...prev.push.marketplace,
+                          request: event.target.checked
+                        }
+                      }
+                    }))
+                  }
+                  className="h-4 w-4 accent-slate-900 disabled:opacity-40"
+                />
+              </label>
+            </div>
+          </div>
+          <div className="pt-2 border-t border-slate-200">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              {t('profile.form.notificationsPayments')}
+            </p>
+            <div className="mt-2">
+              <label className="flex items-center justify-between gap-3 text-sm text-slate-700">
+                <span>{t('profile.form.notificationsPaymentsUpdated')}</span>
+                <input
+                  type="checkbox"
+                  checked={notificationPreferences.push.payments.updated}
+                  disabled={!pushEnabled}
+                  onChange={(event) =>
+                    setNotificationPreferences((prev) => ({
+                      ...prev,
+                      push: {
+                        ...prev.push,
+                        payments: {
+                          ...prev.push.payments,
+                          updated: event.target.checked
+                        }
+                      }
+                    }))
+                  }
+                  className="h-4 w-4 accent-slate-900 disabled:opacity-40"
+                />
+              </label>
+            </div>
+          </div>
+          <div className="pt-2 border-t border-slate-200">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              {t('profile.form.notificationsMarketing')}
+            </p>
+            <div className="mt-2">
+              <label className="flex items-center justify-between gap-3 text-sm text-slate-700">
+                <span>{t('profile.form.notificationsMarketing')}</span>
+                <input
+                  type="checkbox"
+                  checked={notificationPreferences.push.marketing}
+                  disabled={!pushEnabled}
+                  onChange={(event) =>
+                    setNotificationPreferences((prev) => ({
+                      ...prev,
+                      push: {
+                        ...prev.push,
+                        marketing: event.target.checked
+                      }
+                    }))
+                  }
+                  className="h-4 w-4 accent-slate-900 disabled:opacity-40"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
       {status && (
         <p
           className={`rounded-lg px-3 py-2 text-sm ${

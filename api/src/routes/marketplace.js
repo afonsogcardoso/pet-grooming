@@ -5,6 +5,7 @@ import { sanitizeBody } from '../utils/payload.js'
 import { normalizePhoneParts } from '../utils/phone.js'
 import { normalizeSlug } from '../utils/slug.js'
 import { mapAppointmentForApi } from '../utils/customer.js'
+import { sendPushNotifications } from '../utils/notifications.js'
 
 const router = Router()
 
@@ -103,6 +104,27 @@ function normalizeTime(value) {
   const [hh, mm] = trimmed.split(':')
   if (!hh || !mm) return trimmed.slice(0, 5)
   return `${hh.padStart(2, '0')}:${mm.padStart(2, '0')}`
+}
+
+function formatAppointmentDateTime(appointment) {
+  if (!appointment) return ''
+  const date = appointment.appointment_date || appointment.appointmentDate
+  const time = appointment.appointment_time || appointment.appointmentTime
+  return [date, time].filter(Boolean).join(' ')
+}
+
+async function loadAccountMemberUserIds(supabaseAdmin, accountId) {
+  if (!accountId) return []
+  const { data, error } = await supabaseAdmin
+    .from('account_members')
+    .select('user_id')
+    .eq('account_id', accountId)
+    .eq('status', 'accepted')
+  if (error) {
+    console.error('[marketplace] load account members error', error)
+    return []
+  }
+  return (data || []).map((row) => row.user_id).filter(Boolean)
 }
 
 function coerceLimit(value, fallback = 24) {
@@ -466,6 +488,31 @@ router.patch('/my-appointments/:id/cancel', async (req, res) => {
     return res.status(500).json({ error: updatedError.message })
   }
 
+  if (updated?.account?.id) {
+    const memberUserIds = await loadAccountMemberUserIds(supabaseAdmin, updated.account.id)
+    const recipients = memberUserIds.filter((memberId) => memberId !== user.id)
+    if (recipients.length) {
+      const dateTime = formatAppointmentDateTime(updated)
+      const customerName = [updated?.customers?.first_name, updated?.customers?.last_name]
+        .map(normalizeString)
+        .filter(Boolean)
+        .join(' ')
+      sendPushNotifications({
+        supabaseAdmin,
+        userIds: recipients,
+        accountId: updated.account.id,
+        type: 'appointments.cancelled',
+        title: 'Marcacao cancelada',
+        body: customerName && dateTime
+          ? `${customerName} cancelou a marcacao de ${dateTime}.`
+          : dateTime
+            ? `Uma marcacao foi cancelada (${dateTime}).`
+            : 'Uma marcacao foi cancelada.',
+        data: { appointmentId: id, status: 'cancelled' }
+      }).catch((notifyError) => console.error('[marketplace] push notification error', notifyError))
+    }
+  }
+
   res.json({ data: mapAppointmentForApi(updated) })
 })
 
@@ -811,6 +858,29 @@ router.post('/booking-requests', async (req, res) => {
     if (appointmentServiceError) {
       console.error('[marketplace] create appointment services error', appointmentServiceError)
     }
+  }
+
+  const memberUserIds = await loadAccountMemberUserIds(supabaseAdmin, account.id)
+  const recipients = memberUserIds.filter((memberId) => memberId !== user.id)
+  if (recipients.length) {
+    const dateTime = formatAppointmentDateTime(appointment)
+    const customerName = [customer?.first_name, customer?.last_name]
+      .map(normalizeString)
+      .filter(Boolean)
+      .join(' ')
+    sendPushNotifications({
+      supabaseAdmin,
+      userIds: recipients,
+      accountId: account.id,
+      type: 'marketplace.request',
+      title: 'Novo pedido de marcacao',
+      body: customerName && dateTime
+        ? `${customerName} pediu uma marcacao para ${dateTime}.`
+        : dateTime
+          ? `Novo pedido de marcacao para ${dateTime}.`
+          : 'Novo pedido de marcacao recebido.',
+      data: { appointmentId: appointment.id, accountId: account.id }
+    }).catch((notifyError) => console.error('[marketplace] push notification error', notifyError))
   }
 
   res.status(201).json({

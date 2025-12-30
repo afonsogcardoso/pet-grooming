@@ -103,13 +103,10 @@ export default function AppointmentsScreen({ navigation }: Props) {
   });
 
   const appointments = appointmentsData?.items || [];
-  const pendingAppointments = useMemo(() => {
-    const source =
-      filterMode === 'unpaid'
-        ? appointments.filter((appointment) => (appointment.payment_status || 'unpaid') !== 'paid')
-        : appointments;
-    return source.filter((appointment) => appointment.status === 'pending');
-  }, [appointments, filterMode]);
+  const pendingAppointments = useMemo(
+    () => appointments.filter((appointment) => appointment.status === 'pending'),
+    [appointments],
+  );
   const pendingCount = pendingAppointments.length;
   const hasPendingAppointments = pendingCount > 0;
   const queryClient = useQueryClient();
@@ -183,7 +180,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
       {/* Filter for List view only */}
       {viewMode === 'list' && (
         <>
-          <View style={[styles.segment, hasPendingAppointments && { marginBottom: 6 }]}>
+          <View style={styles.segment}>
             <TouchableOpacity
               style={[
                 styles.segmentButton,
@@ -217,19 +214,20 @@ export default function AppointmentsScreen({ navigation }: Props) {
                 {t('appointments.filterUnpaid')}
               </Text>
             </TouchableOpacity>
-          </View>
-          {hasPendingAppointments ? (
-            <View style={styles.chipRow}>
+            {hasPendingAppointments ? (
               <TouchableOpacity
-                style={[styles.chip, pendingOnly && styles.chipActive]}
+                style={[
+                  styles.segmentButton,
+                  pendingOnly && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
+                ]}
                 onPress={() => setPendingOnly((prev) => !prev)}
               >
-                <Text style={[styles.chipText, pendingOnly && styles.chipTextActive]}>
+                <Text style={[styles.segmentText, { color: pendingOnly ? primary : colors.text }]}>
                   {t('appointments.filterPending', { count: pendingCount })}
                 </Text>
               </TouchableOpacity>
-            </View>
-          ) : null}
+            ) : null}
+          </View>
         </>
       )}
 
@@ -354,32 +352,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     segmentText: {
       fontWeight: '700',
       color: colors.text,
-    },
-    chipRow: {
-      flexDirection: 'row',
-      gap: 8,
-      paddingHorizontal: 16,
-      marginBottom: 12,
-    },
-    chip: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 999,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      backgroundColor: colors.surface,
-    },
-    chipActive: {
-      borderColor: colors.primary,
-      backgroundColor: colors.primarySoft,
-    },
-    chipText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: colors.text,
-    },
-    chipTextActive: {
-      color: colors.primary,
     },
     error: {
       color: colors.danger,

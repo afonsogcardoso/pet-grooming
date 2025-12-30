@@ -18,11 +18,19 @@ export default async function ProfilePage() {
     redirect('/login')
   }
 
+  const notificationPreferences = await fetchNotificationPreferences(token)
   const user = mapProfileToUser(profile)
   const memberships = profile.memberships || []
   const membershipCount = profile.membershipCount || memberships.length || 0
 
-  return <ProfilePageClient user={user} memberships={memberships} membershipCount={membershipCount} />
+  return (
+    <ProfilePageClient
+      user={user}
+      memberships={memberships}
+      membershipCount={membershipCount}
+      notificationPreferences={notificationPreferences}
+    />
+  )
 }
 
 function getProjectRef() {
@@ -63,6 +71,25 @@ async function fetchProfile(token) {
 
   const body = await response.json().catch(() => null)
   return body || null
+}
+
+async function fetchNotificationPreferences(token) {
+  const base = (process.env.API_BASE_URL || '').replace(/\/$/, '')
+  const url = base ? `${base}/api/v1/notifications/preferences` : '/api/v1/notifications/preferences'
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    },
+    cache: 'no-store'
+  }).catch(() => null)
+
+  if (!response || !response.ok) {
+    return null
+  }
+
+  const body = await response.json().catch(() => null)
+  return body?.preferences || null
 }
 
 function mapProfileToUser(profile) {

@@ -13,6 +13,7 @@ import authRouter from './routes/auth.js'
 import brandingRouter from './routes/branding.js'
 import domainsRouter from './routes/domains.js'
 import profileRouter from './routes/profile.js'
+import notificationsRouter from './routes/notifications.js'
 import adminRouter from './routes/admin.js'
 import publicRouter from './routes/public.js'
 import accountMembersRouter from './routes/accountMembers.js'
@@ -847,6 +848,7 @@ app.get('/api/v1/health', (_req, res) => res.json({ ok: true }))
 app.use('/api/v1', authRouter)
 app.use('/api/v1/appointments', appointmentsRouter)
 app.use('/api/v1/profile', profileRouter)
+app.use('/api/v1/notifications', notificationsRouter)
 app.use('/api/v1/domains', domainsRouter)
 app.use('/api/v1/customers', customersRouter)
 app.use('/api/v1/services', servicesRouter)

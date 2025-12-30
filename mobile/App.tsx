@@ -35,6 +35,7 @@ import { getProfile } from './src/api/profile';
 import { clearBrandingCache, readBrandingCache, writeBrandingCache } from './src/theme/brandingCache';
 import { readProfileCache, writeProfileCache } from './src/state/profileCache';
 import { bootstrapLanguage, setAppLanguage } from './src/i18n';
+import { configureNotificationHandler } from './src/utils/pushNotifications';
 
 const Stack = createNativeStackNavigator();
 
@@ -42,6 +43,8 @@ const NAMED_COLORS: Record<string, string> = {
   white: '#ffffff',
   black: '#000000',
 };
+
+configureNotificationHandler();
 
 function parseHex(input?: string | null) {
   if (!input) return null;

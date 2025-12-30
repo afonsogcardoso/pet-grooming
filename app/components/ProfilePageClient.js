@@ -17,7 +17,12 @@ function formatDate(value, locale, options = { dateStyle: 'medium' }) {
   }
 }
 
-export default function ProfilePageClient({ user, memberships = [], membershipCount = 0 }) {
+export default function ProfilePageClient({
+  user,
+  memberships = [],
+  membershipCount = 0,
+  notificationPreferences = null
+}) {
   const { t, resolvedLocale } = useTranslation()
   const tabs = [
     { id: 'profile', label: t('profile.tabs.profile') || 'Perfil' },
@@ -334,6 +339,7 @@ export default function ProfilePageClient({ user, memberships = [], membershipCo
               initialPhone={metadata.phone || ''}
               initialLocale={metadata.preferred_locale || 'pt'}
               initialAvatarUrl={avatarUrl}
+              initialNotificationPreferences={notificationPreferences}
             />
           )}
 

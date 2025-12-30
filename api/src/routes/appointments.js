@@ -3,6 +3,7 @@ import multer from 'multer'
 import crypto from 'crypto'
 import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../authClient.js'
 import { formatCustomerName, mapAppointmentForApi } from '../utils/customer.js'
+import { sendPushNotifications } from '../utils/notifications.js'
 
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
@@ -46,6 +47,13 @@ const APPOINTMENT_DETAIL_SELECT = `
   )
 `
 const PET_PHOTO_BUCKET = 'pets'
+
+function formatAppointmentDateTime(appointment) {
+  if (!appointment) return ''
+  const date = appointment.appointment_date || appointment.appointmentDate
+  const time = appointment.appointment_time || appointment.appointmentTime
+  return [date, time].filter(Boolean).join(' ')
+}
 
 function normalizeServiceSelections(rawSelections) {
   if (!Array.isArray(rawSelections)) return []
@@ -297,6 +305,7 @@ router.post('/', async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+  const supabaseAdmin = getSupabaseServiceRoleClient() || supabase
   const payload = { ...(req.body || {}) }
   const serviceSelections = payload.service_selections
   const serviceIds = payload.service_ids || (payload.service_id ? [payload.service_id] : [])
@@ -345,6 +354,26 @@ router.post('/', async (req, res) => {
         selections: serviceSelections
       })
     }
+
+    if (appointment.customer_id) {
+      const { data: customer } = await supabaseAdmin
+        .from('customers')
+        .select('id, user_id, first_name, last_name')
+        .eq('id', appointment.customer_id)
+        .maybeSingle()
+      if (customer?.user_id) {
+        const dateTime = formatAppointmentDateTime(appointment)
+        sendPushNotifications({
+          supabaseAdmin,
+          userIds: [customer.user_id],
+          accountId: appointment.account_id,
+          type: 'appointments.created',
+          title: 'Marcacao criada',
+          body: dateTime ? `A tua marcacao foi criada para ${dateTime}.` : 'A tua marcacao foi criada.',
+          data: { appointmentId: appointment.id }
+        }).catch((error) => console.error('[api] push notification error', error))
+      }
+    }
   }
 
   res.status(201).json({ data: mapAppointmentForApi(appointment) })
@@ -385,6 +414,7 @@ router.patch('/:id/status', async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+  const supabaseAdmin = getSupabaseServiceRoleClient() || supabase
   const { id } = req.params
   const { status } = req.body || {}
 
@@ -419,6 +449,39 @@ router.patch('/:id/status', async (req, res) => {
   if (error) {
     console.error('[api] update appointment status error', error)
     return res.status(500).json({ error: error.message })
+  }
+
+  const updatedAppointment = Array.isArray(data) ? data[0] : data
+  const customerId = updatedAppointment?.customers?.id
+  if (
+    customerId &&
+    (status === 'confirmed' || status === 'cancelled')
+  ) {
+    const { data: customer } = await supabaseAdmin
+      .from('customers')
+      .select('id, user_id, first_name, last_name')
+      .eq('id', customerId)
+      .maybeSingle()
+    if (customer?.user_id) {
+      const dateTime = formatAppointmentDateTime(updatedAppointment)
+      const title = status === 'confirmed' ? 'Marcacao confirmada' : 'Marcacao cancelada'
+      const body = status === 'confirmed'
+        ? dateTime
+          ? `A tua marcacao de ${dateTime} foi confirmada.`
+          : 'A tua marcacao foi confirmada.'
+        : dateTime
+          ? `A tua marcacao de ${dateTime} foi cancelada.`
+          : 'A tua marcacao foi cancelada.'
+      sendPushNotifications({
+        supabaseAdmin,
+        userIds: [customer.user_id],
+        accountId: accountId || null,
+        type: status === 'confirmed' ? 'appointments.confirmed' : 'appointments.cancelled',
+        title,
+        body,
+        data: { appointmentId: id, status }
+      }).catch((notifyError) => console.error('[api] push notification error', notifyError))
+    }
   }
 
   res.json({ data: Array.isArray(data) ? data.map(mapAppointmentForApi) : mapAppointmentForApi(data) })
