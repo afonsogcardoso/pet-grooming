@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as Notifications from 'expo-notifications';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -76,8 +77,17 @@ function isLightColor(input?: string | null) {
   return luminance > 0.65;
 }
 
+function extractAppointmentId(data: any) {
+  if (!data || typeof data !== 'object') return null;
+  const candidate = data.appointmentId || data.appointment_id || data.appointmentID;
+  if (!candidate) return null;
+  return candidate.toString();
+}
+
 export default function App() {
   const [queryClient] = useState(() => new QueryClient());
+  const navigationRef = useMemo(() => createNavigationContainerRef(), []);
+  const pendingNavigationRef = useRef<{ route: string; params: { id: string } } | null>(null);
   const [brandingData, setBrandingData] = useState<Branding | null>(null);
   const [previousBranding, setPreviousBranding] = useState<Branding | null>(null);
   const [profileData, setProfileData] = useState<{
@@ -247,6 +257,52 @@ export default function App() {
     };
   }, [hydrated, token, queryClient]);
 
+  const activeRole = storedActiveRole ?? profileData?.activeRole ?? 'provider';
+  const appMode = viewMode ?? (activeRole === 'consumer' ? 'consumer' : 'private');
+  const appModeRef = useRef(appMode);
+  const tokenRef = useRef(token);
+
+  useEffect(() => {
+    appModeRef.current = appMode;
+  }, [appMode]);
+
+  useEffect(() => {
+    tokenRef.current = token;
+  }, [token]);
+
+  const handleNotificationResponse = useCallback(
+    (response: Notifications.NotificationResponse | null | undefined) => {
+      if (!response) return;
+      if (!tokenRef.current) return;
+      const data = response.notification?.request?.content?.data;
+      const appointmentId = extractAppointmentId(data);
+      if (!appointmentId) return;
+
+      const route =
+        appModeRef.current === 'consumer'
+          ? 'ConsumerAppointmentDetail'
+          : 'AppointmentDetail';
+      const params = { id: appointmentId };
+
+      if (navigationRef.isReady()) {
+        navigationRef.navigate(route, params);
+      } else {
+        pendingNavigationRef.current = { route, params };
+      }
+    },
+    [navigationRef]
+  );
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (response) handleNotificationResponse(response);
+      })
+      .catch(() => null);
+    return () => subscription.remove();
+  }, [handleNotificationResponse]);
+
   const showLoader = !hydrated || (token && (!brandingData || !profileData || !viewModeHydrated));
 
   if (showLoader) {
@@ -257,9 +313,6 @@ export default function App() {
     );
   }
 
-  const activeRole = storedActiveRole ?? profileData?.activeRole ?? 'provider';
-  const appMode = viewMode ?? (activeRole === 'consumer' ? 'consumer' : 'private');
-
   const overlayBackground = previousBranding?.brand_background || '#FFF7EE';
   const statusBarBackground = brandingData?.brand_background || overlayBackground || '#FFF7EE';
   const statusBarStyle = isLightColor(statusBarBackground) ? 'dark' : 'light';
@@ -268,7 +321,17 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <NavigationContainer key={appMode}>
+          <NavigationContainer
+            key={appMode}
+            ref={navigationRef}
+            onReady={() => {
+              const pending = pendingNavigationRef.current;
+              if (pending && navigationRef.isReady()) {
+                pendingNavigationRef.current = null;
+                navigationRef.navigate(pending.route, pending.params);
+              }
+            }}
+          >
             <Stack.Navigator>
               {token ? (
                 appMode === 'consumer' ? (
