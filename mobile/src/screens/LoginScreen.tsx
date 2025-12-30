@@ -86,6 +86,7 @@ export default function LoginScreen({ navigation }: Props) {
   const { colors, branding } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const versionLabel = useMemo(() => formatVersionLabel(), []);
+  const showAppleLogin = false;
   const logoSource = useMemo(() => {
     if (!branding?.logo_url || brandingLogoFailed) {
       return require('../../assets/logo_180x180.png');
@@ -335,26 +336,28 @@ export default function LoginScreen({ navigation }: Props) {
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.oauthButton,
-                (isPending || oauthLoading) && styles.buttonDisabled,
-              ]}
-              onPress={() => handleOAuth('apple')}
-              disabled={isPending || oauthLoading !== null}
-            >
-              {oauthLoading === 'apple' ? (
-                <View style={styles.oauthButtonContent}>
-                  <ActivityIndicator color={colors.text} size="small" />
-                  <Text style={styles.oauthButtonText}>{t('common.loading')}</Text>
-                </View>
-              ) : (
-                <View style={styles.oauthButtonContent}>
-                  <Ionicons name="logo-apple" size={18} color={colors.text} />
-                  <Text style={styles.oauthButtonText}>{t('login.actions.apple')}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+            {showAppleLogin ? (
+              <TouchableOpacity
+                style={[
+                  styles.oauthButton,
+                  (isPending || oauthLoading) && styles.buttonDisabled,
+                ]}
+                onPress={() => handleOAuth('apple')}
+                disabled={isPending || oauthLoading !== null}
+              >
+                {oauthLoading === 'apple' ? (
+                  <View style={styles.oauthButtonContent}>
+                    <ActivityIndicator color={colors.text} size="small" />
+                    <Text style={styles.oauthButtonText}>{t('common.loading')}</Text>
+                  </View>
+                ) : (
+                  <View style={styles.oauthButtonContent}>
+                    <Ionicons name="logo-apple" size={18} color={colors.text} />
+                    <Text style={styles.oauthButtonText}>{t('login.actions.apple')}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           <View style={styles.separator}>

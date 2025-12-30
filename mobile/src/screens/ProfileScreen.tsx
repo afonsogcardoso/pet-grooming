@@ -128,6 +128,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [linkingProvider, setLinkingProvider] = useState<'google' | 'apple' | null>(null);
+  const showAppleLink = false;
 
   const { data, isLoading, error, isRefetching } = useQuery({
     queryKey: ['profile'],
@@ -1028,20 +1029,22 @@ export default function ProfileScreen({ navigation }: Props) {
                     {linkingProvider === 'google' ? <ActivityIndicator color={colors.text} /> : null}
                   </View>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.linkButton,
-                    (linkingProvider || isAppleLinked) && styles.buttonDisabled,
-                  ]}
-                  onPress={() => handleLinkProvider('apple')}
-                  disabled={Boolean(linkingProvider) || isAppleLinked}
-                >
-                  <View style={styles.linkButtonContent}>
-                    <Ionicons name="logo-apple" size={18} color={colors.text} />
-                    <Text style={styles.linkButtonText}>{appleButtonLabel}</Text>
-                    {linkingProvider === 'apple' ? <ActivityIndicator color={colors.text} /> : null}
-                  </View>
-                </TouchableOpacity>
+                {showAppleLink ? (
+                  <TouchableOpacity
+                    style={[
+                      styles.linkButton,
+                      (linkingProvider || isAppleLinked) && styles.buttonDisabled,
+                    ]}
+                    onPress={() => handleLinkProvider('apple')}
+                    disabled={Boolean(linkingProvider) || isAppleLinked}
+                  >
+                    <View style={styles.linkButtonContent}>
+                      <Ionicons name="logo-apple" size={18} color={colors.text} />
+                      <Text style={styles.linkButtonText}>{appleButtonLabel}</Text>
+                      {linkingProvider === 'apple' ? <ActivityIndicator color={colors.text} /> : null}
+                    </View>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </View>
 
