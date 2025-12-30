@@ -385,6 +385,22 @@ router.post('/', async (req, res) => {
   res.status(201).json({ data: mapAppointmentForApi(appointment) })
 })
 
+// Public: fetch appointment details for confirmation
+router.get('/confirm', async (req, res) => {
+  const { id, token } = req.query || {}
+
+  if (!id || !token) {
+    return res.status(400).json({ error: 'missing_parameters' })
+  }
+
+  const { data: appointment, error } = await getAppointmentByPublicToken(id, token)
+  if (error || !appointment) {
+    return res.status(404).json({ error: 'not_found' })
+  }
+
+  return res.json({ appointment: mapAppointmentForApi(appointment) })
+})
+
 // Get single appointment
 router.get('/:id', async (req, res) => {
   const accountId = req.accountId

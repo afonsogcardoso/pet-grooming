@@ -16,7 +16,7 @@ function buildAbsoluteUrl(path) {
 
 async function fetchAppointmentWithToken(id, token) {
   if (!id || !token) return { appointment: null }
-  const base = (process.env.API_BASE_URL || '').replace(/\/$/, '')
+  const base = (process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
   const url = `${base}/api/v1/appointments/confirm?id=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}`
   try {
     const res = await fetch(url, { next: { revalidate: 0 } })
