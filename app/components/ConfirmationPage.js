@@ -53,6 +53,20 @@ export default function ConfirmationPage({ appointment }) {
 
   const formattedDate = useMemo(() => formatDate(date, resolvedLocale), [date, resolvedLocale])
   const formattedTime = useMemo(() => formatTime(time, resolvedLocale), [time, resolvedLocale])
+  const appStoreUrl = (
+    process.env.NEXT_PUBLIC_APP_STORE_URL ||
+    process.env.NEXT_PUBLIC_IOS_APP_STORE_URL ||
+    ''
+  ).trim()
+  const deepLinkUrl = useMemo(() => {
+    if (!appointment?.id || !appointment?.public_token) return ''
+    const params = new URLSearchParams({
+      id: appointment.id,
+      token: appointment.public_token
+    })
+    return `pawmi://appointments/confirm?${params.toString()}`
+  }, [appointment?.id, appointment?.public_token])
+  const showAppCta = Boolean(appStoreUrl || deepLinkUrl)
 
   const pageTitle = customer
     ? t('confirmationPage.title', { customer })
@@ -226,6 +240,37 @@ export default function ConfirmationPage({ appointment }) {
               {t('confirmationPage.actions.addToCalendarButton')}
             </button>
           </div>
+
+          {showAppCta && (
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+              <p className="text-sm font-semibold text-slate-800 mb-2">
+                {t('confirmationPage.actions.appTitle')}
+              </p>
+              <p className="text-xs text-slate-600 mb-3">
+                {t('confirmationPage.actions.appHelper')}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                {deepLinkUrl && (
+                  <a
+                    href={deepLinkUrl}
+                    className="w-full rounded-xl bg-brand-primary text-white font-semibold py-3 text-center hover:bg-brand-primary-dark transition"
+                  >
+                    {t('confirmationPage.actions.openApp')}
+                  </a>
+                )}
+                {appStoreUrl && (
+                  <a
+                    href={appStoreUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold py-3 text-center hover:bg-slate-50 transition"
+                  >
+                    {t('confirmationPage.actions.downloadApp')}
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="mt-6 flex flex-col gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700">
             <p>✅ {t('confirmationPage.footer.confirmed')}</p>

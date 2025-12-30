@@ -189,6 +189,10 @@
       "addToCalendar": "Adicionar ao calendário",
       "addToCalendarHelper": "Faça download do ficheiro .ics e adicione ao seu calendário.",
       "addToCalendarButton": "Adicionar ao calendário",
+      "appTitle": "Acompanhe na app",
+      "appHelper": "Abra a app se já a tem instalada ou faça download para acompanhar futuras marcações.",
+      "openApp": "Abrir na app",
+      "downloadApp": "Descarregar na App Store",
       "photoError": "Falhou o envio da foto. Tente novamente.",
       "photoEmpty": "Carregue aqui a fotografia do pet",
       "photoPlaceholder": "Remover fotografia"

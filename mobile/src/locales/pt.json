@@ -93,6 +93,8 @@
   "consumerPetsForm": {
     "createTitle": "Novo animal",
     "editTitle": "Editar animal",
+    "photoLabel": "Foto do animal",
+    "addPhoto": "Adicionar foto",
     "nameLabel": "Nome",
     "namePlaceholder": "Nome do animal",
     "breedLabel": "Raça",
@@ -108,6 +110,7 @@
     "requiredTitle": "Falta informação",
     "requiredMessage": "Preenche o nome do animal.",
     "weightInvalid": "Peso inválido.",
+    "photoUploadError": "Não foi possível fazer upload da foto",
     "saveError": "Não foi possível guardar o animal",
     "deleteError": "Não foi possível apagar o animal"
   },
@@ -646,6 +649,7 @@
     "whatsappPet": "Pet: {{pet}}",
     "whatsappPetServices": "🐾 {{pet}}: {{services}}",
     "whatsappAddress": "Morada: {{address}}",
+    "whatsappLink": "Ver detalhes: {{url}}",
     "dateServiceSection": "Data e Hora",
     "dateLabel": "Data",
     "timeLabel": "Hora",

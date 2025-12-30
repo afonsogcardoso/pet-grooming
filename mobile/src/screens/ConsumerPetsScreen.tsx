@@ -4,7 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { EmptyState } from '../components/common';
+import { Avatar, EmptyState } from '../components/common';
 import { ConsumerPet, getConsumerPets } from '../api/consumerPets';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,11 +32,16 @@ export default function ConsumerPetsScreen({ navigation }: Props) {
       onPress={() => navigation.navigate('ConsumerPetForm', { pet: item })}
       activeOpacity={0.8}
     >
-      <Text style={styles.petName}>{item.name}</Text>
-      {item.breed ? <Text style={styles.petMeta}>{item.breed}</Text> : null}
-      {item.weight !== undefined && item.weight !== null ? (
-        <Text style={styles.petMeta}>{formatWeight(item.weight, t('consumerPets.weightUnit'))}</Text>
-      ) : null}
+      <View style={styles.cardContent}>
+        <Avatar name={item.name} imageUrl={item.photo_url} size="medium" />
+        <View style={styles.cardText}>
+          <Text style={styles.petName}>{item.name}</Text>
+          {item.breed ? <Text style={styles.petMeta}>{item.breed}</Text> : null}
+          {item.weight !== undefined && item.weight !== null ? (
+            <Text style={styles.petMeta}>{formatWeight(item.weight, t('consumerPets.weightUnit'))}</Text>
+          ) : null}
+        </View>
+      </View>
     </TouchableOpacity>
   );
 
@@ -142,6 +147,14 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginBottom: 12,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
+    },
+    cardContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    cardText: {
+      flex: 1,
     },
     petName: {
       fontSize: 16,

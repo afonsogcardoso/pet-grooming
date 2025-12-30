@@ -93,6 +93,8 @@
   "consumerPetsForm": {
     "createTitle": "New pet",
     "editTitle": "Edit pet",
+    "photoLabel": "Pet photo",
+    "addPhoto": "Add photo",
     "nameLabel": "Name",
     "namePlaceholder": "Pet name",
     "breedLabel": "Breed",
@@ -108,6 +110,7 @@
     "requiredTitle": "Missing info",
     "requiredMessage": "Please provide the pet name.",
     "weightInvalid": "Invalid weight.",
+    "photoUploadError": "Could not upload the photo",
     "saveError": "Could not save pet",
     "deleteError": "Could not delete pet"
   },
@@ -646,6 +649,7 @@
     "whatsappPet": "Pet: {{pet}}",
     "whatsappPetServices": "🐾 {{pet}}: {{services}}",
     "whatsappAddress": "Address: {{address}}",
+    "whatsappLink": "View details: {{url}}",
     "dateServiceSection": "Date & Time",
     "dateLabel": "Date",
     "timeLabel": "Time",

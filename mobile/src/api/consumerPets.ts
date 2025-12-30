@@ -37,3 +37,27 @@ export async function updateConsumerPet(
 export async function deleteConsumerPet(id: string): Promise<void> {
   await api.delete(`/marketplace/pets/${id}`);
 }
+
+export async function uploadConsumerPetPhoto(
+  petId: string,
+  file: { uri: string; name: string; type: string },
+): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append('file', {
+    uri: file.uri,
+    name: file.name,
+    type: file.type,
+  } as any);
+
+  const { data } = await api.post<{ url: string }>(
+    `/marketplace/pets/${petId}/photo`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    },
+  );
+
+  return data;
+}

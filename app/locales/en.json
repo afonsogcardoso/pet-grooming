@@ -189,6 +189,10 @@
       "addToCalendar": "Add to calendar",
       "addToCalendarHelper": "Download an .ics file and add it to your calendar app.",
       "addToCalendarButton": "Add to calendar",
+      "appTitle": "Follow in the app",
+      "appHelper": "Open the app if you already have it installed, or download it to keep track of future appointments.",
+      "openApp": "Open in the app",
+      "downloadApp": "Download on the App Store",
       "photoError": "Failed to upload the photo. Try again.",
       "photoEmpty": "Tap to upload a pet photo",
       "photoPlaceholder": "Remove photo"

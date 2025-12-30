@@ -73,6 +73,40 @@ function formatHHMM(value?: string | null) {
   return safe.slice(0, 5);
 }
 
+function normalizeBaseUrl(value?: string | null) {
+  if (!value) return '';
+  return value.replace(/\/$/, '');
+}
+
+const CONFIRMATION_BASE_URL = (() => {
+  const candidates = [
+    process.env.EXPO_PUBLIC_SITE_URL,
+    process.env.EXPO_PUBLIC_WEB_URL,
+  ];
+  for (const candidate of candidates) {
+    const normalized = normalizeBaseUrl(candidate);
+    if (normalized) return normalized;
+  }
+  const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (apiBase) {
+    try {
+      const parsed = new URL(apiBase);
+      return parsed.origin;
+    } catch {
+      return normalizeBaseUrl(apiBase);
+    }
+  }
+  return '';
+})();
+
+function buildConfirmationUrl(appointment?: { id?: string; public_token?: string | null }) {
+  if (!appointment?.id || !appointment?.public_token || !CONFIRMATION_BASE_URL) return '';
+  const query = `id=${encodeURIComponent(appointment.id)}&token=${encodeURIComponent(
+    appointment.public_token
+  )}`;
+  return `${CONFIRMATION_BASE_URL}/appointments/confirm?${query}`;
+}
+
 function parseAmountInput(value: string) {
   const normalized = value.replace(/\s/g, '').replace(',', '.');
   if (!normalized) return null;
@@ -533,7 +567,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
         queryClient.invalidateQueries({ queryKey: ['appointment', editAppointmentId] }).catch(() => null);
       }
       if (sendWhatsapp && canSendWhatsapp && !isEditMode) {
-        await openWhatsapp();
+        const confirmationUrl = buildConfirmationUrl(savedAppointment);
+        await openWhatsapp(confirmationUrl);
       }
       // Navega para os detalhes da marcação
       if (savedAppointment?.id) {
@@ -823,7 +858,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     });
   };
 
-  const buildWhatsappMessage = () => {
+  const buildWhatsappMessage = (confirmationUrl?: string) => {
     const dateObj = date ? new Date(`${date}T00:00:00`) : null;
     const dateLabel = dateObj && !Number.isNaN(dateObj.getTime())
       ? dateObj.toLocaleDateString(dateLocale, { weekday: 'short', day: '2-digit', month: 'short' })
@@ -860,17 +895,18 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     const lines = [
       ...petLines,
       address && t('appointmentForm.whatsappAddress', { address }),
+      confirmationUrl && t('appointmentForm.whatsappLink', { url: confirmationUrl }),
     ].filter(Boolean);
 
     return [intro, '', ...lines].join('\n');
   };
 
-  const openWhatsapp = async () => {
+  const openWhatsapp = async (confirmationUrl?: string) => {
     if (!canSendWhatsapp) {
       Alert.alert(t('appointmentForm.whatsappTitle'), t('appointmentForm.whatsappNoNumber'));
       return;
     }
-    const message = buildWhatsappMessage();
+    const message = buildWhatsappMessage(confirmationUrl);
     const url = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(message)}`;
     const supported = await Linking.canOpenURL(url);
     if (!supported) {

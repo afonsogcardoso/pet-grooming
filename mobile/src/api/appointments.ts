@@ -8,6 +8,7 @@ export type Appointment = {
   notes?: string | null;
   payment_status?: string | null;
   status?: string | null;
+  public_token?: string | null;
   amount?: number | null;
   before_photo_url?: string | null;
   after_photo_url?: string | null;

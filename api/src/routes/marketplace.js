@@ -1,4 +1,6 @@
 import { Router } from 'express'
+import multer from 'multer'
+import crypto from 'crypto'
 import { getSupabaseServiceRoleClient } from '../authClient.js'
 import { getAuthenticatedUser } from '../utils/auth.js'
 import { sanitizeBody } from '../utils/payload.js'
@@ -8,6 +10,8 @@ import { mapAppointmentForApi } from '../utils/customer.js'
 import { sendPushNotifications } from '../utils/notifications.js'
 
 const router = Router()
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
+const PET_PHOTO_BUCKET = 'pets'
 
 const MARKETPLACE_ACCOUNT_SELECT = [
   'id',
@@ -328,6 +332,66 @@ router.patch('/pets/:id', async (req, res) => {
   if (!data) return res.status(404).json({ error: 'not_found' })
 
   res.json({ data })
+})
+
+router.post('/pets/:id/photo', upload.single('file'), async (req, res) => {
+  const supabaseAdmin = getSupabaseServiceRoleClient()
+  if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
+
+  const user = await getAuthenticatedUser(req)
+  if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+  const id = normalizeString(req.params.id)
+  if (!id) return res.status(400).json({ error: 'missing_id' })
+
+  const file = req.file
+  if (!file) return res.status(400).json({ error: 'no_file' })
+
+  const { data: pet, error: petError } = await supabaseAdmin
+    .from('consumer_pets')
+    .select('id')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (petError) {
+    console.error('[marketplace] load consumer pet error', petError)
+    return res.status(500).json({ error: petError.message })
+  }
+  if (!pet) return res.status(404).json({ error: 'not_found' })
+
+  const ext = (file.originalname?.split('.').pop() || 'jpg').toLowerCase()
+  const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'heic'].includes(ext) ? ext : 'jpg'
+  const uniqueId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`
+  const path = `consumer-pets/${id}-${uniqueId}.${safeExt}`
+
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from(PET_PHOTO_BUCKET)
+    .upload(path, file.buffer, {
+      cacheControl: '3600',
+      upsert: true,
+      contentType: file.mimetype || 'image/jpeg'
+    })
+
+  if (uploadError) return res.status(500).json({ error: uploadError.message })
+
+  const { data: signedUrlData, error: signedError } = await supabaseAdmin.storage
+    .from(PET_PHOTO_BUCKET)
+    .createSignedUrl(path, 604800)
+
+  if (signedError) return res.status(500).json({ error: signedError.message })
+
+  const url = signedUrlData?.signedUrl || null
+
+  if (url) {
+    await supabaseAdmin
+      .from('consumer_pets')
+      .update({ photo_url: url })
+      .eq('id', id)
+      .eq('user_id', user.id)
+  }
+
+  return res.json({ url })
 })
 
 router.delete('/pets/:id', async (req, res) => {
