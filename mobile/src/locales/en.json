@@ -303,6 +303,8 @@
     "header": "Profile",
     "lastLogin": "Last login: {{date}}",
     "createdAt": "Created",
+    "sectionInfo": "Info",
+    "infoDescription": "Editable personal details.",
     "firstNamePlaceholder": "First name",
     "lastNamePlaceholder": "Last name",
     "nameRequired": "First and last name are required.",

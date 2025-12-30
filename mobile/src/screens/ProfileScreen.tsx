@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Image, TextInput, Alert, Platform, ActionSheetIOS, PermissionsAndroid, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,6 +24,7 @@ import { registerForPushNotifications } from '../utils/pushNotifications';
 WebBrowser.maybeCompleteAuthSession();
 
 type Props = NativeStackScreenProps<any>;
+type ProfileSection = 'info' | 'security' | 'notifications';
 
 function formatDate(value: string | null | undefined, locale: string, fallback: string) {
   if (!value) return fallback;
@@ -114,8 +115,9 @@ export default function ProfileScreen({ navigation }: Props) {
   const { t, i18n } = useTranslation();
   const dateLocale = getDateLocale();
   const versionLabel = useMemo(() => formatVersionLabel(), []);
-  
-  const [isEditing, setIsEditing] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const [activeSection, setActiveSection] = useState<ProfileSection>('info');
+  const [hasProfileEdits, setHasProfileEdits] = useState(false);
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
   const [editPhone, setEditPhone] = useState('');
@@ -164,6 +166,35 @@ export default function ProfileScreen({ navigation }: Props) {
   const canSwitchViewMode = availableRoles.includes('consumer') && availableRoles.includes('provider');
   const resolvedNotificationPreferences = notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES;
   const pushEnabled = resolvedNotificationPreferences.push?.enabled ?? false;
+  const profileDefaults = useMemo(() => {
+    const fallbackName = data?.displayName || user?.displayName || '';
+    const [fallbackFirst, ...fallbackLast] = fallbackName.split(' ');
+    return {
+      firstName: data?.firstName || fallbackFirst || '',
+      lastName: data?.lastName || fallbackLast.join(' ') || '',
+      phone: data?.phone || '',
+    };
+  }, [
+    data?.displayName,
+    data?.firstName,
+    data?.lastName,
+    data?.phone,
+    user?.displayName,
+  ]);
+  const isProfileDirty = useMemo(() => {
+    return (
+      editFirstName.trim() !== profileDefaults.firstName.trim() ||
+      editLastName.trim() !== profileDefaults.lastName.trim() ||
+      editPhone.trim() !== profileDefaults.phone.trim()
+    );
+  }, [editFirstName, editLastName, editPhone, profileDefaults]);
+
+  useEffect(() => {
+    if (hasProfileEdits) return;
+    setEditFirstName(profileDefaults.firstName);
+    setEditLastName(profileDefaults.lastName);
+    setEditPhone(profileDefaults.phone);
+  }, [profileDefaults, hasProfileEdits]);
 
   const mergeProfileUpdate = (current: Profile | undefined, updated: Profile, payload?: Partial<Profile>) => {
     if (!current) return updated;
@@ -248,7 +279,12 @@ export default function ProfileScreen({ navigation }: Props) {
         activeRole: merged.activeRole ?? user?.activeRole,
       };
       setUser(nextUser);
-      setIsEditing(false);
+      if (payload && ('firstName' in payload || 'lastName' in payload || 'phone' in payload)) {
+        setHasProfileEdits(false);
+        setEditFirstName(merged.firstName ?? '');
+        setEditLastName(merged.lastName ?? '');
+        setEditPhone(merged.phone ?? '');
+      }
       // profile updated
     },
     onError: () => Alert.alert(t('common.error'), t('profile.updateError')),
@@ -514,6 +550,7 @@ export default function ProfileScreen({ navigation }: Props) {
   };
 
   const handleSave = () => {
+    if (!isProfileDirty) return;
     if (!editFirstName.trim() || !editLastName.trim()) {
       Alert.alert(t('common.warning'), t('profile.nameRequired'));
       return;
@@ -525,22 +562,42 @@ export default function ProfileScreen({ navigation }: Props) {
     });
   };
 
-  const handleEdit = () => {
-    const fallbackName = data?.displayName || user?.displayName || '';
-    const [fallbackFirst, ...fallbackLast] = fallbackName.split(' ');
-    setEditFirstName(data?.firstName || fallbackFirst || '');
-    setEditLastName(data?.lastName || fallbackLast.join(' ') || '');
-    setEditPhone(data?.phone || '');
-    setIsEditing(true);
+  const handleProfileReset = () => {
+    setEditFirstName(profileDefaults.firstName);
+    setEditLastName(profileDefaults.lastName);
+    setEditPhone(profileDefaults.phone);
+    setHasProfileEdits(false);
+  };
+
+  const handleFirstNameChange = (value: string) => {
+    setEditFirstName(value);
+    setHasProfileEdits(true);
+  };
+
+  const handleLastNameChange = (value: string) => {
+    setEditLastName(value);
+    setHasProfileEdits(true);
+  };
+
+  const handlePhoneChange = (value: string) => {
+    setEditPhone(value);
+    setHasProfileEdits(true);
+  };
+
+  const handleSectionChange = (section: ProfileSection) => {
+    setActiveSection(section);
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    });
   };
 
   const handleLanguageChange = (language: string) => {
-    if (isEditing || updateMutation.isPending || languageMutation.isPending) return;
+    if (updateMutation.isPending || languageMutation.isPending) return;
     languageMutation.mutate(language);
   };
 
   const handleViewModeChange = (mode: ViewMode) => {
-    if (isEditing || updateMutation.isPending || languageMutation.isPending) return;
+    if (updateMutation.isPending || languageMutation.isPending) return;
     if (mode === resolvedViewMode) return;
     const previousViewMode = viewMode;
     setViewMode(mode);
@@ -557,7 +614,7 @@ export default function ProfileScreen({ navigation }: Props) {
   };
 
   const handleOpenPasswordForm = () => {
-    if (isEditing || updateMutation.isPending || languageMutation.isPending) return;
+    if (updateMutation.isPending || languageMutation.isPending) return;
     setShowPasswordForm(true);
     setPasswordError(null);
   };
@@ -638,7 +695,7 @@ export default function ProfileScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScreenHeader title={t('profile.title')} />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerCard}>
           <View style={styles.headerRow}>
             <TouchableOpacity
@@ -671,23 +728,46 @@ export default function ProfileScreen({ navigation }: Props) {
               </Text>
             </View>
           </View>
-          {!isEditing ? (
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={handleEdit}
-              disabled={updateMutation.isPending}
-            >
-              <Text style={styles.headerButtonText}>{t('profile.editProfile')}</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.editArea}>
+        </View>
+
+        {isLoading || isRefetching ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} /> : null}
+        {error ? <Text style={styles.error}>{t('profile.loadError')}</Text> : null}
+
+        <View style={styles.sectionTabs}>
+          {(
+            [
+              { key: 'info', label: t('profile.sectionInfo') },
+              { key: 'security', label: t('profile.security') },
+              { key: 'notifications', label: t('profile.notificationsTitle') },
+            ] as const
+          ).map((section) => {
+            const isActive = activeSection === section.key;
+            return (
+              <TouchableOpacity
+                key={section.key}
+                style={[styles.sectionTab, isActive && styles.sectionTabActive]}
+                onPress={() => handleSectionChange(section.key)}
+              >
+                <Text style={[styles.sectionTabText, isActive && styles.sectionTabTextActive]}>
+                  {section.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {activeSection === 'info' ? (
+          <>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{t('profile.sectionInfo')}</Text>
+              <Text style={styles.sectionText}>{t('profile.infoDescription')}</Text>
               <View style={styles.inputRow}>
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>{t('profile.firstNamePlaceholder')}</Text>
                   <TextInput
                     style={styles.editInput}
                     value={editFirstName}
-                    onChangeText={setEditFirstName}
+                    onChangeText={handleFirstNameChange}
                     placeholder={t('profile.firstNamePlaceholder')}
                     placeholderTextColor={colors.muted}
                   />
@@ -697,7 +777,7 @@ export default function ProfileScreen({ navigation }: Props) {
                   <TextInput
                     style={styles.editInput}
                     value={editLastName}
-                    onChangeText={setEditLastName}
+                    onChangeText={handleLastNameChange}
                     placeholder={t('profile.lastNamePlaceholder')}
                     placeholderTextColor={colors.muted}
                   />
@@ -707,281 +787,286 @@ export default function ProfileScreen({ navigation }: Props) {
                 <PhoneInput
                   label={t('common.phone')}
                   value={editPhone}
-                  onChange={setEditPhone}
+                  onChange={handlePhoneChange}
                   placeholder={t('common.phone')}
                   disabled={updateMutation.isPending}
                 />
               </View>
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  style={[styles.button, styles.buttonInline]}
-                  onPress={handleSave}
-                  disabled={updateMutation.isPending}
-                >
-                  {updateMutation.isPending ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.buttonText}>{t('common.save')}</Text>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.button, styles.secondary, styles.buttonInline]}
-                  onPress={() => setIsEditing(false)}
-                  disabled={updateMutation.isPending}
-                >
-                  <Text style={styles.buttonTextSecondary}>{t('common.cancel')}</Text>
-                </TouchableOpacity>
+              {isProfileDirty ? (
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    style={[styles.button, styles.buttonInline]}
+                    onPress={handleSave}
+                    disabled={updateMutation.isPending}
+                  >
+                    {updateMutation.isPending ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.buttonText}>{t('common.save')}</Text>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.button, styles.secondary, styles.buttonInline]}
+                    onPress={handleProfileReset}
+                    disabled={updateMutation.isPending}
+                  >
+                    <Text style={styles.buttonTextSecondary}>{t('common.cancel')}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+            </View>
+
+            {canSwitchViewMode ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>{t('profile.viewModeTitle')}</Text>
+                <Text style={styles.sectionText}>{t('profile.viewModeDescription')}</Text>
+                <View style={styles.modeOptions}>
+                  <TouchableOpacity
+                    style={[styles.modeOption, resolvedViewMode === 'consumer' && styles.modeOptionActive]}
+                    onPress={() => handleViewModeChange('consumer')}
+                    disabled={updateMutation.isPending || languageMutation.isPending}
+                  >
+                    <Text style={[styles.modeOptionText, resolvedViewMode === 'consumer' && styles.modeOptionTextActive]}>
+                      {t('profile.viewModeConsumer')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modeOption, resolvedViewMode === 'private' && styles.modeOptionActive]}
+                    onPress={() => handleViewModeChange('private')}
+                    disabled={updateMutation.isPending || languageMutation.isPending}
+                  >
+                    <Text style={[styles.modeOptionText, resolvedViewMode === 'private' && styles.modeOptionTextActive]}>
+                      {t('profile.viewModePrivate')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{t('profile.language')}</Text>
+              <View style={styles.languageOptions}>
+                {(['pt', 'en'] as const).map((lang) => {
+                  const isActive = currentLanguage === lang;
+                  return (
+                    <TouchableOpacity
+                      key={lang}
+                      style={[styles.languageOption, isActive && styles.languageOptionActive]}
+                      onPress={() => handleLanguageChange(lang)}
+                      disabled={updateMutation.isPending || languageMutation.isPending}
+                    >
+                      <Text style={[styles.languageOptionText, isActive && styles.languageOptionTextActive]}>
+                        {t(`language.${lang}`)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
-          )}
-        </View>
+          </>
+        ) : null}
 
-        {isLoading || isRefetching ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} /> : null}
-        {error ? <Text style={styles.error}>{t('profile.loadError')}</Text> : null}
-
-        {canSwitchViewMode ? (
+        {activeSection === 'notifications' ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('profile.viewModeTitle')}</Text>
-            <Text style={styles.sectionText}>{t('profile.viewModeDescription')}</Text>
-            <View style={styles.modeOptions}>
-              <TouchableOpacity
-                style={[styles.modeOption, resolvedViewMode === 'consumer' && styles.modeOptionActive]}
-                onPress={() => handleViewModeChange('consumer')}
-                disabled={updateMutation.isPending || languageMutation.isPending || isEditing}
-              >
-                <Text style={[styles.modeOptionText, resolvedViewMode === 'consumer' && styles.modeOptionTextActive]}>
-                  {t('profile.viewModeConsumer')}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modeOption, resolvedViewMode === 'private' && styles.modeOptionActive]}
-                onPress={() => handleViewModeChange('private')}
-                disabled={updateMutation.isPending || languageMutation.isPending || isEditing}
-              >
-                <Text style={[styles.modeOptionText, resolvedViewMode === 'private' && styles.modeOptionTextActive]}>
-                  {t('profile.viewModePrivate')}
-                </Text>
-              </TouchableOpacity>
+            <Text style={styles.sectionTitle}>{t('profile.notificationsTitle')}</Text>
+            <Text style={styles.sectionText}>{t('profile.notificationsDescription')}</Text>
+            {loadingNotifications ? (
+              <ActivityIndicator color={colors.primary} style={{ marginBottom: 12 }} />
+            ) : null}
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleTextGroup}>
+                <Text style={styles.toggleLabel}>{t('profile.notificationsPush')}</Text>
+                <Text style={styles.toggleHelper}>{t('profile.notificationsPushHelper')}</Text>
+              </View>
+              <Switch
+                value={pushEnabled}
+                onValueChange={handleTogglePushNotifications}
+                disabled={notificationsDisabled}
+                thumbColor={pushEnabled ? colors.primary : colors.surfaceBorder}
+                trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+              />
+            </View>
+
+            <View style={styles.toggleGroup}>
+              <Text style={styles.toggleGroupLabel}>{t('profile.notificationsAppointments')}</Text>
+              <View style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>{t('profile.notificationsAppointmentsCreated')}</Text>
+                <Switch
+                  value={resolvedNotificationPreferences.push.appointments.created}
+                  onValueChange={(value) => updatePreferences({ push: { appointments: { created: value } } })}
+                  disabled={!pushEnabled || notificationsDisabled}
+                  thumbColor={resolvedNotificationPreferences.push.appointments.created ? colors.primary : colors.surfaceBorder}
+                  trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                />
+              </View>
+              <View style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>{t('profile.notificationsAppointmentsConfirmed')}</Text>
+                <Switch
+                  value={resolvedNotificationPreferences.push.appointments.confirmed}
+                  onValueChange={(value) => updatePreferences({ push: { appointments: { confirmed: value } } })}
+                  disabled={!pushEnabled || notificationsDisabled}
+                  thumbColor={resolvedNotificationPreferences.push.appointments.confirmed ? colors.primary : colors.surfaceBorder}
+                  trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                />
+              </View>
+              <View style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>{t('profile.notificationsAppointmentsCancelled')}</Text>
+                <Switch
+                  value={resolvedNotificationPreferences.push.appointments.cancelled}
+                  onValueChange={(value) => updatePreferences({ push: { appointments: { cancelled: value } } })}
+                  disabled={!pushEnabled || notificationsDisabled}
+                  thumbColor={resolvedNotificationPreferences.push.appointments.cancelled ? colors.primary : colors.surfaceBorder}
+                  trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                />
+              </View>
+              <View style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>{t('profile.notificationsAppointmentsReminder')}</Text>
+                <Switch
+                  value={resolvedNotificationPreferences.push.appointments.reminder}
+                  onValueChange={(value) => updatePreferences({ push: { appointments: { reminder: value } } })}
+                  disabled={!pushEnabled || notificationsDisabled}
+                  thumbColor={resolvedNotificationPreferences.push.appointments.reminder ? colors.primary : colors.surfaceBorder}
+                  trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                />
+              </View>
+            </View>
+
+            <View style={styles.toggleGroup}>
+              <Text style={styles.toggleGroupLabel}>{t('profile.notificationsMarketplace')}</Text>
+              <View style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>{t('profile.notificationsMarketplaceRequests')}</Text>
+                <Switch
+                  value={resolvedNotificationPreferences.push.marketplace.request}
+                  onValueChange={(value) => updatePreferences({ push: { marketplace: { request: value } } })}
+                  disabled={!pushEnabled || notificationsDisabled}
+                  thumbColor={resolvedNotificationPreferences.push.marketplace.request ? colors.primary : colors.surfaceBorder}
+                  trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                />
+              </View>
+            </View>
+
+            <View style={styles.toggleGroup}>
+              <Text style={styles.toggleGroupLabel}>{t('profile.notificationsPayments')}</Text>
+              <View style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>{t('profile.notificationsPaymentsUpdated')}</Text>
+                <Switch
+                  value={resolvedNotificationPreferences.push.payments.updated}
+                  onValueChange={(value) => updatePreferences({ push: { payments: { updated: value } } })}
+                  disabled={!pushEnabled || notificationsDisabled}
+                  thumbColor={resolvedNotificationPreferences.push.payments.updated ? colors.primary : colors.surfaceBorder}
+                  trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                />
+              </View>
+            </View>
+
+            <View style={styles.toggleGroup}>
+              <Text style={styles.toggleGroupLabel}>{t('profile.notificationsMarketing')}</Text>
+              <View style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>{t('profile.notificationsMarketing')}</Text>
+                <Switch
+                  value={resolvedNotificationPreferences.push.marketing}
+                  onValueChange={(value) => updatePreferences({ push: { marketing: value } })}
+                  disabled={!pushEnabled || notificationsDisabled}
+                  thumbColor={resolvedNotificationPreferences.push.marketing ? colors.primary : colors.surfaceBorder}
+                  trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                />
+              </View>
             </View>
           </View>
         ) : null}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.language')}</Text>
-          <View style={styles.languageOptions}>
-            {(['pt', 'en'] as const).map((lang) => {
-              const isActive = currentLanguage === lang;
-              return (
+        {activeSection === 'security' ? (
+          <>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{t('profile.linkTitle')}</Text>
+              <Text style={styles.sectionText}>{t('profile.linkDescription')}</Text>
+              <View style={styles.linkGroup}>
                 <TouchableOpacity
-                  key={lang}
-                  style={[styles.languageOption, isActive && styles.languageOptionActive]}
-                  onPress={() => handleLanguageChange(lang)}
-                  disabled={updateMutation.isPending || languageMutation.isPending || isEditing}
+                  style={[
+                    styles.linkButton,
+                    (linkingProvider || isGoogleLinked) && styles.buttonDisabled,
+                  ]}
+                  onPress={() => handleLinkProvider('google')}
+                  disabled={Boolean(linkingProvider) || isGoogleLinked}
                 >
-                  <Text style={[styles.languageOptionText, isActive && styles.languageOptionTextActive]}>
-                    {t(`language.${lang}`)}
-                  </Text>
+                  <View style={styles.linkButtonContent}>
+                    <Ionicons name="logo-google" size={18} color={colors.text} />
+                    <Text style={styles.linkButtonText}>{googleButtonLabel}</Text>
+                    {linkingProvider === 'google' ? <ActivityIndicator color={colors.text} /> : null}
+                  </View>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.notificationsTitle')}</Text>
-          <Text style={styles.sectionText}>{t('profile.notificationsDescription')}</Text>
-          {loadingNotifications ? (
-            <ActivityIndicator color={colors.primary} style={{ marginBottom: 12 }} />
-          ) : null}
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleTextGroup}>
-              <Text style={styles.toggleLabel}>{t('profile.notificationsPush')}</Text>
-              <Text style={styles.toggleHelper}>{t('profile.notificationsPushHelper')}</Text>
-            </View>
-            <Switch
-              value={pushEnabled}
-              onValueChange={handleTogglePushNotifications}
-              disabled={notificationsDisabled}
-              thumbColor={pushEnabled ? colors.primary : colors.surfaceBorder}
-              trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
-            />
-          </View>
-
-          <View style={styles.toggleGroup}>
-            <Text style={styles.toggleGroupLabel}>{t('profile.notificationsAppointments')}</Text>
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>{t('profile.notificationsAppointmentsCreated')}</Text>
-              <Switch
-                value={resolvedNotificationPreferences.push.appointments.created}
-                onValueChange={(value) => updatePreferences({ push: { appointments: { created: value } } })}
-                disabled={!pushEnabled || notificationsDisabled}
-                thumbColor={resolvedNotificationPreferences.push.appointments.created ? colors.primary : colors.surfaceBorder}
-                trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
-              />
-            </View>
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>{t('profile.notificationsAppointmentsConfirmed')}</Text>
-              <Switch
-                value={resolvedNotificationPreferences.push.appointments.confirmed}
-                onValueChange={(value) => updatePreferences({ push: { appointments: { confirmed: value } } })}
-                disabled={!pushEnabled || notificationsDisabled}
-                thumbColor={resolvedNotificationPreferences.push.appointments.confirmed ? colors.primary : colors.surfaceBorder}
-                trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
-              />
-            </View>
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>{t('profile.notificationsAppointmentsCancelled')}</Text>
-              <Switch
-                value={resolvedNotificationPreferences.push.appointments.cancelled}
-                onValueChange={(value) => updatePreferences({ push: { appointments: { cancelled: value } } })}
-                disabled={!pushEnabled || notificationsDisabled}
-                thumbColor={resolvedNotificationPreferences.push.appointments.cancelled ? colors.primary : colors.surfaceBorder}
-                trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
-              />
-            </View>
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>{t('profile.notificationsAppointmentsReminder')}</Text>
-              <Switch
-                value={resolvedNotificationPreferences.push.appointments.reminder}
-                onValueChange={(value) => updatePreferences({ push: { appointments: { reminder: value } } })}
-                disabled={!pushEnabled || notificationsDisabled}
-                thumbColor={resolvedNotificationPreferences.push.appointments.reminder ? colors.primary : colors.surfaceBorder}
-                trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
-              />
-            </View>
-          </View>
-
-          <View style={styles.toggleGroup}>
-            <Text style={styles.toggleGroupLabel}>{t('profile.notificationsMarketplace')}</Text>
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>{t('profile.notificationsMarketplaceRequests')}</Text>
-              <Switch
-                value={resolvedNotificationPreferences.push.marketplace.request}
-                onValueChange={(value) => updatePreferences({ push: { marketplace: { request: value } } })}
-                disabled={!pushEnabled || notificationsDisabled}
-                thumbColor={resolvedNotificationPreferences.push.marketplace.request ? colors.primary : colors.surfaceBorder}
-                trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
-              />
-            </View>
-          </View>
-
-          <View style={styles.toggleGroup}>
-            <Text style={styles.toggleGroupLabel}>{t('profile.notificationsPayments')}</Text>
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>{t('profile.notificationsPaymentsUpdated')}</Text>
-              <Switch
-                value={resolvedNotificationPreferences.push.payments.updated}
-                onValueChange={(value) => updatePreferences({ push: { payments: { updated: value } } })}
-                disabled={!pushEnabled || notificationsDisabled}
-                thumbColor={resolvedNotificationPreferences.push.payments.updated ? colors.primary : colors.surfaceBorder}
-                trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
-              />
-            </View>
-          </View>
-
-          <View style={styles.toggleGroup}>
-            <Text style={styles.toggleGroupLabel}>{t('profile.notificationsMarketing')}</Text>
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>{t('profile.notificationsMarketing')}</Text>
-              <Switch
-                value={resolvedNotificationPreferences.push.marketing}
-                onValueChange={(value) => updatePreferences({ push: { marketing: value } })}
-                disabled={!pushEnabled || notificationsDisabled}
-                thumbColor={resolvedNotificationPreferences.push.marketing ? colors.primary : colors.surfaceBorder}
-                trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
-              />
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.linkTitle')}</Text>
-          <Text style={styles.sectionText}>{t('profile.linkDescription')}</Text>
-          <View style={styles.linkGroup}>
-            <TouchableOpacity
-              style={[
-                styles.linkButton,
-                (linkingProvider || isGoogleLinked) && styles.buttonDisabled,
-              ]}
-              onPress={() => handleLinkProvider('google')}
-              disabled={Boolean(linkingProvider) || isGoogleLinked}
-            >
-              <View style={styles.linkButtonContent}>
-                <Ionicons name="logo-google" size={18} color={colors.text} />
-                <Text style={styles.linkButtonText}>{googleButtonLabel}</Text>
-                {linkingProvider === 'google' ? <ActivityIndicator color={colors.text} /> : null}
+                <TouchableOpacity
+                  style={[
+                    styles.linkButton,
+                    (linkingProvider || isAppleLinked) && styles.buttonDisabled,
+                  ]}
+                  onPress={() => handleLinkProvider('apple')}
+                  disabled={Boolean(linkingProvider) || isAppleLinked}
+                >
+                  <View style={styles.linkButtonContent}>
+                    <Ionicons name="logo-apple" size={18} color={colors.text} />
+                    <Text style={styles.linkButtonText}>{appleButtonLabel}</Text>
+                    {linkingProvider === 'apple' ? <ActivityIndicator color={colors.text} /> : null}
+                  </View>
+                </TouchableOpacity>
               </View>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.linkButton,
-                (linkingProvider || isAppleLinked) && styles.buttonDisabled,
-              ]}
-              onPress={() => handleLinkProvider('apple')}
-              disabled={Boolean(linkingProvider) || isAppleLinked}
-            >
-              <View style={styles.linkButtonContent}>
-                <Ionicons name="logo-apple" size={18} color={colors.text} />
-                <Text style={styles.linkButtonText}>{appleButtonLabel}</Text>
-                {linkingProvider === 'apple' ? <ActivityIndicator color={colors.text} /> : null}
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
+            </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.security')}</Text>
-          <Text style={styles.sectionText}>{t('profile.changePasswordDescription')}</Text>
-          {showPasswordForm ? (
-            <>
-              <TextInput
-                style={styles.editInput}
-                value={newPassword}
-                onChangeText={handleNewPasswordChange}
-                placeholder={t('profile.newPassword')}
-                placeholderTextColor={colors.muted}
-                autoCapitalize="none"
-                secureTextEntry
-              />
-              <TextInput
-                style={styles.editInput}
-                value={confirmPassword}
-                onChangeText={handleConfirmPasswordChange}
-                placeholder={t('profile.confirmPassword')}
-                placeholderTextColor={colors.muted}
-                autoCapitalize="none"
-                secureTextEntry
-              />
-              {passwordError ? <Text style={[styles.error, { marginTop: 6 }]}>{passwordError}</Text> : null}
-              <TouchableOpacity
-                style={styles.button}
-                onPress={handlePasswordSave}
-                disabled={resetPasswordMutation.isPending}
-              >
-                {resetPasswordMutation.isPending ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.buttonText}>{t('common.save')}</Text>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, styles.secondary]}
-                onPress={handlePasswordCancel}
-                disabled={resetPasswordMutation.isPending}
-              >
-                <Text style={styles.buttonTextSecondary}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <TouchableOpacity
-              style={styles.button}
-              onPress={handleOpenPasswordForm}
-              disabled={isEditing || updateMutation.isPending || languageMutation.isPending}
-            >
-              <Text style={styles.buttonText}>{t('profile.changePassword')}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{t('profile.security')}</Text>
+              <Text style={styles.sectionText}>{t('profile.changePasswordDescription')}</Text>
+              {showPasswordForm ? (
+                <>
+                  <TextInput
+                    style={styles.editInput}
+                    value={newPassword}
+                    onChangeText={handleNewPasswordChange}
+                    placeholder={t('profile.newPassword')}
+                    placeholderTextColor={colors.muted}
+                    autoCapitalize="none"
+                    secureTextEntry
+                  />
+                  <TextInput
+                    style={styles.editInput}
+                    value={confirmPassword}
+                    onChangeText={handleConfirmPasswordChange}
+                    placeholder={t('profile.confirmPassword')}
+                    placeholderTextColor={colors.muted}
+                    autoCapitalize="none"
+                    secureTextEntry
+                  />
+                  {passwordError ? <Text style={[styles.error, { marginTop: 6 }]}>{passwordError}</Text> : null}
+                  <TouchableOpacity
+                    style={styles.button}
+                    onPress={handlePasswordSave}
+                    disabled={resetPasswordMutation.isPending}
+                  >
+                    {resetPasswordMutation.isPending ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.buttonText}>{t('common.save')}</Text>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.button, styles.secondary]}
+                    onPress={handlePasswordCancel}
+                    disabled={resetPasswordMutation.isPending}
+                  >
+                    <Text style={styles.buttonTextSecondary}>{t('common.cancel')}</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity
+                  style={styles.button}
+                  onPress={handleOpenPasswordForm}
+                  disabled={updateMutation.isPending || languageMutation.isPending}
+                >
+                  <Text style={styles.buttonText}>{t('profile.changePassword')}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </>
+        ) : null}
 
       </ScrollView>
       <View style={styles.footer}>
@@ -1071,21 +1156,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontSize: 12,
       marginTop: 6,
     },
-    headerButton: {
-      marginTop: 14,
-      backgroundColor: colors.primary,
-      borderRadius: 12,
-      paddingVertical: 10,
-      alignItems: 'center',
-    },
-    headerButtonText: {
-      color: colors.onPrimary,
-      fontWeight: '700',
-      fontSize: 14,
-    },
-    editArea: {
-      marginTop: 12,
-    },
     avatarImage: {
       width: '100%',
       height: '100%',
@@ -1140,6 +1210,34 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       padding: 16,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
+    },
+    sectionTabs: {
+      marginTop: 8,
+      flexDirection: 'row',
+      gap: 8,
+      backgroundColor: colors.surface,
+      borderRadius: 999,
+      padding: 6,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+    },
+    sectionTab: {
+      flex: 1,
+      paddingVertical: 8,
+      borderRadius: 999,
+      alignItems: 'center',
+    },
+    sectionTabActive: {
+      backgroundColor: colors.primarySoft,
+    },
+    sectionTabText: {
+      color: colors.muted,
+      fontWeight: '600',
+      fontSize: 13,
+    },
+    sectionTabTextActive: {
+      color: colors.primary,
+      fontWeight: '700',
     },
     inputRow: {
       flexDirection: 'row',

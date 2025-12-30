@@ -1,5 +1,4 @@
-import { useMemo, useState } from 'react';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   View,
@@ -143,18 +142,24 @@ export default function AppointmentsScreen({ navigation }: Props) {
   const surface = colors.surface;
   const primarySoft = colors.primarySoft;
 
-  const handleViewChange = (nextView: ViewMode) => {
+  const handleViewChange = useCallback((nextView: ViewMode) => {
     setSelectedDate(new Date());
     setViewMode(nextView);
-  };
+  }, []);
 
-  const handleAppointmentPress = (appointment: Appointment) => {
-    navigation.navigate('AppointmentDetail', { id: appointment.id });
-  };
+  const handleAppointmentPress = useCallback(
+    (appointment: Appointment) => {
+      navigation.navigate('AppointmentDetail', { id: appointment.id });
+    },
+    [navigation]
+  );
 
-  const handleNewAppointment = (date?: string, time?: string) => {
-    navigation.navigate('NewAppointment', { date, time });
-  };
+  const handleNewAppointment = useCallback(
+    (date?: string, time?: string) => {
+      navigation.navigate('NewAppointment', { date, time });
+    },
+    [navigation]
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>

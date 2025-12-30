@@ -62,6 +62,23 @@ function normalizeNamePart(value) {
   return trimmed ? trimmed : null
 }
 
+function normalizeString(value) {
+  if (value === undefined || value === null) return null
+  const trimmed = value.toString().trim()
+  return trimmed ? trimmed : null
+}
+
+function normalizeNumber(value) {
+  if (value === undefined || value === null || value === '') return null
+  const parsed = Number(value)
+  return Number.isNaN(parsed) ? null : parsed
+}
+
+function normalizeKey(value) {
+  const trimmed = normalizeString(value)
+  return trimmed ? trimmed.toLowerCase() : null
+}
+
 function applyNamePayload(payload) {
   if (Object.prototype.hasOwnProperty.call(payload, 'firstName')) {
     payload.first_name = normalizeNamePart(payload.firstName)
@@ -176,6 +193,98 @@ router.post('/:id/pets', async (req, res) => {
   if (error) {
     console.error('[api] create pet error', error)
     return res.status(500).json({ error: error.message })
+  }
+
+  const createdPet = Array.isArray(data) ? data[0] : null
+
+  if (createdPet?.id) {
+    const { data: customer, error: customerError } = await supabase
+      .from('customers')
+      .select('id, user_id')
+      .eq('id', id)
+      .eq('account_id', accountId)
+      .maybeSingle()
+
+    if (customerError) {
+      console.error('[api] load customer error', customerError)
+    } else if (customer?.user_id && !createdPet.consumer_pet_id) {
+      const petName = normalizeString(createdPet.name || payload.name)
+      const petBreed = normalizeString(createdPet.breed || payload.breed)
+      const petWeight = normalizeNumber(
+        createdPet.weight !== undefined && createdPet.weight !== null ? createdPet.weight : payload.weight
+      )
+
+      if (petName) {
+        const safeName = petName.replace(/[%_]/g, '')
+        const petNameKey = normalizeKey(petName)
+        const petBreedKey = normalizeKey(petBreed)
+
+        let consumerPetId = null
+
+        const { data: consumerPets, error: consumerPetsError } = await supabase
+          .from('consumer_pets')
+          .select('id, name, breed, weight')
+          .eq('user_id', customer.user_id)
+          .ilike('name', safeName)
+
+        if (consumerPetsError) {
+          console.error('[api] find consumer pet error', consumerPetsError)
+        } else {
+          const nameMatches = (consumerPets || []).filter(
+            (pet) => normalizeKey(pet.name) === petNameKey
+          )
+          let matches = nameMatches
+
+          if (petBreedKey) {
+            matches = matches.filter((pet) => normalizeKey(pet.breed) === petBreedKey)
+          }
+          if (petWeight !== null && petWeight !== undefined) {
+            matches = matches.filter((pet) => {
+              if (pet.weight === null || pet.weight === undefined) return false
+              return Number(pet.weight) === Number(petWeight)
+            })
+          }
+
+          if (matches.length === 1) {
+            consumerPetId = matches[0].id
+          } else if (!petBreedKey && (petWeight === null || petWeight === undefined) && nameMatches.length === 1) {
+            consumerPetId = nameMatches[0].id
+          }
+        }
+
+        if (!consumerPetId) {
+          const { data: newConsumerPet, error: newConsumerPetError } = await supabase
+            .from('consumer_pets')
+            .insert({
+              user_id: customer.user_id,
+              name: petName,
+              breed: petBreed,
+              weight: petWeight
+            })
+            .select('id')
+            .single()
+
+          if (newConsumerPetError) {
+            console.error('[api] create consumer pet error', newConsumerPetError)
+          } else if (newConsumerPet?.id) {
+            consumerPetId = newConsumerPet.id
+          }
+        }
+
+        if (consumerPetId) {
+          const { error: linkError } = await supabase
+            .from('pets')
+            .update({ consumer_pet_id: consumerPetId })
+            .eq('id', createdPet.id)
+
+          if (linkError) {
+            console.error('[api] link consumer pet error', linkError)
+          } else {
+            createdPet.consumer_pet_id = consumerPetId
+          }
+        }
+      }
+    }
   }
 
   res.status(201).json({ data })
