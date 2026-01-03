@@ -28,6 +28,7 @@ import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { resolveSupabaseAnonKey, resolveSupabaseUrl } from '../config/supabase';
 import { formatVersionLabel } from '../utils/version';
+import { hapticError, hapticSuccess } from '../utils/haptics';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -151,6 +152,7 @@ export default function LoginScreen({ navigation }: Props) {
     const supabaseUrl = resolveSupabaseUrl();
     const supabaseAnonKey = resolveSupabaseAnonKey();
     if (!supabaseUrl || !supabaseAnonKey) {
+      hapticError();
       Alert.alert(t('common.error'), t('profile.linkConfigError'));
       return;
     }
@@ -177,6 +179,7 @@ export default function LoginScreen({ navigation }: Props) {
       });
 
       if (!response.ok) {
+        hapticError();
         Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
         return;
       }
@@ -185,18 +188,22 @@ export default function LoginScreen({ navigation }: Props) {
       const authUrl = payload?.url;
 
       if (!authUrl) {
+        hapticError();
         Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
         return;
       }
 
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
       if (result.type === 'success') {
+        hapticSuccess();
         Alert.alert(t('common.done'), t('profile.linkSuccess', { provider: providerLabel }));
         await queryClient.refetchQueries({ queryKey: ['profile'] });
       } else if (result.type !== 'cancel' && result.type !== 'dismiss') {
+        hapticError();
         Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
       }
     } catch {
+      hapticError();
       Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
     } finally {
       setLinkingProvider(null);
@@ -216,8 +223,10 @@ export default function LoginScreen({ navigation }: Props) {
           lastName: data.lastName,
         },
       });
+      hapticSuccess();
     },
     onError: (err: any) => {
+      hapticError();
       const message =
         err?.response?.data?.error ??
         err?.response?.data?.message ??
@@ -231,6 +240,7 @@ export default function LoginScreen({ navigation }: Props) {
 
     const supabaseUrl = resolveSupabaseUrl();
     if (!supabaseUrl) {
+      hapticError();
       setApiError(t('login.errors.oauthConfig'));
       console.warn('[auth] Missing Supabase URL. Check EXPO_PUBLIC_SUPABASE_URL.');
       return;
@@ -254,6 +264,7 @@ export default function LoginScreen({ navigation }: Props) {
 
       if (result.type !== 'success') {
         if (result.type !== 'cancel' && result.type !== 'dismiss') {
+          hapticError();
           setApiError(t('login.errors.oauth', { provider: providerLabel }));
         }
         return;
@@ -264,8 +275,10 @@ export default function LoginScreen({ navigation }: Props) {
         console.warn('[auth] OAuth returned error params', params);
         if (isAccountExistsOAuthError(params)) {
           setPendingLinkProvider(provider);
+          hapticError();
           setApiError(t('login.errors.oauthAccountExists'));
         } else {
+          hapticError();
           setApiError(t('login.errors.oauth', { provider: providerLabel }));
         }
         return;
@@ -276,11 +289,13 @@ export default function LoginScreen({ navigation }: Props) {
 
       if (!accessToken) {
         console.warn('[auth] OAuth missing access token', { params: Object.keys(params) });
+        hapticError();
         setApiError(t('login.errors.oauth', { provider: providerLabel }));
         return;
       }
 
       await completeLogin({ token: accessToken, refreshToken: refreshToken ?? null });
+      hapticSuccess();
     } catch (error: any) {
       console.error('[auth] OAuth error', {
         provider,
@@ -288,6 +303,7 @@ export default function LoginScreen({ navigation }: Props) {
         code: error?.code,
         error,
       });
+      hapticError();
       setApiError(t('login.errors.oauth', { provider: providerLabel }));
     } finally {
       setOauthLoading(null);

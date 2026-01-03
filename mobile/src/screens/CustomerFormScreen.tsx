@@ -15,6 +15,7 @@ import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } 
 import { useTranslation } from 'react-i18next';
 import { buildPhone, splitPhone } from '../utils/phone';
 import { formatCustomerName } from '../utils/customer';
+import { hapticError, hapticSuccess } from '../utils/haptics';
 
 type Props = NativeStackScreenProps<any, 'CustomerForm'>;
 
@@ -49,10 +50,12 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
   const createMutation = useMutation({
     mutationFn: createCustomer,
     onSuccess: (data) => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       navigation.goBack();
     },
     onError: (error: any) => {
+      hapticError();
       Alert.alert(t('common.error'), error?.response?.data?.message || t('customerForm.createError'));
     },
   });
@@ -67,11 +70,13 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
     }) =>
       updateCustomer(customerId!, data),
     onSuccess: () => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
       navigation.goBack();
     },
     onError: (error: any) => {
+      hapticError();
       Alert.alert(t('common.error'), error?.response?.data?.message || t('customerForm.updateError'));
     },
   });
@@ -97,7 +102,10 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
   };
 
   const handleSubmit = () => {
-    if (!validate()) return;
+    if (!validate()) {
+      hapticError();
+      return;
+    }
 
     if (mode === 'create') {
       createMutation.mutate({

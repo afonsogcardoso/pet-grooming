@@ -22,6 +22,7 @@ import {
 } from '../api/consumerAppointments';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { getStatusColor, getStatusLabel } from '../utils/appointmentStatus';
+import { hapticError, hapticSuccess, hapticWarning } from '../utils/haptics';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -68,6 +69,7 @@ export default function ConsumerAppointmentDetailScreen({ route }: Props) {
   const cancelMutation = useMutation({
     mutationFn: () => cancelConsumerAppointment(id),
     onSuccess: (updated) => {
+      hapticSuccess();
       queryClient.setQueryData(['consumerAppointment', id], updated);
       queryClient.invalidateQueries({ queryKey: ['consumerAppointments'] }).catch(() => null);
       Alert.alert(
@@ -76,6 +78,7 @@ export default function ConsumerAppointmentDetailScreen({ route }: Props) {
       );
     },
     onError: (err: any) => {
+      hapticError();
       const message = err?.response?.data?.error || err?.message || t('consumerAppointmentDetail.cancelError');
       Alert.alert(t('common.error'), message);
     },
@@ -103,7 +106,10 @@ export default function ConsumerAppointmentDetailScreen({ route }: Props) {
         {
           text: t('consumerAppointmentDetail.cancelConfirm'),
           style: 'destructive',
-          onPress: () => cancelMutation.mutate(),
+          onPress: () => {
+            hapticWarning();
+            cancelMutation.mutate();
+          },
         },
       ]
     );

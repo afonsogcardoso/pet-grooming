@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, PanResponder } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, PanResponder } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { getDateLocale } from '../../i18n';
@@ -17,6 +17,10 @@ type MonthViewProps = {
 const SWIPE_THRESHOLD = 60;
 const SWIPE_VELOCITY = 0.3;
 
+function formatLocalDate(value: Date) {
+  return value.toLocaleDateString('sv-SE');
+}
+
 function getMonthDays(date: Date): Array<{ date: string; isCurrentMonth: boolean }> {
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -32,7 +36,7 @@ function getMonthDays(date: Date): Array<{ date: string; isCurrentMonth: boolean
   for (let i = daysToFill; i > 0; i--) {
     const prevDate = new Date(year, month, 1 - i);
     days.push({
-      date: prevDate.toISOString().split('T')[0],
+      date: formatLocalDate(prevDate),
       isCurrentMonth: false,
     });
   }
@@ -41,7 +45,7 @@ function getMonthDays(date: Date): Array<{ date: string; isCurrentMonth: boolean
   for (let day = 1; day <= lastDay.getDate(); day++) {
     const currentDate = new Date(year, month, day);
     days.push({
-      date: currentDate.toISOString().split('T')[0],
+      date: formatLocalDate(currentDate),
       isCurrentMonth: true,
     });
   }
@@ -52,7 +56,7 @@ function getMonthDays(date: Date): Array<{ date: string; isCurrentMonth: boolean
     for (let i = 1; i <= remaining; i++) {
       const nextDate = new Date(year, month + 1, i);
       days.push({
-        date: nextDate.toISOString().split('T')[0],
+        date: formatLocalDate(nextDate),
         isCurrentMonth: false,
       });
     }
@@ -72,9 +76,6 @@ export function MonthView({
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
   const dateLocale = getDateLocale();
-  const screenWidth = Dimensions.get('window').width;
-  const daySize = (screenWidth - 40) / 7; // 20px padding on each side
-  
   const monthDays = getMonthDays(selectedDate);
   const today = new Date().toLocaleDateString('sv-SE');
   
@@ -173,7 +174,7 @@ export function MonthView({
       marginBottom: 12,
     },
     weekDay: {
-      width: daySize,
+      width: '14.2857%',
       alignItems: 'center',
       paddingVertical: 8,
     },
@@ -188,8 +189,8 @@ export function MonthView({
       flexWrap: 'wrap',
     },
     dayCell: {
-      width: daySize,
-      height: daySize,
+      width: '14.2857%',
+      aspectRatio: 1,
       justifyContent: 'center',
       alignItems: 'center',
       padding: 4,

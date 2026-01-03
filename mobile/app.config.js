@@ -21,10 +21,22 @@ export default {
     bundleIdentifier,
     buildNumber,
     supportsTablet: true,
+    deploymentTarget: '18.0',
     infoPlist: {
       NSPhotoLibraryUsageDescription: 'Precisamos de acesso às fotos para anexar imagens do pet.',
       NSCameraUsageDescription: 'Precisamos de acesso à câmara para tirar fotos do pet.',
-      ITSAppUsesNonExemptEncryption: false
+      ITSAppUsesNonExemptEncryption: false,
+      UIApplicationSceneManifest: {
+        UIApplicationSupportsMultipleScenes: false,
+        UISceneConfigurations: {
+          UIWindowSceneSessionRoleApplication: [
+            {
+              UISceneConfigurationName: 'Default Configuration',
+              UISceneDelegateClassName: '$(PRODUCT_MODULE_NAME).SceneDelegate'
+            }
+          ]
+        }
+      }
     },
     config: {
       googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY,

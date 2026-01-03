@@ -13,6 +13,7 @@ import { EmptyState } from '../components/common';
 import SwipeableRow from '../components/common/SwipeableRow';
 import { deleteService } from '../api/services';
 import { useTranslation } from 'react-i18next';
+import { hapticError, hapticLight, hapticSuccess, hapticWarning } from '../utils/haptics';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -33,15 +34,24 @@ export default function ServicesScreen({ navigation }: Props) {
 
   const deleteServiceMutation = useMutation({
     mutationFn: (id: string) => deleteService(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['services', 'all'] }),
-    onError: (err: any) =>
-      Alert.alert(t('common.error'), err?.response?.data?.error || err.message || t('services.deleteError')),
+    onSuccess: () => {
+      hapticSuccess();
+      queryClient.invalidateQueries({ queryKey: ['services', 'all'] });
+    },
+    onError: (err: any) => {
+      hapticError();
+      Alert.alert(t('common.error'), err?.response?.data?.error || err.message || t('services.deleteError'));
+    },
   });
 
   const updateOrderMutation = useMutation({
     mutationFn: updateServiceOrder,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['services', 'all'] }),
+    onSuccess: () => {
+      hapticSuccess();
+      queryClient.invalidateQueries({ queryKey: ['services', 'all'] });
+    },
     onError: () => {
+      hapticError();
       Alert.alert(t('common.error'), t('services.updateOrderError'));
       setLocalServices(services);
     },
@@ -99,6 +109,7 @@ export default function ServicesScreen({ navigation }: Props) {
   const handleEditService = (service: Service) => navigation.navigate('ServiceForm', { mode: 'edit', serviceId: service.id });
 
   const handleDragEnd = ({ data }: { data: Service[] }) => {
+    hapticLight();
     setLocalServices(data);
     const updates = data.map((service, index) => ({ id: service.id, display_order: index }));
     updateOrderMutation.mutate(updates);
@@ -111,7 +122,14 @@ export default function ServicesScreen({ navigation }: Props) {
           onDelete={() =>
             Alert.alert(t('services.deleteTitle'), t('services.deletePrompt', { name: item.name }), [
               { text: t('common.cancel'), style: 'cancel' },
-              { text: t('services.deleteAction'), style: 'destructive', onPress: () => deleteServiceMutation.mutate(item.id) },
+              {
+                text: t('services.deleteAction'),
+                style: 'destructive',
+                onPress: () => {
+                  hapticWarning();
+                  deleteServiceMutation.mutate(item.id);
+                },
+              },
             ])
           }
         >

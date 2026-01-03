@@ -10,6 +10,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
 import { useTranslation } from 'react-i18next';
+import { hapticError, hapticSuccess, hapticWarning } from '../utils/haptics';
 
 type Props = NativeStackScreenProps<any, 'PetForm'>;
 
@@ -39,17 +40,20 @@ export default function PetFormScreen({ navigation, route }: Props) {
           setUploadingPhoto(true);
           await uploadPetPhotoMutation.mutateAsync({ petId: createdPet.id, uri: photoUri });
         } catch (error) {
+          hapticError();
           console.error('Erro ao fazer upload da foto:', error);
         } finally {
           setUploadingPhoto(false);
         }
       }
       
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
       navigation.goBack();
     },
     onError: (error: any) => {
+      hapticError();
       Alert.alert(t('common.error'), error?.response?.data?.message || t('petForm.createError'));
     },
   });
@@ -64,17 +68,20 @@ export default function PetFormScreen({ navigation, route }: Props) {
           setUploadingPhoto(true);
           await uploadPetPhotoMutation.mutateAsync({ petId: petId!, uri: photoUri });
         } catch (error) {
+          hapticError();
           console.error('Erro ao fazer upload da foto:', error);
         } finally {
           setUploadingPhoto(false);
         }
       }
       
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
       navigation.goBack();
     },
     onError: (error: any) => {
+      hapticError();
       Alert.alert(t('common.error'), error?.response?.data?.message || t('petForm.updateError'));
     },
   });
@@ -95,6 +102,9 @@ export default function PetFormScreen({ navigation, route }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
+    },
+    onError: () => {
+      hapticError();
     },
   });
 
@@ -127,6 +137,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
         setUploadingPhoto(true);
         await uploadPetPhotoMutation.mutateAsync({ petId, uri });
       } catch (error) {
+        hapticError();
         Alert.alert(t('common.error'), t('petForm.photoUploadError'));
       } finally {
         setUploadingPhoto(false);
@@ -223,11 +234,13 @@ export default function PetFormScreen({ navigation, route }: Props) {
   const deleteMutation = useMutation({
     mutationFn: () => deletePet(petId!),
     onSuccess: () => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
       navigation.goBack();
     },
     onError: (error: any) => {
+      hapticError();
       const message = error?.response?.data?.error || error.message || t('petForm.deleteError');
       Alert.alert(t('common.error'), message);
     },
@@ -242,7 +255,10 @@ export default function PetFormScreen({ navigation, route }: Props) {
         {
           text: t('petForm.deleteAction'),
           style: 'destructive',
-          onPress: () => deleteMutation.mutate(),
+          onPress: () => {
+            hapticWarning();
+            deleteMutation.mutate();
+          },
         },
       ]
     );

@@ -27,6 +27,7 @@ import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { PhoneInput } from '../components/common/PhoneInput';
 import { resolveSupabaseUrl } from '../config/supabase';
+import { hapticError, hapticSuccess } from '../utils/haptics';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -174,6 +175,7 @@ export default function RegisterScreen({ navigation }: Props) {
     mutationFn: signup,
     onSuccess: async (data) => {
       if (!data.token) {
+        hapticSuccess();
         setApiError(data.message || t('register.createdMessage'));
         return;
       }
@@ -187,8 +189,10 @@ export default function RegisterScreen({ navigation }: Props) {
           lastName: data.lastName,
         },
       });
+      hapticSuccess();
     },
     onError: (err: any) => {
+      hapticError();
       const message =
         err?.response?.data?.error ??
         err?.response?.data?.message ??
@@ -217,6 +221,7 @@ export default function RegisterScreen({ navigation }: Props) {
       return;
     }
     if (values.registerAs === 'provider' && trimmedAccountName.length < 2) {
+      hapticError();
       setError('accountName', { type: 'manual', message: t('register.accountRequired') });
       return;
     }
@@ -246,6 +251,7 @@ export default function RegisterScreen({ navigation }: Props) {
 
     const supabaseUrl = resolveSupabaseUrl();
     if (!supabaseUrl) {
+      hapticError();
       setApiError(t('login.errors.oauthConfig'));
       return;
     }
@@ -265,6 +271,7 @@ export default function RegisterScreen({ navigation }: Props) {
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
       if (result.type !== 'success') {
         if (result.type !== 'cancel' && result.type !== 'dismiss') {
+          hapticError();
           setApiError(t('login.errors.oauth', { provider: providerLabel }));
         }
         return;
@@ -272,6 +279,7 @@ export default function RegisterScreen({ navigation }: Props) {
 
       const params = parseAuthParams(result.url);
       if (params.error) {
+        hapticError();
         setApiError(
           isAccountExistsOAuthError(params)
             ? t('login.errors.oauthAccountExists')
@@ -283,6 +291,7 @@ export default function RegisterScreen({ navigation }: Props) {
       const accessToken = params.access_token;
       const refreshToken = params.refresh_token;
       if (!accessToken) {
+        hapticError();
         setApiError(t('login.errors.oauth', { provider: providerLabel }));
         return;
       }
@@ -310,7 +319,9 @@ export default function RegisterScreen({ navigation }: Props) {
           lastName: response.lastName,
         },
       });
+      hapticSuccess();
     } catch (err: any) {
+      hapticError();
       const message =
         err?.response?.data?.error ??
         err?.response?.data?.message ??

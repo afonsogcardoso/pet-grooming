@@ -20,6 +20,7 @@ import { WeekView } from '../components/appointments/WeekView';
 import { MonthView } from '../components/appointments/MonthView';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { useTranslation } from 'react-i18next';
+import { hapticError, hapticSelection, hapticSuccess, hapticWarning } from '../utils/haptics';
 
 type Props = NativeStackScreenProps<any>;
 type ViewMode = 'list' | 'day' | 'week' | 'month';
@@ -113,9 +114,11 @@ export default function AppointmentsScreen({ navigation }: Props) {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteAppointment(id),
     onSuccess: () => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
     },
     onError: (err: any) => {
+      hapticError();
       Alert.alert(t('common.error'), err?.response?.data?.error || err.message || t('appointments.deleteError'));
     },
   });
@@ -125,7 +128,14 @@ export default function AppointmentsScreen({ navigation }: Props) {
     (global as any).onDeleteAppointment = (id: string) => {
       Alert.alert(t('appointments.deleteTitle'), t('appointments.deleteMessage'), [
         { text: t('common.cancel'), style: 'cancel' },
-        { text: t('appointments.deleteAction'), style: 'destructive', onPress: () => deleteMutation.mutate(id) },
+        {
+          text: t('appointments.deleteAction'),
+          style: 'destructive',
+          onPress: () => {
+            hapticWarning();
+            deleteMutation.mutate(id);
+          },
+        },
       ]);
     };
     return () => {
@@ -143,9 +153,15 @@ export default function AppointmentsScreen({ navigation }: Props) {
   const primarySoft = colors.primarySoft;
 
   const handleViewChange = useCallback((nextView: ViewMode) => {
+    hapticSelection();
     setSelectedDate(new Date());
     setViewMode(nextView);
   }, []);
+
+  const handleFilterChange = (nextFilter: FilterMode) => {
+    hapticSelection();
+    setFilterMode(nextFilter);
+  };
 
   const handleAppointmentPress = useCallback(
     (appointment: Appointment) => {
@@ -191,7 +207,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
                 styles.segmentButton,
                 filterMode === 'upcoming' && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
               ]}
-              onPress={() => setFilterMode('upcoming')}
+              onPress={() => handleFilterChange('upcoming')}
             >
               <Text style={[styles.segmentText, { color: filterMode === 'upcoming' ? primary : colors.text }]}>
                 {t('appointments.filterUpcoming')}
@@ -202,7 +218,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
                 styles.segmentButton,
                 filterMode === 'past' && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
               ]}
-              onPress={() => setFilterMode('past')}
+              onPress={() => handleFilterChange('past')}
             >
               <Text style={[styles.segmentText, { color: filterMode === 'past' ? primary : colors.text }]}>
                 {t('appointments.filterPast')}
@@ -213,7 +229,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
                 styles.segmentButton,
                 filterMode === 'unpaid' && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
               ]}
-              onPress={() => setFilterMode('unpaid')}
+              onPress={() => handleFilterChange('unpaid')}
             >
               <Text style={[styles.segmentText, { color: filterMode === 'unpaid' ? primary : colors.text }]}>
                 {t('appointments.filterUnpaid')}

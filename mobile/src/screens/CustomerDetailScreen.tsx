@@ -16,6 +16,7 @@ import { PetCard } from '../components/customers/PetCard';
 import SwipeableRow from '../components/common/SwipeableRow';
 import { deletePet } from '../api/customers';
 import { useTranslation } from 'react-i18next';
+import { hapticError, hapticSuccess, hapticWarning } from '../utils/haptics';
 
 type Props = NativeStackScreenProps<any, 'CustomerDetail'>;
 
@@ -41,10 +42,12 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
   const deletePetMutation = useMutation({
     mutationFn: (petId: string) => deletePet(petId),
     onSuccess: async () => {
+      hapticSuccess();
       await queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
       await queryClient.invalidateQueries({ queryKey: ['customers'] });
     },
     onError: (err: any) => {
+      hapticError();
       const message = err?.response?.data?.error || err.message || t('customerDetail.deletePetError');
       Alert.alert(t('common.error'), message);
     },
@@ -56,6 +59,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
     mutationFn: (file: { uri: string; name: string; type: string }) =>
       uploadCustomerPhoto(customerId, file),
     onSuccess: async (data) => {
+      hapticSuccess();
       const photoUrl = data?.url;
       if (photoUrl && customer) {
         const updatedCustomers = customers.map((c) =>
@@ -66,6 +70,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
       await queryClient.invalidateQueries({ queryKey: ['customers'] });
     },
     onError: (err: any) => {
+      hapticError();
       const message = err?.response?.data?.error || err.message || t('customerDetail.photoUploadError');
       Alert.alert(t('common.error'), message);
     },
@@ -200,10 +205,12 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
   const deleteMutation = useMutation({
     mutationFn: () => deleteCustomer(customerId),
     onSuccess: () => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       navigation.goBack();
     },
     onError: (error: any) => {
+      hapticError();
       const message = error?.response?.data?.error || error.message || t('customerDetail.deleteCustomerError');
       Alert.alert(t('common.error'), message);
     },
@@ -218,7 +225,10 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
         {
           text: t('customerDetail.deleteCustomerAction'),
           style: 'destructive',
-          onPress: () => deleteMutation.mutate(),
+          onPress: () => {
+            hapticWarning();
+            deleteMutation.mutate();
+          },
         },
       ]
     );
@@ -365,7 +375,14 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
                 <SwipeableRow key={pet.id} onDelete={() => {
                   Alert.alert(t('customerDetail.deletePetTitle'), t('customerDetail.deletePetMessage', { name: pet.name }), [
                     { text: t('common.cancel'), style: 'cancel' },
-                    { text: t('customerDetail.deletePetAction'), style: 'destructive', onPress: () => deletePetMutation.mutate(pet.id) },
+                    {
+                      text: t('customerDetail.deletePetAction'),
+                      style: 'destructive',
+                      onPress: () => {
+                        hapticWarning();
+                        deletePetMutation.mutate(pet.id);
+                      },
+                    },
                   ]);
                 }}>
                   <PetCard key={pet.id} pet={pet} onPress={() => handlePetPress(pet)} />

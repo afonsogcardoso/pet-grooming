@@ -13,6 +13,7 @@ import { MiniMap } from '../components/common/MiniMap';
 import { getStatusColor, getStatusLabel } from '../utils/appointmentStatus';
 import { getDateLocale } from '../i18n';
 import { formatCustomerName, getCustomerFirstName } from '../utils/customer';
+import { hapticError, hapticSelection, hapticSuccess, hapticWarning } from '../utils/haptics';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -54,6 +55,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     mutationFn: (payload: { status?: string | null; payment_status?: string | null }) =>
       updateAppointment(appointmentId, payload),
     onSuccess: (updated) => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['appointments'] }).catch(() => null);
       queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] }).catch(() => null);
       if (updated) {
@@ -61,6 +63,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       }
     },
     onError: (err: any) => {
+      hapticError();
       const message = err?.response?.data?.error || err.message || t('appointmentDetail.updateError');
       Alert.alert(t('common.error'), message);
     },
@@ -70,6 +73,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     mutationFn: ({ type, file }: { type: 'before' | 'after'; file: { uri: string; name: string; type: string } }) =>
       uploadAppointmentPhoto(appointmentId, type, file),
     onSuccess: async (data, variables) => {
+      hapticSuccess();
       const photoUrl = data?.url;
       if (photoUrl && appointment) {
         const updatedAppointment = {
@@ -81,6 +85,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       await queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
     },
     onError: (err: any) => {
+      hapticError();
       const message = err?.response?.data?.error || err.message || t('appointmentDetail.photoUploadError');
       Alert.alert(t('common.error'), message);
     },
@@ -216,11 +221,13 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   };
 
   const saveStatus = (next: string) => {
+    hapticSelection();
     setStatus(next);
     mutation.mutate({ status: next });
   };
 
   const togglePayment = () => {
+    hapticSelection();
     const next = paymentStatus === 'paid' ? 'unpaid' : 'paid';
     mutation.mutate({ payment_status: next });
   };
@@ -240,11 +247,14 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
           style: 'destructive',
           onPress: async () => {
             try {
+              hapticWarning();
               console.log('Attempting to delete appointment:', appointmentId);
               await deleteAppointment(appointmentId);
+              hapticSuccess();
               queryClient.invalidateQueries({ queryKey: ['appointments'] }).catch(() => null);
               navigation.goBack();
             } catch (error) {
+              hapticError();
               console.error('Delete error:', error);
               const errorMessage = error?.response?.data?.message || error?.message || t('appointmentDetail.deleteError');
               Alert.alert(t('common.error'), errorMessage);
@@ -690,7 +700,14 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                       t('appointmentDetail.cancelMessage'),
                       [
                         { text: t('appointmentDetail.cancelNo'), style: 'cancel' },
-                        { text: t('appointmentDetail.cancelYes'), style: 'destructive', onPress: () => saveStatus('cancelled') },
+                        {
+                          text: t('appointmentDetail.cancelYes'),
+                          style: 'destructive',
+                          onPress: () => {
+                            hapticWarning();
+                            saveStatus('cancelled');
+                          },
+                        },
                       ]
                     );
                   }}

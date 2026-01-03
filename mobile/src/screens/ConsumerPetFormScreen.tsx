@@ -28,6 +28,7 @@ import {
   uploadConsumerPetPhoto,
 } from '../api/consumerPets';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
+import { hapticError, hapticSuccess, hapticWarning } from '../utils/haptics';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -64,6 +65,9 @@ export default function ConsumerPetFormScreen({ navigation, route }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['consumerPets'] }).catch(() => null);
     },
+    onError: () => {
+      hapticError();
+    },
   });
 
   const createMutation = useMutation({
@@ -74,16 +78,19 @@ export default function ConsumerPetFormScreen({ navigation, route }: Props) {
           setUploadingPhoto(true);
           await uploadPetPhotoMutation.mutateAsync({ petId: createdPet.id, uri: photoUri });
         } catch (error) {
+          hapticError();
           Alert.alert(t('common.error'), t('consumerPetsForm.photoUploadError'));
         } finally {
           setUploadingPhoto(false);
         }
       }
 
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['consumerPets'] }).catch(() => null);
       navigation.goBack();
     },
     onError: (err: any) => {
+      hapticError();
       const message = err?.response?.data?.error || err?.message || t('consumerPetsForm.saveError');
       Alert.alert(t('common.error'), message);
     },
@@ -98,16 +105,19 @@ export default function ConsumerPetFormScreen({ navigation, route }: Props) {
           setUploadingPhoto(true);
           await uploadPetPhotoMutation.mutateAsync({ petId: pet.id, uri: photoUri });
         } catch (error) {
+          hapticError();
           Alert.alert(t('common.error'), t('consumerPetsForm.photoUploadError'));
         } finally {
           setUploadingPhoto(false);
         }
       }
 
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['consumerPets'] }).catch(() => null);
       navigation.goBack();
     },
     onError: (err: any) => {
+      hapticError();
       const message = err?.response?.data?.error || err?.message || t('consumerPetsForm.saveError');
       Alert.alert(t('common.error'), message);
     },
@@ -116,10 +126,12 @@ export default function ConsumerPetFormScreen({ navigation, route }: Props) {
   const deleteMutation = useMutation({
     mutationFn: deleteConsumerPet,
     onSuccess: () => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['consumerPets'] }).catch(() => null);
       navigation.goBack();
     },
     onError: (err: any) => {
+      hapticError();
       const message = err?.response?.data?.error || err?.message || t('consumerPetsForm.deleteError');
       Alert.alert(t('common.error'), message);
     },
@@ -267,7 +279,10 @@ export default function ConsumerPetFormScreen({ navigation, route }: Props) {
       {
         text: t('consumerPetsForm.deleteConfirm'),
         style: 'destructive',
-        onPress: () => deleteMutation.mutate(pet.id),
+        onPress: () => {
+          hapticWarning();
+          deleteMutation.mutate(pet.id);
+        },
       },
     ]);
   };

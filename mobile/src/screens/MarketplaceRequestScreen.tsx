@@ -23,6 +23,7 @@ import { getProfile } from '../api/profile';
 import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { buildPhone } from '../utils/phone';
+import { hapticError, hapticSuccess } from '../utils/haptics';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -131,10 +132,12 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
   const mutation = useMutation({
     mutationFn: createMarketplaceBooking,
     onSuccess: () => {
+      hapticSuccess();
       Alert.alert(t('marketplaceRequest.successTitle'), t('marketplaceRequest.successMessage'));
       navigation.goBack();
     },
     onError: (err: any) => {
+      hapticError();
       const code = err?.response?.data?.error || err?.message;
       let message = t('marketplaceRequest.errorMessage');
       if (code === 'phone_verification_required') {
@@ -183,16 +186,19 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
     const trimmedNotes = notes.trim();
 
     if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !trimmedPhone) {
+      hapticError();
       Alert.alert(t('marketplaceRequest.errorTitle'), t('marketplaceRequest.missingFields'));
       return;
     }
 
     if (useProfilePet && !selectedPetId) {
+      hapticError();
       Alert.alert(t('marketplaceRequest.errorTitle'), t('marketplaceRequest.selectPet'));
       return;
     }
 
     if (!useProfilePet && !trimmedPetName) {
+      hapticError();
       Alert.alert(t('marketplaceRequest.errorTitle'), t('marketplaceRequest.missingFields'));
       return;
     }

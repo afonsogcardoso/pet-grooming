@@ -20,6 +20,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { Button, Input } from '../components/common';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { Branding, getBranding, updateBranding, uploadBrandLogo, uploadPortalImage } from '../api/branding';
+import { hapticError, hapticSuccess } from '../utils/haptics';
 
 export default function MarketplaceProfileScreen() {
   const { t } = useTranslation();
@@ -71,10 +72,14 @@ export default function MarketplaceProfileScreen() {
   const updateMutation = useMutation({
     mutationFn: updateBranding,
     onSuccess: (updated) => {
+      hapticSuccess();
       queryClient.setQueryData(['branding'], updated);
       applyBranding(updated);
     },
-    onError: () => Alert.alert(t('common.error'), t('marketplaceProfile.updateError')),
+    onError: () => {
+      hapticError();
+      Alert.alert(t('common.error'), t('marketplaceProfile.updateError'));
+    },
   });
 
   const requestAndroidPermissions = async () => {
@@ -117,9 +122,11 @@ export default function MarketplaceProfileScreen() {
 
       const { url } = await uploadBrandLogo(formData);
       const updated = await updateBranding({ logo_url: url });
+      hapticSuccess();
       queryClient.setQueryData(['branding'], updated);
       applyBranding(updated);
     } catch (err) {
+      hapticError();
       console.error('Erro ao carregar logotipo:', err);
       Alert.alert(t('common.error'), t('marketplaceProfile.logoUploadError'));
     } finally {
@@ -145,9 +152,11 @@ export default function MarketplaceProfileScreen() {
 
       const { url } = await uploadPortalImage(formData);
       const updated = await updateBranding({ portal_image_url: url });
+      hapticSuccess();
       queryClient.setQueryData(['branding'], updated);
       applyBranding(updated);
     } catch (err) {
+      hapticError();
       console.error('Erro ao carregar imagem de capa:', err);
       Alert.alert(t('common.error'), t('marketplaceProfile.heroUploadError'));
     } finally {

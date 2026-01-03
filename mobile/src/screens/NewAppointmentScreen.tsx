@@ -30,6 +30,7 @@ import { PetServiceRow, type ServiceRow } from '../components/appointment/PetSer
 import { DateTimePickerModal } from '../components/appointment/DateTimePickerModal';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { useTranslation } from 'react-i18next';
+import { hapticError, hapticSuccess } from '../utils/haptics';
 import { getDateLocale } from '../i18n';
 import { buildPhone } from '../utils/phone';
 import { formatCustomerName, getCustomerFirstName } from '../utils/customer';
@@ -557,6 +558,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       return createAppointment(payload);
     },
     onSuccess: async (savedAppointment) => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['appointments'] }).catch(() => null);
       if (isEditMode) {
         queryClient.invalidateQueries({ queryKey: ['appointment', editAppointmentId] }).catch(() => null);
@@ -573,6 +575,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       }
     },
     onError: (err: any) => {
+      hapticError();
       const message =
         err?.response?.data?.error ||
         err.message ||
@@ -726,16 +729,19 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     }
 
     if (!canSubmit) {
+      hapticError();
       Alert.alert(t('appointmentForm.requiredTitle'), t('appointmentForm.requiredMessage'));
       return;
     }
 
     if (amountInput.trim() && amountValue === null) {
+      hapticError();
       Alert.alert(t('common.error'), t('appointmentForm.amountInvalid'));
       return;
     }
 
     if (requiresTierSelection) {
+      hapticError();
       Alert.alert(t('appointmentForm.requiredTitle'), t('appointmentForm.tierRequiredMessage'));
       return;
     }
@@ -757,6 +763,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
         });
         customerId = createdCustomer.id;
       } catch (err: any) {
+        hapticError();
         const message = err?.response?.data?.error || err.message || t('appointmentForm.createCustomerPetError');
         Alert.alert(t('common.error'), message);
         return;
@@ -778,6 +785,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
             return prev.map((c) => (c.id === selectedCustomerData.id ? { ...c, ...(updated || {}) } : c));
           });
         } catch (err: any) {
+          hapticError();
           const message = err?.response?.data?.error || err.message || t('appointmentForm.updateCustomerError');
           Alert.alert(t('common.error'), message);
           return;
@@ -813,6 +821,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           });
         }
       } catch (err: any) {
+        hapticError();
         const message = err?.response?.data?.error || err.message || t('appointmentForm.createCustomerPetError');
         Alert.alert(t('common.error'), message);
         return;

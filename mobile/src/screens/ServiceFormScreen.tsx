@@ -38,6 +38,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { Input, Button } from '../components/common';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { hapticError, hapticSuccess, hapticWarning } from '../utils/haptics';
 import { launchCamera, launchImageLibrary, CameraOptions, ImageLibraryOptions } from 'react-native-image-picker';
 
 type Props = NativeStackScreenProps<any, 'ServiceForm'>;
@@ -114,10 +115,12 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
   const createMutation = useMutation({
     mutationFn: createService,
     onSuccess: () => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['services'] });
       navigation.goBack();
     },
     onError: () => {
+      hapticError();
       Alert.alert(t('common.error'), t('serviceForm.createError'));
     },
   });
@@ -125,10 +128,12 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<Service> }) => updateService(id, data),
     onSuccess: () => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['services'] });
       navigation.goBack();
     },
     onError: () => {
+      hapticError();
       Alert.alert(t('common.error'), t('serviceForm.updateError'));
     },
   });
@@ -136,10 +141,12 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
   const deleteMutation = useMutation({
     mutationFn: deleteService,
     onSuccess: () => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['services'] });
       navigation.goBack();
     },
     onError: () => {
+      hapticError();
       Alert.alert(t('common.error'), t('serviceForm.deleteError'));
     },
   });
@@ -148,6 +155,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
     mutationFn: (payload: Omit<ServicePriceTier, 'id' | 'service_id'>) =>
       createServicePriceTier(serviceId || '', payload),
     onSuccess: () => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['services', serviceId, 'price-tiers'] });
       setTierLabel('');
       setTierMinWeight('');
@@ -156,6 +164,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
       setTierOrder('');
     },
     onError: () => {
+      hapticError();
       Alert.alert(t('common.error'), t('serviceForm.tierCreateError'));
     },
   });
@@ -163,9 +172,11 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
   const deleteTierMutation = useMutation({
     mutationFn: (tierId: string) => deleteServicePriceTier(serviceId || '', tierId),
     onSuccess: () => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['services', serviceId, 'price-tiers'] });
     },
     onError: () => {
+      hapticError();
       Alert.alert(t('common.error'), t('serviceForm.tierDeleteError'));
     },
   });
@@ -174,6 +185,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
     mutationFn: (payload: Omit<ServiceAddon, 'id' | 'service_id'>) =>
       createServiceAddon(serviceId || '', payload),
     onSuccess: () => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['services', serviceId, 'addons'] });
       setAddonName('');
       setAddonDescription('');
@@ -182,6 +194,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
       setAddonActive(true);
     },
     onError: () => {
+      hapticError();
       Alert.alert(t('common.error'), t('serviceForm.addonCreateError'));
     },
   });
@@ -189,9 +202,11 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
   const deleteAddonMutation = useMutation({
     mutationFn: (addonId: string) => deleteServiceAddon(serviceId || '', addonId),
     onSuccess: () => {
+      hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['services', serviceId, 'addons'] });
     },
     onError: () => {
+      hapticError();
       Alert.alert(t('common.error'), t('serviceForm.addonDeleteError'));
     },
   });
@@ -456,7 +471,10 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
         {
           text: t('serviceForm.deleteAction'),
           style: 'destructive',
-          onPress: () => deleteMutation.mutate(serviceId),
+          onPress: () => {
+            hapticWarning();
+            deleteMutation.mutate(serviceId);
+          },
         },
       ]
     );

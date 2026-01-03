@@ -16,6 +16,7 @@ import { CustomerCard } from '../components/customers/CustomerCard';
 import { matchesSearchQuery } from '../utils/textHelpers';
 import { formatCustomerName } from '../utils/customer';
 import { useTranslation } from 'react-i18next';
+import { hapticError, hapticSuccess, hapticWarning } from '../utils/haptics';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -33,9 +34,14 @@ export default function CustomersScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteCustomer(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['customers'] }),
-    onError: (err: any) =>
-      Alert.alert(t('common.error'), err?.response?.data?.error || err.message || t('customers.deleteError')),
+    onSuccess: () => {
+      hapticSuccess();
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+    },
+    onError: (err: any) => {
+      hapticError();
+      Alert.alert(t('common.error'), err?.response?.data?.error || err.message || t('customers.deleteError'));
+    },
   });
 
   const filteredCustomers = useMemo(() => {
@@ -120,7 +126,14 @@ export default function CustomersScreen({ navigation }: Props) {
                   const displayName = formatCustomerName(item);
                   Alert.alert(t('customers.deleteTitle'), t('customers.deletePrompt', { name: displayName }), [
                     { text: t('common.cancel'), style: 'cancel' },
-                    { text: t('customers.deleteAction'), style: 'destructive', onPress: () => deleteMutation.mutate(item.id) },
+                    {
+                      text: t('customers.deleteAction'),
+                      style: 'destructive',
+                      onPress: () => {
+                        hapticWarning();
+                        deleteMutation.mutate(item.id);
+                      },
+                    },
                   ]);
                 }}>
                   <CustomerCard customer={item} onPress={() => handleCustomerPress(item)} />

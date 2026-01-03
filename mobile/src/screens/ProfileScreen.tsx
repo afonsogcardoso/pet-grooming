@@ -20,6 +20,7 @@ import { AddressAutocomplete } from '../components/appointment/AddressAutocomple
 import { buildPhone, splitPhone } from '../utils/phone';
 import { resolveSupabaseAnonKey, resolveSupabaseUrl } from '../config/supabase';
 import { formatVersionLabel } from '../utils/version';
+import { hapticError, hapticSelection, hapticSuccess } from '../utils/haptics';
 import { registerForPushNotifications } from '../utils/pushNotifications';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -261,6 +262,7 @@ export default function ProfileScreen({ navigation }: Props) {
       return { previousProfile };
     },
     onSuccess: (updated, payload, context) => {
+      hapticSuccess();
       const current =
         queryClient.getQueryData<Profile>(['profile']) ||
         context?.previousProfile ||
@@ -304,7 +306,10 @@ export default function ProfileScreen({ navigation }: Props) {
       }
       // profile updated
     },
-    onError: () => Alert.alert(t('common.error'), t('profile.updateError')),
+    onError: () => {
+      hapticError();
+      Alert.alert(t('common.error'), t('profile.updateError'));
+    },
   });
 
   const languageMutation = useMutation({
@@ -320,6 +325,7 @@ export default function ProfileScreen({ navigation }: Props) {
       return { previousProfile, previousLanguage, normalized };
     },
     onSuccess: (updated, _language, context) => {
+      hapticSuccess();
       if (updated?.locale) {
         queryClient.setQueryData<Profile | undefined>(['profile'], (current) =>
           current ? { ...current, locale: normalizeLanguage(updated.locale) } : current
@@ -331,6 +337,7 @@ export default function ProfileScreen({ navigation }: Props) {
       }
     },
     onError: (_err, _language, context) => {
+      hapticError();
       if (context?.previousProfile) {
         queryClient.setQueryData(['profile'], context.previousProfile);
       }
@@ -344,18 +351,23 @@ export default function ProfileScreen({ navigation }: Props) {
   const resetPasswordMutation = useMutation({
     mutationFn: resetPassword,
     onSuccess: () => {
+      hapticSuccess();
       setNewPassword('');
       setConfirmPassword('');
       setShowPasswordForm(false);
       setPasswordError(null);
       Alert.alert(t('common.done'), t('profile.passwordUpdated'));
     },
-    onError: () => Alert.alert(t('common.error'), t('profile.passwordUpdateError')),
+    onError: () => {
+      hapticError();
+      Alert.alert(t('common.error'), t('profile.passwordUpdateError'));
+    },
   });
 
   const preferencesMutation = useMutation({
     mutationFn: updateNotificationPreferences,
     onMutate: async (payload) => {
+      hapticSelection();
       await queryClient.cancelQueries({ queryKey: ['notificationPreferences'] });
       const previous =
         queryClient.getQueryData<NotificationPreferences>(['notificationPreferences']) ||
@@ -365,9 +377,11 @@ export default function ProfileScreen({ navigation }: Props) {
       return { previous };
     },
     onSuccess: (updated) => {
+      hapticSuccess();
       queryClient.setQueryData(['notificationPreferences'], updated);
     },
     onError: (_error, _payload, context) => {
+      hapticError();
       if (context?.previous) {
         queryClient.setQueryData(['notificationPreferences'], context.previous);
       }
@@ -383,6 +397,7 @@ export default function ProfileScreen({ navigation }: Props) {
     const supabaseUrl = resolveSupabaseUrl();
     const supabaseAnonKey = resolveSupabaseAnonKey();
     if (!supabaseUrl || !supabaseAnonKey || !token) {
+      hapticError();
       Alert.alert(t('common.error'), t('profile.linkConfigError'));
       return;
     }
@@ -409,6 +424,7 @@ export default function ProfileScreen({ navigation }: Props) {
       });
 
       if (!response.ok) {
+        hapticError();
         Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
         return;
       }
@@ -417,18 +433,22 @@ export default function ProfileScreen({ navigation }: Props) {
       const authUrl = payload?.url;
 
       if (!authUrl) {
+        hapticError();
         Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
         return;
       }
 
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
       if (result.type === 'success') {
+        hapticSuccess();
         Alert.alert(t('common.done'), t('profile.linkSuccess', { provider: providerLabel }));
         await queryClient.refetchQueries({ queryKey: ['profile'] });
       } else if (result.type !== 'cancel' && result.type !== 'dismiss') {
+        hapticError();
         Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
       }
     } catch {
+      hapticError();
       Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
     } finally {
       setLinkingProvider(null);
@@ -1107,6 +1127,7 @@ export default function ProfileScreen({ navigation }: Props) {
         <TouchableOpacity
           style={[styles.button, styles.danger]}
           onPress={async () => {
+            hapticSelection();
             await useAuthStore.getState().clear();
             navigation.replace('Login');
           }}
