@@ -437,8 +437,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     card: {
       backgroundColor: colors.surface,
-      borderRadius: 18,
-      padding: 18,
+      borderRadius: 16,
+      padding: 16,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
       marginBottom: 16,
@@ -457,7 +457,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     logo: {
       width: 72,
       height: 72,
-      borderRadius: 18,
+      borderRadius: 16,
       backgroundColor: colors.background,
       borderWidth: 1,
       borderColor: colors.primary,

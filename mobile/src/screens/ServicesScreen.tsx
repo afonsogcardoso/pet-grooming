@@ -1,193 +1,213 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, TextInput, Alert, ScrollView, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, TextInput, Alert, Image, FlatList } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { getAllServices, Service, updateServiceOrder } from '../api/services';
+import { getAllServices, Service } from '../api/services';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { EmptyState } from '../components/common';
+import { UndoToast } from '../components/common/UndoToast';
 import SwipeableRow from '../components/common/SwipeableRow';
 import { deleteService } from '../api/services';
 import { useTranslation } from 'react-i18next';
-import { hapticError, hapticLight, hapticSuccess, hapticWarning } from '../utils/haptics';
+import { hapticError, hapticSuccess, hapticWarning } from '../utils/haptics';
+import { getCardStyle } from '../theme/uiTokens';
+import { useSwipeDeleteIndicator } from '../hooks/useSwipeDeleteIndicator';
 
 type Props = NativeStackScreenProps<any>;
+type DeletePayload = {
+  service: Service;
+  index: number;
+};
+const UNDO_TIMEOUT_MS = 4000;
 
 export default function ServicesScreen({ navigation }: Props) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedSubcategory, setSelectedSubcategory] = useState('');
-  const [localServices, setLocalServices] = useState<Service[]>([]);
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const undoBottomOffset = tabBarHeight > 0 ? tabBarHeight : insets.bottom + 16;
+  const [undoVisible, setUndoVisible] = useState(false);
+  const { deletingId, beginDelete, clearDeletingId } = useSwipeDeleteIndicator();
+  const pendingDeleteRef = useRef<DeletePayload | null>(null);
 
   const { data: services = [], isLoading } = useQuery({
     queryKey: ['services', 'all'],
     queryFn: getAllServices,
   });
 
+  const restoreService = useCallback((payload: DeletePayload) => {
+    queryClient.setQueryData(['services', 'all'], (old: Service[] | undefined) => {
+      if (!old) return old;
+      if (old.some((item) => item.id === payload.service.id)) return old;
+      const nextItems = [...old];
+      const insertIndex = Math.min(Math.max(payload.index, 0), nextItems.length);
+      nextItems.splice(insertIndex, 0, payload.service);
+      return nextItems;
+    });
+  }, [queryClient]);
+
   const deleteServiceMutation = useMutation({
-    mutationFn: (id: string) => deleteService(id),
+    mutationFn: ({ service }: DeletePayload) => deleteService(service.id),
     onSuccess: () => {
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['services', 'all'] });
+      if (!pendingDeleteRef.current) {
+        queryClient.invalidateQueries({ queryKey: ['services', 'all'] });
+      }
     },
-    onError: (err: any) => {
+    onError: (err: any, variables) => {
       hapticError();
+      if (variables) {
+        restoreService(variables);
+      }
+      if (!pendingDeleteRef.current) {
+        queryClient.invalidateQueries({ queryKey: ['services', 'all'] });
+      }
       Alert.alert(t('common.error'), err?.response?.data?.error || err.message || t('services.deleteError'));
     },
   });
 
-  const updateOrderMutation = useMutation({
-    mutationFn: updateServiceOrder,
-    onSuccess: () => {
-      hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['services', 'all'] });
-    },
-    onError: () => {
-      hapticError();
-      Alert.alert(t('common.error'), t('services.updateOrderError'));
-      setLocalServices(services);
-    },
-  });
+  const commitPendingDelete = useCallback(() => {
+    const pending = pendingDeleteRef.current;
+    pendingDeleteRef.current = null;
+    clearDeletingId();
+    setUndoVisible(false);
+    if (!pending) return;
+    deleteServiceMutation.mutate(pending);
+  }, [clearDeletingId, deleteServiceMutation]);
 
-  // keep a local copy for optimistic reordering
-  // guard updates by comparing service ids to avoid repeated setState loops
-  const lastServicesIdsRef = useRef<string | null>(null);
-  useEffect(() => {
-    const ids = (services || []).map((s) => s.id).join(',');
-    if (lastServicesIdsRef.current !== ids) {
-      lastServicesIdsRef.current = ids;
-      setLocalServices(services || []);
+  const startOptimisticDelete = useCallback((service: Service) => {
+    if (pendingDeleteRef.current) {
+      commitPendingDelete();
     }
-  }, [services]);
+
+    const cached = queryClient.getQueryData<Service[]>(['services', 'all']);
+    const index = cached ? cached.findIndex((item) => item.id === service.id) : -1;
+
+    queryClient.setQueryData(['services', 'all'], (old: Service[] | undefined) => {
+      if (!old) return old;
+      if (!old.some((item) => item.id === service.id)) return old;
+      return old.filter((item) => item.id !== service.id);
+    });
+
+    pendingDeleteRef.current = { service, index: Math.max(index, 0) };
+    setUndoVisible(true);
+  }, [commitPendingDelete, queryClient]);
+
+  const handleUndo = useCallback(() => {
+    const pending = pendingDeleteRef.current;
+    pendingDeleteRef.current = null;
+    clearDeletingId();
+    setUndoVisible(false);
+    if (!pending) return;
+    restoreService(pending);
+  }, [clearDeletingId, restoreService]);
+
+  useEffect(() => {
+    return () => {
+      const pending = pendingDeleteRef.current;
+      if (!pending) return;
+      pendingDeleteRef.current = null;
+      deleteServiceMutation.mutate(pending);
+    };
+  }, [deleteServiceMutation]);
 
   const filteredServices = useMemo(() => {
-    const data = localServices.length > 0 ? localServices : services;
+    const data = (services || [])
+      .slice()
+      .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
     const q = searchQuery.toLowerCase().trim();
     return data.filter((service) => {
-      if (selectedCategory && service.category !== selectedCategory) return false;
-      if (selectedSubcategory && service.subcategory !== selectedSubcategory) return false;
       if (!q) return true;
-      return (
-        service.name.toLowerCase().includes(q) ||
-        (service.description || '').toLowerCase().includes(q)
-      );
+      const searchValues = [
+        service.name,
+        service.description,
+        service.category,
+        service.subcategory,
+      ]
+        .filter((value): value is string => Boolean(value))
+        .map((value) => value.toLowerCase());
+      return searchValues.some((value) => value.includes(q));
     });
-  }, [localServices, services, searchQuery, selectedCategory, selectedSubcategory]);
-
-  const categories = useMemo(() => {
-    return Array.from(
-      new Set(
-        (services || [])
-          .map((service) => service.category)
-          .filter((value) => typeof value === 'string' && value.trim().length > 0)
-      )
-    ).sort((a, b) => String(a).localeCompare(String(b)));
-  }, [services]);
-
-  const subcategories = useMemo(() => {
-    const source = selectedCategory
-      ? (services || []).filter((service) => service.category === selectedCategory)
-      : (services || []);
-    return Array.from(
-      new Set(
-        source
-          .map((service) => service.subcategory)
-          .filter((value) => typeof value === 'string' && value.trim().length > 0)
-      )
-    ).sort((a, b) => String(a).localeCompare(String(b)));
-  }, [services, selectedCategory]);
+  }, [services, searchQuery]);
 
   const handleNewService = () => navigation.navigate('ServiceForm', { mode: 'create' });
   const handleEditService = (service: Service) => navigation.navigate('ServiceForm', { mode: 'edit', serviceId: service.id });
 
-  const handleDragEnd = ({ data }: { data: Service[] }) => {
-    hapticLight();
-    setLocalServices(data);
-    const updates = data.map((service, index) => ({ id: service.id, display_order: index }));
-    updateOrderMutation.mutate(updates);
-  };
-
-  const renderServiceItem = ({ item, drag, isActive }: RenderItemParams<Service>) => {
-    return (
-      <ScaleDecorator>
-        <SwipeableRow
-          onDelete={() =>
-            Alert.alert(t('services.deleteTitle'), t('services.deletePrompt', { name: item.name }), [
-              { text: t('common.cancel'), style: 'cancel' },
-              {
-                text: t('services.deleteAction'),
-                style: 'destructive',
-                onPress: () => {
-                  hapticWarning();
-                  deleteServiceMutation.mutate(item.id);
-                },
-              },
-            ])
-          }
-        >
-          <TouchableOpacity
-            style={[styles.serviceCard, isActive && styles.serviceCardDragging]}
-            onPress={() => handleEditService(item)}
-            onLongPress={!searchQuery ? drag : undefined}
-            disabled={isActive}
-            activeOpacity={0.7}
-          >
-            {item.image_url ? (
-              <Image source={{ uri: item.image_url }} style={styles.serviceImage} />
-            ) : (
-              <View style={styles.serviceImagePlaceholder}>
-                <Ionicons name="image-outline" size={18} color={colors.muted} />
+  const renderServiceItem = ({ item }: { item: Service }) => (
+    <SwipeableRow
+      isDeleting={item.id === deletingId}
+      onDelete={() =>
+        Alert.alert(t('services.deleteTitle'), t('services.deletePrompt', { name: item.name }), [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('services.deleteAction'),
+            style: 'destructive',
+            onPress: () => {
+              hapticWarning();
+              beginDelete(item.id, () => startOptimisticDelete(item));
+            },
+          },
+        ])
+      }
+    >
+      <TouchableOpacity
+        style={styles.serviceCard}
+        onPress={() => handleEditService(item)}
+        activeOpacity={0.7}
+      >
+        {item.image_url ? (
+          <Image source={{ uri: item.image_url }} style={styles.serviceImage} />
+        ) : (
+          <View style={styles.serviceImagePlaceholder}>
+            <Ionicons name="image-outline" size={18} color={colors.muted} />
+          </View>
+        )}
+        <View style={styles.serviceInfo}>
+          <View style={styles.serviceHeader}>
+            <Text style={styles.serviceName}>{item.name}</Text>
+            {!item.active && (
+              <View style={styles.inactiveBadge}>
+                <Text style={styles.inactiveBadgeText}>{t('services.inactive')}</Text>
               </View>
             )}
-            <View style={styles.serviceInfo}>
-              <View style={styles.serviceHeader}>
-                <Text style={styles.serviceName}>{item.name}</Text>
-                {!item.active && (
-                  <View style={styles.inactiveBadge}>
-                    <Text style={styles.inactiveBadgeText}>{t('services.inactive')}</Text>
-                  </View>
-                )}
-              </View>
-              {item.description && (
-                <Text style={styles.serviceDescription} numberOfLines={2}>
-                  {item.description}
-                </Text>
-              )}
-              {(item.category || item.subcategory) && (
-                <View style={styles.tagRow}>
-                  {item.category && (
-                    <View style={styles.tag}>
-                      <Text style={styles.tagText}>{item.category}</Text>
-                    </View>
-                  )}
-                  {item.subcategory && (
-                    <View style={styles.tag}>
-                      <Text style={styles.tagText}>{item.subcategory}</Text>
-                    </View>
-                  )}
+          </View>
+          {item.description && (
+            <Text style={styles.serviceDescription} numberOfLines={2}>
+              {item.description}
+            </Text>
+          )}
+          {(item.category || item.subcategory) && (
+            <View style={styles.tagRow}>
+              {item.category && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>{item.category}</Text>
                 </View>
               )}
-              <View style={styles.serviceDetails}>
-                {item.price != null && <Text style={styles.detailText}>💰 {item.price.toFixed(2)}€</Text>}
-                {item.default_duration != null && (
-                  <Text style={styles.detailText}>⏱️ {item.default_duration}{t('common.minutesShort')}</Text>
-                )}
-              </View>
+              {item.subcategory && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>{item.subcategory}</Text>
+                </View>
+              )}
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-          </TouchableOpacity>
-        </SwipeableRow>
-      </ScaleDecorator>
-    );
-  };
+          )}
+          <View style={styles.serviceDetails}>
+            {item.price != null && <Text style={styles.detailText}>💰 {item.price.toFixed(2)}€</Text>}
+            {item.default_duration != null && (
+              <Text style={styles.detailText}>⏱️ {item.default_duration}{t('common.minutesShort')}</Text>
+            )}
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+      </TouchableOpacity>
+    </SwipeableRow>
+  );
 
   if (isLoading) {
     return (
@@ -196,13 +216,22 @@ export default function ServicesScreen({ navigation }: Props) {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
+        <UndoToast
+          visible={undoVisible}
+          message={t('services.deleteUndoMessage')}
+          actionLabel={t('services.deleteUndoAction')}
+          onAction={handleUndo}
+          onTimeout={commitPendingDelete}
+          onDismiss={commitPendingDelete}
+          durationMs={UNDO_TIMEOUT_MS}
+          bottomOffset={undoBottomOffset}
+        />
       </SafeAreaView>
     );
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
         <ScreenHeader
           title={t('services.title')}
           showBackButton
@@ -214,82 +243,23 @@ export default function ServicesScreen({ navigation }: Props) {
         />
 
         <View style={styles.content}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={18} color={colors.muted} style={{ marginRight: 8 }} />
-            <TextInput
-              placeholder={t('services.searchPlaceholder')}
-              placeholderTextColor={colors.muted}
-              style={styles.searchInput}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBar}>
+              <Ionicons name="search" size={16} color={colors.muted} />
+              <TextInput
+                placeholder={t('services.searchPlaceholder')}
+                placeholderTextColor={colors.muted}
+                style={styles.searchInput}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 ? (
+                <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+                  <Ionicons name="close-circle" size={18} color={colors.muted} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </View>
-
-          {categories.length > 0 && (
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>{t('services.filters.categoryLabel')}</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-                <TouchableOpacity
-                  style={[styles.chip, !selectedCategory && styles.chipActive]}
-                  onPress={() => {
-                    setSelectedCategory('');
-                    setSelectedSubcategory('');
-                  }}
-                >
-                  <Text style={[styles.chipText, !selectedCategory && styles.chipTextActive]}>
-                    {t('services.filters.all')}
-                  </Text>
-                </TouchableOpacity>
-                {categories.map((category) => {
-                  const active = selectedCategory === category;
-                  return (
-                    <TouchableOpacity
-                      key={category}
-                      style={[styles.chip, active && styles.chipActive]}
-                      onPress={() => {
-                        setSelectedCategory(active ? '' : category);
-                        setSelectedSubcategory('');
-                      }}
-                    >
-                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                        {category}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          )}
-
-          {subcategories.length > 0 && (
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>{t('services.filters.subcategoryLabel')}</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-                <TouchableOpacity
-                  style={[styles.chip, !selectedSubcategory && styles.chipActive]}
-                  onPress={() => setSelectedSubcategory('')}
-                >
-                  <Text style={[styles.chipText, !selectedSubcategory && styles.chipTextActive]}>
-                    {t('services.filters.all')}
-                  </Text>
-                </TouchableOpacity>
-                {subcategories.map((subcategory) => {
-                  const active = selectedSubcategory === subcategory;
-                  return (
-                    <TouchableOpacity
-                      key={subcategory}
-                      style={[styles.chip, active && styles.chipActive]}
-                      onPress={() => setSelectedSubcategory(active ? '' : subcategory)}
-                    >
-                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                        {subcategory}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          )}
 
           {filteredServices.length === 0 ? (
             <EmptyState
@@ -302,22 +272,38 @@ export default function ServicesScreen({ navigation }: Props) {
               onAction={!searchQuery ? handleNewService : undefined}
             />
           ) : (
-            <DraggableFlatList
+            <FlatList
               data={filteredServices}
-              onDragEnd={handleDragEnd}
               keyExtractor={(item) => item.id}
               renderItem={renderServiceItem}
-              activationDistance={10}
               contentContainerStyle={styles.listContent}
+              ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
             />
           )}
         </View>
+        <UndoToast
+          visible={undoVisible}
+          message={t('services.deleteUndoMessage')}
+          actionLabel={t('services.deleteUndoAction')}
+          onAction={handleUndo}
+          onTimeout={commitPendingDelete}
+          onDismiss={commitPendingDelete}
+          durationMs={UNDO_TIMEOUT_MS}
+          bottomOffset={undoBottomOffset}
+        />
       </SafeAreaView>
-    </GestureHandlerRootView>
   );
 }
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+  const cardBase = getCardStyle(colors);
+  const listCardBase = {
+    ...cardBase,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 12,
+    shadowOpacity: 0.08,
+    elevation: 3,
+  };
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -325,8 +311,13 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     content: {
       flex: 1,
-      paddingHorizontal: 20,
       paddingTop: 12,
+    },
+    searchContainer: {
+      height: 44,
+      justifyContent: 'center',
+      marginBottom: 0,
+      paddingHorizontal: 16,
     },
     searchBar: {
       flexDirection: 'row',
@@ -334,46 +325,18 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       backgroundColor: colors.surface,
       borderRadius: 12,
       paddingHorizontal: 12,
-      paddingVertical: 8,
-      marginBottom: 12,
+      paddingVertical: 6,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      gap: 8,
     },
     searchInput: {
       flex: 1,
-      fontSize: 16,
+      fontSize: 15,
       color: colors.text,
     },
-    filterGroup: {
-      marginBottom: 12,
-    },
-    filterLabel: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: colors.text,
-      marginBottom: 6,
-    },
-    chipRow: {
-      flexDirection: 'row',
-      gap: 8,
-    },
-    chip: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 999,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      backgroundColor: colors.surface,
-    },
-    chipActive: {
-      borderColor: colors.primary,
-      backgroundColor: colors.primarySoft,
-    },
-    chipText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: colors.text,
-    },
-    chipTextActive: {
-      color: colors.primary,
+    clearButton: {
+      padding: 2,
     },
     loadingContainer: {
       flex: 1,
@@ -381,15 +344,17 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       justifyContent: 'center',
     },
     listContent: {
-      paddingBottom: 100,
+      paddingHorizontal: 16,
+      paddingTop: 10,
+      paddingBottom: 20,
+    },
+    itemSeparator: {
+      height: 12,
     },
     serviceCard: {
+      ...listCardBase,
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: colors.surface,
-      borderRadius: 16,
-      padding: 16,
-      marginBottom: 12,
       gap: 12,
     },
     serviceImage: {
@@ -407,9 +372,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderColor: colors.surfaceBorder,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    serviceCardDragging: {
-      opacity: 0.95,
     },
     serviceInfo: {
       flex: 1,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   View,
@@ -8,7 +8,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAppointments, Appointment, deleteAppointment } from '../api/appointments';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Alert } from 'react-native';
@@ -20,11 +21,18 @@ import { WeekView } from '../components/appointments/WeekView';
 import { MonthView } from '../components/appointments/MonthView';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { useTranslation } from 'react-i18next';
+import { UndoToast } from '../components/common/UndoToast';
 import { hapticError, hapticSelection, hapticSuccess, hapticWarning } from '../utils/haptics';
+import { useSwipeDeleteIndicator } from '../hooks/useSwipeDeleteIndicator';
 
 type Props = NativeStackScreenProps<any>;
 type ViewMode = 'list' | 'day' | 'week' | 'month';
 type FilterMode = 'upcoming' | 'past' | 'unpaid';
+type DeletePayload = {
+  appointment: Appointment;
+  affectedQueries: Array<{ key: unknown; index: number }>;
+};
+const UNDO_TIMEOUT_MS = 4000;
 
 function todayLocalISO() {
   // YYYY-MM-DD usando timezone local (evita “pular” para amanhã em UTC)
@@ -41,6 +49,9 @@ export default function AppointmentsScreen({ navigation }: Props) {
   const { branding: brandingData, colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const undoBottomOffset = tabBarHeight > 0 ? tabBarHeight : insets.bottom + 16;
 
   // For list/day view: fetch appointments based on filter mode
   // For week/month view: fetch a broader range
@@ -110,22 +121,89 @@ export default function AppointmentsScreen({ navigation }: Props) {
   const pendingCount = pendingAppointments.length;
   const hasPendingAppointments = pendingCount > 0;
   const queryClient = useQueryClient();
+  const [undoVisible, setUndoVisible] = useState(false);
+  const { deletingId, beginDelete, clearDeletingId } = useSwipeDeleteIndicator();
+  const pendingDeleteRef = useRef<DeletePayload | null>(null);
+
+  const restoreAppointment = useCallback((payload: DeletePayload) => {
+    payload.affectedQueries.forEach(({ key, index }) => {
+      queryClient.setQueryData(key, (old: any) => {
+        if (!old || !Array.isArray(old.items)) return old;
+        if (old.items.some((item: Appointment) => item.id === payload.appointment.id)) return old;
+        const nextItems = [...old.items];
+        const insertIndex = Math.min(Math.max(index, 0), nextItems.length);
+        nextItems.splice(insertIndex, 0, payload.appointment);
+        return { ...old, items: nextItems };
+      });
+    });
+  }, [queryClient]);
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteAppointment(id),
+    mutationFn: ({ appointment }: DeletePayload) => deleteAppointment(appointment.id),
     onSuccess: () => {
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      if (!pendingDeleteRef.current) {
+        queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      }
     },
-    onError: (err: any) => {
+    onError: (err: any, variables) => {
       hapticError();
+      if (variables?.appointment) {
+        restoreAppointment(variables);
+      }
+      if (!pendingDeleteRef.current) {
+        queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      }
       Alert.alert(t('common.error'), err?.response?.data?.error || err.message || t('appointments.deleteError'));
     },
   });
 
+  const commitPendingDelete = useCallback(() => {
+    const pending = pendingDeleteRef.current;
+    pendingDeleteRef.current = null;
+    clearDeletingId();
+    setUndoVisible(false);
+    if (!pending) return;
+    deleteMutation.mutate(pending);
+  }, [clearDeletingId, deleteMutation]);
+
+  const startOptimisticDelete = useCallback((appointment: Appointment) => {
+    if (pendingDeleteRef.current) {
+      commitPendingDelete();
+    }
+
+    const affectedQueries: DeletePayload['affectedQueries'] = [];
+    queryClient.getQueriesData({ queryKey: ['appointments'] }).forEach(([key, data]) => {
+      const items = (data as any)?.items;
+      if (!Array.isArray(items)) return;
+      const index = items.findIndex((item: Appointment) => item.id === appointment.id);
+      if (index !== -1) {
+        affectedQueries.push({ key, index });
+      }
+    });
+
+    queryClient.setQueriesData({ queryKey: ['appointments'] }, (old: any) => {
+      if (!old || !Array.isArray(old.items)) return old;
+      if (!old.items.some((item: Appointment) => item.id === appointment.id)) return old;
+      return { ...old, items: old.items.filter((item: Appointment) => item.id !== appointment.id) };
+    });
+
+    pendingDeleteRef.current = { appointment, affectedQueries };
+    setUndoVisible(true);
+  }, [commitPendingDelete, queryClient]);
+
+  const handleUndo = useCallback(() => {
+    const pending = pendingDeleteRef.current;
+    pendingDeleteRef.current = null;
+    clearDeletingId();
+    setUndoVisible(false);
+    if (!pending) return;
+    restoreAppointment(pending);
+  }, [clearDeletingId, restoreAppointment]);
+
   useEffect(() => {
     // Expose a simple global hook used by ListView's SwipeableRow
-    (global as any).onDeleteAppointment = (id: string) => {
+    (global as any).onDeleteAppointment = (appointment: Appointment) => {
       Alert.alert(t('appointments.deleteTitle'), t('appointments.deleteMessage'), [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -133,7 +211,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
           style: 'destructive',
           onPress: () => {
             hapticWarning();
-            deleteMutation.mutate(id);
+            beginDelete(appointment.id, () => startOptimisticDelete(appointment));
           },
         },
       ]);
@@ -141,7 +219,16 @@ export default function AppointmentsScreen({ navigation }: Props) {
     return () => {
       try { delete (global as any).onDeleteAppointment; } catch {}
     };
-  }, []);
+  }, [beginDelete, startOptimisticDelete, t]);
+
+  useEffect(() => {
+    return () => {
+      const pending = pendingDeleteRef.current;
+      if (!pending) return;
+      pendingDeleteRef.current = null;
+      deleteMutation.mutate(pending);
+    };
+  }, [deleteMutation]);
 
   useEffect(() => {
     if (viewMode === 'list' && !hasPendingAppointments && pendingOnly) {
@@ -178,7 +265,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScreenHeader 
         title={t('appointments.title')}
         rightElement={
@@ -276,6 +363,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
               onNewAppointment={handleNewAppointment}
               onRefresh={refetch}
               isRefreshing={isRefetching}
+              deletingId={deletingId}
             />
           )}
 
@@ -318,6 +406,17 @@ export default function AppointmentsScreen({ navigation }: Props) {
           )}
         </>
       )}
+
+      <UndoToast
+        visible={undoVisible}
+        message={t('appointments.deleteUndoMessage')}
+        actionLabel={t('appointments.deleteUndoAction')}
+        onAction={handleUndo}
+        onTimeout={commitPendingDelete}
+        onDismiss={commitPendingDelete}
+        durationMs={UNDO_TIMEOUT_MS}
+        bottomOffset={undoBottomOffset}
+      />
     </SafeAreaView>
   );
 }
@@ -334,11 +433,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
     },
     actionButtonText: {
       fontSize: 28,

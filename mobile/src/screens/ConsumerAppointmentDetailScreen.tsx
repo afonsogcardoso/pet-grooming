@@ -38,20 +38,28 @@ function formatTime(value?: string | null) {
   return value.slice(0, 5);
 }
 
-function buildServiceItems(appointment: ConsumerAppointment, fallbackLabel: string) {
-  const items: Array<{ name: string; pet?: string | null; price?: number | null }> = [];
-  (appointment.appointment_services || []).forEach((entry) => {
-    const name = entry.services?.name || fallbackLabel;
-    items.push({ name, pet: entry.pets?.name || null, price: entry.services?.price ?? null });
-  });
-  if (items.length === 0 && appointment.services?.name) {
-    items.push({
-      name: appointment.services.name,
-      pet: appointment.pets?.name || null,
-      price: appointment.services?.price ?? null,
-    });
+type AppointmentService = NonNullable<ConsumerAppointment['appointment_services']>[number];
+
+function buildAppointmentServices(appointment: ConsumerAppointment): AppointmentService[] {
+  if (appointment.appointment_services && appointment.appointment_services.length > 0) {
+    return appointment.appointment_services;
   }
-  return items;
+  if (appointment.services) {
+    return [
+      {
+        id: appointment.services.id,
+        service_id: appointment.services.id,
+        pet_id: appointment.pets?.id ?? null,
+        services: appointment.services,
+        pets: appointment.pets || null,
+        price_tier_id: null,
+        price_tier_label: null,
+        price_tier_price: null,
+        appointment_service_addons: [],
+      },
+    ];
+  }
+  return [];
 }
 
 export default function ConsumerAppointmentDetailScreen({ route }: Props) {
@@ -87,12 +95,38 @@ export default function ConsumerAppointmentDetailScreen({ route }: Props) {
   const canCancel =
     appointment?.status && !['completed', 'cancelled', 'in_progress'].includes(appointment.status);
   const statusColor = getStatusColor(appointment?.status);
-  const serviceItems = appointment ? buildServiceItems(appointment, t('common.service')) : [];
-  const servicesTotal = useMemo(
-    () => serviceItems.reduce((sum, item) => sum + (item.price || 0), 0),
-    [serviceItems]
-  );
+  const appointmentServices = appointment ? buildAppointmentServices(appointment) : [];
+  const serviceDetails = useMemo(() => {
+    return appointmentServices.map((entry, index) => {
+      const addons = Array.isArray(entry.appointment_service_addons)
+        ? entry.appointment_service_addons
+        : [];
+      const basePrice = entry.price_tier_price ?? entry.services?.price ?? null;
+      const addonsTotal = addons.reduce((sum, addon) => sum + (addon.price || 0), 0);
+      const hasBasePrice = basePrice != null;
+      const hasAddonPrice = addons.some((addon) => addon.price != null);
+      return {
+        key: entry.id || `${entry.service_id || entry.services?.id || 'service'}-${index}`,
+        entry,
+        service: entry.services,
+        pet: entry.pets,
+        basePrice: basePrice ?? 0,
+        addons,
+        addonsTotal,
+        total: (basePrice ?? 0) + addonsTotal,
+        hasTier: entry.price_tier_id || entry.price_tier_label || entry.price_tier_price != null,
+        hasAddons: addons.length > 0,
+        hasPrice: hasBasePrice || hasAddonPrice,
+      };
+    });
+  }, [appointmentServices]);
+  const servicesTotal = useMemo(() => {
+    return serviceDetails.reduce((sum, detail) => sum + (detail.hasPrice ? detail.total : 0), 0);
+  }, [serviceDetails]);
   const amount = appointment?.amount ?? (servicesTotal > 0 ? servicesTotal : null);
+  const showPricing = appointment?.status
+    ? ['scheduled', 'confirmed', 'in_progress', 'completed'].includes(appointment.status)
+    : false;
   const dateLabel = appointment ? formatDate(appointment.appointment_date) || t('common.noDate') : '';
   const timeLabel = appointment ? formatTime(appointment.appointment_time) || '--' : '';
 
@@ -198,30 +232,67 @@ export default function ConsumerAppointmentDetailScreen({ route }: Props) {
 
         <View style={styles.infoCard}>
           <Text style={styles.sectionTitle}>{t('consumerAppointmentDetail.services')}</Text>
-          {serviceItems.length > 0 ? (
+          {serviceDetails.length > 0 ? (
             <View style={styles.serviceList}>
-              {serviceItems.map((item, index) => (
-                <View
-                  key={`${item.name}-${item.pet || 'no-pet'}-${index}`}
-                  style={[
-                    styles.serviceRow,
-                    index !== serviceItems.length - 1 && styles.serviceRowDivider,
-                  ]}
-                >
-                  <View style={styles.serviceInfo}>
-                    <Text style={styles.serviceName}>{item.name}</Text>
-                    {item.pet ? <Text style={styles.servicePet}>{item.pet}</Text> : null}
+              {serviceDetails.map((detail, index) => {
+                const categoryLabel = [detail.service?.category, detail.service?.subcategory]
+                  .filter(Boolean)
+                  .join(' · ');
+                const tierLabel = detail.entry.price_tier_label || t('appointmentDetail.tierDefault');
+                const tierPrice = detail.entry.price_tier_price;
+                const addonsLabel = detail.addons
+                  .map((addon) => {
+                    const price = addon.price != null ? `€${Number(addon.price).toFixed(2)}` : '';
+                    return price ? `${addon.name} (${price})` : addon.name;
+                  })
+                  .filter(Boolean)
+                  .join(', ');
+                const showPrice = showPricing && detail.hasPrice;
+                const priceLabel = showPricing
+                  ? showPrice
+                    ? `€${detail.total.toFixed(2)}`
+                    : t('marketplace.priceOnRequest')
+                  : t('marketplace.priceOnRequest');
+
+                return (
+                  <View
+                    key={detail.key}
+                    style={[
+                      styles.serviceRow,
+                      index !== serviceDetails.length - 1 && styles.serviceRowDivider,
+                    ]}
+                  >
+                    <View style={styles.serviceInfo}>
+                      <Text style={styles.serviceName}>
+                        {detail.service?.name || t('common.service')}
+                      </Text>
+                      {detail.pet?.name ? (
+                        <Text style={styles.servicePet}>{detail.pet.name}</Text>
+                      ) : null}
+                      {categoryLabel ? (
+                        <Text style={styles.serviceCategory}>{categoryLabel}</Text>
+                      ) : null}
+                      {showPricing && detail.hasTier ? (
+                        <Text style={styles.serviceMeta}>
+                          {t('appointmentDetail.tierLabel')}: {tierLabel}
+                          {tierPrice != null ? ` · €${Number(tierPrice).toFixed(2)}` : ''}
+                        </Text>
+                      ) : null}
+                      {showPricing && detail.hasAddons && addonsLabel ? (
+                        <Text style={styles.serviceMeta}>
+                          {t('appointmentDetail.addonsLabel')}: {addonsLabel}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={styles.servicePrice}>{priceLabel}</Text>
                   </View>
-                  <Text style={styles.servicePrice}>
-                    {item.price != null ? `€${Number(item.price).toFixed(2)}` : t('marketplace.priceOnRequest')}
-                  </Text>
-                </View>
-              ))}
+                );
+              })}
             </View>
           ) : (
             <Text style={styles.infoValue}>{t('common.noData')}</Text>
           )}
-          {amount != null ? (
+          {showPricing && amount != null ? (
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>{t('appointmentDetail.totalValue')}</Text>
               <Text style={styles.totalValue}>€{Number(amount).toFixed(2)}</Text>
@@ -270,13 +341,6 @@ export default function ConsumerAppointmentDetailScreen({ route }: Props) {
               {appointment.pets.name}
               {appointment.pets.breed ? ` • ${appointment.pets.breed}` : ''}
             </Text>
-          </View>
-        ) : null}
-
-        {appointment.notes ? (
-          <View style={styles.infoCard}>
-            <Text style={styles.sectionTitle}>{t('consumerAppointmentDetail.notes')}</Text>
-            <Text style={styles.notesText}>{appointment.notes}</Text>
           </View>
         ) : null}
 
@@ -405,7 +469,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     serviceRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       gap: 12,
     },
     serviceRowDivider: {
@@ -422,6 +486,16 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.text,
     },
     servicePet: {
+      fontSize: 12,
+      color: colors.muted,
+      marginTop: 2,
+    },
+    serviceCategory: {
+      fontSize: 12,
+      color: colors.muted,
+      marginTop: 2,
+    },
+    serviceMeta: {
       fontSize: 12,
       color: colors.muted,
       marginTop: 2,
@@ -491,11 +565,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontSize: 14,
       color: colors.text,
       fontWeight: '600',
-    },
-    notesText: {
-      fontSize: 13,
-      color: colors.text,
-      lineHeight: 18,
     },
     cancelButton: {
       marginTop: 4,

@@ -2,14 +2,36 @@ import { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image, Dimensions, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { getAppointments, Appointment } from '../api/appointments';
 import { useAuthStore } from '../state/authStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
+import { getCardStyle } from '../theme/uiTokens';
+import { getStatusColor, getStatusLabel } from '../utils/appointmentStatus';
+import { formatCustomerName } from '../utils/customer';
 
 type Props = NativeStackScreenProps<any>;
 
+function todayLocalISO() {
+  return new Date().toLocaleDateString('sv-SE');
+}
+
+function addDaysISO(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toLocaleDateString('sv-SE');
+}
+
+function parseAppointmentDateTime(appointment: Appointment) {
+  if (!appointment.appointment_date) return null;
+  const time = appointment.appointment_time ? appointment.appointment_time.slice(0, 5) : '00:00';
+  const dateTime = new Date(`${appointment.appointment_date}T${time}:00`);
+  if (Number.isNaN(dateTime.getTime())) return null;
+  return dateTime;
+}
+
 export default function HomeScreen({ navigation }: Props) {
-  const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const { t } = useTranslation();
   const { branding, colors, isLoading: brandingLoading } = useBrandingTheme();
@@ -26,6 +48,44 @@ export default function HomeScreen({ navigation }: Props) {
     t('common.user');
   const avatarUrl = user?.avatarUrl || null;
   const heroImage = branding?.portal_image_url || branding?.logo_url || null;
+  const today = todayLocalISO();
+  const upcomingTo = addDaysISO(30);
+
+  const { data: upcomingData, isLoading: loadingAppointments } = useQuery({
+    queryKey: ['appointments', 'home', today, upcomingTo],
+    queryFn: () =>
+      getAppointments({
+        from: today,
+        to: upcomingTo,
+        limit: 1000,
+        offset: 0,
+      }),
+  });
+
+  const upcomingAppointments = upcomingData?.items || [];
+  const todayAppointments = useMemo(
+    () => upcomingAppointments.filter((appointment) => appointment.appointment_date === today),
+    [today, upcomingAppointments],
+  );
+  const pendingCount = useMemo(
+    () => todayAppointments.filter((appointment) => appointment.status === 'pending').length,
+    [todayAppointments],
+  );
+  const unpaidCount = useMemo(
+    () => todayAppointments.filter((appointment) => (appointment.payment_status || 'unpaid') !== 'paid').length,
+    [todayAppointments],
+  );
+  const nextAppointment = useMemo(() => {
+    const now = new Date();
+    return upcomingAppointments
+      .map((appointment) => ({ appointment, dateTime: parseAppointmentDateTime(appointment) }))
+      .filter((entry) => entry.dateTime && entry.dateTime >= now)
+      .sort((a, b) => (a.dateTime?.getTime() || 0) - (b.dateTime?.getTime() || 0))[0]?.appointment || null;
+  }, [upcomingAppointments]);
+  const nextDateTime = nextAppointment ? parseAppointmentDateTime(nextAppointment) : null;
+  const nextTimeLabel = nextDateTime ? nextDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+  const nextCustomer = nextAppointment ? formatCustomerName(nextAppointment.customers) : '';
+  const nextStatusColor = nextAppointment ? getStatusColor(nextAppointment.status) : colors.muted;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: background }]} edges={['top', 'left', 'right']}>
@@ -78,7 +138,7 @@ export default function HomeScreen({ navigation }: Props) {
 
         {/* Quick Actions */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('home.quickActions')}</Text>
+          <Text style={styles.sectionTitle}>{t('home.overviewTitle')}</Text>
           
           <TouchableOpacity 
             style={[styles.primaryAction, { backgroundColor: primary }]}
@@ -94,51 +154,73 @@ export default function HomeScreen({ navigation }: Props) {
             <Text style={styles.actionArrow}>→</Text>
           </TouchableOpacity>
 
-          <View style={styles.secondaryActions}>
-            <TouchableOpacity 
-              style={styles.secondaryAction}
-              onPress={() => navigation.navigate('Appointments')}
-            >
-              <Text style={styles.secondaryActionIcon}>📅</Text>
-              <Text style={styles.secondaryActionTitle}>{t('home.appointmentsTitle')}</Text>
-              <Text style={styles.secondaryActionSubtitle}>{t('home.appointmentsSubtitle')}</Text>
-            </TouchableOpacity>
+          {loadingAppointments ? (
+            <View style={styles.loadingCard}>
+              <ActivityIndicator color={primary} />
+              <Text style={styles.loadingText}>{t('common.loading')}</Text>
+            </View>
+          ) : (
+            <View style={styles.overviewGrid}>
+              <TouchableOpacity style={styles.overviewCard} onPress={() => navigation.navigate('Appointments')}>
+                <Text style={styles.overviewValue}>{todayAppointments.length}</Text>
+                <Text style={styles.overviewLabel}>{t('home.overviewToday')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.overviewCard} onPress={() => navigation.navigate('Appointments')}>
+                <Text style={styles.overviewValue}>{pendingCount}</Text>
+                <Text style={styles.overviewLabel}>{t('home.overviewPending')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.overviewCard} onPress={() => navigation.navigate('Appointments')}>
+                <Text style={styles.overviewValue}>{unpaidCount}</Text>
+                <Text style={styles.overviewLabel}>{t('home.overviewUnpaid')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.overviewCard}
+                onPress={() => {
+                  if (nextAppointment?.id) {
+                    navigation.navigate('AppointmentDetail', { id: nextAppointment.id });
+                  } else {
+                    navigation.navigate('Appointments');
+                  }
+                }}
+              >
+                <Text style={styles.overviewValue}>{nextTimeLabel}</Text>
+                <Text style={styles.overviewLabel}>{t('home.overviewNext')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
-            <TouchableOpacity 
-              style={styles.secondaryAction}
-              onPress={() => navigation.navigate('Customers')}
-            >
-              <Text style={styles.secondaryActionIcon}>👥</Text>
-              <Text style={styles.secondaryActionTitle}>{t('home.customersTitle')}</Text>
-              <Text style={styles.secondaryActionSubtitle}>{t('home.customersSubtitle')}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.secondaryAction}
-              onPress={() => navigation.navigate('Services')}
-            >
-              <Text style={styles.secondaryActionIcon}>✂️</Text>
-              <Text style={styles.secondaryActionTitle}>{t('home.servicesTitle')}</Text>
-              <Text style={styles.secondaryActionSubtitle}>{t('home.servicesSubtitle')}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.marketplaceSection}>
-            <Text style={styles.sectionTitle}>{t('home.marketplaceSection')}</Text>
+          {nextAppointment ? (
             <TouchableOpacity
-              style={[styles.marketplaceCard, { borderColor: primarySoft }]}
-              onPress={() => navigation.navigate('MarketplaceProfile')}
+              style={styles.nextCard}
+              onPress={() => navigation.navigate('AppointmentDetail', { id: nextAppointment.id })}
+              activeOpacity={0.8}
             >
-              <View style={[styles.marketplaceIcon, { backgroundColor: primarySoft }]}>
-                <Text style={styles.marketplaceIconText}>🛍️</Text>
+              <View style={styles.nextHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.nextTitle} numberOfLines={1}>
+                    {nextCustomer || t('common.noData')}
+                  </Text>
+                  <Text style={styles.nextSubtitle} numberOfLines={1}>
+                    {nextAppointment.services?.name || t('common.service')}
+                  </Text>
+                </View>
+                <View style={[styles.statusPill, { borderColor: nextStatusColor }]}>
+                  <View style={[styles.statusDot, { backgroundColor: nextStatusColor }]} />
+                  <Text style={[styles.statusText, { color: nextStatusColor }]}>
+                    {getStatusLabel(nextAppointment.status)}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.marketplaceContent}>
-                <Text style={styles.marketplaceTitle}>{t('home.marketplaceProfileTitle')}</Text>
-                <Text style={styles.marketplaceSubtitle}>{t('home.marketplaceProfileSubtitle')}</Text>
-              </View>
-              <Text style={styles.marketplaceArrow}>→</Text>
+              <Text style={styles.nextMeta}>
+                {nextAppointment.appointment_date} {t('common.at')} {nextTimeLabel}
+              </Text>
             </TouchableOpacity>
-          </View>
+          ) : (
+            <View style={styles.emptyNextCard}>
+              <Text style={styles.emptyNextText}>{t('home.overviewNextEmpty')}</Text>
+            </View>
+          )}
+
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -147,6 +229,7 @@ export default function HomeScreen({ navigation }: Props) {
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
   const screenWidth = Dimensions.get('window').width;
+  const cardBase = getCardStyle(colors);
   
   return StyleSheet.create({
     container: {
@@ -188,11 +271,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderWidth: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 4,
-      elevation: 2,
     },
     profileIcon: {
       fontSize: 24,
@@ -220,11 +298,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       height: 180,
       overflow: 'hidden',
       marginBottom: 24,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.2,
-      shadowRadius: 12,
-      elevation: 8,
+      borderWidth: 1,
+      borderColor: 'transparent',
     },
     heroImage: {
       position: 'absolute',
@@ -269,17 +344,22 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.text,
       marginBottom: 16,
     },
+    loadingCard: {
+      ...cardBase,
+      alignItems: 'center',
+      gap: 8,
+    },
+    loadingText: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '500',
+    },
     primaryAction: {
       flexDirection: 'row',
       alignItems: 'center',
       borderRadius: 16,
       padding: 18,
       marginBottom: 16,
-      shadowColor: colors.primary,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 4,
     },
     actionIcon: {
       width: 48,
@@ -312,84 +392,82 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: '#fff',
       fontWeight: '700',
     },
-    secondaryActions: {
+    overviewGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 12,
+      marginBottom: 16,
     },
-    secondaryAction: {
+    overviewCard: {
       width: (screenWidth - 52) / 2,
-      backgroundColor: colors.surface,
-      borderRadius: 16,
-      padding: 18,
+      ...cardBase,
       alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 8,
-      elevation: 3,
     },
-    secondaryActionIcon: {
-      fontSize: 32,
-      marginBottom: 10,
+    overviewValue: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: colors.text,
+      marginBottom: 4,
     },
-    secondaryActionTitle: {
-      fontSize: 15,
+    overviewLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.muted,
+      textAlign: 'center',
+    },
+    nextCard: {
+      ...cardBase,
+      marginBottom: 16,
+    },
+    nextHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    nextTitle: {
+      fontSize: 16,
       fontWeight: '700',
       color: colors.text,
       marginBottom: 4,
     },
-    secondaryActionSubtitle: {
-      fontSize: 12,
-      color: colors.muted,
-      textAlign: 'center',
-      fontWeight: '500',
-    },
-    marketplaceSection: {
-      marginTop: 20,
-    },
-    marketplaceCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.surface,
-      borderRadius: 16,
-      padding: 16,
-      borderWidth: 1,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.08,
-      shadowRadius: 8,
-      elevation: 3,
-    },
-    marketplaceIcon: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: 12,
-    },
-    marketplaceIconText: {
-      fontSize: 22,
-    },
-    marketplaceContent: {
-      flex: 1,
-    },
-    marketplaceTitle: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: colors.text,
-      marginBottom: 2,
-    },
-    marketplaceSubtitle: {
+    nextSubtitle: {
       fontSize: 13,
       color: colors.muted,
     },
-    marketplaceArrow: {
-      fontSize: 22,
+    nextMeta: {
+      marginTop: 10,
+      fontSize: 13,
+      fontWeight: '600',
       color: colors.text,
-      fontWeight: '700',
-      marginLeft: 8,
+    },
+    emptyNextCard: {
+      ...cardBase,
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    emptyNextText: {
+      fontSize: 13,
+      color: colors.muted,
+      fontWeight: '600',
+    },
+    statusPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+      backgroundColor: colors.background,
+    },
+    statusDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    statusText: {
+      fontSize: 12,
+      fontWeight: '600',
     },
   });
 }

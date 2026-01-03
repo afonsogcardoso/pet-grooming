@@ -626,11 +626,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 20,
-      shadowColor: colors.primary,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.3,
-      shadowRadius: 16,
-      elevation: 8,
     },
     iconImage: {
       width: '100%',

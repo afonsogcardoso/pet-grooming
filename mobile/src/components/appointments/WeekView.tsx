@@ -5,6 +5,7 @@ import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { getDateLocale } from '../../i18n';
 import type { Appointment } from '../../api/appointments';
 import { getStatusColor } from '../../utils/appointmentStatus';
+import { getCardStyle } from '../../theme/uiTokens';
 
 type WeekViewProps = {
   appointments: Appointment[];
@@ -212,6 +213,7 @@ export function WeekView({
 
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
 
+  const cardBase = getCardStyle(colors);
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -347,16 +349,11 @@ export function WeekView({
       position: 'absolute',
       left: 2,
       right: 2,
-      backgroundColor: colors.surface,
-      borderRadius: 4,
+      ...cardBase,
+      borderRadius: 16,
       padding: 4,
       borderLeftWidth: 3,
       overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.1,
-      shadowRadius: 2,
-      elevation: 2,
     },
     appointmentTime: {
       fontSize: 9,

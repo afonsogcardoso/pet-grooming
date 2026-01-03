@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { AddressAutocomplete } from './AddressAutocomplete';
 import { PhoneInput } from '../common/PhoneInput';
+import { Input } from '../common/Input';
 import type { Customer, Pet } from '../../api/customers';
 import { useEffect, useState } from 'react';
 import { formatCustomerName } from '../../utils/customer';
@@ -79,11 +80,6 @@ export function ExistingCustomerForm({
       paddingVertical: 14,
       backgroundColor: colors.surface,
       borderColor: colors.surfaceBorder,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      elevation: 1,
     },
     selectText: {
       color: colors.text,
@@ -101,11 +97,6 @@ export function ExistingCustomerForm({
       backgroundColor: colors.surface,
       marginBottom: 12,
       borderColor: colors.primarySoft,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
     },
     input: {
       borderWidth: 1,
@@ -138,11 +129,6 @@ export function ExistingCustomerForm({
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      elevation: 1,
     },
     customerDetailLabel: {
       color: colors.muted,
@@ -339,13 +325,12 @@ export function ExistingCustomerForm({
                   placeholder={addressPlaceholder}
                 />
                 <Text style={styles.customerDetailLabel}>🆔 {t('customerDetail.nif')}</Text>
-                <TextInput
+                <Input
                   value={customerNif}
                   onChangeText={setCustomerNif}
                   placeholder={t('customerDetail.nif')}
-                  placeholderTextColor={colors.muted}
-                  style={[styles.input, styles.inlineInput]}
                   keyboardType="number-pad"
+                  style={styles.inlineInput}
                 />
               </>
             ) : null}

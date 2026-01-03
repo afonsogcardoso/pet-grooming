@@ -2,11 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, View } from 'react-native';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
+import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -28,7 +31,6 @@ import ConsumerPetFormScreen from './src/screens/ConsumerPetFormScreen';
 import MarketplaceScreen from './src/screens/MarketplaceScreen';
 import MarketplaceAccountScreen from './src/screens/MarketplaceAccountScreen';
 import MarketplaceRequestScreen from './src/screens/MarketplaceRequestScreen';
-import MarketplaceProfileScreen from './src/screens/MarketplaceProfileScreen';
 import { useAuthStore } from './src/state/authStore';
 import { useViewModeStore } from './src/state/viewModeStore';
 import { Branding, getBranding } from './src/api/branding';
@@ -37,8 +39,11 @@ import { clearBrandingCache, readBrandingCache, writeBrandingCache } from './src
 import { readProfileCache, writeProfileCache } from './src/state/profileCache';
 import { bootstrapLanguage, setAppLanguage } from './src/i18n';
 import { configureNotificationHandler } from './src/utils/pushNotifications';
+import { useBrandingTheme } from './src/theme/useBrandingTheme';
 
-const Stack = createNativeStackNavigator();
+const RootStack = createNativeStackNavigator();
+const ProviderTab = createBottomTabNavigator();
+const ConsumerTab = createBottomTabNavigator();
 
 const NAMED_COLORS: Record<string, string> = {
   white: '#ffffff',
@@ -82,6 +87,104 @@ function extractAppointmentId(data: any) {
   const candidate = data.appointmentId || data.appointment_id || data.appointmentID;
   if (!candidate) return null;
   return candidate.toString();
+}
+
+function ProviderTabs() {
+  const { colors } = useBrandingTheme();
+  const { t } = useTranslation();
+
+  const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
+    Home: 'home',
+    Appointments: 'calendar',
+    Customers: 'people',
+    Services: 'cut',
+    Profile: 'person',
+  };
+
+  return (
+    <ProviderTab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.muted,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.surfaceBorder,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
+        tabBarIcon: ({ color, size }) => {
+          const name = icons[route.name] || 'ellipse';
+          return <Ionicons name={name} size={size} color={color} />;
+        },
+      })}
+    >
+      <ProviderTab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: t('tabs.home') }} />
+      <ProviderTab.Screen
+        name="Appointments"
+        component={AppointmentsScreen}
+        options={{ tabBarLabel: t('tabs.appointments') }}
+      />
+      <ProviderTab.Screen name="Customers" component={CustomersScreen} options={{ tabBarLabel: t('tabs.customers') }} />
+      <ProviderTab.Screen name="Services" component={ServicesScreen} options={{ tabBarLabel: t('tabs.services') }} />
+      <ProviderTab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: t('tabs.profile') }} />
+    </ProviderTab.Navigator>
+  );
+}
+
+function ConsumerTabs() {
+  const { colors } = useBrandingTheme();
+  const { t } = useTranslation();
+
+  const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
+    ConsumerHome: 'home',
+    Marketplace: 'storefront',
+    ConsumerAppointments: 'calendar',
+    ConsumerPets: 'paw',
+    Profile: 'person',
+  };
+
+  return (
+    <ConsumerTab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.muted,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.surfaceBorder,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
+        tabBarIcon: ({ color, size }) => {
+          const name = icons[route.name] || 'ellipse';
+          return <Ionicons name={name} size={size} color={color} />;
+        },
+      })}
+    >
+      <ConsumerTab.Screen
+        name="ConsumerHome"
+        component={ConsumerHomeScreen}
+        options={{ tabBarLabel: t('tabs.home') }}
+      />
+      <ConsumerTab.Screen
+        name="Marketplace"
+        component={MarketplaceScreen}
+        options={{ tabBarLabel: t('tabs.marketplace') }}
+      />
+      <ConsumerTab.Screen
+        name="ConsumerAppointments"
+        component={ConsumerAppointmentsScreen}
+        options={{ tabBarLabel: t('tabs.appointments') }}
+      />
+      <ConsumerTab.Screen name="ConsumerPets" component={ConsumerPetsScreen} options={{ tabBarLabel: t('tabs.pets') }} />
+      <ConsumerTab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: t('tabs.profile') }} />
+    </ConsumerTab.Navigator>
+  );
 }
 
 export default function App() {
@@ -332,43 +435,34 @@ export default function App() {
               }
             }}
           >
-            <Stack.Navigator>
+            <RootStack.Navigator screenOptions={{ headerShown: false }}>
               {token ? (
                 appMode === 'consumer' ? (
                   <>
-                    <Stack.Screen name="ConsumerHome" component={ConsumerHomeScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="ConsumerAppointments" component={ConsumerAppointmentsScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="ConsumerAppointmentDetail" component={ConsumerAppointmentDetailScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="ConsumerPets" component={ConsumerPetsScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="ConsumerPetForm" component={ConsumerPetFormScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="Marketplace" component={MarketplaceScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="MarketplaceAccount" component={MarketplaceAccountScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="MarketplaceRequest" component={MarketplaceRequestScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
+                    <RootStack.Screen name="ConsumerTabs" component={ConsumerTabs} />
+                    <RootStack.Screen name="ConsumerAppointmentDetail" component={ConsumerAppointmentDetailScreen} />
+                    <RootStack.Screen name="ConsumerPetForm" component={ConsumerPetFormScreen} />
+                    <RootStack.Screen name="MarketplaceAccount" component={MarketplaceAccountScreen} />
+                    <RootStack.Screen name="MarketplaceRequest" component={MarketplaceRequestScreen} />
                   </>
                 ) : (
                   <>
-                    <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="Appointments" component={AppointmentsScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="NewAppointment" component={NewAppointmentScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="Customers" component={CustomersScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="CustomerDetail" component={CustomerDetailScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="CustomerForm" component={CustomerFormScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="PetForm" component={PetFormScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="Services" component={ServicesScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="ServiceForm" component={ServiceFormScreen} options={{ headerShown: false }} />
-                    <Stack.Screen name="MarketplaceProfile" component={MarketplaceProfileScreen} options={{ headerShown: false }} />
+                    <RootStack.Screen name="ProviderTabs" component={ProviderTabs} />
+                    <RootStack.Screen name="NewAppointment" component={NewAppointmentScreen} />
+                    <RootStack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
+                    <RootStack.Screen name="CustomerDetail" component={CustomerDetailScreen} />
+                    <RootStack.Screen name="CustomerForm" component={CustomerFormScreen} />
+                    <RootStack.Screen name="PetForm" component={PetFormScreen} />
+                    <RootStack.Screen name="ServiceForm" component={ServiceFormScreen} />
                   </>
                 )
               ) : (
                 <>
-                  <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-                  <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
+                  <RootStack.Screen name="Login" component={LoginScreen} />
+                  <RootStack.Screen name="Register" component={RegisterScreen} />
                 </>
               )}
-          </Stack.Navigator>
+          </RootStack.Navigator>
           </NavigationContainer>
           <StatusBar style={statusBarStyle} backgroundColor={statusBarBackground} />
           {previousBranding ? (

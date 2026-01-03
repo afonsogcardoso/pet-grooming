@@ -494,23 +494,25 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-          <Input
-            label={t('serviceForm.nameLabel')}
-            placeholder={t('serviceForm.namePlaceholder')}
-            value={name}
-            onChangeText={setName}
-            error={errors.name}
-          />
+          <View style={styles.formCard}>
+            <Input
+              label={t('serviceForm.nameLabel')}
+              placeholder={t('serviceForm.namePlaceholder')}
+              value={name}
+              onChangeText={setName}
+              error={errors.name}
+            />
 
-          <Input
-            label={t('serviceForm.descriptionLabel')}
-            placeholder={t('serviceForm.descriptionPlaceholder')}
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={3}
-            style={{ height: 80, textAlignVertical: 'top', paddingTop: 12 }}
-          />
+            <Input
+              label={t('serviceForm.descriptionLabel')}
+              placeholder={t('serviceForm.descriptionPlaceholder')}
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              numberOfLines={3}
+              style={{ height: 80, textAlignVertical: 'top', paddingTop: 12 }}
+            />
+          </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t('serviceForm.imageTitle')}</Text>
@@ -556,105 +558,107 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
             )}
           </View>
 
-          <Input
-            label={t('serviceForm.priceLabel')}
-            placeholder="0.00"
-            value={price}
-            onChangeText={setPrice}
-            error={errors.price}
-            keyboardType="decimal-pad"
-          />
+          <View style={styles.formCard}>
+            <Input
+              label={t('serviceForm.priceLabel')}
+              placeholder="0.00"
+              value={price}
+              onChangeText={setPrice}
+              error={errors.price}
+              keyboardType="decimal-pad"
+            />
 
-          <Input
-            label={t('serviceForm.categoryLabel')}
-            placeholder={t('serviceForm.categoryPlaceholder')}
-            value={category}
-            onChangeText={setCategory}
-          />
+            <Input
+              label={t('serviceForm.categoryLabel')}
+              placeholder={t('serviceForm.categoryPlaceholder')}
+              value={category}
+              onChangeText={setCategory}
+            />
 
-          <Input
-            label={t('serviceForm.subcategoryLabel')}
-            placeholder={t('serviceForm.subcategoryPlaceholder')}
-            value={subcategory}
-            onChangeText={setSubcategory}
-          />
+            <Input
+              label={t('serviceForm.subcategoryLabel')}
+              placeholder={t('serviceForm.subcategoryPlaceholder')}
+              value={subcategory}
+              onChangeText={setSubcategory}
+            />
 
-          <Input
-            label={t('serviceForm.petTypeLabel')}
-            placeholder={t('serviceForm.petTypePlaceholder')}
-            value={petType}
-            onChangeText={setPetType}
-          />
+            <Input
+              label={t('serviceForm.petTypeLabel')}
+              placeholder={t('serviceForm.petTypePlaceholder')}
+              value={petType}
+              onChangeText={setPetType}
+            />
 
-          <Input
-            label={t('serviceForm.pricingModelLabel')}
-            placeholder={t('serviceForm.pricingModelPlaceholder')}
-            value={pricingModel}
-            onChangeText={setPricingModel}
-          />
+            <Input
+              label={t('serviceForm.pricingModelLabel')}
+              placeholder={t('serviceForm.pricingModelPlaceholder')}
+              value={pricingModel}
+              onChangeText={setPricingModel}
+            />
 
-          <View style={{ marginBottom: 16 }}>
-            <Text style={[styles.label]}>{t('serviceForm.durationLabel')}</Text>
-            <View style={[styles.spinnerRow]}> 
-              <TouchableOpacity
-                style={styles.spinnerButton}
-                onPress={() => {
-                  const cur = Number(duration) || 0;
-                  const next = Math.max(5, cur - 5);
-                  setDuration(String(next));
-                }}
-                accessibilityLabel={t('serviceForm.durationDecrease')}
-              >
-                <Ionicons name="remove" size={20} color={colors.text} />
-              </TouchableOpacity>
+            <View style={{ marginBottom: 16 }}>
+              <Text style={[styles.label]}>{t('serviceForm.durationLabel')}</Text>
+              <View style={[styles.spinnerRow]}> 
+                <TouchableOpacity
+                  style={styles.spinnerButton}
+                  onPress={() => {
+                    const cur = Number(duration) || 0;
+                    const next = Math.max(5, cur - 5);
+                    setDuration(String(next));
+                  }}
+                  accessibilityLabel={t('serviceForm.durationDecrease')}
+                >
+                  <Ionicons name="remove" size={20} color={colors.text} />
+                </TouchableOpacity>
 
-              <View style={styles.spinnerValueContainer}>
-                <Text style={styles.spinnerValue}>{duration ? String(Number(duration)) : '0'}</Text>
-                <Text style={styles.spinnerUnit}>{t('common.minutesShort')}</Text>
+                <View style={styles.spinnerValueContainer}>
+                  <Text style={styles.spinnerValue}>{duration ? String(Number(duration)) : '0'}</Text>
+                  <Text style={styles.spinnerUnit}>{t('common.minutesShort')}</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.spinnerButton}
+                  onPress={() => {
+                    const cur = Number(duration) || 0;
+                    const next = Math.min(600, cur + 5);
+                    setDuration(String(next));
+                  }}
+                  accessibilityLabel={t('serviceForm.durationIncrease')}
+                >
+                  <Ionicons name="add" size={20} color={colors.text} />
+                </TouchableOpacity>
               </View>
-
-              <TouchableOpacity
-                style={styles.spinnerButton}
-                onPress={() => {
-                  const cur = Number(duration) || 0;
-                  const next = Math.min(600, cur + 5);
-                  setDuration(String(next));
-                }}
-                accessibilityLabel={t('serviceForm.durationIncrease')}
-              >
-                <Ionicons name="add" size={20} color={colors.text} />
-              </TouchableOpacity>
+              {errors.duration && <Text style={styles.error}>{errors.duration}</Text>}
             </View>
-            {errors.duration && <Text style={styles.error}>{errors.duration}</Text>}
-          </View>
 
-          <Input
-            label={t('serviceForm.displayOrderLabel')}
-            placeholder="0"
-            value={displayOrder}
-            onChangeText={setDisplayOrder}
-            keyboardType="number-pad"
-          />
+            <Input
+              label={t('serviceForm.displayOrderLabel')}
+              placeholder="0"
+              value={displayOrder}
+              onChangeText={setDisplayOrder}
+              keyboardType="number-pad"
+            />
 
-          <View style={styles.switchContainer}>
-            <View>
-              <Text style={styles.switchLabel}>{t('serviceForm.activeLabel')}</Text>
-              <Text style={styles.switchSubtext}>{t('serviceForm.activeHint')}</Text>
+            <View style={styles.switchContainer}>
+              <View>
+                <Text style={styles.switchLabel}>{t('serviceForm.activeLabel')}</Text>
+                <Text style={styles.switchSubtext}>{t('serviceForm.activeHint')}</Text>
+              </View>
+              <Switch
+                value={active}
+                onValueChange={setActive}
+                trackColor={{ false: colors.surfaceBorder, true: colors.primary + '40' }}
+                thumbColor={active ? colors.primary : colors.muted}
+              />
             </View>
-            <Switch
-              value={active}
-              onValueChange={setActive}
-              trackColor={{ false: colors.surfaceBorder, true: colors.primary + '40' }}
-              thumbColor={active ? colors.primary : colors.muted}
+
+            <Button
+              title={mode === 'create' ? t('serviceForm.createAction') : t('serviceForm.saveAction')}
+              onPress={handleSubmit}
+              loading={isLoading}
+              disabled={isLoading}
             />
           </View>
-
-          <Button
-            title={mode === 'create' ? t('serviceForm.createAction') : t('serviceForm.saveAction')}
-            onPress={handleSubmit}
-            loading={isLoading}
-            disabled={isLoading}
-          />
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t('serviceForm.tiersTitle')}</Text>
@@ -866,10 +870,19 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     scrollContent: {
       padding: 16,
       paddingBottom: 40,
+      gap: 12,
+    },
+    formCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      gap: 4,
     },
     section: {
       backgroundColor: colors.surface,
-      borderRadius: 14,
+      borderRadius: 16,
       padding: 16,
       marginTop: 20,
       borderWidth: 1,
@@ -887,7 +900,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     imagePreview: {
       height: 160,
-      borderRadius: 14,
+      borderRadius: 16,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
       backgroundColor: colors.background,

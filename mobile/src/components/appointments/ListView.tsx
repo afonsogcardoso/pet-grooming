@@ -4,9 +4,11 @@ import SwipeableRow from '../common/SwipeableRow';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
+import { getCardStyle } from '../../theme/uiTokens';
 import { getDateLocale } from '../../i18n';
 import { matchesSearchQuery } from '../../utils/textHelpers';
 import { formatCustomerName, getCustomerFirstName } from '../../utils/customer';
+import { Button } from '../common';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
 import type { Appointment } from '../../api/appointments';
@@ -19,6 +21,7 @@ type ListViewProps = {
   onNewAppointment: (date?: string, time?: string) => void;
   onRefresh: () => void;
   isRefreshing: boolean;
+  deletingId?: string | null;
 };
 
 const SEARCH_HEADER_HEIGHT = 44;
@@ -48,9 +51,10 @@ function formatDateLabel(value: string | null | undefined, locale: string, fallb
 
 function toDayKey(value?: string | null) {
   if (!value) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
   const date = new Date(value + 'T00:00:00');
   if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString().slice(0, 10);
+  return date.toLocaleDateString('sv-SE');
 }
 
 function todayLocalISO() {
@@ -60,18 +64,22 @@ function todayLocalISO() {
 type ThemeColors = ReturnType<typeof useBrandingTheme>['colors'];
 
 function createStyles(colors: ThemeColors) {
+  const cardBase = getCardStyle(colors);
+  const listCardBase = {
+    ...cardBase,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 12,
+    shadowOpacity: 0.08,
+    elevation: 3,
+  };
   return StyleSheet.create({
+    list: {
+      flex: 1,
+    },
     card: {
-      backgroundColor: colors.surface,
-      borderRadius: 16,
-      padding: 16,
+      ...listCardBase,
       flexDirection: 'row',
       gap: 14,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 8,
-      elevation: 3,
     },
     petThumb: {
       width: 60,
@@ -169,6 +177,10 @@ function createStyles(colors: ThemeColors) {
       color: colors.muted,
       textAlign: 'center',
     },
+    emptyAction: {
+      marginTop: 16,
+      minWidth: 180,
+    },
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -236,6 +248,7 @@ type AppointmentRowProps = {
   styles: ReturnType<typeof createStyles>;
   t: (key: string, options?: any) => string;
   onAppointmentPress: (appointment: Appointment) => void;
+  isDeleting: boolean;
 };
 
 const AppointmentRow = React.memo(function AppointmentRow({
@@ -244,6 +257,7 @@ const AppointmentRow = React.memo(function AppointmentRow({
   styles,
   t,
   onAppointmentPress,
+  isDeleting,
 }: AppointmentRowProps) {
   const petInitial = item.pets?.name?.charAt(0)?.toUpperCase() || '🐾';
   const appointmentServices = Array.isArray(item.appointment_services)
@@ -273,10 +287,11 @@ const AppointmentRow = React.memo(function AppointmentRow({
 
   return (
     <SwipeableRow
+      isDeleting={isDeleting}
       onDelete={() => {
         try {
           if ((global as any).onDeleteAppointment) {
-            (global as any).onDeleteAppointment(item.id);
+            (global as any).onDeleteAppointment(item);
           }
         } catch {
           // ignore
@@ -383,6 +398,7 @@ export function ListView({
   onNewAppointment,
   onRefresh,
   isRefreshing,
+  deletingId,
 }: ListViewProps) {
   const listRef = React.useRef<SectionList<Appointment>>(null);
   const searchInputRef = React.useRef<TextInput>(null);
@@ -479,9 +495,10 @@ export function ListView({
         styles={styles}
         t={t}
         onAppointmentPress={onAppointmentPress}
+        isDeleting={item.id === deletingId}
       />
     ),
-    [colors, styles, t, onAppointmentPress]
+    [colors, styles, t, onAppointmentPress, deletingId]
   );
 
   const renderSectionHeader = React.useCallback(
@@ -533,6 +550,7 @@ export function ListView({
   const listEmptySubtitle = searchTerm
     ? t('listView.noSearchResultsSubtitle')
     : t('listView.noAppointmentsSubtitle');
+  const canCreateOnEmpty = !searchTerm && filterMode !== 'past';
 
   const applyInitialOffset = React.useCallback(() => {
     if (Platform.OS !== 'ios' || hasSetInitialOffset.current) return;
@@ -577,22 +595,31 @@ export function ListView({
   return (
     <SectionList
       ref={listRef}
+      style={styles.list}
       sections={sections}
       keyExtractor={(item) => item.id}
       renderItem={renderAppointmentItem}
       renderSectionHeader={renderSectionHeader}
       ListHeaderComponent={listHeader}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 20 }}
       SectionSeparatorComponent={() => <View style={{ height: 8 }} />}
       ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
       onContentSizeChange={applyInitialOffset}
       keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
+      contentInsetAdjustmentBehavior="never"
       ListEmptyComponent={
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>{searchTerm ? '🔍' : '📭'}</Text>
           <Text style={styles.emptyText}>{listEmptyTitle}</Text>
           <Text style={styles.emptySubtext}>{listEmptySubtitle}</Text>
+          {canCreateOnEmpty ? (
+            <Button
+              title={t('appointments.newAppointment')}
+              onPress={() => onNewAppointment()}
+              style={styles.emptyAction}
+            />
+          ) : null}
         </View>
       }
       onRefresh={onRefresh}

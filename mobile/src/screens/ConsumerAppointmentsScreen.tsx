@@ -20,6 +20,7 @@ import {
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { getStatusColor, getStatusLabel } from '../utils/appointmentStatus';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getCardStyle } from '../theme/uiTokens';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -175,6 +176,7 @@ export default function ConsumerAppointmentsScreen({ navigation }: Props) {
 }
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+  const cardBase = getCardStyle(colors);
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -184,12 +186,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       paddingBottom: 24,
     },
     card: {
-      backgroundColor: colors.surface,
-      borderRadius: 18,
-      padding: 16,
+      ...cardBase,
       marginBottom: 12,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
     },
     cardHeader: {
       flexDirection: 'row',

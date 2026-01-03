@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useTranslation } from 'react-i18next';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, Keyboard, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { COUNTRY_CODES } from '../../constants/countryCodes';
 import { buildPhone, normalizeCountryCode, splitPhone } from '../../utils/phone';
@@ -11,14 +10,23 @@ type PhoneInputProps = {
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  labelStyle?: StyleProp<TextStyle>;
+  containerStyle?: StyleProp<ViewStyle>;
 };
 
-export function PhoneInput({ label, value, onChange, placeholder, disabled }: PhoneInputProps) {
+export function PhoneInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  disabled,
+  labelStyle,
+  containerStyle,
+}: PhoneInputProps) {
   const { colors } = useBrandingTheme();
-  const { t } = useTranslation();
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [code, setCode] = useState('+351');
   const [number, setNumber] = useState('');
+  const [showCodeList, setShowCodeList] = useState(false);
 
   useEffect(() => {
     const parts = splitPhone(value);
@@ -38,10 +46,29 @@ export function PhoneInput({ label, value, onChange, placeholder, disabled }: Ph
     onChange(buildPhone(nextCode, number));
   };
 
+  const handleCodeInputChange = (value: string) => {
+    const cleaned = value.replace(/[^0-9+]/g, '');
+    const normalized = cleaned && !cleaned.startsWith('+') ? `+${cleaned}` : cleaned;
+    const nextCode = normalized || '';
+    setCode(nextCode);
+    onChange(buildPhone(nextCode || '+', number));
+  };
+
   const handleNumberChange = (nextNumber: string) => {
     setNumber(nextNumber);
     onChange(buildPhone(code, nextNumber));
   };
+
+  const filteredOptions = useMemo(() => {
+    const query = normalizeCountryCode(code).replace('+', '').toLowerCase();
+    if (!query) return options.slice(0, 8);
+    return options
+      .filter((entry) => {
+        const dial = entry.dial.replace('+', '');
+        return dial.includes(query) || entry.iso.toLowerCase().includes(query);
+      })
+      .slice(0, 8);
+  }, [code, options]);
 
   const styles = StyleSheet.create({
     field: {
@@ -57,7 +84,7 @@ export function PhoneInput({ label, value, onChange, placeholder, disabled }: Ph
       flexDirection: 'row',
       gap: 10,
     },
-    codeButton: {
+    codeInput: {
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
       backgroundColor: colors.surface,
@@ -67,8 +94,6 @@ export function PhoneInput({ label, value, onChange, placeholder, disabled }: Ph
       minWidth: 90,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    codeText: {
       color: colors.text,
       fontWeight: '600',
     },
@@ -84,44 +109,24 @@ export function PhoneInput({ label, value, onChange, placeholder, disabled }: Ph
       fontSize: 15,
       fontWeight: '500',
     },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(15, 23, 42, 0.45)',
-      justifyContent: 'flex-end',
-    },
-    modalContent: {
-      backgroundColor: colors.background,
-      borderTopLeftRadius: 18,
-      borderTopRightRadius: 18,
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      paddingBottom: 24,
-      maxHeight: '70%',
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 12,
-    },
-    modalTitle: {
-      color: colors.text,
-      fontSize: 16,
-      fontWeight: '700',
-    },
-    modalClose: {
-      color: colors.primary,
-      fontWeight: '600',
+    codeList: {
+      marginTop: 8,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      maxHeight: 180,
+      overflow: 'hidden',
     },
     option: {
-      paddingVertical: 12,
-      paddingHorizontal: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
       borderBottomWidth: 1,
       borderBottomColor: colors.surfaceBorder,
     },
     optionText: {
       color: colors.text,
-      fontSize: 15,
+      fontSize: 14,
       fontWeight: '500',
     },
     optionActive: {
@@ -131,16 +136,20 @@ export function PhoneInput({ label, value, onChange, placeholder, disabled }: Ph
   });
 
   return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+    <View style={[styles.field, containerStyle]}>
+      <Text style={[styles.label, labelStyle]}>{label}</Text>
       <View style={styles.row}>
-        <TouchableOpacity
-          style={styles.codeButton}
-          onPress={() => setPickerOpen(true)}
-          disabled={disabled}
-        >
-          <Text style={styles.codeText}>{normalizeCountryCode(code)}</Text>
-        </TouchableOpacity>
+        <TextInput
+          value={normalizeCountryCode(code)}
+          onChangeText={handleCodeInputChange}
+          style={styles.codeInput}
+          keyboardType="phone-pad"
+          editable={!disabled}
+          onFocus={() => setShowCodeList(true)}
+          onBlur={() => {
+            setTimeout(() => setShowCodeList(false), 150);
+          }}
+        />
         <TextInput
           value={number}
           onChangeText={handleNumberChange}
@@ -151,39 +160,28 @@ export function PhoneInput({ label, value, onChange, placeholder, disabled }: Ph
           editable={!disabled}
         />
       </View>
-
-      <Modal visible={pickerOpen} transparent animationType="slide" onRequestClose={() => setPickerOpen(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{t('common.selectCountryCode')}</Text>
-              <TouchableOpacity onPress={() => setPickerOpen(false)}>
-                <Text style={styles.modalClose}>{t('common.cancel')}</Text>
+      {showCodeList && filteredOptions.length > 0 ? (
+        <View style={styles.codeList}>
+          {filteredOptions.map((item) => {
+            const isActive = normalizeCountryCode(code) === item.dial;
+            return (
+              <TouchableOpacity
+                key={`${item.iso}-${item.dial}`}
+                style={styles.option}
+                onPress={() => {
+                  handleCodeChange(item.dial);
+                  setShowCodeList(false);
+                  Keyboard.dismiss();
+                }}
+              >
+                <Text style={[styles.optionText, isActive && styles.optionActive]}>
+                  {item.iso} {item.dial}
+                </Text>
               </TouchableOpacity>
-            </View>
-            <FlatList
-              data={options}
-              keyExtractor={(item) => `${item.iso}-${item.dial}`}
-              renderItem={({ item }) => {
-                const isActive = normalizeCountryCode(code) === item.dial;
-                return (
-                  <TouchableOpacity
-                    style={styles.option}
-                    onPress={() => {
-                      handleCodeChange(item.dial);
-                      setPickerOpen(false);
-                    }}
-                  >
-                    <Text style={[styles.optionText, isActive && styles.optionActive]}>
-                      {item.iso} {item.dial}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              }}
-            />
-          </View>
+            );
+          })}
         </View>
-      </Modal>
+      ) : null}
     </View>
   );
 }

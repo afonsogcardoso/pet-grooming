@@ -299,73 +299,75 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
               )}
             </View>
 
-            <View style={styles.row}>
-              <View style={[styles.column, { flex: 1 }]}>
-                <Input
-                  label={t('customerForm.firstNameLabel')}
-                  placeholder={t('customerForm.firstNamePlaceholder')}
-                  value={firstName}
-                  onChangeText={setFirstName}
-                  error={errors.firstName}
-                  autoCapitalize="words"
-                />
+            <View style={styles.formCard}>
+              <View style={styles.row}>
+                <View style={[styles.column, { flex: 1 }]}>
+                  <Input
+                    label={t('customerForm.firstNameLabel')}
+                    placeholder={t('customerForm.firstNamePlaceholder')}
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    error={errors.firstName}
+                    autoCapitalize="words"
+                  />
+                </View>
+                <View style={[styles.column, { flex: 1 }]}>
+                  <Input
+                    label={t('customerForm.lastNameLabel')}
+                    placeholder={t('customerForm.lastNamePlaceholder')}
+                    value={lastName}
+                    onChangeText={setLastName}
+                    error={errors.lastName}
+                    autoCapitalize="words"
+                  />
+                </View>
               </View>
-              <View style={[styles.column, { flex: 1 }]}>
-                <Input
-                  label={t('customerForm.lastNameLabel')}
-                  placeholder={t('customerForm.lastNamePlaceholder')}
-                  value={lastName}
-                  onChangeText={setLastName}
-                  error={errors.lastName}
-                  autoCapitalize="words"
-                />
-              </View>
-            </View>
 
-            <PhoneInput
-              label={t('common.phone')}
-              placeholder={t('customerForm.phonePlaceholder')}
-              value={phone}
-              onChange={setPhone}
-              disabled={createMutation.isPending || updateMutation.isPending}
-            />
-            {errors.phone ? <Text style={styles.errorText}>{errors.phone}</Text> : null}
-
-            <Input
-              label={t('common.email')}
-              placeholder={t('customerForm.emailPlaceholder')}
-              value={email}
-              onChangeText={setEmail}
-              error={errors.email}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              showEmailSuggestions
-            />
-
-            <Input
-              label={t('customerDetail.nif')}
-              placeholder={t('customerForm.nifPlaceholder')}
-              value={nif}
-              onChangeText={setNif}
-              error={errors.nif}
-              keyboardType="number-pad"
-            />
-
-            <View style={styles.addressField}>
-              <Text style={styles.inputLabel}>{t('customerDetail.address')}</Text>
-              <AddressAutocomplete
-                value={address}
-                onSelect={setAddress}
-                placeholder={t('customerForm.addressPlaceholder')}
+              <PhoneInput
+                label={t('common.phone')}
+                placeholder={t('customerForm.phonePlaceholder')}
+                value={phone}
+                onChange={setPhone}
+                disabled={createMutation.isPending || updateMutation.isPending}
               />
-              {errors.address ? <Text style={styles.errorText}>{errors.address}</Text> : null}
-            </View>
+              {errors.phone ? <Text style={styles.errorText}>{errors.phone}</Text> : null}
 
-            {mode === 'create' && (
-              <View style={styles.hint}>
-                <Text style={styles.hintText}>{t('customerForm.requiredHint')}</Text>
+              <Input
+                label={t('common.email')}
+                placeholder={t('customerForm.emailPlaceholder')}
+                value={email}
+                onChangeText={setEmail}
+                error={errors.email}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                showEmailSuggestions
+              />
+
+              <Input
+                label={t('customerDetail.nif')}
+                placeholder={t('customerForm.nifPlaceholder')}
+                value={nif}
+                onChangeText={setNif}
+                error={errors.nif}
+                keyboardType="number-pad"
+              />
+
+              <View style={styles.addressField}>
+                <Text style={styles.inputLabel}>{t('customerDetail.address')}</Text>
+                <AddressAutocomplete
+                  value={address}
+                  onSelect={setAddress}
+                  placeholder={t('customerForm.addressPlaceholder')}
+                />
+                {errors.address ? <Text style={styles.errorText}>{errors.address}</Text> : null}
               </View>
-            )}
+
+              {mode === 'create' && (
+                <View style={styles.hint}>
+                  <Text style={styles.hintText}>{t('customerForm.requiredHint')}</Text>
+                </View>
+              )}
+            </View>
           </View>
         </ScrollView>
 
@@ -407,6 +409,14 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     form: {
       paddingTop: 20,
       paddingBottom: 100,
+    },
+    formCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      gap: 4,
     },
     avatarSection: {
       alignItems: 'center',

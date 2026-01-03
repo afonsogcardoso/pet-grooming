@@ -7,6 +7,7 @@ import { getDateLocale } from '../../i18n';
 import type { Appointment } from '../../api/appointments';
 import { getStatusColor } from '../../utils/appointmentStatus';
 import { formatCustomerName } from '../../utils/customer';
+import { getCardStyle } from '../../theme/uiTokens';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
 
@@ -183,6 +184,7 @@ export function DayView({
     return { minutesRounded, timeStr, highlightTop, highlightHeight, durationMinutes };
   };
 
+  const cardBase = getCardStyle(colors);
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -277,16 +279,11 @@ export function DayView({
       position: 'absolute',
       left: 4,
       right: 4,
-      backgroundColor: colors.surface,
-      borderRadius: 6,
+      ...cardBase,
+      borderRadius: 16,
       padding: 6,
       borderLeftWidth: 4,
       overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.08,
-      shadowRadius: 2,
-      elevation: 2,
       flexDirection: 'row',
       gap: 6,
     },

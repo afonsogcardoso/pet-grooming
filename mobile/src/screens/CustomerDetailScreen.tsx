@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform, ActionSheetIOS, PermissionsAndroid } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
@@ -17,8 +17,15 @@ import SwipeableRow from '../components/common/SwipeableRow';
 import { deletePet } from '../api/customers';
 import { useTranslation } from 'react-i18next';
 import { hapticError, hapticSuccess, hapticWarning } from '../utils/haptics';
+import { useSwipeDeleteIndicator } from '../hooks/useSwipeDeleteIndicator';
+import { UndoToast } from '../components/common/UndoToast';
 
 type Props = NativeStackScreenProps<any, 'CustomerDetail'>;
+type DeletePetPayload = {
+  pet: Pet;
+  index: number;
+};
+const UNDO_TIMEOUT_MS = 4000;
 
 export default function CustomerDetailScreen({ navigation, route }: Props) {
   const { customerId } = route.params as { customerId: string };
@@ -27,6 +34,11 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
   const queryClient = useQueryClient();
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const undoBottomOffset = insets.bottom + 16;
+  const [undoVisible, setUndoVisible] = useState(false);
+  const { deletingId: deletingPetId, beginDelete, clearDeletingId } = useSwipeDeleteIndicator();
+  const pendingDeleteRef = useRef<DeletePetPayload | null>(null);
 
   const { data: customers = [], isLoading: isLoadingCustomer } = useQuery({
     queryKey: ['customers'],
@@ -39,19 +51,105 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
     enabled: !!customerId,
   });
 
+  const updateCustomerPetCount = useCallback((delta: number) => {
+    queryClient.setQueryData(['customers'], (old: Customer[] | undefined) => {
+      if (!old) return old;
+      return old.map((item) => {
+        if (item.id !== customerId) return item;
+        const baseCount = item.pet_count ?? item.pets?.length ?? 0;
+        const nextCount = Math.max(0, baseCount + delta);
+        return { ...item, pet_count: nextCount };
+      });
+    });
+  }, [customerId, queryClient]);
+
+  const restorePet = useCallback((payload: DeletePetPayload) => {
+    let didInsert = false;
+    queryClient.setQueryData(['customer-pets', customerId], (old: Pet[] | undefined) => {
+      if (!old) return old;
+      if (old.some((item) => item.id === payload.pet.id)) return old;
+      const nextItems = [...old];
+      const insertIndex = Math.min(Math.max(payload.index, 0), nextItems.length);
+      nextItems.splice(insertIndex, 0, payload.pet);
+      didInsert = true;
+      return nextItems;
+    });
+    if (didInsert) {
+      updateCustomerPetCount(1);
+    }
+  }, [customerId, queryClient, updateCustomerPetCount]);
+
   const deletePetMutation = useMutation({
-    mutationFn: (petId: string) => deletePet(petId),
+    mutationFn: ({ pet }: DeletePetPayload) => deletePet(pet.id),
     onSuccess: async () => {
       hapticSuccess();
-      await queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
-      await queryClient.invalidateQueries({ queryKey: ['customers'] });
+      if (!pendingDeleteRef.current) {
+        await queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
+        await queryClient.invalidateQueries({ queryKey: ['customers'] });
+      }
     },
-    onError: (err: any) => {
+    onError: (err: any, variables) => {
       hapticError();
+      if (variables) {
+        restorePet(variables);
+      }
+      if (!pendingDeleteRef.current) {
+        queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['customers'] });
+      }
       const message = err?.response?.data?.error || err.message || t('customerDetail.deletePetError');
       Alert.alert(t('common.error'), message);
     },
   });
+
+  const commitPendingDelete = useCallback(() => {
+    const pending = pendingDeleteRef.current;
+    pendingDeleteRef.current = null;
+    clearDeletingId();
+    setUndoVisible(false);
+    if (!pending) return;
+    deletePetMutation.mutate(pending);
+  }, [clearDeletingId, deletePetMutation]);
+
+  const startOptimisticDelete = useCallback((pet: Pet) => {
+    if (pendingDeleteRef.current) {
+      commitPendingDelete();
+    }
+
+    const cached = queryClient.getQueryData<Pet[]>(['customer-pets', customerId]);
+    const index = cached ? cached.findIndex((item) => item.id === pet.id) : -1;
+    const shouldAdjustCount = index !== -1;
+
+    queryClient.setQueryData(['customer-pets', customerId], (old: Pet[] | undefined) => {
+      if (!old) return old;
+      if (!old.some((item) => item.id === pet.id)) return old;
+      return old.filter((item) => item.id !== pet.id);
+    });
+    if (shouldAdjustCount) {
+      updateCustomerPetCount(-1);
+    }
+
+    pendingDeleteRef.current = { pet, index: Math.max(index, 0) };
+    setUndoVisible(true);
+  }, [commitPendingDelete, customerId, queryClient, updateCustomerPetCount]);
+
+  const handleUndo = useCallback(() => {
+    const pending = pendingDeleteRef.current;
+    pendingDeleteRef.current = null;
+    clearDeletingId();
+    setUndoVisible(false);
+    if (!pending) return;
+    restorePet(pending);
+  }, [clearDeletingId, restorePet]);
+
+  useEffect(() => {
+    return () => {
+      const pending = pendingDeleteRef.current;
+      if (!pending) return;
+      pendingDeleteRef.current = null;
+      deletePetMutation.mutate(pending);
+    };
+  }, [deletePetMutation]);
 
   const customer = customers.find((c) => c.id === customerId);
 
@@ -372,7 +470,10 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
           ) : (
             <View style={styles.petsList}>
               {pets.map((pet) => (
-                <SwipeableRow key={pet.id} onDelete={() => {
+                <SwipeableRow
+                  key={pet.id}
+                  isDeleting={pet.id === deletingPetId}
+                  onDelete={() => {
                   Alert.alert(t('customerDetail.deletePetTitle'), t('customerDetail.deletePetMessage', { name: pet.name }), [
                     { text: t('common.cancel'), style: 'cancel' },
                     {
@@ -380,11 +481,12 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
                       style: 'destructive',
                       onPress: () => {
                         hapticWarning();
-                        deletePetMutation.mutate(pet.id);
+                        beginDelete(pet.id, () => startOptimisticDelete(pet));
                       },
                     },
                   ]);
-                }}>
+                }}
+                >
                   <PetCard key={pet.id} pet={pet} onPress={() => handlePetPress(pet)} />
                 </SwipeableRow>
               ))}
@@ -406,6 +508,16 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
           />
         </View>
       </ScrollView>
+      <UndoToast
+        visible={undoVisible}
+        message={t('customerDetail.deletePetUndoMessage')}
+        actionLabel={t('customerDetail.deletePetUndoAction')}
+        onAction={handleUndo}
+        onTimeout={commitPendingDelete}
+        onDismiss={commitPendingDelete}
+        durationMs={UNDO_TIMEOUT_MS}
+        bottomOffset={undoBottomOffset}
+      />
     </SafeAreaView>
   );
 }

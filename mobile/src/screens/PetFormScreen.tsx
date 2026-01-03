@@ -338,33 +338,35 @@ export default function PetFormScreen({ navigation, route }: Props) {
               </TouchableOpacity>
             </View>
 
-            <Input
-              label={t('petForm.nameLabel')}
-              placeholder={t('petForm.namePlaceholder')}
-              value={name}
-              onChangeText={setName}
-              error={errors.name}
-            />
+            <View style={styles.formCard}>
+              <Input
+                label={t('petForm.nameLabel')}
+                placeholder={t('petForm.namePlaceholder')}
+                value={name}
+                onChangeText={setName}
+                error={errors.name}
+              />
 
-            <Input
-              label={t('petForm.breedLabel')}
-              placeholder={t('petForm.breedPlaceholder')}
-              value={breed}
-              onChangeText={setBreed}
-              error={errors.breed}
-            />
+              <Input
+                label={t('petForm.breedLabel')}
+                placeholder={t('petForm.breedPlaceholder')}
+                value={breed}
+                onChangeText={setBreed}
+                error={errors.breed}
+              />
 
-            <Input
-              label={t('petForm.weightLabel')}
-              placeholder={t('petForm.weightPlaceholder')}
-              value={weight}
-              onChangeText={setWeight}
-              error={errors.weight}
-              keyboardType="decimal-pad"
-            />
+              <Input
+                label={t('petForm.weightLabel')}
+                placeholder={t('petForm.weightPlaceholder')}
+                value={weight}
+                onChangeText={setWeight}
+                error={errors.weight}
+                keyboardType="decimal-pad"
+              />
 
-            <View style={styles.hint}>
-              <Text style={styles.hintText}>{t('petForm.requiredHint')}</Text>
+              <View style={styles.hint}>
+                <Text style={styles.hintText}>{t('petForm.requiredHint')}</Text>
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -413,6 +415,14 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     form: {
       paddingTop: 20,
       paddingBottom: 100,
+    },
+    formCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      gap: 4,
     },
     photoSection: {
       marginBottom: 24,

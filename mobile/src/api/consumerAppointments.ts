@@ -38,19 +38,35 @@ export type ConsumerAppointment = {
     id: string;
     name?: string | null;
     price?: number | null;
+    category?: string | null;
+    subcategory?: string | null;
+    display_order?: number | null;
   } | null;
   appointment_services?: Array<{
     id?: string;
     service_id?: string | null;
+    pet_id?: string | null;
+    price_tier_id?: string | null;
+    price_tier_label?: string | null;
+    price_tier_price?: number | null;
     services?: {
       id: string;
       name?: string | null;
       price?: number | null;
+      category?: string | null;
+      subcategory?: string | null;
+      display_order?: number | null;
     } | null;
     pets?: {
       id: string;
       name?: string | null;
     } | null;
+    appointment_service_addons?: Array<{
+      id?: string;
+      service_addon_id?: string | null;
+      name?: string | null;
+      price?: number | null;
+    }> | null;
   }> | null;
 };
 

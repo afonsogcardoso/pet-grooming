@@ -137,11 +137,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderColor: colors.primary,
       marginTop: 4,
       overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 8,
-      elevation: 5,
     },
     suggestionItem: {
       paddingVertical: 12,

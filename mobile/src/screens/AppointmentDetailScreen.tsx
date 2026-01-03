@@ -14,6 +14,7 @@ import { getStatusColor, getStatusLabel } from '../utils/appointmentStatus';
 import { getDateLocale } from '../i18n';
 import { formatCustomerName, getCustomerFirstName } from '../utils/customer';
 import { hapticError, hapticSelection, hapticSuccess, hapticWarning } from '../utils/haptics';
+import { getCardStyle } from '../theme/uiTokens';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -453,12 +454,6 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                     t('common.at'),
                   )}
                 </Text>
-                <TouchableOpacity 
-                  style={styles.editButton}
-                  onPress={handleEditAppointment}
-                >
-                  <Text style={styles.editButtonText}>{t('common.edit')}</Text>
-                </TouchableOpacity>
               </View>
               
               <View style={styles.heroDetails}>
@@ -679,6 +674,9 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                           styles.statusButtonText,
                           { color: active ? '#fff' : colors.text },
                         ]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.75}
                       >
                         {getStatusLabel(value)}
                       </Text>
@@ -748,6 +746,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
 }
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+  const cardBase = getCardStyle(colors);
+
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -766,8 +766,9 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       gap: 16,
     },
     errorCard: {
+      ...cardBase,
       backgroundColor: '#fee2e2',
-      borderRadius: 16,
+      borderColor: '#fecaca',
       padding: 16,
       alignItems: 'center',
     },
@@ -778,14 +779,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     // Hero Card - Destaque do Serviço
     heroCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 20,
+      ...cardBase,
       padding: 20,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 12,
-      elevation: 3,
     },
     heroHeader: {
       flexDirection: 'row',
@@ -844,19 +839,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       justifyContent: 'space-between',
       alignItems: 'center',
       marginBottom: 20,
-    },
-    editButton: {
-      backgroundColor: colors.primarySoft,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: colors.primary,
-    },
-    editButtonText: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: colors.primary,
     },
     heroDetails: {
       flexDirection: 'row',
@@ -943,14 +925,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       gap: 12,
     },
     compactCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 16,
+      ...cardBase,
       padding: 16,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 8,
-      elevation: 2,
     },
     petCard: {
       alignItems: 'center',
@@ -999,11 +975,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       backgroundColor: colors.primary,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
     },
     whatsappButton: {
       backgroundColor: '#25D366',
@@ -1020,14 +991,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     // Map Card
     mapCardContainer: {
-      backgroundColor: colors.surface,
-      borderRadius: 16,
+      ...cardBase,
       padding: 16,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 8,
-      elevation: 2,
     },
     mapCardHeader: {
       flexDirection: 'row',
@@ -1038,15 +1003,9 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     mapCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: colors.surface,
-      borderRadius: 16,
+      ...cardBase,
       padding: 16,
       gap: 12,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 8,
-      elevation: 2,
     },
     mapIcon: {
       fontSize: 28,
@@ -1071,14 +1030,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     // Fotos Antes/Depois
     photosCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 20,
+      ...cardBase,
       padding: 20,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 12,
-      elevation: 3,
     },
     photosCardTitle: {
       fontSize: 18,
@@ -1143,14 +1096,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     // Status Card
     statusCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 20,
+      ...cardBase,
       padding: 20,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 12,
-      elevation: 3,
     },
     statusCardTitle: {
       fontSize: 18,
@@ -1180,6 +1127,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     statusButtonText: {
       fontSize: 11,
       fontWeight: '700',
+      textAlign: 'center',
     },
     dangerActions: {
       flexDirection: 'row',
@@ -1220,14 +1168,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     // Notas
     notesCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 20,
+      ...cardBase,
       padding: 20,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 12,
-      elevation: 3,
     },
     notesTitle: {
       fontSize: 18,

@@ -1,4 +1,4 @@
-import { View, Text, TextInput, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { AddressAutocomplete } from './AddressAutocomplete';
@@ -53,41 +53,26 @@ export function NewCustomerForm({
       fontWeight: '600',
       fontSize: 15,
     },
-    input: {
-      borderWidth: 1,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      color: colors.text,
-      backgroundColor: colors.surface,
-      borderColor: colors.surfaceBorder,
-      fontSize: 15,
-      fontWeight: '500',
-    },
   });
 
   return (
     <>
       <View style={styles.row}>
-        <View style={[styles.field, { flex: 1 }]}>
-          <Text style={styles.label}>{t('profile.firstNamePlaceholder')}</Text>
-          <TextInput
+        <View style={{ flex: 1 }}>
+          <Input
+            label={t('profile.firstNamePlaceholder')}
             value={customerFirstName}
             onChangeText={setCustomerFirstName}
             placeholder={t('profile.firstNamePlaceholder')}
-            placeholderTextColor={colors.muted}
-            style={styles.input}
             autoCapitalize="words"
           />
         </View>
-        <View style={[styles.field, { flex: 1 }]}>
-          <Text style={styles.label}>{t('profile.lastNamePlaceholder')}</Text>
-          <TextInput
+        <View style={{ flex: 1 }}>
+          <Input
+            label={t('profile.lastNamePlaceholder')}
             value={customerLastName}
             onChangeText={setCustomerLastName}
             placeholder={t('profile.lastNamePlaceholder')}
-            placeholderTextColor={colors.muted}
-            style={styles.input}
             autoCapitalize="words"
           />
         </View>
@@ -113,13 +98,11 @@ export function NewCustomerForm({
       />
 
       <View style={styles.field}>
-        <Text style={styles.label}>{t('customerDetail.nif')}</Text>
-        <TextInput
+        <Input
+          label={t('customerDetail.nif')}
           value={customerNif}
           onChangeText={setCustomerNif}
           placeholder={t('customerDetail.nif')}
-          placeholderTextColor={colors.muted}
-          style={styles.input}
           keyboardType="number-pad"
         />
       </View>

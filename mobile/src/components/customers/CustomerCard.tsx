@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
+import { getCardStyle } from '../../theme/uiTokens';
 import { Avatar } from '../common/Avatar';
 import type { Customer } from '../../api/customers';
 import { formatCustomerName } from '../../utils/customer';
@@ -55,16 +56,19 @@ export function CustomerCard({ customer, onPress }: CustomerCardProps) {
 }
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+  const cardBase = getCardStyle(colors);
+  const listCardBase = {
+    ...cardBase,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 12,
+    shadowOpacity: 0.08,
+    elevation: 3,
+  };
   return StyleSheet.create({
     card: {
+      ...listCardBase,
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: colors.surface,
-      borderRadius: 16,
-      padding: 16,
-      marginBottom: 12,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
     },
     info: {
       flex: 1,

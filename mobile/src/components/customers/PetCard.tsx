@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
+import { getCardStyle } from '../../theme/uiTokens';
 import type { Pet } from '../../api/customers';
 
 interface PetCardProps {
@@ -45,16 +46,13 @@ export function PetCard({ pet, onPress }: PetCardProps) {
 }
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+  const cardBase = getCardStyle(colors);
   return StyleSheet.create({
     card: {
+      ...cardBase,
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: colors.surface,
-      borderRadius: 16,
-      padding: 16,
       marginBottom: 12,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
     },
     imageContainer: {
       width: 56,

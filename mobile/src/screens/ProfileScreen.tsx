@@ -9,6 +9,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { getProfile, updateProfile, uploadAvatar, resetPassword, Profile } from '../api/profile';
+import { Branding, getBranding, updateBranding, uploadBrandLogo, uploadPortalImage } from '../api/branding';
 import { getNotificationPreferences, registerPushToken, updateNotificationPreferences, NotificationPreferences, NotificationPreferencesPayload } from '../api/notifications';
 import { useAuthStore } from '../state/authStore';
 import { useViewModeStore, ViewMode } from '../state/viewModeStore';
@@ -17,6 +18,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { getDateLocale, normalizeLanguage, setAppLanguage } from '../i18n';
 import { PhoneInput } from '../components/common/PhoneInput';
 import { AddressAutocomplete } from '../components/appointment/AddressAutocomplete';
+import { Input } from '../components/common';
 import { buildPhone, splitPhone } from '../utils/phone';
 import { resolveSupabaseAnonKey, resolveSupabaseUrl } from '../config/supabase';
 import { formatVersionLabel } from '../utils/version';
@@ -26,7 +28,7 @@ import { registerForPushNotifications } from '../utils/pushNotifications';
 WebBrowser.maybeCompleteAuthSession();
 
 type Props = NativeStackScreenProps<any>;
-type ProfileSection = 'info' | 'security' | 'notifications';
+type ProfileSection = 'info' | 'marketplace' | 'security' | 'notifications';
 
 function formatDate(value: string | null | undefined, locale: string, fallback: string) {
   if (!value) return fallback;
@@ -125,6 +127,18 @@ export default function ProfileScreen({ navigation }: Props) {
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [marketplaceName, setMarketplaceName] = useState('');
+  const [marketplaceDescription, setMarketplaceDescription] = useState('');
+  const [marketplaceRegion, setMarketplaceRegion] = useState('');
+  const [marketplaceInstagram, setMarketplaceInstagram] = useState('');
+  const [marketplaceFacebook, setMarketplaceFacebook] = useState('');
+  const [marketplaceTiktok, setMarketplaceTiktok] = useState('');
+  const [marketplaceWebsite, setMarketplaceWebsite] = useState('');
+  const [marketplaceLogoUrl, setMarketplaceLogoUrl] = useState<string | null>(null);
+  const [marketplaceHeroUrl, setMarketplaceHeroUrl] = useState<string | null>(null);
+  const [uploadingMarketplaceLogo, setUploadingMarketplaceLogo] = useState(false);
+  const [uploadingMarketplaceHero, setUploadingMarketplaceHero] = useState(false);
+  const [marketplaceInitialized, setMarketplaceInitialized] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -139,6 +153,13 @@ export default function ProfileScreen({ navigation }: Props) {
     staleTime: 1000 * 60 * 2,
     refetchOnMount: false,
     placeholderData: () => queryClient.getQueryData(['profile']),
+  });
+  const { data: branding } = useQuery({
+    queryKey: ['branding'],
+    queryFn: () => getBranding(),
+    staleTime: 1000 * 60 * 2,
+    initialData: () => queryClient.getQueryData<Branding>(['branding']),
+    placeholderData: () => queryClient.getQueryData<Branding>(['branding']),
   });
   const {
     data: notificationPreferences,
@@ -204,6 +225,63 @@ export default function ProfileScreen({ navigation }: Props) {
     setEditPhone(profileDefaults.phone);
     setEditAddress(profileDefaults.address);
   }, [profileDefaults, hasProfileEdits]);
+
+  const applyMarketplaceBranding = (data?: Branding | null) => {
+    if (!data) return;
+    setMarketplaceName(data.account_name || '');
+    setMarketplaceDescription(data.marketplace_description || '');
+    setMarketplaceRegion(data.marketplace_region || '');
+    setMarketplaceInstagram(data.marketplace_instagram_url || '');
+    setMarketplaceFacebook(data.marketplace_facebook_url || '');
+    setMarketplaceTiktok(data.marketplace_tiktok_url || '');
+    setMarketplaceWebsite(data.marketplace_website_url || '');
+    setMarketplaceLogoUrl(data.logo_url || null);
+    setMarketplaceHeroUrl(data.portal_image_url || null);
+  };
+
+  const isMarketplaceDirty = useMemo(() => {
+    const defaults = {
+      name: branding?.account_name || '',
+      description: branding?.marketplace_description || '',
+      region: branding?.marketplace_region || '',
+      instagram: branding?.marketplace_instagram_url || '',
+      facebook: branding?.marketplace_facebook_url || '',
+      tiktok: branding?.marketplace_tiktok_url || '',
+      website: branding?.marketplace_website_url || '',
+    };
+    return (
+      marketplaceName.trim() !== defaults.name.trim() ||
+      marketplaceDescription.trim() !== defaults.description.trim() ||
+      marketplaceRegion.trim() !== defaults.region.trim() ||
+      marketplaceInstagram.trim() !== defaults.instagram.trim() ||
+      marketplaceFacebook.trim() !== defaults.facebook.trim() ||
+      marketplaceTiktok.trim() !== defaults.tiktok.trim() ||
+      marketplaceWebsite.trim() !== defaults.website.trim()
+    );
+  }, [
+    branding?.account_name,
+    branding?.marketplace_description,
+    branding?.marketplace_region,
+    branding?.marketplace_instagram_url,
+    branding?.marketplace_facebook_url,
+    branding?.marketplace_tiktok_url,
+    branding?.marketplace_website_url,
+    marketplaceName,
+    marketplaceDescription,
+    marketplaceRegion,
+    marketplaceInstagram,
+    marketplaceFacebook,
+    marketplaceTiktok,
+    marketplaceWebsite,
+  ]);
+
+  useEffect(() => {
+    if (!marketplaceInitialized && branding) {
+      applyMarketplaceBranding(branding);
+      setMarketplaceInitialized(true);
+    }
+  }, [branding, marketplaceInitialized]);
+
 
   const mergeProfileUpdate = (current: Profile | undefined, updated: Profile, payload?: Partial<Profile>) => {
     if (!current) return updated;
@@ -311,6 +389,20 @@ export default function ProfileScreen({ navigation }: Props) {
       Alert.alert(t('common.error'), t('profile.updateError'));
     },
   });
+
+  const marketplaceMutation = useMutation({
+    mutationFn: updateBranding,
+    onSuccess: (updated) => {
+      hapticSuccess();
+      queryClient.setQueryData(['branding'], updated);
+      applyMarketplaceBranding(updated);
+    },
+    onError: () => {
+      hapticError();
+      Alert.alert(t('common.error'), t('profile.marketplaceUpdateError'));
+    },
+  });
+
 
   const languageMutation = useMutation({
     mutationFn: async (language: string) => updateProfile({ locale: normalizeLanguage(language) }),
@@ -558,6 +650,146 @@ export default function ProfileScreen({ navigation }: Props) {
     }
   };
 
+  const uploadMarketplaceLogoFromUri = async (uri: string, fileName?: string | null) => {
+    try {
+      setUploadingMarketplaceLogo(true);
+      const formData = new FormData();
+      const timestamp = Date.now();
+      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
+      const safeExtension = extension === 'jpg' ? 'jpeg' : extension;
+      const filename = `logo-${timestamp}.${extension}`;
+      const fileType = `image/${safeExtension}`;
+
+      formData.append('file', {
+        uri,
+        type: fileType,
+        name: filename,
+      } as any);
+
+      const { url } = await uploadBrandLogo(formData);
+      const updated = await updateBranding({ logo_url: url });
+      queryClient.setQueryData(['branding'], updated);
+      applyMarketplaceBranding(updated);
+    } catch (err) {
+      hapticError();
+      console.error('Erro ao carregar logotipo:', err);
+      Alert.alert(t('common.error'), t('marketplaceProfile.logoUploadError'));
+    } finally {
+      setUploadingMarketplaceLogo(false);
+    }
+  };
+
+  const uploadMarketplaceHeroFromUri = async (uri: string, fileName?: string | null) => {
+    try {
+      setUploadingMarketplaceHero(true);
+      const formData = new FormData();
+      const timestamp = Date.now();
+      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
+      const safeExtension = extension === 'jpg' ? 'jpeg' : extension;
+      const filename = `portal-${timestamp}.${extension}`;
+      const fileType = `image/${safeExtension}`;
+
+      formData.append('file', {
+        uri,
+        type: fileType,
+        name: filename,
+      } as any);
+
+      const { url } = await uploadPortalImage(formData);
+      const updated = await updateBranding({ portal_image_url: url });
+      queryClient.setQueryData(['branding'], updated);
+      applyMarketplaceBranding(updated);
+    } catch (err) {
+      hapticError();
+      console.error('Erro ao carregar imagem de capa:', err);
+      Alert.alert(t('common.error'), t('marketplaceProfile.heroUploadError'));
+    } finally {
+      setUploadingMarketplaceHero(false);
+    }
+  };
+
+  const openMarketplaceCamera = async (onSelected: (uri: string, fileName?: string | null) => Promise<void>) => {
+    const hasPermission = await requestAndroidPermissions();
+    if (!hasPermission) {
+      Alert.alert(t('profile.cameraPermissionDeniedTitle'), t('profile.cameraPermissionDeniedMessage'));
+      return;
+    }
+
+    const options: CameraOptions = {
+      mediaType: 'photo',
+      quality: 0.8,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      includeBase64: false,
+      saveToPhotos: false,
+    };
+
+    launchCamera(options, async (response) => {
+      if (response.didCancel) return;
+      if (response.errorCode) {
+        console.error('Erro ao abrir câmara:', response.errorMessage);
+        Alert.alert(t('common.error'), t('profile.openCameraError'));
+        return;
+      }
+      if (response.assets && response.assets[0]) {
+        await onSelected(response.assets[0].uri!, response.assets[0].fileName);
+      }
+    });
+  };
+
+  const openMarketplaceGallery = async (onSelected: (uri: string, fileName?: string | null) => Promise<void>) => {
+    const options: ImageLibraryOptions = {
+      mediaType: 'photo',
+      quality: 0.8,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      includeBase64: false,
+      selectionLimit: 1,
+    };
+
+    launchImageLibrary(options, async (response) => {
+      if (response.didCancel) return;
+      if (response.errorCode) {
+        console.error('Erro ao abrir galeria:', response.errorMessage);
+        Alert.alert(t('common.error'), t('profile.openGalleryError'));
+        return;
+      }
+      if (response.assets && response.assets[0]) {
+        await onSelected(response.assets[0].uri!, response.assets[0].fileName);
+      }
+    });
+  };
+
+  const pickMarketplaceImage = (onSelected: (uri: string, fileName?: string | null) => Promise<void>) => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: [t('common.cancel'), t('profile.takePhoto'), t('profile.chooseFromGallery')],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            openMarketplaceCamera(onSelected);
+          } else if (buttonIndex === 2) {
+            openMarketplaceGallery(onSelected);
+          }
+        }
+      );
+    } else {
+      Alert.alert(
+        t('profile.choosePhotoTitle'),
+        t('profile.choosePhotoMessage'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('profile.takePhoto'), onPress: () => openMarketplaceCamera(onSelected) },
+          { text: t('profile.chooseFromGallery'), onPress: () => openMarketplaceGallery(onSelected) },
+        ]
+      );
+    }
+  };
+
+
+
   const pickImage = () => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
@@ -607,6 +839,29 @@ export default function ProfileScreen({ navigation }: Props) {
     setEditAddress(profileDefaults.address);
     setHasProfileEdits(false);
   };
+
+  const handleMarketplaceSave = () => {
+    const trimmedName = marketplaceName.trim();
+    if (!trimmedName) {
+      Alert.alert(t('common.warning'), t('marketplaceProfile.nameRequired'));
+      return;
+    }
+    marketplaceMutation.mutate({
+      name: trimmedName,
+      marketplace_region: marketplaceRegion.trim() || null,
+      marketplace_description: marketplaceDescription.trim() || null,
+      marketplace_instagram_url: marketplaceInstagram.trim() || null,
+      marketplace_facebook_url: marketplaceFacebook.trim() || null,
+      marketplace_tiktok_url: marketplaceTiktok.trim() || null,
+      marketplace_website_url: marketplaceWebsite.trim() || null,
+    });
+  };
+
+  const handleMarketplaceReset = () => {
+    applyMarketplaceBranding(branding);
+    setMarketplaceInitialized(true);
+  };
+
 
   const handleFirstNameChange = (value: string) => {
     setEditFirstName(value);
@@ -777,10 +1032,15 @@ export default function ProfileScreen({ navigation }: Props) {
         {isLoading || isRefetching ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} /> : null}
         {error ? <Text style={styles.error}>{t('profile.loadError')}</Text> : null}
 
-        <View style={styles.sectionTabs}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.sectionTabs}
+        >
           {(
             [
               { key: 'info', label: t('profile.sectionInfo') },
+              { key: 'marketplace', label: t('profile.sectionMarketplace') },
               { key: 'security', label: t('profile.security') },
               { key: 'notifications', label: t('profile.notificationsTitle') },
             ] as const
@@ -798,7 +1058,7 @@ export default function ProfileScreen({ navigation }: Props) {
               </TouchableOpacity>
             );
           })}
-        </View>
+        </ScrollView>
 
         {activeSection === 'info' ? (
           <>
@@ -830,6 +1090,8 @@ export default function ProfileScreen({ navigation }: Props) {
               <View style={styles.inputGroup}>
                 <PhoneInput
                   label={t('common.phone')}
+                  labelStyle={[styles.inputLabel, styles.inputLabelRegular]}
+                  containerStyle={styles.phoneField}
                   value={editPhone}
                   onChange={handlePhoneChange}
                   placeholder={t('common.phone')}
@@ -915,6 +1177,7 @@ export default function ProfileScreen({ navigation }: Props) {
                 })}
               </View>
             </View>
+
           </>
         ) : null}
 
@@ -1122,20 +1385,181 @@ export default function ProfileScreen({ navigation }: Props) {
           </>
         ) : null}
 
+        {activeSection === 'marketplace' ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('marketplaceProfile.title')}</Text>
+            <Text style={styles.sectionText}>{t('profile.marketplaceSectionDescription')}</Text>
+
+            <View style={styles.marketplaceMediaGrid}>
+              <View style={styles.marketplaceMediaCard}>
+                <Text style={styles.marketplaceMediaTitle}>{t('marketplaceProfile.logoTitle')}</Text>
+                <TouchableOpacity
+                  style={styles.marketplaceLogo}
+                  onPress={() => pickMarketplaceImage(uploadMarketplaceLogoFromUri)}
+                  disabled={uploadingMarketplaceLogo}
+                >
+                  {marketplaceLogoUrl ? (
+                    <Image source={{ uri: marketplaceLogoUrl }} style={styles.marketplaceLogoImage} />
+                  ) : (
+                    <Text style={styles.marketplaceLogoFallback}>
+                      {(marketplaceName.trim().charAt(0) || 'P').toUpperCase()}
+                    </Text>
+                  )}
+                  {uploadingMarketplaceLogo ? (
+                    <View style={styles.marketplaceMediaOverlay}>
+                      <ActivityIndicator color={colors.onPrimary} />
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.marketplaceMediaButton}
+                  onPress={() => pickMarketplaceImage(uploadMarketplaceLogoFromUri)}
+                  disabled={uploadingMarketplaceLogo}
+                >
+                  <Text style={styles.marketplaceMediaButtonText}>{t('marketplaceProfile.changeLogo')}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.marketplaceMediaCard}>
+                <Text style={styles.marketplaceMediaTitle}>{t('marketplaceProfile.heroTitle')}</Text>
+                <TouchableOpacity
+                  style={styles.marketplaceHero}
+                  onPress={() => pickMarketplaceImage(uploadMarketplaceHeroFromUri)}
+                  disabled={uploadingMarketplaceHero}
+                >
+                  {marketplaceHeroUrl ? (
+                    <Image source={{ uri: marketplaceHeroUrl }} style={styles.marketplaceHeroImage} />
+                  ) : (
+                    <View style={styles.marketplaceHeroPlaceholder}>
+                      <Text style={styles.marketplaceHeroPlaceholderText}>
+                        {t('marketplaceProfile.heroPlaceholder')}
+                      </Text>
+                    </View>
+                  )}
+                  {uploadingMarketplaceHero ? (
+                    <View style={styles.marketplaceMediaOverlay}>
+                      <ActivityIndicator color={colors.onPrimary} />
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.marketplaceMediaButton}
+                  onPress={() => pickMarketplaceImage(uploadMarketplaceHeroFromUri)}
+                  disabled={uploadingMarketplaceHero}
+                >
+                  <Text style={styles.marketplaceMediaButtonText}>{t('marketplaceProfile.changeHero')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t('marketplaceProfile.nameLabel')}</Text>
+              <TextInput
+                style={styles.editInput}
+                value={marketplaceName}
+                onChangeText={setMarketplaceName}
+                placeholder={t('marketplaceProfile.namePlaceholder')}
+                placeholderTextColor={colors.muted}
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t('marketplaceProfile.regionLabel')}</Text>
+              <TextInput
+                style={styles.editInput}
+                value={marketplaceRegion}
+                onChangeText={setMarketplaceRegion}
+                placeholder={t('marketplaceProfile.regionPlaceholder')}
+                placeholderTextColor={colors.muted}
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t('marketplaceProfile.descriptionLabel')}</Text>
+              <TextInput
+                style={[styles.editInput, { minHeight: 90, textAlignVertical: 'top' }]}
+                value={marketplaceDescription}
+                onChangeText={setMarketplaceDescription}
+                placeholder={t('marketplaceProfile.descriptionPlaceholder')}
+                placeholderTextColor={colors.muted}
+                multiline
+              />
+            </View>
+
+            <Text style={styles.subsectionTitle}>{t('marketplaceProfile.socialTitle')}</Text>
+            <View style={styles.inputGroup}>
+              <Input
+                label={t('marketplaceProfile.instagramLabel')}
+                value={marketplaceInstagram}
+                onChangeText={setMarketplaceInstagram}
+                placeholder={t('marketplaceProfile.instagramPlaceholder')}
+                autoCapitalize="none"
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Input
+                label={t('marketplaceProfile.facebookLabel')}
+                value={marketplaceFacebook}
+                onChangeText={setMarketplaceFacebook}
+                placeholder={t('marketplaceProfile.facebookPlaceholder')}
+                autoCapitalize="none"
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Input
+                label={t('marketplaceProfile.tiktokLabel')}
+                value={marketplaceTiktok}
+                onChangeText={setMarketplaceTiktok}
+                placeholder={t('marketplaceProfile.tiktokPlaceholder')}
+                autoCapitalize="none"
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Input
+                label={t('marketplaceProfile.websiteLabel')}
+                value={marketplaceWebsite}
+                onChangeText={setMarketplaceWebsite}
+                placeholder={t('marketplaceProfile.websitePlaceholder')}
+                autoCapitalize="none"
+              />
+            </View>
+
+            {isMarketplaceDirty ? (
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[styles.button, styles.buttonInline]}
+                  onPress={handleMarketplaceSave}
+                  disabled={marketplaceMutation.isPending}
+                >
+                  {marketplaceMutation.isPending ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.buttonText}>{t('profile.marketplaceSave')}</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.button, styles.secondary, styles.buttonInline]}
+                  onPress={handleMarketplaceReset}
+                  disabled={marketplaceMutation.isPending}
+                >
+                  <Text style={styles.buttonTextSecondary}>{t('common.cancel')}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={[styles.button, styles.danger]}
+            onPress={async () => {
+              hapticSelection();
+              await useAuthStore.getState().clear();
+              navigation.replace('Login');
+            }}
+          >
+            <Text style={styles.buttonText}>{t('profile.logout')}</Text>
+          </TouchableOpacity>
+          {versionLabel ? <Text style={styles.footerVersion}>{versionLabel}</Text> : null}
+        </View>
       </ScrollView>
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.button, styles.danger]}
-          onPress={async () => {
-            hapticSelection();
-            await useAuthStore.getState().clear();
-            navigation.replace('Login');
-          }}
-        >
-          <Text style={styles.buttonText}>{t('profile.logout')}</Text>
-        </TouchableOpacity>
-        {versionLabel ? <Text style={styles.footerVersion}>{versionLabel}</Text> : null}
-      </View>
     </SafeAreaView>
   );
 }
@@ -1149,19 +1573,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     scrollContent: {
       padding: 24,
       paddingTop: 32,
-      paddingBottom: 120,
+      paddingBottom: 40,
     },
     headerCard: {
       backgroundColor: colors.surface,
-      borderRadius: 18,
+      borderRadius: 16,
       padding: 18,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
       marginBottom: 16,
-      shadowColor: colors.background,
-      shadowOpacity: 0.15,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 8 },
     },
     headerRow: {
       flexDirection: 'row',
@@ -1244,12 +1664,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       justifyContent: 'center',
     },
     editInput: {
-      backgroundColor: colors.background,
+      backgroundColor: colors.surface,
       borderColor: colors.surfaceBorder,
       borderWidth: 1,
-      borderRadius: 8,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
       color: colors.text,
       marginTop: 4,
       fontSize: 14,
@@ -1261,7 +1681,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     section: {
       marginTop: 10,
       backgroundColor: colors.surface,
-      borderRadius: 14,
+      borderRadius: 16,
       padding: 16,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
@@ -1277,8 +1697,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderColor: colors.surfaceBorder,
     },
     sectionTab: {
-      flex: 1,
       paddingVertical: 8,
+      paddingHorizontal: 12,
       borderRadius: 999,
       alignItems: 'center',
     },
@@ -1298,6 +1718,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       flexDirection: 'row',
       gap: 12,
     },
+    subsectionTitle: {
+      color: colors.text,
+      fontWeight: '700',
+      marginTop: 8,
+      marginBottom: 12,
+    },
     inputGroup: {
       flex: 1,
       marginBottom: 10,
@@ -1308,6 +1734,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       letterSpacing: 0.6,
       textTransform: 'uppercase',
       marginBottom: 6,
+    },
+    inputLabelRegular: {
+      fontWeight: '400',
+    },
+    phoneField: {
+      marginBottom: 0,
     },
     languageOptions: {
       flexDirection: 'row',
@@ -1371,6 +1803,89 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     sectionText: {
       color: colors.muted,
       marginBottom: 12,
+    },
+    marketplaceMediaGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+      marginBottom: 12,
+    },
+    marketplaceMediaCard: {
+      flex: 1,
+      minWidth: 150,
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+    },
+    marketplaceMediaTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    marketplaceLogo: {
+      height: 96,
+      borderRadius: 12,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      position: 'relative',
+    },
+    marketplaceLogoImage: {
+      width: '100%',
+      height: '100%',
+    },
+    marketplaceLogoFallback: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: colors.primary,
+    },
+    marketplaceHero: {
+      height: 96,
+      borderRadius: 12,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      position: 'relative',
+    },
+    marketplaceHeroImage: {
+      width: '100%',
+      height: '100%',
+    },
+    marketplaceHeroPlaceholder: {
+      paddingHorizontal: 8,
+    },
+    marketplaceHeroPlaceholderText: {
+      color: colors.muted,
+      fontSize: 12,
+      textAlign: 'center',
+    },
+    marketplaceMediaOverlay: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      backgroundColor: 'rgba(0,0,0,0.35)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    marketplaceMediaButton: {
+      marginTop: 10,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      borderRadius: 10,
+      paddingVertical: 8,
+      alignItems: 'center',
+    },
+    marketplaceMediaButtonText: {
+      color: colors.primary,
+      fontWeight: '700',
+      fontSize: 12,
     },
     toggleRow: {
       flexDirection: 'row',
@@ -1463,16 +1978,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     danger: {
       backgroundColor: '#ef4444',
-    },
-    footer: {
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      padding: 16,
-      backgroundColor: colors.background,
-      borderTopWidth: 1,
-      borderTopColor: colors.surfaceBorder,
     },
     footerVersion: {
       marginTop: 6,

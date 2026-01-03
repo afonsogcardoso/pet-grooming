@@ -70,12 +70,17 @@ const MARKETPLACE_APPOINTMENT_SELECT = `
   account:accounts ( id, name, slug, logo_url, support_email, support_phone ),
   customers!inner ( id, first_name, last_name, phone, email, address ),
   pets ( id, name, breed, photo_url, weight ),
-  services ( id, name, price ),
+  services ( id, name, price, category, subcategory, display_order ),
   appointment_services (
     id,
     service_id,
-    services ( id, name, price ),
-    pets ( id, name )
+    pet_id,
+    price_tier_id,
+    price_tier_label,
+    price_tier_price,
+    services ( id, name, price, category, subcategory, display_order ),
+    pets ( id, name ),
+    appointment_service_addons ( id, service_addon_id, name, price )
   )
 `
 

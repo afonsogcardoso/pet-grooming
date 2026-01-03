@@ -104,11 +104,6 @@ export function ServiceSelector({
       paddingVertical: 14,
       backgroundColor: colors.surface,
       borderColor: colors.surfaceBorder,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      elevation: 1,
     },
     selectText: {
       color: colors.text,
@@ -126,11 +121,6 @@ export function ServiceSelector({
       backgroundColor: colors.surface,
       marginBottom: 12,
       borderColor: colors.primarySoft,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
     },
     option: {
       paddingVertical: 10,

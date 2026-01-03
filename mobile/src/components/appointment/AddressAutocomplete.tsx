@@ -152,11 +152,6 @@ export function AddressAutocomplete({ value, onSelect, placeholder }: AddressAut
             borderRadius: 12,
             marginTop: 4,
             maxHeight: 200,
-            elevation: 5,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.15,
-            shadowRadius: 8,
           },
           row: {
             padding: 12,

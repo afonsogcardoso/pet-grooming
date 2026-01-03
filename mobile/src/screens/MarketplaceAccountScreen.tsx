@@ -12,6 +12,7 @@ import {
   MarketplaceService,
 } from '../api/marketplace';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
+import { getCardStyle } from '../theme/uiTokens';
 import { Ionicons } from '@expo/vector-icons';
 
 type Props = NativeStackScreenProps<any>;
@@ -234,6 +235,7 @@ export default function MarketplaceAccountScreen({ route, navigation }: Props) {
 }
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+  const cardBase = getCardStyle(colors);
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -243,16 +245,9 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       paddingBottom: 24,
     },
     heroCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 24,
+      ...cardBase,
+      borderRadius: 16,
       padding: 20,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.08,
-      shadowRadius: 12,
-      elevation: 3,
       marginBottom: 18,
     },
     heroCover: {
@@ -363,16 +358,9 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       gap: 16,
     },
     serviceCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 20,
-      padding: 18,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.06,
-      shadowRadius: 10,
-      elevation: 2,
+      ...cardBase,
+      borderRadius: 16,
+      padding: 16,
       gap: 8,
     },
     serviceImage: {

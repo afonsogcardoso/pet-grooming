@@ -17,6 +17,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { Button, EmptyState } from '../components/common';
 import { getMarketplaceAccounts, MarketplaceAccount } from '../api/marketplace';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
+import { getCardStyle } from '../theme/uiTokens';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -124,6 +125,7 @@ export default function MarketplaceScreen({ navigation }: Props) {
 }
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+  const cardBase = getCardStyle(colors);
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -158,12 +160,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.muted,
     },
     card: {
-      backgroundColor: colors.surface,
-      borderRadius: 20,
-      padding: 16,
+      ...cardBase,
       marginBottom: 14,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
     },
     cardHeader: {
       flexDirection: 'row',
