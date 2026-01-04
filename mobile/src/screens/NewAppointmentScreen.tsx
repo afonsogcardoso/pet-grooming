@@ -966,6 +966,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
         service_selections: serviceSelections,
       };
 
+      console.log('[appointment:create] payload', payload);
+
       await mutation.mutateAsync(payload);
     } finally {
       submitLockRef.current = false;

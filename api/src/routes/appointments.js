@@ -315,11 +315,19 @@ router.post('/', async (req, res) => {
   const supabaseAdmin = getSupabaseServiceRoleClient() || supabase
   const payload = { ...(req.body || {}) }
   const serviceSelections = payload.service_selections
+  const normalizedSelections = normalizeServiceSelections(serviceSelections)
   delete payload.service_ids
   delete payload.service_selections
 
   if (accountId) {
     payload.account_id = accountId
+  }
+
+  if (!Array.isArray(serviceSelections) || normalizedSelections.length === 0) {
+    return res.status(400).json({ error: 'service_selections_required' })
+  }
+  if (normalizedSelections.some((selection) => !selection.pet_id)) {
+    return res.status(400).json({ error: 'pet_required' })
   }
 
   const { data: appointment, error } = await supabase.from('appointments').insert(payload).select().single()
@@ -329,26 +337,25 @@ router.post('/', async (req, res) => {
     return res.status(500).json({ error: error.message })
   }
 
-  if (!Array.isArray(serviceSelections) || serviceSelections.length === 0) {
-    return res.status(400).json({ error: 'service_selections_required' })
-  }
-
   // Insert appointment services if provided
   if (appointment) {
-    const appointmentServices = normalizeServiceSelections(serviceSelections).map((selection) => ({
-        appointment_id: appointment.id,
-        service_id: selection.service_id,
-        pet_id: selection.pet_id || null
-      }))
+    const appointmentServices = normalizedSelections.map((selection) => ({
+      appointment_id: appointment.id,
+      service_id: selection.service_id,
+      pet_id: selection.pet_id || null
+    }))
 
-    if (appointmentServices.length > 0) {
-      const { error: servicesError } = await supabase
-        .from('appointment_services')
-        .insert(appointmentServices)
+    if (appointmentServices.length === 0) {
+      return res.status(400).json({ error: 'service_selections_required' })
+    }
 
-      if (servicesError) {
-        console.error('[api] create appointment services error', servicesError)
-      }
+    const { error: servicesError } = await supabase
+      .from('appointment_services')
+      .insert(appointmentServices)
+
+    if (servicesError) {
+      console.error('[api] create appointment services error', servicesError)
+      return res.status(500).json({ error: servicesError.message })
     }
 
     await applyServiceSelections({
@@ -378,7 +385,21 @@ router.post('/', async (req, res) => {
     }
   }
 
-  res.status(201).json({ data: mapAppointmentForApi(appointment) })
+  let responseAppointment = appointment
+  if (appointment?.id) {
+    const { data: refreshed, error: refreshError } = await supabase
+      .from('appointments')
+      .select(APPOINTMENT_DETAIL_SELECT)
+      .eq('id', appointment.id)
+      .maybeSingle()
+    if (refreshError) {
+      console.error('[api] reload appointment error', refreshError)
+    } else if (refreshed) {
+      responseAppointment = refreshed
+    }
+  }
+
+  res.status(201).json({ data: mapAppointmentForApi(responseAppointment) })
 })
 
 // Public: fetch appointment details for confirmation
@@ -516,6 +537,15 @@ router.patch('/:id', async (req, res) => {
   delete payload.service_selections
   delete payload.service_ids
 
+  if (serviceSelections !== undefined) {
+    if (normalizedSelections.length === 0) {
+      return res.status(400).json({ error: 'service_selections_required' })
+    }
+    if (normalizedSelections.some((selection) => !selection.pet_id)) {
+      return res.status(400).json({ error: 'pet_required' })
+    }
+  }
+
   const allowed = [
     'status',
     'payment_status',
@@ -598,13 +628,14 @@ router.patch('/:id', async (req, res) => {
 
     if (servicesError) {
       console.error('[api] update appointment services error', servicesError)
-    } else {
-      await applyServiceSelections({
-        supabase,
-        appointmentId: id,
-        selections: serviceSelections
-      })
+      return res.status(500).json({ error: servicesError.message })
     }
+
+    await applyServiceSelections({
+      supabase,
+      appointmentId: id,
+      selections: serviceSelections
+    })
   }
 
   let responseAppointment = appointment
