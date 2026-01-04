@@ -21,20 +21,6 @@ const APPOINTMENT_SELECT = `
         nif,
         address
     ),
-    pets (
-        id,
-        name,
-        breed,
-        photo_url,
-        weight
-    ),
-    services (
-        id,
-        name,
-        description,
-        default_duration,
-        price
-    ),
     appointment_services (
         id,
         service_id,

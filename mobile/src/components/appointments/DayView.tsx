@@ -471,7 +471,7 @@ export function DayView({
                       {formatTime(appointment.appointment_time)}
                     </Text>
                     <Text style={styles.appointmentTitle} numberOfLines={1}>
-                      {petLabel || appointment.pets?.name}
+                      {petLabel || '—'}
                       {customerName ? ` | ${customerName}` : ''}
                     </Text>
                     {appointmentServiceLines.length > 0 ? (
@@ -482,7 +482,7 @@ export function DayView({
                       ))
                     ) : (
                       <Text style={styles.appointmentService} numberOfLines={1}>
-                        {appointment.services?.name}{appointment.services?.price ? ` | ${appointment.services.price.toFixed(2)}€` : ''}
+                        —
                       </Text>
                     )}
                   </View>

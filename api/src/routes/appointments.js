@@ -17,9 +17,7 @@ const APPOINTMENT_CONFIRM_SELECT = `
   payment_status,
   account_id,
   public_token,
-  customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 ),
-  pets ( id, name, breed, photo_url, weight ),
-  services ( id, name )
+  customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 )
 `
 const APPOINTMENT_DETAIL_SELECT = `
   id,
@@ -35,8 +33,6 @@ const APPOINTMENT_DETAIL_SELECT = `
   confirmation_opened_at,
   whatsapp_sent_at,
   customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 ),
-  services ( id, name, price ),
-  pets ( id, name, breed, photo_url, weight ),
   appointment_services (
     id,
     service_id,
@@ -262,8 +258,6 @@ router.get('/', async (req, res) => {
       confirmation_opened_at,
       whatsapp_sent_at,
       customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 ),
-      services ( id, name, price ),
-      pets ( id, name, breed, photo_url, weight ),
       appointment_services (
         id,
         service_id,
@@ -572,9 +566,7 @@ router.patch('/:id', async (req, res) => {
       notes,
       payment_status,
       status,
-  customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 ),
-      services ( id, name, price ),
-      pets ( id, name, breed, photo_url )
+  customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 )
     `
     ).single()
 

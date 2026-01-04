@@ -268,7 +268,7 @@ const AppointmentRow = React.memo(function AppointmentRow({
   const appointmentServices = getAppointmentServiceEntries(item);
   const petNames = getAppointmentPetNames(item, appointmentServices);
   const petLabel = formatPetLabel(petNames);
-  const primaryPetName = petNames[0] || item.pets?.name || '';
+  const primaryPetName = petNames[0] || '';
   const petInitial = primaryPetName ? primaryPetName.charAt(0).toUpperCase() : '🐾';
   const servicesTotal =
     appointmentServices.length > 0
@@ -320,7 +320,7 @@ const AppointmentRow = React.memo(function AppointmentRow({
           <Text style={styles.service}>
             {serviceNames.length > 0
               ? serviceNames.join(', ')
-              : (item.services?.name || t('listView.serviceFallback'))}
+              : t('listView.serviceFallback')}
           </Text>
           <Text style={styles.meta}>
             {formatCustomerName(item.customers)}
@@ -424,14 +424,16 @@ export function ListView({
       const appointmentServices = getAppointmentServiceEntries(appointment);
       const serviceNames = formatServiceLabels(appointmentServices);
       const petNames = getAppointmentPetNames(appointment, appointmentServices);
+      const petBreeds = appointmentServices
+        .map((entry) => entry.pets?.breed)
+        .filter((value): value is string => Boolean(value));
 
       const values = [
         formatCustomerName(appointment.customers),
         appointment.customers?.phone,
         formatCustomerAddress(appointment.customers),
         ...petNames,
-        appointment.pets?.breed,
-        appointment.services?.name,
+        ...petBreeds,
         appointment.appointment_date,
         appointment.appointment_time,
         appointment.notes,

@@ -107,8 +107,6 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const displayStatus = status ?? appointment?.status ?? 'scheduled';
   const customer = appointment?.customers;
   const customerName = formatCustomerName(customer);
-  const service = appointment?.services;
-  const pet = appointment?.pets;
   const appointmentServiceEntries = useMemo(
     () => (appointment ? getAppointmentServiceEntries(appointment) : []),
     [appointment],
@@ -122,7 +120,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   }, [customerPets]);
   const appointmentPets = useMemo(() => {
     if (!appointment) return [];
-    const collected = [appointment.pets];
+    const collected: Array<any> = [];
     appointmentServiceEntries.forEach((entry: any) => {
       if (entry?.pets) {
         collected.push(entry.pets);
@@ -153,22 +151,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     if (appointmentServiceEntries.length > 0) {
       return appointmentServiceEntries;
     }
-    if (service) {
-      return [
-        {
-          id: service.id,
-          service_id: service.id,
-          services: service,
-          pets: pet || null,
-          price_tier_id: null,
-          price_tier_label: null,
-          price_tier_price: null,
-          appointment_service_addons: [],
-        },
-      ];
-    }
     return [];
-  }, [appointmentServiceEntries, service, pet]);
+  }, [appointmentServiceEntries]);
 
   const serviceDetails = useMemo(() => {
     return appointmentServices.map((entry, index) => {

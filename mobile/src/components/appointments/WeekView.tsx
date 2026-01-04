@@ -508,7 +508,7 @@ export function WeekView({
                           {appointment.appointment_time?.substring(0, 5)}
                         </Text>
                         <Text style={styles.appointmentTitle} numberOfLines={1}>
-                          {petLabel || appointment.pets?.name}
+                          {petLabel || '—'}
                         </Text>
                         {appointmentServiceLines.length > 0 ? (
                           appointmentServiceLines.map((label, idx) => (
@@ -518,7 +518,7 @@ export function WeekView({
                           ))
                         ) : (
                           <Text style={styles.appointmentService} numberOfLines={1}>
-                            {appointment.services?.name}
+                            —
                           </Text>
                         )}
                       </TouchableOpacity>
