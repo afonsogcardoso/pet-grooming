@@ -280,7 +280,7 @@ export function DayView({
       left: 4,
       right: 4,
       ...cardBase,
-      borderRadius: 16,
+      borderRadius: 6,
       padding: 6,
       borderLeftWidth: 4,
       overflow: 'hidden',

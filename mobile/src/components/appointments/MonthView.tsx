@@ -198,7 +198,7 @@ export function MonthView({
     dayButton: {
       width: '100%',
       height: '100%',
-      borderRadius: 4,
+      borderRadius: 6,
       justifyContent: 'center',
       alignItems: 'center',
       position: 'relative',
@@ -222,7 +222,7 @@ export function MonthView({
     },
     hasAppointments: {
       backgroundColor: colors.surface,
-      borderWidth: 1,
+      borderWidth: 0.5,
       borderColor: colors.surfaceBorder,
     },
     appointmentDots: {
