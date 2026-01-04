@@ -952,12 +952,9 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       });
 
       const serviceIds = Array.from(new Set(serviceSelections.map((selection) => selection.service_id)));
-      const primarySelection = serviceSelections[0];
-      const primaryServiceId = primarySelection?.service_id || serviceIds[0] || '';
-      const primaryPetSelectionId = primarySelection?.pet_id || primaryPetId || '';
       const effectiveDuration = totalDuration > 0 ? totalDuration : duration || null;
 
-      await mutation.mutateAsync({
+      const payload = {
         appointment_date: date,
         appointment_time: formatHHMM(time).trim(),
         status: 'scheduled',
@@ -965,11 +962,13 @@ export default function NewAppointmentScreen({ navigation }: Props) {
         amount: amountValue ?? null,
         notes: notes.trim() || null,
         customer_id: customerId,
-        pet_id: primaryPetSelectionId,
-        service_id: primaryServiceId, // Keep for backward compatibility
         service_ids: serviceIds,
         service_selections: serviceSelections,
-      });
+      };
+
+      console.log('[appointment:create] payload', payload);
+
+      await mutation.mutateAsync(payload);
     } finally {
       submitLockRef.current = false;
       setIsSubmittingRequest(false);

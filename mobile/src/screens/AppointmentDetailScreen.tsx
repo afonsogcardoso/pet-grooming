@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 import { useTranslation } from 'react-i18next';
 import { getAppointment, updateAppointment, deleteAppointment, uploadAppointmentPhoto } from '../api/appointments';
+import { getPetsByCustomer, type Pet } from '../api/customers';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { MiniMap } from '../components/common/MiniMap';
@@ -15,6 +16,7 @@ import { getDateLocale } from '../i18n';
 import { formatCustomerAddress, formatCustomerName, getCustomerFirstName } from '../utils/customer';
 import { hapticError, hapticSelection, hapticSuccess, hapticWarning } from '../utils/haptics';
 import { getCardStyle } from '../theme/uiTokens';
+import { getAppointmentServiceEntries } from '../utils/appointmentSummary';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -50,6 +52,13 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     placeholderData: (prev) => prev,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
+  });
+
+  const customerId = data?.customers?.id;
+  const { data: customerPets = [] } = useQuery<Pet[]>({
+    queryKey: ['customer-pets', customerId],
+    queryFn: () => getPetsByCustomer(customerId as string),
+    enabled: Boolean(customerId),
   });
 
   const mutation = useMutation({
@@ -100,9 +109,30 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const customerName = formatCustomerName(customer);
   const service = appointment?.services;
   const pet = appointment?.pets;
+  const appointmentServiceEntries = useMemo(
+    () => (appointment ? getAppointmentServiceEntries(appointment) : []),
+    [appointment],
+  );
+  const customerPetsById = useMemo(() => {
+    const map = new Map<string, Pet>();
+    customerPets.forEach((entry) => {
+      map.set(entry.id, entry);
+    });
+    return map;
+  }, [customerPets]);
   const appointmentPets = useMemo(() => {
     if (!appointment) return [];
-    const collected = [appointment.pets, ...(appointment.appointment_services || []).map((entry: any) => entry.pets)];
+    const collected = [appointment.pets];
+    appointmentServiceEntries.forEach((entry: any) => {
+      if (entry?.pets) {
+        collected.push(entry.pets);
+        return;
+      }
+      if (entry?.pet_id) {
+        const match = customerPetsById.get(entry.pet_id);
+        if (match) collected.push(match);
+      }
+    });
     const unique = new Map<string, any>();
     collected.forEach((entry, index) => {
       if (!entry) return;
@@ -110,7 +140,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       if (!unique.has(key)) unique.set(key, entry);
     });
     return Array.from(unique.values());
-  }, [appointment]);
+  }, [appointment, appointmentServiceEntries, customerPetsById]);
   const paymentStatus = appointment?.payment_status || 'unpaid';
   const statusOptions = [
     { value: 'pending', emoji: '⏳' },
@@ -120,8 +150,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   ];
   
   const appointmentServices = useMemo(() => {
-    if (appointment?.appointment_services && appointment.appointment_services.length > 0) {
-      return appointment.appointment_services;
+    if (appointmentServiceEntries.length > 0) {
+      return appointmentServiceEntries;
     }
     if (service) {
       return [
@@ -138,7 +168,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       ];
     }
     return [];
-  }, [appointment?.appointment_services, service, pet]);
+  }, [appointmentServiceEntries, service, pet]);
 
   const serviceDetails = useMemo(() => {
     return appointmentServices.map((entry, index) => {

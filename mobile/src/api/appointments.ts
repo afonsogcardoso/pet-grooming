@@ -75,8 +75,8 @@ export type CreateAppointmentPayload = {
   appointment_date: string;
   appointment_time: string;
   customer_id: string;
-  pet_id: string;
-  service_id: string;
+  pet_id?: string;
+  service_id?: string;
   service_ids?: string[];
   service_selections?: Array<{
     pet_id?: string | null;

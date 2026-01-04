@@ -5,6 +5,12 @@ import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { getDateLocale } from '../../i18n';
 import type { Appointment } from '../../api/appointments';
 import { getStatusColor } from '../../utils/appointmentStatus';
+import {
+  formatPetLabel,
+  formatServiceLabels,
+  getAppointmentPetNames,
+  getAppointmentServiceEntries,
+} from '../../utils/appointmentSummary';
 import { getCardStyle } from '../../theme/uiTokens';
 
 type WeekViewProps = {
@@ -480,12 +486,10 @@ export function WeekView({
                     const topPosition = calculatePosition(appointment.appointment_time);
                     const duration = appointment.duration || 60;
                     const height = (duration / 60) * HOUR_HEIGHT - 4; // -4 for spacing
-                    const appointmentServices = Array.isArray(appointment.appointment_services)
-                      ? appointment.appointment_services
-                      : [];
-                    const appointmentServiceLines = appointmentServices
-                      .map((entry) => entry.services?.name)
-                      .filter((value): value is string => Boolean(value));
+                    const appointmentServices = getAppointmentServiceEntries(appointment);
+                    const petNames = getAppointmentPetNames(appointment, appointmentServices);
+                    const petLabel = formatPetLabel(petNames);
+                    const appointmentServiceLines = formatServiceLabels(appointmentServices);
 
                     return (
                       <TouchableOpacity
@@ -504,7 +508,7 @@ export function WeekView({
                           {appointment.appointment_time?.substring(0, 5)}
                         </Text>
                         <Text style={styles.appointmentTitle} numberOfLines={1}>
-                          {appointment.pets?.name}
+                          {petLabel || appointment.pets?.name}
                         </Text>
                         {appointmentServiceLines.length > 0 ? (
                           appointmentServiceLines.map((label, idx) => (

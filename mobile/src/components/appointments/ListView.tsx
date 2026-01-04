@@ -8,6 +8,12 @@ import { getCardStyle } from '../../theme/uiTokens';
 import { getDateLocale } from '../../i18n';
 import { matchesSearchQuery } from '../../utils/textHelpers';
 import { formatCustomerAddress, formatCustomerName, getCustomerFirstName } from '../../utils/customer';
+import {
+  formatPetLabel,
+  formatServiceLabels,
+  getAppointmentPetNames,
+  getAppointmentServiceEntries,
+} from '../../utils/appointmentSummary';
 import { Button } from '../common';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
@@ -259,10 +265,11 @@ const AppointmentRow = React.memo(function AppointmentRow({
   onAppointmentPress,
   isDeleting,
 }: AppointmentRowProps) {
-  const petInitial = item.pets?.name?.charAt(0)?.toUpperCase() || '🐾';
-  const appointmentServices = Array.isArray(item.appointment_services)
-    ? item.appointment_services
-    : [];
+  const appointmentServices = getAppointmentServiceEntries(item);
+  const petNames = getAppointmentPetNames(item, appointmentServices);
+  const petLabel = formatPetLabel(petNames);
+  const primaryPetName = petNames[0] || item.pets?.name || '';
+  const petInitial = primaryPetName ? primaryPetName.charAt(0).toUpperCase() : '🐾';
   const servicesTotal =
     appointmentServices.length > 0
       ? appointmentServices.reduce((sum, entry) => {
@@ -274,9 +281,7 @@ const AppointmentRow = React.memo(function AppointmentRow({
         }, 0)
       : item.services?.price ?? null;
   const amount = item.amount ?? servicesTotal;
-  const serviceNames = appointmentServices
-    .map((entry) => entry.services?.name)
-    .filter((value): value is string => Boolean(value));
+  const serviceNames = formatServiceLabels(appointmentServices);
   const address = formatCustomerAddress(item.customers);
   const phone = item.customers?.phone;
   const statusColor = getStatusColor(item.status);
@@ -318,7 +323,8 @@ const AppointmentRow = React.memo(function AppointmentRow({
               : (item.services?.name || t('listView.serviceFallback'))}
           </Text>
           <Text style={styles.meta}>
-            {formatCustomerName(item.customers)} • {item.pets?.name}
+            {formatCustomerName(item.customers)}
+            {petLabel ? ` • ${petLabel}` : ''}
           </Text>
           {amount !== undefined && amount !== null ? (
             <Text style={styles.meta}>€ {Number(amount).toFixed(2)}</Text>
@@ -415,18 +421,15 @@ export function ListView({
     if (!searchTerm) return appointments;
 
     return appointments.filter((appointment) => {
-      const appointmentServices = Array.isArray(appointment.appointment_services)
-        ? appointment.appointment_services
-        : [];
-      const serviceNames = appointmentServices
-        .map((entry) => entry.services?.name)
-        .filter((value): value is string => Boolean(value));
+      const appointmentServices = getAppointmentServiceEntries(appointment);
+      const serviceNames = formatServiceLabels(appointmentServices);
+      const petNames = getAppointmentPetNames(appointment, appointmentServices);
 
       const values = [
         formatCustomerName(appointment.customers),
         appointment.customers?.phone,
         formatCustomerAddress(appointment.customers),
-        appointment.pets?.name,
+        ...petNames,
         appointment.pets?.breed,
         appointment.services?.name,
         appointment.appointment_date,

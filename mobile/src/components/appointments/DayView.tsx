@@ -7,6 +7,7 @@ import { getDateLocale } from '../../i18n';
 import type { Appointment } from '../../api/appointments';
 import { getStatusColor } from '../../utils/appointmentStatus';
 import { formatCustomerAddress, formatCustomerName } from '../../utils/customer';
+import { formatPetLabel, getAppointmentPetNames, getAppointmentServiceEntries } from '../../utils/appointmentSummary';
 import { getCardStyle } from '../../theme/uiTokens';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
@@ -432,17 +433,25 @@ export function DayView({
               const customerName = formatCustomerName(customer);
               const phone = customer?.phone;
               const address = formatCustomerAddress(customer);
-              const appointmentServices = Array.isArray(appointment.appointment_services)
-                ? appointment.appointment_services
-                : [];
-              const appointmentServiceLines = appointmentServices
-                .map((entry) => {
-                  const name = entry.services?.name;
-                  if (!name) return null;
-                  const price = entry.services?.price;
-                  return price ? `${name} (${price.toFixed(2)}€)` : name;
-                })
-                .filter((value): value is string => Boolean(value));
+              const appointmentServices = getAppointmentServiceEntries(appointment);
+              const petNames = getAppointmentPetNames(appointment, appointmentServices);
+              const petLabel = formatPetLabel(petNames);
+              const serviceLineMap = new Map<string, { count: number; price?: number | null }>();
+              appointmentServices.forEach((entry) => {
+                const name = entry.services?.name;
+                if (!name) return;
+                const current = serviceLineMap.get(name);
+                if (current) {
+                  current.count += 1;
+                  return;
+                }
+                serviceLineMap.set(name, { count: 1, price: entry.services?.price ?? null });
+              });
+              const appointmentServiceLines = Array.from(serviceLineMap.entries()).map(([name, info]) => {
+                const countLabel = info.count > 1 ? ` x${info.count}` : '';
+                const priceLabel = info.price != null ? ` (${info.price.toFixed(2)}€)` : '';
+                return `${name}${countLabel}${priceLabel}`;
+              });
               
               return (
                 <TouchableOpacity
@@ -462,7 +471,8 @@ export function DayView({
                       {formatTime(appointment.appointment_time)}
                     </Text>
                     <Text style={styles.appointmentTitle} numberOfLines={1}>
-                      {appointment.pets?.name}{customerName ? ` | ${customerName}` : ''}
+                      {petLabel || appointment.pets?.name}
+                      {customerName ? ` | ${customerName}` : ''}
                     </Text>
                     {appointmentServiceLines.length > 0 ? (
                       appointmentServiceLines.map((label, idx) => (
