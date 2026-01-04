@@ -1349,7 +1349,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                               </TouchableOpacity>
                             )}
                           </View>
-                          <ScrollView style={{ maxHeight: 220 }}>
+                          <ScrollView style={{ maxHeight: 220 }} keyboardShouldPersistTaps="handled">
                             {filteredPetOptions.length === 0 ? (
                               <Text style={styles.optionSubtitle}>{t('appointmentForm.noPets')}</Text>
                             ) : (

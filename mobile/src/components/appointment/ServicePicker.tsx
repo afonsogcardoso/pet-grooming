@@ -175,7 +175,7 @@ export function ServicePicker({
                   </TouchableOpacity>
                 )}
               </View>
-              <ScrollView style={{ maxHeight: 240 }}>
+              <ScrollView style={{ maxHeight: 240 }} keyboardShouldPersistTaps="handled">
                 {filteredServices.length === 0 ? (
                   <Text style={{ color: colors.muted, textAlign: 'center', paddingVertical: 20 }}>
                     {t('serviceSelector.empty')}

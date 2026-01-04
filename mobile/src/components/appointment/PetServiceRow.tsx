@@ -298,7 +298,7 @@ export function PetServiceRow({
               </TouchableOpacity>
               {showTierList ? (
                 <View style={styles.dropdownList}>
-                  <ScrollView style={{ maxHeight: 200 }}>
+                  <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
                     {priceTiers.map((tier) => {
                       const active = row.priceTierId === tier.id;
                       const rangeLabel = [tier.min_weight_kg ?? '-', tier.max_weight_kg ?? '+'].join(' - ');
@@ -347,7 +347,7 @@ export function PetServiceRow({
               </TouchableOpacity>
               {showAddonList ? (
                 <View style={styles.dropdownList}>
-                  <ScrollView style={{ maxHeight: 220 }}>
+                  <ScrollView style={{ maxHeight: 220 }} keyboardShouldPersistTaps="handled">
                     {serviceAddons.map((addon) => {
                       const active = row.addonIds.includes(addon.id);
                       return (

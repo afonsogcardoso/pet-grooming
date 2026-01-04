@@ -118,6 +118,7 @@ export default function MarketplaceScreen({ navigation }: Props) {
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         />
       )}
     </SafeAreaView>

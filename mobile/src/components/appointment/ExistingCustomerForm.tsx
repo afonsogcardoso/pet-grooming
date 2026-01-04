@@ -246,7 +246,7 @@ export function ExistingCustomerForm({
                     </TouchableOpacity>
                   )}
                 </View>
-                <ScrollView style={{ maxHeight: 200 }}>
+                <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
                   {searchResults.map((result) => {
                     const key =
                       result.type === 'customer'
@@ -358,7 +358,7 @@ export function ExistingCustomerForm({
                   style={[styles.input, { borderColor: primarySoft, marginBottom: 10 }]}
                   autoFocus
                 />
-                <ScrollView style={{ maxHeight: 200 }}>
+                <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
                   {searchResults.map((result) => {
                     const key =
                       result.type === 'customer'

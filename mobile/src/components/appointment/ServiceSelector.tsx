@@ -298,7 +298,7 @@ export function ServiceSelector({
                   </ScrollView>
                 </View>
               )}
-              <ScrollView style={{ maxHeight: 250 }}>
+              <ScrollView style={{ maxHeight: 250 }} keyboardShouldPersistTaps="handled">
                 {filteredServices.length === 0 ? (
                   <Text style={{ color: colors.muted, textAlign: 'center', paddingVertical: 20 }}>
                     {t('serviceSelector.empty')}

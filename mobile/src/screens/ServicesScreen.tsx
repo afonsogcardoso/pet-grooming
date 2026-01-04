@@ -278,6 +278,7 @@ export default function ServicesScreen({ navigation }: Props) {
               renderItem={renderServiceItem}
               contentContainerStyle={styles.listContent}
               ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+              keyboardShouldPersistTaps="handled"
             />
           )}
         </View>

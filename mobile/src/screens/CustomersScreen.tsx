@@ -226,6 +226,7 @@ export default function CustomersScreen({ navigation }: Props) {
             contentContainerStyle={styles.listContent}
             ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           />
         )}
       </View>
