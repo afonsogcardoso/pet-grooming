@@ -106,20 +106,14 @@ export async function createAppointment(appointmentData) {
 
     const created = data?.[0]
     if (created?.id) {
-        const serviceIds = Array.isArray(serviceIdsFromPayload)
-            ? serviceIdsFromPayload
-            : (payload.service_id ? [payload.service_id] : [])
-
-        if (serviceIds.length > 0) {
+        if (Array.isArray(serviceSelections) && serviceSelections.length > 0) {
             await supabase
                 .from('appointment_services')
-                .insert(serviceIds.map((serviceId) => ({
+                .insert(serviceSelections.map((selection) => ({
                     appointment_id: created.id,
-                    service_id: serviceId
+                    service_id: selection.service_id,
+                    pet_id: selection.pet_id || null
                 })))
-        }
-
-        if (Array.isArray(serviceSelections) && serviceSelections.length > 0) {
             await applyServiceSelectionsToAppointment({
                 appointmentId: created.id,
                 selections: serviceSelections
@@ -193,36 +187,25 @@ export async function updateAppointment(id, appointmentData) {
         return { data, error }
     }
 
-    const serviceIds = Array.isArray(serviceIdsFromPayload)
-        ? serviceIdsFromPayload
-        : (rest.service_id ? [rest.service_id] : null)
-
-    if (serviceIds && serviceIds.length >= 0) {
+    if (Array.isArray(serviceSelections) && serviceSelections.length > 0) {
         await supabase
             .from('appointment_services')
             .delete()
             .eq('appointment_id', id)
-
-        if (serviceIds.length > 0) {
-            await supabase
-                .from('appointment_services')
-                .insert(serviceIds.map((serviceId) => ({
-                    appointment_id: id,
-                    service_id: serviceId
-                })))
-        }
-    }
-
-    if (Array.isArray(serviceSelections) && serviceSelections.length > 0) {
+        await supabase
+            .from('appointment_services')
+            .insert(serviceSelections.map((selection) => ({
+                appointment_id: id,
+                service_id: selection.service_id,
+                pet_id: selection.pet_id || null
+            })))
         await applyServiceSelectionsToAppointment({
             appointmentId: id,
             selections: serviceSelections
         })
     }
 
-    const shouldRefresh =
-        Array.isArray(serviceIds) ||
-        (Array.isArray(serviceSelections) && serviceSelections.length > 0)
+    const shouldRefresh = Array.isArray(serviceSelections) && serviceSelections.length > 0
     if (!shouldRefresh) {
         return { data, error: null }
     }

@@ -274,7 +274,6 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
           onPress: async () => {
             try {
               hapticWarning();
-              console.log('Attempting to delete appointment:', appointmentId);
               await deleteAppointment(appointmentId);
               hapticSuccess();
               queryClient.invalidateQueries({ queryKey: ['appointments'] }).catch(() => null);

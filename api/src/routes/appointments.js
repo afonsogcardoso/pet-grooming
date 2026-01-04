@@ -17,7 +17,14 @@ const APPOINTMENT_CONFIRM_SELECT = `
   payment_status,
   account_id,
   public_token,
-  customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 )
+  customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 ),
+  appointment_services (
+    id,
+    service_id,
+    pet_id,
+    services ( id, name, price, display_order ),
+    pets ( id, name, breed, photo_url, weight )
+  )
 `
 const APPOINTMENT_DETAIL_SELECT = `
   id,
@@ -308,7 +315,6 @@ router.post('/', async (req, res) => {
   const supabaseAdmin = getSupabaseServiceRoleClient() || supabase
   const payload = { ...(req.body || {}) }
   const serviceSelections = payload.service_selections
-  const serviceIds = payload.service_ids || (payload.service_id ? [payload.service_id] : [])
   delete payload.service_ids
   delete payload.service_selections
 
@@ -323,18 +329,16 @@ router.post('/', async (req, res) => {
     return res.status(500).json({ error: error.message })
   }
 
+  if (!Array.isArray(serviceSelections) || serviceSelections.length === 0) {
+    return res.status(400).json({ error: 'service_selections_required' })
+  }
+
   // Insert appointment services if provided
   if (appointment) {
-    const hasSelections = Array.isArray(serviceSelections) && serviceSelections.length > 0
-    const appointmentServices = hasSelections
-      ? normalizeServiceSelections(serviceSelections).map((selection) => ({
+    const appointmentServices = normalizeServiceSelections(serviceSelections).map((selection) => ({
         appointment_id: appointment.id,
         service_id: selection.service_id,
         pet_id: selection.pet_id || null
-      }))
-      : serviceIds.map((serviceId) => ({
-        appointment_id: appointment.id,
-        service_id: serviceId
       }))
 
     if (appointmentServices.length > 0) {
@@ -347,13 +351,11 @@ router.post('/', async (req, res) => {
       }
     }
 
-    if (hasSelections) {
-      await applyServiceSelections({
-        supabase,
-        appointmentId: appointment.id,
-        selections: serviceSelections
-      })
-    }
+    await applyServiceSelections({
+      supabase,
+      appointmentId: appointment.id,
+      selections: serviceSelections
+    })
 
     if (appointment.customer_id) {
       const { data: customer } = await supabaseAdmin
@@ -511,13 +513,6 @@ router.patch('/:id', async (req, res) => {
   const payload = req.body || {}
   const serviceSelections = payload.service_selections
   const normalizedSelections = normalizeServiceSelections(serviceSelections)
-  const serviceIdsFromPayload = Array.isArray(payload.service_ids)
-    ? payload.service_ids
-    : (payload.service_id ? [payload.service_id] : null)
-  const serviceIdsFromSelections = normalizedSelections.length > 0
-    ? Array.from(new Set(normalizedSelections.map((selection) => selection.service_id).filter(Boolean)))
-    : null
-  const serviceIds = serviceIdsFromPayload ?? serviceIdsFromSelections
   delete payload.service_selections
   delete payload.service_ids
 
@@ -530,8 +525,6 @@ router.patch('/:id', async (req, res) => {
     'appointment_date',
     'appointment_time',
     'customer_id',
-    'pet_id',
-    'service_id',
   ]
 
   const updates = {}
@@ -539,12 +532,8 @@ router.patch('/:id', async (req, res) => {
     if (payload[key] !== undefined) updates[key] = payload[key]
   })
 
-  if (updates.service_id === undefined && Array.isArray(serviceIds)) {
-    updates.service_id = serviceIds[0] ?? null
-  }
-
   const shouldUpdateAppointment = Object.keys(updates).length > 0
-  const shouldUpdateServices = normalizedSelections.length > 0 || Array.isArray(serviceIds)
+  const shouldUpdateServices = normalizedSelections.length > 0
 
   if (!shouldUpdateAppointment && !shouldUpdateServices) {
     return res.status(400).json({ error: 'No fields to update' })
@@ -598,38 +587,23 @@ router.patch('/:id', async (req, res) => {
       .delete()
       .eq('appointment_id', id)
 
-    if (normalizedSelections.length > 0) {
-      const appointmentServices = normalizedSelections.map((selection) => ({
-        appointment_id: id,
-        service_id: selection.service_id,
-        pet_id: selection.pet_id || null
-      }))
-      const { error: servicesError } = await supabase
-        .from('appointment_services')
-        .insert(appointmentServices)
+    const appointmentServices = normalizedSelections.map((selection) => ({
+      appointment_id: id,
+      service_id: selection.service_id,
+      pet_id: selection.pet_id || null
+    }))
+    const { error: servicesError } = await supabase
+      .from('appointment_services')
+      .insert(appointmentServices)
 
-      if (servicesError) {
-        console.error('[api] update appointment services error', servicesError)
-      } else {
-        await applyServiceSelections({
-          supabase,
-          appointmentId: id,
-          selections: serviceSelections
-        })
-      }
-    } else if (Array.isArray(serviceIds) && serviceIds.length > 0) {
-      const appointmentServices = serviceIds.map((serviceId) => ({
-        appointment_id: id,
-        service_id: serviceId
-      }))
-
-      const { error: servicesError } = await supabase
-        .from('appointment_services')
-        .insert(appointmentServices)
-
-      if (servicesError) {
-        console.error('[api] update appointment services error', servicesError)
-      }
+    if (servicesError) {
+      console.error('[api] update appointment services error', servicesError)
+    } else {
+      await applyServiceSelections({
+        supabase,
+        appointmentId: id,
+        selections: serviceSelections
+      })
     }
   }
 
@@ -760,10 +734,10 @@ router.get('/ics', async (req, res) => {
 
 // Public: upload pet photo (multipart not supported here)
 router.post('/pet-photo', upload.single('file'), async (req, res) => {
-  const { id, token } = req.body || {}
+  const { id, token, pet_id: petId } = req.body || {}
   const file = req.file
 
-  if (!id || !token || !file) {
+  if (!id || !token || !petId || !file) {
     return res.status(400).json({ ok: false, error: 'missing_parameters' })
   }
 
@@ -780,10 +754,25 @@ router.post('/pet-photo', upload.single('file'), async (req, res) => {
   const supabase = getSupabaseServiceRoleClient()
   if (!supabase) return res.status(500).json({ ok: false, error: 'service_unavailable' })
 
+  const { data: appointmentServices, error: servicesError } = await supabase
+    .from('appointment_services')
+    .select('pet_id')
+    .eq('appointment_id', appointment.id)
+
+  if (servicesError) {
+    console.error('[api] pet photo appointment services error', servicesError)
+    return res.status(500).json({ ok: false, error: 'load_services_failed' })
+  }
+
+  const petAllowed = (appointmentServices || []).some((entry) => entry.pet_id === petId)
+  if (!petAllowed) {
+    return res.status(403).json({ ok: false, error: 'invalid_pet' })
+  }
+
   const ext = (file.originalname?.split('.').pop() || 'jpg').toLowerCase()
   const safeExt = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) ? ext : 'jpg'
   const uniqueId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`
-  const path = `pets/${appointment.pet_id}/${uniqueId}.${safeExt}`
+  const path = `pets/${petId}/${uniqueId}.${safeExt}`
 
   const { error: uploadError } = await supabase.storage
     .from(PET_PHOTO_BUCKET)
@@ -810,7 +799,7 @@ router.post('/pet-photo', upload.single('file'), async (req, res) => {
   const publicUrl = signedUrlData?.signedUrl || null
 
   if (publicUrl) {
-    await supabase.from('pets').update({ photo_url: publicUrl }).eq('id', appointment.pet_id)
+    await supabase.from('pets').update({ photo_url: publicUrl }).eq('id', petId)
   }
 
   return res.json({ ok: true, url: publicUrl })
@@ -837,7 +826,7 @@ router.post('/:id/photos', upload.single('file'), async (req, res) => {
   // Verify appointment belongs to account
   const { data: appointment } = await supabase
     .from('appointments')
-    .select('id, pet_id, account_id')
+    .select('id, account_id')
     .eq('id', id)
     .eq('account_id', accountId)
     .maybeSingle()
@@ -903,10 +892,10 @@ router.get('/:id/share', async (req, res) => {
       before_photo_url,
       after_photo_url,
       customers ( id, first_name, last_name, phone, phone_country_code, phone_number ),
-      pets ( id, name, breed, weight ),
       appointment_services ( 
         service_id,
-        services ( id, name, price )
+        services ( id, name, price ),
+        pets ( id, name, breed, weight )
       )
     `)
     .eq('id', id)
@@ -948,7 +937,9 @@ router.get('/:id/share', async (req, res) => {
       status: appointment.status,
       notes: appointment.notes,
       customer: mapAppointmentForApi({ customers: appointment.customers }).customers,
-      pet: appointment.pets,
+      pets: (appointment.appointment_services || [])
+        .map((entry) => entry.pets)
+        .filter(Boolean),
       services: appointment.appointment_services?.map(as => as.services) || [],
       photos: signedUrls
     }

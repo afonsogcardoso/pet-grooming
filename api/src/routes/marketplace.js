@@ -69,8 +69,6 @@ const MARKETPLACE_APPOINTMENT_SELECT = `
   after_photo_url,
   account:accounts ( id, name, slug, logo_url, support_email, support_phone ),
   customers!inner ( id, first_name, last_name, phone, email, address, address_2 ),
-  pets ( id, name, breed, photo_url, weight ),
-  services ( id, name, price, category, subcategory, display_order ),
   appointment_services (
     id,
     service_id,
@@ -622,9 +620,7 @@ router.post('/booking-requests', async (req, res) => {
 
   const serviceIds = Array.isArray(payload.service_ids)
     ? payload.service_ids.filter(Boolean)
-    : payload.service_id
-      ? [payload.service_id]
-      : []
+    : []
 
   if (!serviceIds.length) {
     return res.status(400).json({ error: 'service_required' })
@@ -900,8 +896,6 @@ router.post('/booking-requests', async (req, res) => {
     .insert({
       account_id: account.id,
       customer_id: customer.id,
-      pet_id: pet.id,
-      service_id: serviceIds[0],
       appointment_date: appointmentDate,
       appointment_time: appointmentTime,
       notes: normalizeString(payload.notes) || null,
