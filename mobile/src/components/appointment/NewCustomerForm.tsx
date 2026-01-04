@@ -16,9 +16,12 @@ type NewCustomerFormProps = {
   setCustomerEmail: (value: string) => void;
   customerAddress: string;
   setCustomerAddress: (value: string) => void;
+  customerAddress2: string;
+  setCustomerAddress2: (value: string) => void;
   customerNif: string;
   setCustomerNif: (value: string) => void;
   addressPlaceholder: string;
+  address2Placeholder: string;
 };
 
 export function NewCustomerForm({
@@ -32,9 +35,12 @@ export function NewCustomerForm({
   setCustomerEmail,
   customerAddress,
   setCustomerAddress,
+  customerAddress2,
+  setCustomerAddress2,
   customerNif,
   setCustomerNif,
   addressPlaceholder,
+  address2Placeholder,
 }: NewCustomerFormProps) {
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
@@ -113,6 +119,16 @@ export function NewCustomerForm({
           value={customerAddress}
           onSelect={setCustomerAddress}
           placeholder={addressPlaceholder}
+        />
+      </View>
+
+      <View style={styles.field}>
+        <Input
+          label={t('customerDetail.address2')}
+          value={customerAddress2}
+          onChangeText={setCustomerAddress2}
+          placeholder={address2Placeholder}
+          autoCapitalize="words"
         />
       </View>
 

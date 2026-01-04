@@ -14,6 +14,7 @@ type AuthState = {
     firstName?: string | null;
     lastName?: string | null;
     address?: string | null;
+    address2?: string | null;
     activeRole?: 'consumer' | 'provider' | null;
   } | null;
   setTokens: (params: { token: string; refreshToken?: string | null }) => Promise<void>;
@@ -25,6 +26,7 @@ type AuthState = {
       firstName?: string | null;
       lastName?: string | null;
       address?: string | null;
+      address2?: string | null;
       activeRole?: 'consumer' | 'provider' | null;
     } | null
   ) => void;

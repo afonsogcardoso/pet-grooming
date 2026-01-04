@@ -78,6 +78,7 @@ router.patch('/', async (req, res) => {
     phoneCountryCode,
     phoneNumber,
     address,
+    address2,
     locale,
     avatarUrl,
     activeRole
@@ -94,6 +95,10 @@ router.patch('/', async (req, res) => {
   if (address !== undefined) {
     const trimmedAddress = address?.toString().trim()
     metadataUpdates.address = trimmedAddress || null
+  }
+  if (address2 !== undefined) {
+    const trimmedAddress2 = address2?.toString().trim()
+    metadataUpdates.address_2 = trimmedAddress2 || null
   }
   let hasPhonePayload = false
   if (phone !== undefined) hasPhonePayload = true
@@ -188,6 +193,21 @@ router.patch('/', async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message })
   const updatedUser = data.user
+
+  const shouldSyncCustomerAddress =
+    Object.prototype.hasOwnProperty.call(metadataUpdates, 'address') ||
+    Object.prototype.hasOwnProperty.call(metadataUpdates, 'address_2')
+  if (shouldSyncCustomerAddress) {
+    const address = updatedUser?.user_metadata?.address ?? null
+    const address2 = updatedUser?.user_metadata?.address_2 ?? null
+    const { error: syncError } = await supabaseAdmin
+      .from('customers')
+      .update({ address, address_2: address2 })
+      .eq('user_id', user.id)
+    if (syncError) {
+      console.error('[api] sync customer address error', syncError)
+    }
+  }
   const updatedFirstName = updatedUser?.user_metadata?.first_name ?? null
   const updatedLastName = updatedUser?.user_metadata?.last_name ?? null
   const updatedDisplayName =
@@ -221,6 +241,7 @@ router.patch('/', async (req, res) => {
     firstName: updatedFirstName,
     lastName: updatedLastName,
     address: updatedUser?.user_metadata?.address ?? null,
+    address2: updatedUser?.user_metadata?.address_2 ?? null,
     phone: responsePhone.phone === undefined ? null : responsePhone.phone,
     phoneCountryCode: responsePhoneCountryCode,
     phoneNumber: responsePhoneNumber,

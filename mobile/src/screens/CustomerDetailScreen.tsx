@@ -5,7 +5,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { formatCustomerName } from '../utils/customer';
+import { formatCustomerAddress, formatCustomerName } from '../utils/customer';
 import { getCustomers, getPetsByCustomer, uploadCustomerPhoto, deleteCustomer, type Customer, type Pet } from '../api/customers';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Avatar } from '../components/common/Avatar';
@@ -420,15 +420,15 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
               </View>
             )}
             
-            {customer.address && (
+            {formatCustomerAddress(customer) && (
               <>
                 <View style={styles.infoItem}>
                   <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>{t('customerDetail.address')}</Text>
-                  <Text style={styles.infoValue}>{customer.address}</Text>
+                  <Text style={styles.infoValue}>{formatCustomerAddress(customer, '\n')}</Text>
                   </View>
                 </View>
-                <MiniMap address={customer.address} />
+                <MiniMap address={formatCustomerAddress(customer)} />
               </>
             )}
             

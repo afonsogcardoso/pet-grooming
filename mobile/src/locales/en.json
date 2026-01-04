@@ -333,6 +333,8 @@
     "lastNamePlaceholder": "Last name",
     "addressLabel": "Address",
     "addressPlaceholder": "Street, number, city",
+    "address2Label": "Address line 2",
+    "address2Placeholder": "Apartment, floor, lot, etc.",
     "nameRequired": "First and last name are required.",
     "roleTitle": "Active profile",
     "roleDescription": "Switch between provider and consumer views.",
@@ -475,6 +477,7 @@
     "noPetsDescription": "Add this customer's first pet",
     "addPet": "Add Pet",
     "address": "Address",
+    "address2": "Address line 2",
     "nif": "VAT"
   },
   "customerForm": {
@@ -500,6 +503,7 @@
     "phonePlaceholder": "912 345 678",
     "emailPlaceholder": "name@email.com",
     "addressPlaceholder": "Street, number, city",
+    "address2Placeholder": "Apartment, floor, lot, etc.",
     "nifPlaceholder": "123456789",
     "requiredHint": "* Required fields"
   },
@@ -650,7 +654,9 @@
   },
   "customerCard": {
     "petCount_one": "{{count}} pet",
-    "petCount_other": "{{count}} pets"
+    "petCount_other": "{{count}} pets",
+    "appointmentCount_one": "{{count}} appointment",
+    "appointmentCount_other": "{{count}} appointments"
   },
   "newCustomerForm": {
     "customerNameLabel": "Customer Name",
@@ -666,6 +672,7 @@
     "createSubtitle": "Quickly create a new appointment",
     "editSubtitle": "Update appointment details",
     "addressPlaceholder": "Start typing an address",
+    "address2Placeholder": "Apartment, floor, lot, etc.",
     "createError": "Error creating appointment",
     "updateError": "Error updating appointment",
     "requiredTitle": "Required fields",

@@ -339,6 +339,8 @@
     "lastNamePlaceholder": "Último nome",
     "addressLabel": "Morada",
     "addressPlaceholder": "Rua, número, cidade",
+    "address2Label": "Morada (linha 2)",
+    "address2Placeholder": "Andar, piso, lote, etc.",
     "nameRequired": "O primeiro e último nome são obrigatórios.",
     "roleTitle": "Perfil ativo",
     "roleDescription": "Alterna entre prestador e consumidor.",
@@ -481,6 +483,7 @@
     "noPetsDescription": "Adicione o primeiro animal deste cliente",
     "addPet": "Adicionar animal",
     "address": "Endereço",
+    "address2": "Endereço (linha 2)",
     "nif": "NIF"
   },
   "customerForm": {
@@ -506,6 +509,7 @@
     "phonePlaceholder": "912 345 678",
     "emailPlaceholder": "exemplo@email.com",
     "addressPlaceholder": "Rua, número, cidade",
+    "address2Placeholder": "Andar, piso, lote, etc.",
     "nifPlaceholder": "123456789",
     "requiredHint": "* Campos obrigatórios"
   },
@@ -656,7 +660,9 @@
   },
   "customerCard": {
     "petCount_one": "{{count}} animal",
-    "petCount_other": "{{count}} animais"
+    "petCount_other": "{{count}} animais",
+    "appointmentCount_one": "{{count}} marcação",
+    "appointmentCount_other": "{{count}} marcações"
   },
   "newCustomerForm": {
     "customerNameLabel": "Nome do Cliente",
@@ -672,6 +678,7 @@
     "createSubtitle": "Cria rapidamente uma nova marcação",
     "editSubtitle": "Atualiza os dados da marcação",
     "addressPlaceholder": "Comece a escrever uma morada",
+    "address2Placeholder": "Andar, piso, lote, etc.",
     "createError": "Erro ao criar marcação",
     "updateError": "Erro ao atualizar marcação",
     "requiredTitle": "Campos obrigatórios",

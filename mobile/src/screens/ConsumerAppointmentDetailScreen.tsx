@@ -23,6 +23,7 @@ import {
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { getStatusColor, getStatusLabel } from '../utils/appointmentStatus';
 import { hapticError, hapticSuccess, hapticWarning } from '../utils/haptics';
+import { formatCustomerAddress } from '../utils/customer';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -326,11 +327,11 @@ export default function ConsumerAppointmentDetailScreen({ route }: Props) {
           </View>
         </View>
 
-        {appointment.customers?.address ? (
+        {formatCustomerAddress(appointment.customers) ? (
           <View style={styles.infoCard}>
             <Text style={styles.sectionTitle}>📍 {t('appointmentDetail.address')}</Text>
-            <Text style={styles.addressText}>{appointment.customers.address}</Text>
-            <MiniMap address={appointment.customers.address} />
+            <Text style={styles.addressText}>{formatCustomerAddress(appointment.customers, '\n')}</Text>
+            <MiniMap address={formatCustomerAddress(appointment.customers)} />
           </View>
         ) : null}
 

@@ -100,6 +100,20 @@ function applyNamePayload(payload) {
   return payload
 }
 
+function applyAddressPayload(payload) {
+  if (Object.prototype.hasOwnProperty.call(payload, 'address')) {
+    payload.address = normalizeString(payload.address)
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'address2')) {
+    payload.address_2 = normalizeString(payload.address2)
+    delete payload.address2
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'address_2')) {
+    payload.address_2 = normalizeString(payload.address_2)
+  }
+  return payload
+}
+
 router.get('/', async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
@@ -110,7 +124,7 @@ router.get('/', async (req, res) => {
 
   const { data, error } = await supabase
     .from('customers')
-    .select('id,first_name,last_name,phone,phone_country_code,phone_number,email,address,nif,photo_url,account_id,pets(id,name,breed,photo_url,weight)')
+    .select('id,first_name,last_name,phone,phone_country_code,phone_number,email,address,address_2,nif,photo_url,account_id,pets(id,name,breed,photo_url,weight),appointments(count)')
     .eq('account_id', accountId)
     .order('first_name', { ascending: true })
     .order('last_name', { ascending: true })
@@ -124,7 +138,12 @@ router.get('/', async (req, res) => {
   const enriched =
     data?.map((customer) => ({
       ...customer,
-      pet_count: Array.isArray(customer.pets) ? customer.pets.length : 0
+      pet_count: Array.isArray(customer.pets) ? customer.pets.length : 0,
+      appointment_count: Array.isArray(customer.appointments)
+        ? customer.appointments[0]?.count ?? 0
+        : typeof customer.appointments?.count === 'number'
+          ? customer.appointments.count
+          : 0
     })) || []
 
   res.json({ data: (enriched || []).map(mapCustomerForApi) })
@@ -134,7 +153,7 @@ router.post('/', async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
-  const payload = applyNamePayload(applyPhonePayload(sanitizeBody(req.body || {})))
+  const payload = applyAddressPayload(applyNamePayload(applyPhonePayload(sanitizeBody(req.body || {}))))
   if (!payload.first_name) {
     return res.status(400).json({ error: 'first_name_required' })
   }
@@ -338,7 +357,7 @@ router.patch('/:id', async (req, res) => {
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
   const { id } = req.params
-  const payload = applyNamePayload(applyPhonePayload(sanitizeBody(req.body || {})))
+  const payload = applyAddressPayload(applyNamePayload(applyPhonePayload(sanitizeBody(req.body || {}))))
   if (Object.prototype.hasOwnProperty.call(payload, 'first_name') && !payload.first_name) {
     return res.status(400).json({ error: 'first_name_required' })
   }

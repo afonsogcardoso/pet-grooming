@@ -17,9 +17,11 @@ export type Customer = {
   phoneNumber?: string | null;
   email?: string | null;
   address?: string | null;
+  address2?: string | null;
   nif?: string | null;
   photo_url?: string | null;
   pet_count?: number | null;
+  appointment_count?: number | null;
   pets?: Pet[] | null;
 };
 
@@ -37,6 +39,7 @@ type CreateCustomerPayload = {
   phone?: string | null;
   email?: string | null;
   address?: string | null;
+  address2?: string | null;
   nif?: string | null;
 };
 
@@ -66,6 +69,7 @@ export async function updateCustomer(
     lastName?: string | null;
     phone?: string | null;
     address?: string | null;
+    address2?: string | null;
     nif?: string | null;
   },
 ): Promise<Customer | null> {

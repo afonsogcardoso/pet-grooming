@@ -68,7 +68,7 @@ const MARKETPLACE_APPOINTMENT_SELECT = `
   before_photo_url,
   after_photo_url,
   account:accounts ( id, name, slug, logo_url, support_email, support_phone ),
-  customers!inner ( id, first_name, last_name, phone, email, address ),
+  customers!inner ( id, first_name, last_name, phone, email, address, address_2 ),
   pets ( id, name, breed, photo_url, weight ),
   services ( id, name, price, category, subcategory, display_order ),
   appointment_services (
@@ -682,6 +682,7 @@ router.post('/booking-requests', async (req, res) => {
   const customerPhoneCountryCode = phoneParts.phone_country_code
   const customerPhoneNumber = phoneParts.phone_number
   const customerAddress = normalizeString(customerPayload.address)
+  const customerAddress2 = normalizeString(customerPayload.address2 || customerPayload.address_2)
   const customerNif = normalizeString(customerPayload.nif)
 
   if (!customerFirstName || !customerLastName || !customerEmail || !customerPhone) {
@@ -727,6 +728,7 @@ router.post('/booking-requests', async (req, res) => {
       updates.phone_number = customerPhoneNumber
     }
     if (customerAddress) updates.address = customerAddress
+    if (customerAddress2) updates.address_2 = customerAddress2
     if (customerNif) updates.nif = customerNif
 
     if (Object.keys(updates).length) {
@@ -756,6 +758,7 @@ router.post('/booking-requests', async (req, res) => {
         phone_country_code: customerPhoneCountryCode,
         phone_number: customerPhoneNumber,
         address: customerAddress,
+        address_2: customerAddress2,
         nif: customerNif,
         user_id: user.id
       })

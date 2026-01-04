@@ -7,7 +7,7 @@ import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { getCardStyle } from '../../theme/uiTokens';
 import { getDateLocale } from '../../i18n';
 import { matchesSearchQuery } from '../../utils/textHelpers';
-import { formatCustomerName, getCustomerFirstName } from '../../utils/customer';
+import { formatCustomerAddress, formatCustomerName, getCustomerFirstName } from '../../utils/customer';
 import { Button } from '../common';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
@@ -277,7 +277,7 @@ const AppointmentRow = React.memo(function AppointmentRow({
   const serviceNames = appointmentServices
     .map((entry) => entry.services?.name)
     .filter((value): value is string => Boolean(value));
-  const address = item.customers?.address;
+  const address = formatCustomerAddress(item.customers);
   const phone = item.customers?.phone;
   const statusColor = getStatusColor(item.status);
   const statusLabel = getStatusLabel(item.status);
@@ -425,7 +425,7 @@ export function ListView({
       const values = [
         formatCustomerName(appointment.customers),
         appointment.customers?.phone,
-        appointment.customers?.address,
+        formatCustomerAddress(appointment.customers),
         appointment.pets?.name,
         appointment.pets?.breed,
         appointment.services?.name,

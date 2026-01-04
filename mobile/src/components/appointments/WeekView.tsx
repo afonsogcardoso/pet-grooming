@@ -30,13 +30,13 @@ const SWIPE_VELOCITY = 0.3;
 
 function getWeekDays(date: Date): Date[] {
   const day = date.getDay();
-  const monday = new Date(date);
-  monday.setDate(date.getDate() - (day === 0 ? 6 : day - 1));
+  const sunday = new Date(date);
+  sunday.setDate(date.getDate() - day);
   
   const days: Date[] = [];
   for (let i = 0; i < 7; i++) {
-    const current = new Date(monday);
-    current.setDate(monday.getDate() + i);
+    const current = new Date(sunday);
+    current.setDate(sunday.getDate() + i);
     days.push(current);
   }
   return days;
@@ -350,7 +350,7 @@ export function WeekView({
       left: 2,
       right: 2,
       ...cardBase,
-      borderRadius: 16,
+      borderRadius: 6,
       padding: 4,
       borderLeftWidth: 3,
       overflow: 'hidden',

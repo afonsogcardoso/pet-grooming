@@ -33,7 +33,7 @@ import { useTranslation } from 'react-i18next';
 import { hapticError, hapticSuccess } from '../utils/haptics';
 import { getDateLocale } from '../i18n';
 import { buildPhone } from '../utils/phone';
-import { formatCustomerName, getCustomerFirstName } from '../utils/customer';
+import { formatCustomerAddress, formatCustomerName, getCustomerFirstName } from '../utils/customer';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -179,7 +179,10 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
   const [newCustomerEmail, setNewCustomerEmail] = useState('');
   const [newCustomerAddress, setNewCustomerAddress] = useState('');
+  const [newCustomerAddress2, setNewCustomerAddress2] = useState('');
   const [newCustomerNif, setNewCustomerNif] = useState('');
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+  const submitLockRef = useRef(false);
   const [newPets, setNewPets] = useState<DraftPet[]>([createDraftPet()]);
   const [existingNewPets, setExistingNewPets] = useState<DraftPet[]>([]);
   const [showCustomerList, setShowCustomerList] = useState(false);
@@ -190,11 +193,13 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const [sendWhatsapp, setSendWhatsapp] = useState(false);
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [customerAddress2, setCustomerAddress2] = useState('');
   const [customerNif, setCustomerNif] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollContentRef = useRef<View>(null);
   const amountInputRef = useRef<TextInput>(null);
   const notesInputRef = useRef<TextInput>(null);
+  const skipAutoInitRef = useRef(false);
 
   const queryClient = useQueryClient();
   const { t } = useTranslation();
@@ -258,12 +263,12 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           rowsByPet[petId].push(
             createServiceRow({
               id: entry.id || `${petId}-${entry.service_id}-${index}`,
-              serviceId: entry.service_id,
+              serviceId: entry.service_id || entry.services?.id || '',
               priceTierId: entry.price_tier_id || '',
               tierSelectionSource: entry.price_tier_id ? 'stored' : null,
               addonIds: entry.appointment_service_addons
                 ? entry.appointment_service_addons
-                    .map((addon: any) => addon.service_addon_id)
+                    .map((addon: any) => addon.service_addon_id || addon.id)
                     .filter(Boolean)
                 : [],
             }),
@@ -285,6 +290,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
         }
       }
 
+      skipAutoInitRef.current = true;
       setSelectedPetIds(Array.from(petIds));
       setServiceRowsByPet(rowsByPet);
 
@@ -297,6 +303,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           ),
       );
       setCustomerAddress(appointmentData.customers?.address || '');
+      setCustomerAddress2(appointmentData.customers?.address2 || '');
       setCustomerNif(appointmentData.customers?.nif || '');
     }
   }, [appointmentData, isEditMode]);
@@ -327,6 +334,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const background = colors.background;
   const pickerTheme = isHexLight(colors.background) ? 'light' : 'dark';
   const addressPlaceholder = t('appointmentForm.addressPlaceholder');
+  const address2Placeholder = t('appointmentForm.address2Placeholder');
   const displayTime = formatHHMM(time);
   const newCustomerFullName = useMemo(() => {
     const first = newCustomerFirstName.trim();
@@ -406,6 +414,10 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
   useEffect(() => {
     if (mode !== 'existing') return;
+    if (skipAutoInitRef.current) {
+      skipAutoInitRef.current = false;
+      return;
+    }
     setServiceRowsByPet((prev) => {
       const next: Record<string, ServiceRow[]> = {};
       const petKeys = [...selectedPetIds, ...existingNewPets.map((pet) => pet.id)];
@@ -536,10 +548,12 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           ),
       );
       setCustomerAddress(selectedCustomerData.address || '');
+      setCustomerAddress2(selectedCustomerData.address2 || '');
       setCustomerNif(selectedCustomerData.nif || '');
     } else {
       setCustomerPhone('');
       setCustomerAddress('');
+      setCustomerAddress2('');
       setCustomerNif('');
     }
   }, [selectedCustomer, selectedCustomerData, mode]);
@@ -599,7 +613,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const newPetsValid = newPets.length > 0 && newPets.every((pet) => pet.name.trim());
   const hasNewCustomerName = Boolean(newCustomerFirstName.trim());
   const hasNewSelection = Boolean(hasNewCustomerName && newPetsValid);
-  const isSubmitting = mutation.isPending;
+  const isSubmitting = mutation.isPending || isSubmittingRequest;
   const canSubmit =
     Boolean(
       date &&
@@ -779,7 +793,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   };
 
   const handleSubmit = async () => {
-    if (isSubmitting) {
+    if (isSubmitting || isSubmittingRequest || submitLockRef.current) {
       return; // Previne múltiplos cliques
     }
 
@@ -801,91 +815,66 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       return;
     }
 
-    let customerId = selectedCustomer;
-    let createdCustomer: Customer | null = null;
+    submitLockRef.current = true;
+    setIsSubmittingRequest(true);
+    try {
+      let customerId = selectedCustomer;
+      let createdCustomer: Customer | null = null;
 
-    if (mode === 'new') {
-      try {
-        const trimmedFirstName = newCustomerFirstName.trim();
-        const trimmedLastName = newCustomerLastName.trim();
-        createdCustomer = await createCustomer({
-          firstName: trimmedFirstName,
-          lastName: trimmedLastName || undefined,
-          phone: newCustomerPhone.trim() || null,
-          email: newCustomerEmail.trim() || null,
-          address: newCustomerAddress.trim() || null,
-          nif: newCustomerNif.trim() || null,
-        });
-        customerId = createdCustomer.id;
-      } catch (err: any) {
-        hapticError();
-        const message = err?.response?.data?.error || err.message || t('appointmentForm.createCustomerPetError');
-        Alert.alert(t('common.error'), message);
-        return;
-      }
-    } else if (selectedCustomerData) {
-      const hasChanges =
-        customerPhone.trim() !== (selectedCustomerData.phone || '') ||
-        customerAddress.trim() !== (selectedCustomerData.address || '') ||
-        customerNif.trim() !== (selectedCustomerData.nif || '');
-      if (hasChanges) {
+      if (mode === 'new') {
         try {
-          const updated = await updateCustomer(selectedCustomerData.id, {
-            phone: customerPhone.trim() || null,
-            address: customerAddress.trim() || '',
-            nif: customerNif.trim() || null,
+          const trimmedFirstName = newCustomerFirstName.trim();
+          const trimmedLastName = newCustomerLastName.trim();
+          createdCustomer = await createCustomer({
+            firstName: trimmedFirstName,
+            lastName: trimmedLastName || undefined,
+            phone: newCustomerPhone.trim() || null,
+            email: newCustomerEmail.trim() || null,
+            address: newCustomerAddress.trim() || null,
+            address2: newCustomerAddress2.trim() || null,
+            nif: newCustomerNif.trim() || null,
           });
-          queryClient.setQueryData(['customers'], (prev: Customer[] | undefined) => {
-            if (!prev) return prev;
-            return prev.map((c) => (c.id === selectedCustomerData.id ? { ...c, ...(updated || {}) } : c));
-          });
+          customerId = createdCustomer.id;
         } catch (err: any) {
           hapticError();
-          const message = err?.response?.data?.error || err.message || t('appointmentForm.updateCustomerError');
+          const message = err?.response?.data?.error || err.message || t('appointmentForm.createCustomerPetError');
           Alert.alert(t('common.error'), message);
           return;
         }
+      } else if (selectedCustomerData) {
+        const hasChanges =
+          customerPhone.trim() !== (selectedCustomerData.phone || '') ||
+          customerAddress.trim() !== (selectedCustomerData.address || '') ||
+          customerAddress2.trim() !== (selectedCustomerData.address2 || '') ||
+          customerNif.trim() !== (selectedCustomerData.nif || '');
+        if (hasChanges) {
+          try {
+            const updated = await updateCustomer(selectedCustomerData.id, {
+              phone: customerPhone.trim() || null,
+              address: customerAddress.trim() || '',
+              address2: customerAddress2.trim() || '',
+              nif: customerNif.trim() || null,
+            });
+            queryClient.setQueryData(['customers'], (prev: Customer[] | undefined) => {
+              if (!prev) return prev;
+              return prev.map((c) => (c.id === selectedCustomerData.id ? { ...c, ...(updated || {}) } : c));
+            });
+          } catch (err: any) {
+            hapticError();
+            const message = err?.response?.data?.error || err.message || t('appointmentForm.updateCustomerError');
+            Alert.alert(t('common.error'), message);
+            return;
+          }
+        }
       }
-    }
 
-    const petIdMap = new Map<string, string>();
-    let primaryPetId = '';
+      const petIdMap = new Map<string, string>();
+      let primaryPetId = '';
 
-    if (mode === 'new') {
-      try {
-        const createdPets: Pet[] = [];
-        for (const pet of newPets) {
-          const weightValue = parseAmountInput(pet.weight);
-          const createdPet = await createPet(customerId, {
-            name: pet.name.trim(),
-            breed: pet.breed.trim() || null,
-            weight: weightValue ?? null,
-          });
-          petIdMap.set(pet.id, createdPet.id);
-          createdPets.push(createdPet);
-        }
-        if (createdPets[0]?.id) {
-          primaryPetId = createdPets[0].id;
-        }
-
-        if (createdCustomer) {
-          queryClient.setQueryData(['customers'], (prev: Customer[] | undefined) => {
-            const next = prev ? [...prev] : [];
-            next.push({ ...createdCustomer, pets: createdPets });
-            return next;
-          });
-        }
-      } catch (err: any) {
-        hapticError();
-        const message = err?.response?.data?.error || err.message || t('appointmentForm.createCustomerPetError');
-        Alert.alert(t('common.error'), message);
-        return;
-      }
-    } else {
-      if (existingNewPets.length > 0) {
+      if (mode === 'new') {
         try {
           const createdPets: Pet[] = [];
-          for (const pet of existingNewPets) {
+          for (const pet of newPets) {
             const weightValue = parseAmountInput(pet.weight);
             const createdPet = await createPet(customerId, {
               name: pet.name.trim(),
@@ -895,17 +884,15 @@ export default function NewAppointmentScreen({ navigation }: Props) {
             petIdMap.set(pet.id, createdPet.id);
             createdPets.push(createdPet);
           }
-          if (createdPets.length > 0) {
+          if (createdPets[0]?.id) {
+            primaryPetId = createdPets[0].id;
+          }
+
+          if (createdCustomer) {
             queryClient.setQueryData(['customers'], (prev: Customer[] | undefined) => {
-              if (!prev) return prev;
-              return prev.map((customer) => {
-                if (customer.id !== customerId) return customer;
-                const currentPets = customer.pets || [];
-                const nextPets = [...currentPets, ...createdPets];
-                const nextCount =
-                  typeof customer.pet_count === 'number' ? customer.pet_count + createdPets.length : nextPets.length;
-                return { ...customer, pets: nextPets, pet_count: nextCount };
-              });
+              const next = prev ? [...prev] : [];
+              next.push({ ...createdCustomer, pets: createdPets });
+              return next;
             });
           }
         } catch (err: any) {
@@ -914,42 +901,79 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           Alert.alert(t('common.error'), message);
           return;
         }
+      } else {
+        if (existingNewPets.length > 0) {
+          try {
+            const createdPets: Pet[] = [];
+            for (const pet of existingNewPets) {
+              const weightValue = parseAmountInput(pet.weight);
+              const createdPet = await createPet(customerId, {
+                name: pet.name.trim(),
+                breed: pet.breed.trim() || null,
+                weight: weightValue ?? null,
+              });
+              petIdMap.set(pet.id, createdPet.id);
+              createdPets.push(createdPet);
+            }
+            if (createdPets.length > 0) {
+              queryClient.setQueryData(['customers'], (prev: Customer[] | undefined) => {
+                if (!prev) return prev;
+                return prev.map((customer) => {
+                  if (customer.id !== customerId) return customer;
+                  const currentPets = customer.pets || [];
+                  const nextPets = [...currentPets, ...createdPets];
+                  const nextCount =
+                    typeof customer.pet_count === 'number' ? customer.pet_count + createdPets.length : nextPets.length;
+                  return { ...customer, pets: nextPets, pet_count: nextCount };
+                });
+              });
+            }
+          } catch (err: any) {
+            hapticError();
+            const message = err?.response?.data?.error || err.message || t('appointmentForm.createCustomerPetError');
+            Alert.alert(t('common.error'), message);
+            return;
+          }
+        }
+        primaryPetId = selectedPetIds[0] || petIdMap.get(existingNewPets[0]?.id) || '';
       }
-      primaryPetId = selectedPetIds[0] || petIdMap.get(existingNewPets[0]?.id) || '';
+
+      const serviceSelections = Object.entries(serviceRowsByPet).flatMap(([petKey, rows]) => {
+        const resolvedPetId = petIdMap.get(petKey) || petKey;
+        if (!resolvedPetId) return [];
+        return rows
+          .filter((row) => row.serviceId)
+          .map((row) => ({
+            pet_id: resolvedPetId,
+            service_id: row.serviceId,
+            price_tier_id: row.priceTierId || null,
+            addon_ids: row.addonIds,
+          }));
+      });
+
+      const serviceIds = Array.from(new Set(serviceSelections.map((selection) => selection.service_id)));
+      const primarySelection = serviceSelections[0];
+      const primaryServiceId = primarySelection?.service_id || serviceIds[0] || '';
+      const primaryPetSelectionId = primarySelection?.pet_id || primaryPetId || '';
+      const effectiveDuration = totalDuration > 0 ? totalDuration : duration || null;
+
+      await mutation.mutateAsync({
+        appointment_date: date,
+        appointment_time: formatHHMM(time).trim(),
+        status: 'scheduled',
+        duration: effectiveDuration,
+        amount: amountValue ?? null,
+        notes: notes.trim() || null,
+        customer_id: customerId,
+        pet_id: primaryPetSelectionId,
+        service_id: primaryServiceId, // Keep for backward compatibility
+        service_ids: serviceIds,
+        service_selections: serviceSelections,
+      });
+    } finally {
+      submitLockRef.current = false;
+      setIsSubmittingRequest(false);
     }
-
-    const serviceSelections = Object.entries(serviceRowsByPet).flatMap(([petKey, rows]) => {
-      const resolvedPetId = petIdMap.get(petKey) || petKey;
-      if (!resolvedPetId) return [];
-      return rows
-        .filter((row) => row.serviceId)
-        .map((row) => ({
-          pet_id: resolvedPetId,
-          service_id: row.serviceId,
-          price_tier_id: row.priceTierId || null,
-          addon_ids: row.addonIds,
-        }));
-    });
-
-    const serviceIds = Array.from(new Set(serviceSelections.map((selection) => selection.service_id)));
-    const primarySelection = serviceSelections[0];
-    const primaryServiceId = primarySelection?.service_id || serviceIds[0] || '';
-    const primaryPetSelectionId = primarySelection?.pet_id || primaryPetId || '';
-    const effectiveDuration = totalDuration > 0 ? totalDuration : duration || null;
-
-    await mutation.mutateAsync({
-      appointment_date: date,
-      appointment_time: formatHHMM(time).trim(),
-      status: 'scheduled',
-      duration: effectiveDuration,
-      amount: amountValue ?? null,
-      notes: notes.trim() || null,
-      customer_id: customerId,
-      pet_id: primaryPetSelectionId,
-      service_id: primaryServiceId, // Keep for backward compatibility
-      service_ids: serviceIds,
-      service_selections: serviceSelections,
-    });
   };
 
   const buildWhatsappMessage = (confirmationUrl?: string) => {
@@ -960,7 +984,13 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     const timeLabel = time || '—';
     const customerFirstName =
       mode === 'new' ? newCustomerFirstName.trim() : getCustomerFirstName(selectedCustomerData);
-    const address = mode === 'new' ? newCustomerAddress : customerAddress || selectedCustomerData?.address;
+    const address =
+      mode === 'new'
+        ? formatCustomerAddress({ address: newCustomerAddress, address2: newCustomerAddress2 })
+        : formatCustomerAddress({
+            address: customerAddress || selectedCustomerData?.address,
+            address2: customerAddress2 || selectedCustomerData?.address2,
+          });
 
     const serviceNameById = new Map(services.map((service) => [service.id, service.name]));
     const existingEntries = selectedPetIds
@@ -1201,6 +1231,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                     setCustomerSearch('');
                     setCustomerPhone('');
                     setCustomerAddress('');
+                    setCustomerAddress2('');
                     setCustomerNif('');
                     setShowPetList(false);
                     setNewPets([createDraftPet()]);
@@ -1208,7 +1239,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                   }}
                 >
                   <Text style={[styles.segmentText, { color: mode === 'new' ? primary : colors.text }]}>
-                    ➕ {t('appointmentForm.newCustomer')}
+                    {t('appointmentForm.newCustomer')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -1223,13 +1254,14 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                     setNewCustomerPhone('');
                     setNewCustomerEmail('');
                     setNewCustomerAddress('');
+                    setNewCustomerAddress2('');
                     setNewCustomerNif('');
                     setNewPets([createDraftPet()]);
                     setExistingNewPets([]);
                   }}
                 >
                   <Text style={[styles.segmentText, { color: mode === 'existing' ? primary : colors.text }]}>
-                    📋 {t('appointmentForm.existingCustomer')}
+                    {t('appointmentForm.existingCustomer')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1250,9 +1282,12 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                   setCustomerPhone={setCustomerPhone}
                   customerAddress={customerAddress}
                   setCustomerAddress={setCustomerAddress}
+                  customerAddress2={customerAddress2}
+                  setCustomerAddress2={setCustomerAddress2}
                   customerNif={customerNif}
                   setCustomerNif={setCustomerNif}
                   addressPlaceholder={addressPlaceholder}
+                  address2Placeholder={address2Placeholder}
                   primarySoft={primarySoft}
                 />
               ) : (
@@ -1267,9 +1302,12 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                   setCustomerEmail={setNewCustomerEmail}
                   customerAddress={newCustomerAddress}
                   setCustomerAddress={setNewCustomerAddress}
+                  customerAddress2={newCustomerAddress2}
+                  setCustomerAddress2={setNewCustomerAddress2}
                   customerNif={newCustomerNif}
                   setCustomerNif={setNewCustomerNif}
                   addressPlaceholder={addressPlaceholder}
+                  address2Placeholder={address2Placeholder}
                 />
               )}
             </View>
@@ -1757,7 +1795,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           {/* Seção: Notas */}
           {activeStep === 3 ? (
             <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>📝 {t('appointmentForm.additionalInfo')}</Text>
+              <Text style={styles.sectionTitle}>{t('appointmentForm.additionalInfo')}</Text>
               
               <View style={styles.field}>
                 <Text style={styles.label}>{t('appointmentForm.notesLabel')}</Text>

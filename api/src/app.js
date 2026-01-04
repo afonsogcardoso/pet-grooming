@@ -275,6 +275,7 @@ const swaggerDefinition = {
           phoneCountryCode: { type: 'string', nullable: true },
           phoneNumber: { type: 'string', nullable: true },
           address: { type: 'string' },
+          address2: { type: 'string', nullable: true },
           email: { type: 'string', nullable: true },
           nif: { type: 'string', nullable: true }
         }

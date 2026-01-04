@@ -539,6 +539,7 @@ router.get('/profile', async (req, res) => {
     firstName: enrichedUser.user_metadata?.first_name ?? null,
     lastName: enrichedUser.user_metadata?.last_name ?? null,
     address: enrichedUser.user_metadata?.address ?? null,
+    address2: enrichedUser.user_metadata?.address_2 ?? null,
     phone: responsePhone,
     phoneCountryCode: responsePhoneCountryCode,
     phoneNumber: responsePhoneNumber,

@@ -20,6 +20,7 @@ export type Appointment = {
     phoneCountryCode?: string | null;
     phoneNumber?: string | null;
     address?: string | null;
+    address2?: string | null;
     nif?: string | null;
   } | null;
   services?: {

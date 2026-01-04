@@ -41,6 +41,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
   const [phone, setPhone] = useState(initialPhone || '');
   const [email, setEmail] = useState(customer?.email || '');
   const [address, setAddress] = useState(customer?.address || '');
+  const [address2, setAddress2] = useState(customer?.address2 || '');
   const [nif, setNif] = useState(customer?.nif || '');
   const [photoUrl, setPhotoUrl] = useState(customer?.photo_url || '');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -66,6 +67,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
       lastName?: string | null;
       phone?: string | null;
       address?: string | null;
+      address2?: string | null;
       nif?: string | null;
     }) =>
       updateCustomer(customerId!, data),
@@ -114,6 +116,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
         phone: phone.trim() || null,
         email: email.trim() || null,
         address: address.trim() || null,
+        address2: address2.trim() || null,
         nif: nif.trim() || null,
       });
     } else {
@@ -122,6 +125,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
         lastName: lastName.trim() || null,
         phone: phone.trim() || null,
         address: address.trim() || null,
+        address2: address2.trim() || null,
         nif: nif.trim() || null,
       });
     }
@@ -277,7 +281,11 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.form}>
             {/* Avatar Section */}
             <View style={styles.avatarSection}>
@@ -361,6 +369,15 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
                 />
                 {errors.address ? <Text style={styles.errorText}>{errors.address}</Text> : null}
               </View>
+
+              <Input
+                label={t('customerDetail.address2')}
+                placeholder={t('customerForm.address2Placeholder')}
+                value={address2}
+                onChangeText={setAddress2}
+                error={errors.address2}
+                autoCapitalize="words"
+              />
 
               {mode === 'create' && (
                 <View style={styles.hint}>

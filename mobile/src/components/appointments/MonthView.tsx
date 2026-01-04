@@ -32,7 +32,7 @@ function getMonthDays(date: Date): Array<{ date: string; isCurrentMonth: boolean
   
   // Preenche dias anteriores ao mês
   const firstDayOfWeek = firstDay.getDay();
-  const daysToFill = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+  const daysToFill = firstDayOfWeek;
   for (let i = daysToFill; i > 0; i--) {
     const prevDate = new Date(year, month, 1 - i);
     days.push({
@@ -198,7 +198,7 @@ export function MonthView({
     dayButton: {
       width: '100%',
       height: '100%',
-      borderRadius: 8,
+      borderRadius: 4,
       justifyContent: 'center',
       alignItems: 'center',
       position: 'relative',
@@ -280,7 +280,7 @@ export function MonthView({
     },
   });
 
-  const weekDayLabels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+  const weekDayLabels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   return (
     <View style={styles.container} {...panResponder.panHandlers}>

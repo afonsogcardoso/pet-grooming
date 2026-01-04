@@ -18,6 +18,7 @@ export function CustomerCard({ customer, onPress }: CustomerCardProps) {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const petCount = customer.pet_count || customer.pets?.length || 0;
+  const appointmentCount = customer.appointment_count ?? 0;
   const displayName = formatCustomerName(customer);
 
   return (
@@ -44,7 +45,8 @@ export function CustomerCard({ customer, onPress }: CustomerCardProps) {
           <View style={styles.detailItem}>
             <Text style={styles.detailIcon}>🐾</Text>
             <Text style={styles.detailText}>
-              {t('customerCard.petCount', { count: petCount })}
+              {t('customerCard.petCount', { count: petCount })} •{' '}
+              {t('customerCard.appointmentCount', { count: appointmentCount })}
             </Text>
           </View>
         </View>

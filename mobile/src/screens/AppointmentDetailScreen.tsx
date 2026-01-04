@@ -12,7 +12,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { MiniMap } from '../components/common/MiniMap';
 import { getStatusColor, getStatusLabel } from '../utils/appointmentStatus';
 import { getDateLocale } from '../i18n';
-import { formatCustomerName, getCustomerFirstName } from '../utils/customer';
+import { formatCustomerAddress, formatCustomerName, getCustomerFirstName } from '../utils/customer';
 import { hapticError, hapticSelection, hapticSuccess, hapticWarning } from '../utils/haptics';
 import { getCardStyle } from '../theme/uiTokens';
 
@@ -100,6 +100,17 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const customerName = formatCustomerName(customer);
   const service = appointment?.services;
   const pet = appointment?.pets;
+  const appointmentPets = useMemo(() => {
+    if (!appointment) return [];
+    const collected = [appointment.pets, ...(appointment.appointment_services || []).map((entry: any) => entry.pets)];
+    const unique = new Map<string, any>();
+    collected.forEach((entry, index) => {
+      if (!entry) return;
+      const key = entry.id ? String(entry.id) : `${entry.name || 'pet'}-${entry.breed || ''}-${index}`;
+      if (!unique.has(key)) unique.set(key, entry);
+    });
+    return Array.from(unique.values());
+  }, [appointment]);
   const paymentStatus = appointment?.payment_status || 'unpaid';
   const statusOptions = [
     { value: 'pending', emoji: '⏳' },
@@ -167,7 +178,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   );
 
   const openMaps = async () => {
-    const address = customer?.address;
+    const address = formatCustomerAddress(customer);
     if (!address) return;
     
     try {
@@ -404,7 +415,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
             onPress={handleEditAppointment}
             style={[styles.actionButton, { backgroundColor: colors.surface }]}
           >
-            <Text style={{ fontSize: 18 }}>✏️</Text>
+            <Ionicons name="create-outline" size={18} color={colors.text} />
           </TouchableOpacity>
         }
       />
@@ -558,28 +569,64 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                 ) : null}
               </TouchableOpacity>
 
-              {pet ? (
+              {appointmentPets.length > 0 ? (
                 <View style={[styles.compactCard, styles.petCard, { flex: 1 }]}>
                   <Text style={styles.compactCardTitle}>🐾 {t('appointmentDetail.pet')}</Text>
-                  {pet.photo_url ? (
-                    <Image source={{ uri: pet.photo_url }} style={styles.petThumbnail} />
-                  ) : null}
-                  <Text style={styles.compactCardName}>{pet.name}</Text>
-                  {pet.breed ? <Text style={styles.compactCardBreed}>{pet.breed}</Text> : null}
+                  {appointmentPets.length === 1 ? (
+                    <>
+                      {appointmentPets[0].photo_url ? (
+                        <Image source={{ uri: appointmentPets[0].photo_url }} style={styles.petThumbnail} />
+                      ) : null}
+                      <Text style={styles.compactCardName}>{appointmentPets[0].name}</Text>
+                      {appointmentPets[0].breed ? (
+                        <Text style={styles.compactCardBreed}>{appointmentPets[0].breed}</Text>
+                      ) : null}
+                    </>
+                  ) : (
+                    <View style={styles.petList}>
+                      {appointmentPets.map((entry, index) => {
+                        const key = entry.id ? String(entry.id) : `${entry.name || 'pet'}-${index}`;
+                        return (
+                          <View
+                            key={key}
+                            style={[styles.petRow, index === appointmentPets.length - 1 && styles.petRowLast]}
+                          >
+                            {entry.photo_url ? (
+                              <Image source={{ uri: entry.photo_url }} style={styles.petRowImage} />
+                            ) : (
+                              <View style={styles.petRowPlaceholder}>
+                                <Text style={styles.petRowPlaceholderIcon}>🐾</Text>
+                              </View>
+                            )}
+                            <View style={styles.petRowInfo}>
+                              <Text style={styles.petRowName} numberOfLines={1}>
+                                {entry.name}
+                              </Text>
+                              {entry.breed ? (
+                                <Text style={styles.petRowBreed} numberOfLines={1}>
+                                  {entry.breed}
+                                </Text>
+                              ) : null}
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
                 </View>
               ) : null}
             </View>
 
-            {customer?.address ? (
+            {formatCustomerAddress(customer) ? (
               <View style={styles.mapCardContainer}>
                 <View style={styles.mapCardHeader}>
                   <Text style={styles.mapIcon}>📍</Text>
                   <View style={styles.mapContent}>
                     <Text style={styles.mapTitle}>{t('appointmentDetail.address')}</Text>
-                    <Text style={styles.mapAddress}>{customer.address}</Text>
+                    <Text style={styles.mapAddress}>{formatCustomerAddress(customer, '\n')}</Text>
                   </View>
                 </View>
-                <MiniMap address={customer.address} />
+                <MiniMap address={formatCustomerAddress(customer)} />
               </View>
             ) : null}
 
@@ -988,6 +1035,55 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderRadius: 12,
       marginBottom: 8,
       backgroundColor: colors.background,
+    },
+    petList: {
+      width: '100%',
+      gap: 10,
+    },
+    petRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingBottom: 10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.surfaceBorder,
+    },
+    petRowLast: {
+      borderBottomWidth: 0,
+      paddingBottom: 0,
+    },
+    petRowImage: {
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: colors.background,
+    },
+    petRowPlaceholder: {
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: colors.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    petRowPlaceholderIcon: {
+      fontSize: 18,
+    },
+    petRowInfo: {
+      flex: 1,
+      alignItems: 'flex-start',
+    },
+    petRowName: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.text,
+      textAlign: 'left',
+    },
+    petRowBreed: {
+      fontSize: 12,
+      color: colors.muted,
+      textAlign: 'left',
+      marginTop: 2,
     },
     // Map Card
     mapCardContainer: {

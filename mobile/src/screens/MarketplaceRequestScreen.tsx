@@ -240,7 +240,11 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
       edges={['top', 'left', 'right']}
     >
       <ScreenHeader title={t('marketplaceRequest.title')} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>{accountName}</Text>
           <Text style={styles.summarySubtitle}>{serviceName}</Text>

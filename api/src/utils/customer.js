@@ -31,10 +31,21 @@ function mapCustomerForApi(customer) {
     mapped.lastName = mapped.last_name
     delete mapped.last_name
   }
+  if (Object.prototype.hasOwnProperty.call(mapped, 'address_2')) {
+    mapped.address2 = mapped.address_2
+    delete mapped.address_2
+  }
   if (Object.prototype.hasOwnProperty.call(mapped, 'name')) {
     delete mapped.name
   }
   return mapped
+}
+
+function formatCustomerAddress(customer) {
+  if (!customer) return ''
+  const line1 = customer.address || customer.address1 || ''
+  const line2 = customer.address2 || customer.address_2 || ''
+  return [line1, line2].filter(Boolean).join(', ')
 }
 
 function mapAppointmentForApi(appointment) {
@@ -46,4 +57,4 @@ function mapAppointmentForApi(appointment) {
   return mapped
 }
 
-export { mapCustomerForApi, mapAppointmentForApi, formatCustomerName }
+export { mapCustomerForApi, mapAppointmentForApi, formatCustomerName, formatCustomerAddress }

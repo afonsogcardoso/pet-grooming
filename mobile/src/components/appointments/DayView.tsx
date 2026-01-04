@@ -6,7 +6,7 @@ import { useBrandingTheme } from '../../theme/useBrandingTheme';
 import { getDateLocale } from '../../i18n';
 import type { Appointment } from '../../api/appointments';
 import { getStatusColor } from '../../utils/appointmentStatus';
-import { formatCustomerName } from '../../utils/customer';
+import { formatCustomerAddress, formatCustomerName } from '../../utils/customer';
 import { getCardStyle } from '../../theme/uiTokens';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
@@ -431,7 +431,7 @@ export function DayView({
               const customer = appointment.customers;
               const customerName = formatCustomerName(customer);
               const phone = customer?.phone;
-              const address = customer?.address;
+              const address = formatCustomerAddress(customer);
               const appointmentServices = Array.isArray(appointment.appointment_services)
                 ? appointment.appointment_services
                 : [];

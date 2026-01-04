@@ -26,6 +26,7 @@ export type ConsumerAppointment = {
     phone?: string | null;
     email?: string | null;
     address?: string | null;
+    address2?: string | null;
   } | null;
   pets?: {
     id: string;

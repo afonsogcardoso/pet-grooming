@@ -114,6 +114,7 @@ export default function LoginScreen({ navigation }: Props) {
       firstName?: string | null;
       lastName?: string | null;
       address?: string | null;
+      address2?: string | null;
       activeRole?: 'consumer' | 'provider' | null;
     };
   }) => {
@@ -129,6 +130,7 @@ export default function LoginScreen({ navigation }: Props) {
         firstName: profile.firstName,
         lastName: profile.lastName,
         address: profile.address,
+        address2: profile.address2,
         activeRole: profile.activeRole,
       });
     } catch {

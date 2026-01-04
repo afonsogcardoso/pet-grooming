@@ -107,12 +107,14 @@ export function UndoToast({
   const combinedTranslateY = Animated.add(translateY, dragY);
 
   const handleDismiss = useCallback(() => {
+    if (actionHandledRef.current) return;
     actionHandledRef.current = true;
     clearTimers();
     onDismissRef.current?.();
   }, [clearTimers]);
 
   const handleAction = useCallback(() => {
+    if (actionHandledRef.current) return;
     actionHandledRef.current = true;
     clearTimers();
     onAction();
@@ -167,16 +169,21 @@ export function UndoToast({
           transform: [{ translateY: combinedTranslateY }],
         },
       ]}
-      {...panResponder.panHandlers}
     >
-      <Text style={styles.message}>{message}</Text>
+      <View style={styles.messageWrap} {...panResponder.panHandlers}>
+        <Text style={styles.message}>{message}</Text>
+      </View>
       <View style={styles.actions}>
         {remaining > 0 ? (
           <View style={styles.countdown}>
             <Text style={styles.countdownText}>{remaining}</Text>
           </View>
         ) : null}
-        <TouchableOpacity onPress={handleAction} style={styles.button}>
+        <TouchableOpacity
+          onPress={handleAction}
+          style={styles.button}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
           <Text style={styles.buttonText}>{actionLabel}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={handleDismiss} style={styles.closeButton} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
@@ -208,11 +215,13 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       shadowOffset: { width: 0, height: 4 },
       elevation: 4,
     },
-    message: {
+    messageWrap: {
       flex: 1,
+      marginRight: 12,
+    },
+    message: {
       color: colors.text,
       fontWeight: '600',
-      marginRight: 12,
     },
     actions: {
       flexDirection: 'row',

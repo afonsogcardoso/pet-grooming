@@ -69,10 +69,10 @@ export default function AppointmentsScreen({ navigation }: Props) {
     }
 
     if (viewMode === 'week') {
-      // Calculate Monday as start of week (like in WeekView)
+      // Calculate Sunday as start of week (like in WeekView)
       const day = selectedDate.getDay();
       const startOfWeek = new Date(selectedDate);
-      startOfWeek.setDate(selectedDate.getDate() - (day === 0 ? 6 : day - 1));
+      startOfWeek.setDate(selectedDate.getDate() - day);
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 6);
       

@@ -21,7 +21,7 @@ export default {
     bundleIdentifier,
     buildNumber,
     supportsTablet: true,
-    deploymentTarget: '18.0',
+    deploymentTarget: '16.0',
     infoPlist: {
       NSPhotoLibraryUsageDescription: 'Precisamos de acesso às fotos para anexar imagens do pet.',
       NSCameraUsageDescription: 'Precisamos de acesso à câmara para tirar fotos do pet.',

@@ -7,6 +7,7 @@ export type Profile = {
   firstName?: string | null;
   lastName?: string | null;
   address?: string | null;
+  address2?: string | null;
   phone?: string | null;
   phoneCountryCode?: string | null;
   phoneNumber?: string | null;
@@ -31,6 +32,7 @@ export async function updateProfile(payload: {
   firstName?: string | null;
   lastName?: string | null;
   address?: string | null;
+  address2?: string | null;
   phone?: string | null;
   locale?: string | null;
   avatarUrl?: string | null;

@@ -27,9 +27,12 @@ type ExistingCustomerFormProps = {
   setCustomerPhone: (value: string) => void;
   customerAddress: string;
   setCustomerAddress: (value: string) => void;
+  customerAddress2: string;
+  setCustomerAddress2: (value: string) => void;
   customerNif: string;
   setCustomerNif: (value: string) => void;
   addressPlaceholder: string;
+  address2Placeholder: string;
   primarySoft: string;
 };
 
@@ -48,9 +51,12 @@ export function ExistingCustomerForm({
   setCustomerPhone,
   customerAddress,
   setCustomerAddress,
+  customerAddress2,
+  setCustomerAddress2,
   customerNif,
   setCustomerNif,
   addressPlaceholder,
+  address2Placeholder,
   primarySoft,
 }: ExistingCustomerFormProps) {
   const { colors } = useBrandingTheme();
@@ -323,6 +329,13 @@ export function ExistingCustomerForm({
                   value={customerAddress}
                   onSelect={setCustomerAddress}
                   placeholder={addressPlaceholder}
+                />
+                <Text style={styles.customerDetailLabel}>🏢 {t('customerDetail.address2')}</Text>
+                <Input
+                  value={customerAddress2}
+                  onChangeText={setCustomerAddress2}
+                  placeholder={address2Placeholder}
+                  style={styles.inlineInput}
                 />
                 <Text style={styles.customerDetailLabel}>🆔 {t('customerDetail.nif')}</Text>
                 <Input

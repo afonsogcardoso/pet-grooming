@@ -2,7 +2,7 @@ import { Router } from 'express'
 import multer from 'multer'
 import crypto from 'crypto'
 import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../authClient.js'
-import { formatCustomerName, mapAppointmentForApi } from '../utils/customer.js'
+import { formatCustomerAddress, formatCustomerName, mapAppointmentForApi } from '../utils/customer.js'
 import { sendPushNotifications } from '../utils/notifications.js'
 
 const router = Router()
@@ -17,7 +17,7 @@ const APPOINTMENT_CONFIRM_SELECT = `
   payment_status,
   account_id,
   public_token,
-  customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address ),
+  customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 ),
   pets ( id, name, breed, photo_url, weight ),
   services ( id, name )
 `
@@ -34,7 +34,7 @@ const APPOINTMENT_DETAIL_SELECT = `
   public_token,
   confirmation_opened_at,
   whatsapp_sent_at,
-  customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address ),
+  customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 ),
   services ( id, name, price ),
   pets ( id, name, breed, photo_url, weight ),
   appointment_services (
@@ -261,7 +261,7 @@ router.get('/', async (req, res) => {
       public_token,
       confirmation_opened_at,
       whatsapp_sent_at,
-      customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address ),
+      customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 ),
       services ( id, name, price ),
       pets ( id, name, breed, photo_url, weight ),
       appointment_services (
@@ -457,7 +457,7 @@ router.patch('/:id/status', async (req, res) => {
       notes,
       payment_status,
       status,
-      customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address ),
+      customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 ),
       services ( id, name, price ),
       pets ( id, name, breed, photo_url, weight )
     `
@@ -572,7 +572,7 @@ router.patch('/:id', async (req, res) => {
       notes,
       payment_status,
       status,
-      customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address ),
+  customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 ),
       services ( id, name, price ),
       pets ( id, name, breed, photo_url )
     `
@@ -733,7 +733,8 @@ router.get('/ics', async (req, res) => {
   const titleParts = [appointment.services?.name, appointment.pets?.name || customerName || ''].filter(Boolean)
   const summary = titleParts.join(' • ') || 'Appointment'
 
-  const descriptionParts = [appointment.notes, appointment.customers?.address].filter(Boolean)
+  const customerAddress = formatCustomerAddress(appointment.customers)
+  const descriptionParts = [appointment.notes, customerAddress].filter(Boolean)
   const description = escapeText(descriptionParts.join('\n'))
 
   const ics = [
@@ -749,7 +750,7 @@ router.get('/ics', async (req, res) => {
     `DTEND:${formatIcsDateUtc(endDate)}`,
     `SUMMARY:${escapeText(summary)}`,
     description ? `DESCRIPTION:${description}` : null,
-    appointment.customers?.address ? `LOCATION:${escapeText(appointment.customers.address)}` : null,
+    customerAddress ? `LOCATION:${escapeText(customerAddress)}` : null,
     'END:VEVENT',
     'END:VCALENDAR'
   ]

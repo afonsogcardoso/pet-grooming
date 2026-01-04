@@ -126,6 +126,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const [editLastName, setEditLastName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
+  const [editAddress2, setEditAddress2] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [marketplaceName, setMarketplaceName] = useState('');
   const [marketplaceDescription, setMarketplaceDescription] = useState('');
@@ -199,6 +200,7 @@ export default function ProfileScreen({ navigation }: Props) {
       lastName: data?.lastName || fallbackLast.join(' ') || '',
       phone: data?.phone || '',
       address: data?.address || user?.address || '',
+      address2: data?.address2 || user?.address2 || '',
     };
   }, [
     data?.displayName,
@@ -206,17 +208,20 @@ export default function ProfileScreen({ navigation }: Props) {
     data?.lastName,
     data?.phone,
     data?.address,
+    data?.address2,
     user?.displayName,
     user?.address,
+    user?.address2,
   ]);
   const isProfileDirty = useMemo(() => {
     return (
       editFirstName.trim() !== profileDefaults.firstName.trim() ||
       editLastName.trim() !== profileDefaults.lastName.trim() ||
       editPhone.trim() !== profileDefaults.phone.trim() ||
-      editAddress.trim() !== profileDefaults.address.trim()
+      editAddress.trim() !== profileDefaults.address.trim() ||
+      editAddress2.trim() !== profileDefaults.address2.trim()
     );
-  }, [editFirstName, editLastName, editPhone, editAddress, profileDefaults]);
+  }, [editFirstName, editLastName, editPhone, editAddress, editAddress2, profileDefaults]);
 
   useEffect(() => {
     if (hasProfileEdits) return;
@@ -224,6 +229,7 @@ export default function ProfileScreen({ navigation }: Props) {
     setEditLastName(profileDefaults.lastName);
     setEditPhone(profileDefaults.phone);
     setEditAddress(profileDefaults.address);
+    setEditAddress2(profileDefaults.address2);
   }, [profileDefaults, hasProfileEdits]);
 
   const applyMarketplaceBranding = (data?: Branding | null) => {
@@ -303,6 +309,7 @@ export default function ProfileScreen({ navigation }: Props) {
     applyIfProvided('firstName');
     applyIfProvided('lastName');
     applyIfProvided('address');
+    applyIfProvided('address2');
     applyIfProvided('phone');
     applyIfProvided('phoneCountryCode');
     applyIfProvided('phoneNumber');
@@ -331,6 +338,7 @@ export default function ProfileScreen({ navigation }: Props) {
               firstName: user.firstName,
               lastName: user.lastName,
               address: user.address,
+              address2: user.address2,
               avatarUrl: user.avatarUrl,
             }
           : undefined);
@@ -352,6 +360,7 @@ export default function ProfileScreen({ navigation }: Props) {
               firstName: user.firstName,
               lastName: user.lastName,
               address: user.address,
+              address2: user.address2,
               avatarUrl: user.avatarUrl,
             }
           : undefined);
@@ -367,6 +376,8 @@ export default function ProfileScreen({ navigation }: Props) {
           payload && 'lastName' in payload ? merged.lastName : merged.lastName ?? user?.lastName,
         address:
           payload && 'address' in payload ? merged.address : merged.address ?? user?.address,
+        address2:
+          payload && 'address2' in payload ? merged.address2 : merged.address2 ?? user?.address2,
         avatarUrl:
           payload && 'avatarUrl' in payload ? merged.avatarUrl : merged.avatarUrl ?? user?.avatarUrl,
         activeRole: merged.activeRole ?? user?.activeRole,
@@ -374,13 +385,18 @@ export default function ProfileScreen({ navigation }: Props) {
       setUser(nextUser);
       if (
         payload &&
-        ('firstName' in payload || 'lastName' in payload || 'phone' in payload || 'address' in payload)
+        ('firstName' in payload ||
+          'lastName' in payload ||
+          'phone' in payload ||
+          'address' in payload ||
+          'address2' in payload)
       ) {
         setHasProfileEdits(false);
         setEditFirstName(merged.firstName ?? '');
         setEditLastName(merged.lastName ?? '');
         setEditPhone(merged.phone ?? '');
         setEditAddress(merged.address ?? '');
+        setEditAddress2(merged.address2 ?? '');
       }
       // profile updated
     },
@@ -829,6 +845,7 @@ export default function ProfileScreen({ navigation }: Props) {
       lastName: editLastName.trim() || null,
       phone: editPhone.trim() || null,
       address: editAddress.trim() || null,
+      address2: editAddress2.trim() || null,
     });
   };
 
@@ -837,6 +854,7 @@ export default function ProfileScreen({ navigation }: Props) {
     setEditLastName(profileDefaults.lastName);
     setEditPhone(profileDefaults.phone);
     setEditAddress(profileDefaults.address);
+    setEditAddress2(profileDefaults.address2);
     setHasProfileEdits(false);
   };
 
@@ -880,6 +898,11 @@ export default function ProfileScreen({ navigation }: Props) {
 
   const handleAddressChange = (value: string) => {
     setEditAddress(value);
+    setHasProfileEdits(true);
+  };
+
+  const handleAddress2Change = (value: string) => {
+    setEditAddress2(value);
     setHasProfileEdits(true);
   };
 
@@ -994,7 +1017,11 @@ export default function ProfileScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScreenHeader title={t('profile.title')} />
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.headerCard}>
           <View style={styles.headerRow}>
             <TouchableOpacity
@@ -1104,6 +1131,16 @@ export default function ProfileScreen({ navigation }: Props) {
                   value={editAddress}
                   onSelect={handleAddressChange}
                   placeholder={t('profile.addressPlaceholder')}
+                />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>{t('profile.address2Label')}</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editAddress2}
+                  onChangeText={handleAddress2Change}
+                  placeholder={t('profile.address2Placeholder')}
+                  placeholderTextColor={colors.muted}
                 />
               </View>
               {isProfileDirty ? (

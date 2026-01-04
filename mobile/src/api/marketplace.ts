@@ -49,6 +49,7 @@ export type MarketplaceBookingPayload = {
     phone?: string | null;
     email?: string | null;
     address?: string | null;
+    address2?: string | null;
     nif?: string | null;
   };
   pet?: {
