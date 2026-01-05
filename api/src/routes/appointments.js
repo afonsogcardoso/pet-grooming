@@ -980,20 +980,22 @@ router.post('/reminders', async (req, res) => {
   }
 
   const supabaseAdmin = getSupabaseServiceRoleClient()
-  if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: 'Service unavailable' })
+  }
 
   const { data: members, error: membersError } = await supabaseAdmin
     .from('account_members')
-    .select('account_id, user_id, status')
+    .select('account_id, user_id')
     .eq('status', 'accepted')
 
   if (membersError) {
-    console.error('[appointments] load account members error', membersError)
     return res.status(500).json({ error: membersError.message })
   }
 
   const membersByAccount = new Map()
   const userIds = new Set()
+
     ; (members || []).forEach((row) => {
       if (!row?.account_id || !row?.user_id) return
       const bucket = membersByAccount.get(row.account_id) || new Set()
@@ -1012,7 +1014,6 @@ router.post('/reminders', async (req, res) => {
     .in('user_id', Array.from(userIds))
 
   if (preferencesError) {
-    console.error('[appointments] load notification preferences error', preferencesError)
     return res.status(500).json({ error: preferencesError.message })
   }
 
@@ -1031,10 +1032,13 @@ router.post('/reminders', async (req, res) => {
   const reminderEnabledUsers = new Set()
   preferencesByUser.forEach((preferences, userId) => {
     if (!shouldSendNotification(preferences, 'appointments.reminder')) return
-    const offsets = normalizeReminderOffsets(preferences?.push?.appointments?.reminder_offsets)
-    if (!offsets.length) return
-    offsetsByUser.set(userId, offsets)
     reminderEnabledUsers.add(userId)
+
+    const offsets = normalizeReminderOffsets(
+      preferences?.push?.appointments?.reminder_offsets,
+      []
+    )
+    if (offsets.length) offsetsByUser.set(userId, offsets)
   })
 
   if (!reminderEnabledUsers.size) {
@@ -1049,12 +1053,9 @@ router.post('/reminders', async (req, res) => {
   const maxOffset = REMINDER_MAX_OFFSET_MINUTES
   const rangeStart = new Date(windowStart.getTime() + minOffset * 60 * 1000)
   const rangeEnd = new Date(windowEnd.getTime() + maxOffset * 60 * 1000)
-  const startDate = formatLocalDate(rangeStart)
-  const endDate = formatLocalDate(rangeEnd)
 
-  if (!startDate || !endDate) {
-    return res.status(500).json({ error: 'invalid_time_range' })
-  }
+  const startDate = rangeStart.toISOString().slice(0, 10)
+  const endDate = rangeEnd.toISOString().slice(0, 10)
 
   const { data: appointments, error: appointmentsError } = await supabaseAdmin
     .from('appointments')
@@ -1063,30 +1064,25 @@ router.post('/reminders', async (req, res) => {
     .lte('appointment_date', endDate)
 
   if (appointmentsError) {
-    console.error('[appointments] load reminders appointments error', appointmentsError)
     return res.status(500).json({ error: appointmentsError.message })
   }
 
   const dedupeStart = new Date(now.getTime() - (maxOffset + windowMinutes) * 60 * 1000)
-  const { data: existingNotifications, error: notificationsError } = await supabaseAdmin
+  const { data: existingNotifications } = await supabaseAdmin
     .from('notifications')
     .select('user_id, payload')
     .eq('type', 'appointments.reminder')
     .in('user_id', Array.from(reminderEnabledUsers))
     .gte('created_at', dedupeStart.toISOString())
 
-  if (notificationsError) {
-    console.error('[appointments] load reminders notifications error', notificationsError)
-  }
-
   const alreadySent = new Set()
     ; (existingNotifications || []).forEach((row) => {
       const payload = row?.payload || {}
       const appointmentId = payload.appointmentId || payload.appointment_id
-      const offsetMinutes =
-        payload.reminderOffsetMinutes || payload.offsetMinutes || payload.offset_minutes
-      if (!row?.user_id || !appointmentId || !offsetMinutes) return
-      alreadySent.add(`${row.user_id}:${appointmentId}:${offsetMinutes}`)
+      const offset = payload.reminderOffsetMinutes || payload.offsetMinutes || payload.offset_minutes
+
+      if (!row?.user_id || !appointmentId || !offset) return
+      alreadySent.add(`${row.user_id}:${appointmentId}:${offset}`)
     })
 
   const queuedByReminder = new Map()
@@ -1099,7 +1095,7 @@ router.post('/reminders', async (req, res) => {
       const appointmentDateTime = parseAppointmentDateTime(appointment)
       if (!appointmentDateTime) return
       const accountMembers = membersByAccount.get(appointment.account_id)
-      if (!accountMembers || accountMembers.size === 0) return
+      if (!accountMembers) return
       const appointmentOffsets = normalizeReminderOffsets(appointment.reminder_offsets, [])
 
       accountMembers.forEach((userId) => {
@@ -1124,7 +1120,13 @@ router.post('/reminders', async (req, res) => {
       })
     })
 
-  const summary = { processed: appointments?.length || 0, reminders: 0, sent: 0, failed: 0, skipped: 0 }
+  const summary = {
+    processed: appointments?.length || 0,
+    reminders: 0,
+    sent: 0,
+    failed: 0,
+    skipped: 0
+  }
 
   for (const entry of queuedByReminder.values()) {
     const userIds = Array.from(entry.userIds || [])
