@@ -507,12 +507,20 @@ export function WeekView({
                         <Text style={styles.appointmentTime} numberOfLines={1}>
                           {appointment.appointment_time?.substring(0, 5)}
                         </Text>
-                        <Text style={styles.appointmentTitle} numberOfLines={1}>
-                          {petLabel || '—'}
-                        </Text>
+                        {petNames.length > 0 ? (
+                          petNames.map((name, idx) => (
+                            <Text key={`${appointment.id}-pet-${idx}`} style={styles.appointmentTitle} numberOfLines={1}>
+                              {name}
+                            </Text>
+                          ))
+                        ) : (
+                          <Text style={styles.appointmentTitle} numberOfLines={1}>
+                            {petLabel || '—'}
+                          </Text>
+                        )}
                         {appointmentServiceLines.length > 0 ? (
                           appointmentServiceLines.map((label, idx) => (
-                            <Text key={idx} style={styles.appointmentService} numberOfLines={1}>
+                            <Text key={`${appointment.id}-service-${idx}`} style={styles.appointmentService} numberOfLines={1}>
                               {label}
                             </Text>
                           ))
