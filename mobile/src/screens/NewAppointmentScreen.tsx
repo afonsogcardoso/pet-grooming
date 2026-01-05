@@ -361,6 +361,12 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     }
   }, [appointmentData, isEditMode, amountEdited]);
 
+  useEffect(() => {
+    if (!useDefaultReminders && reminderOffsets.length === 0) {
+      setReminderOffsets(defaultReminderOffsets);
+    }
+  }, [defaultReminderOffsets, reminderOffsets.length, useDefaultReminders]);
+
   const { data: customersData, isLoading: loadingCustomers } = useQuery({
     queryKey: ['customers'],
     queryFn: getCustomers,
@@ -389,6 +395,10 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       ? defaultReminderOffsets
       : normalizeReminderOffsets(reminderOffsets, []);
   }, [defaultReminderOffsets, reminderOffsets, useDefaultReminders]);
+  const reminderChipOptions = useMemo(() => {
+    const combined = new Set([...REMINDER_PRESETS, ...reminderOffsets]);
+    return Array.from(combined).sort((a, b) => a - b);
+  }, [reminderOffsets]);
   const newCustomerFullName = useMemo(() => {
     const first = newCustomerFirstName.trim();
     const last = newCustomerLastName.trim();
@@ -1905,7 +1915,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                 {!useDefaultReminders ? (
                   <>
                     <View style={styles.reminderChipsRow}>
-                      {REMINDER_PRESETS.map((offset) => {
+                      {reminderChipOptions.map((offset) => {
                         const isActive = reminderOffsets.includes(offset);
                         return (
                           <TouchableOpacity

@@ -217,6 +217,10 @@ export default function ProfileScreen({ navigation }: Props) {
     );
     return offsets.length ? offsets : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.reminder_offsets;
   }, [resolvedNotificationPreferences]);
+  const reminderChipOptions = useMemo(() => {
+    const combined = new Set([...REMINDER_PRESETS, ...reminderOffsets]);
+    return Array.from(combined).sort((a, b) => a - b);
+  }, [reminderOffsets]);
   const profileDefaults = useMemo(() => {
     const fallbackName = data?.displayName || user?.displayName || '';
     const [fallbackFirst, ...fallbackLast] = fallbackName.split(' ');
@@ -1358,7 +1362,7 @@ export default function ProfileScreen({ navigation }: Props) {
                 <Text style={styles.reminderTitle}>{t('profile.notificationsRemindersTitle')}</Text>
                 <Text style={styles.reminderHelper}>{t('profile.notificationsRemindersHelper')}</Text>
                 <View style={styles.reminderChipsRow}>
-                  {REMINDER_PRESETS.map((offset) => {
+                  {reminderChipOptions.map((offset) => {
                     const isActive = reminderOffsets.includes(offset);
                     return (
                       <TouchableOpacity
