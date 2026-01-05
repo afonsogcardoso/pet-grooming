@@ -67,6 +67,15 @@ function todayLocalISO() {
   return new Date().toLocaleDateString('sv-SE');
 }
 
+function getAppointmentDateTime(appointment: Appointment, dayKey: string) {
+  const timeValue = appointment.appointment_time;
+  if (!timeValue) return null;
+  const match = String(timeValue).match(/(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  const [, hh, mm] = match;
+  return new Date(`${dayKey}T${hh.padStart(2, '0')}:${mm}:00`);
+}
+
 type ThemeColors = ReturnType<typeof useBrandingTheme>['colors'];
 
 function createStyles(colors: ThemeColors) {
@@ -446,10 +455,35 @@ export function ListView({
 
   // Group appointments by day
   const sections = React.useMemo(() => {
-    const source =
-      filterMode === 'unpaid'
-        ? filteredAppointments.filter((a) => (a.payment_status || 'unpaid') !== 'paid')
-        : filteredAppointments;
+    const now = new Date();
+    const todayKey = today;
+    const source = filteredAppointments.filter((item) => {
+      if (filterMode === 'unpaid') {
+        return (item.payment_status || 'unpaid') !== 'paid';
+      }
+
+      const dayKey = toDayKey(item.appointment_date);
+      if (!dayKey) return false;
+
+      if (filterMode === 'upcoming') {
+        if (item.status === 'completed') return false;
+        if (dayKey > todayKey) return true;
+        if (dayKey < todayKey) return false;
+        const dateTime = getAppointmentDateTime(item, dayKey);
+        if (!dateTime) return true;
+        return dateTime >= now;
+      }
+
+      if (filterMode === 'past') {
+        if (dayKey < todayKey) return true;
+        if (dayKey > todayKey) return false;
+        const dateTime = getAppointmentDateTime(item, dayKey);
+        if (!dateTime) return false;
+        return dateTime < now;
+      }
+
+      return true;
+    });
 
     const grouped: Record<string, Appointment[]> = {};
     for (const item of source) {
@@ -459,8 +493,7 @@ export function ListView({
         grouped[dayKey] = grouped[dayKey] ? [...grouped[dayKey], item] : [item];
       }
     }
-    
-    const todayKey = today;
+
     const entries = Object.entries(grouped).map(([dayKey, items]) => {
       const titleLabel = dayKey === todayKey ? t('common.today') : formatDateLabel(dayKey, dateLocale, t('common.noDate'));
       return {
@@ -470,25 +503,11 @@ export function ListView({
       };
     });
 
-    // Filter and sort based on mode
-    let filtered: typeof entries;
-    
-    if (filterMode === 'upcoming') {
-      // Show today and future dates, sorted ascending
-      filtered = entries
-        .filter((entry) => entry.dayKey >= todayKey)
-        .sort((a, b) => a.dayKey.localeCompare(b.dayKey));
-    } else if (filterMode === 'past') {
-      // Show past dates only, sorted descending (most recent first)
-      filtered = entries
-        .filter((entry) => entry.dayKey < todayKey)
-        .sort((a, b) => b.dayKey.localeCompare(a.dayKey));
-    } else {
-      // Unpaid: show all sorted ascending
-      filtered = entries.sort((a, b) => a.dayKey.localeCompare(b.dayKey));
+    if (filterMode === 'past') {
+      return entries.sort((a, b) => b.dayKey.localeCompare(a.dayKey));
     }
 
-    return filtered;
+    return entries.sort((a, b) => a.dayKey.localeCompare(b.dayKey));
   }, [filteredAppointments, filterMode, t, dateLocale, today]);
 
 
