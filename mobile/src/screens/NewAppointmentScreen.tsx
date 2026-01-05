@@ -19,6 +19,7 @@ import { useRoute } from '@react-navigation/native';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { createAppointment, updateAppointment, getAppointment } from '../api/appointments';
+import { getNotificationPreferences } from '../api/notifications';
 import type { Customer, Pet } from '../api/customers';
 import { createCustomer, createPet, getCustomers, updateCustomer } from '../api/customers';
 import { getServiceAddons, getServicePriceTiers, getServices } from '../api/services';
@@ -117,6 +118,32 @@ function parseAmountInput(value: string) {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+const REMINDER_PRESETS = [15, 30, 60, 120, 1440];
+const MAX_REMINDER_OFFSETS = 2;
+
+function normalizeReminderOffsets(value: unknown, fallback: number[] = [30]) {
+  if (!Array.isArray(value)) return fallback;
+  const normalized = value
+    .map((entry) => Number(entry))
+    .filter((entry) => Number.isFinite(entry))
+    .map((entry) => Math.round(entry))
+    .filter((entry) => entry > 0 && entry <= 1440);
+  const unique = Array.from(new Set(normalized)).sort((a, b) => a - b);
+  return unique.length ? unique.slice(0, MAX_REMINDER_OFFSETS) : fallback;
+}
+
+function formatReminderOffsetLabel(offset: number, t: (key: string, options?: any) => string) {
+  if (offset % 1440 === 0) {
+    const days = offset / 1440;
+    return `${days} ${days === 1 ? t('common.dayShort') : t('common.daysShort')}`;
+  }
+  if (offset % 60 === 0) {
+    const hours = offset / 60;
+    return `${hours} ${hours === 1 ? t('common.hourShort') : t('common.hoursShort')}`;
+  }
+  return `${offset} ${t('common.minutesShort')}`;
+}
+
 type DraftPet = {
   id: string;
   name: string;
@@ -165,6 +192,9 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const [time, setTime] = useState(formatHHMM(initialTimeParam) || currentLocalTime());
   const [duration, setDuration] = useState<number>(60);
   const [notes, setNotes] = useState('');
+  const [useDefaultReminders, setUseDefaultReminders] = useState(true);
+  const [reminderOffsets, setReminderOffsets] = useState<number[]>([]);
+  const [customReminderInput, setCustomReminderInput] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [selectedPetIds, setSelectedPetIds] = useState<string[]>([]);
   const [serviceRowsByPet, setServiceRowsByPet] = useState<Record<string, ServiceRow[]>>({});
@@ -231,6 +261,12 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     queryFn: () => getAppointment(editAppointmentId!),
     enabled: isEditMode,
   });
+  const { data: notificationPreferences } = useQuery({
+    queryKey: ['notificationPreferences'],
+    queryFn: getNotificationPreferences,
+    retry: 1,
+    staleTime: 1000 * 60 * 5,
+  });
 
   // Load appointment data into form when available
   const appointmentDataRef = useRef(appointmentData);
@@ -245,6 +281,14 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       setTime(formatHHMM(appointmentData.appointment_time) || currentLocalTime());
       setDuration(appointmentData.duration || 60);
       setNotes(appointmentData.notes || '');
+      const appointmentOffsets = normalizeReminderOffsets(appointmentData.reminder_offsets, []);
+      if (appointmentOffsets.length) {
+        setUseDefaultReminders(false);
+        setReminderOffsets(appointmentOffsets);
+      } else {
+        setUseDefaultReminders(true);
+        setReminderOffsets([]);
+      }
 
       const customerId = appointmentData.customers?.id || '';
       setSelectedCustomer(customerId);
@@ -336,6 +380,15 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const addressPlaceholder = t('appointmentForm.addressPlaceholder');
   const address2Placeholder = t('appointmentForm.address2Placeholder');
   const displayTime = formatHHMM(time);
+  const defaultReminderOffsets = useMemo(
+    () => normalizeReminderOffsets(notificationPreferences?.push?.appointments?.reminder_offsets),
+    [notificationPreferences],
+  );
+  const effectiveReminderOffsets = useMemo(() => {
+    return useDefaultReminders
+      ? defaultReminderOffsets
+      : normalizeReminderOffsets(reminderOffsets, []);
+  }, [defaultReminderOffsets, reminderOffsets, useDefaultReminders]);
   const newCustomerFullName = useMemo(() => {
     const first = newCustomerFirstName.trim();
     const last = newCustomerLastName.trim();
@@ -953,6 +1006,9 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
       const serviceIds = Array.from(new Set(serviceSelections.map((selection) => selection.service_id)));
       const effectiveDuration = totalDuration > 0 ? totalDuration : duration || null;
+      const reminderPayload = useDefaultReminders
+        ? (isEditMode ? { reminder_offsets: null } : {})
+        : { reminder_offsets: effectiveReminderOffsets };
 
       const payload = {
         appointment_date: date,
@@ -964,6 +1020,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
         customer_id: customerId,
         service_ids: serviceIds,
         service_selections: serviceSelections,
+        ...reminderPayload,
       };
 
       console.log('[appointment:create] payload', payload);
@@ -973,6 +1030,38 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       submitLockRef.current = false;
       setIsSubmittingRequest(false);
     }
+  };
+
+  const handleToggleReminderOffset = (offset: number) => {
+    if (useDefaultReminders) return;
+    if (reminderOffsets.includes(offset)) {
+      setReminderOffsets(reminderOffsets.filter((entry) => entry !== offset));
+      return;
+    }
+    if (reminderOffsets.length >= MAX_REMINDER_OFFSETS) {
+      Alert.alert(t('common.warning'), t('appointmentForm.remindersLimit'));
+      return;
+    }
+    setReminderOffsets([...reminderOffsets, offset]);
+  };
+
+  const handleAddCustomReminder = () => {
+    if (useDefaultReminders) return;
+    const parsed = Math.round(Number(customReminderInput.replace(',', '.')));
+    if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1440) {
+      Alert.alert(t('common.error'), t('appointmentForm.remindersInvalid'));
+      return;
+    }
+    if (reminderOffsets.includes(parsed)) {
+      setCustomReminderInput('');
+      return;
+    }
+    if (reminderOffsets.length >= MAX_REMINDER_OFFSETS) {
+      Alert.alert(t('common.warning'), t('appointmentForm.remindersLimit'));
+      return;
+    }
+    setReminderOffsets([...reminderOffsets, parsed]);
+    setCustomReminderInput('');
   };
 
   const buildWhatsappMessage = (confirmationUrl?: string) => {
@@ -1795,6 +1884,71 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           {activeStep === 3 ? (
             <View style={styles.sectionCard}>
               <Text style={styles.sectionTitle}>{t('appointmentForm.additionalInfo')}</Text>
+
+              <View style={styles.field}>
+                <Text style={styles.label}>{t('appointmentForm.remindersTitle')}</Text>
+                <Text style={styles.helperText}>{t('appointmentForm.remindersHelper')}</Text>
+                <View style={styles.toggleRow}>
+                  <Text style={styles.reminderToggleLabel}>{t('appointmentForm.remindersUseDefault')}</Text>
+                  <Switch
+                    value={useDefaultReminders}
+                    onValueChange={setUseDefaultReminders}
+                    trackColor={{ false: colors.surfaceBorder, true: primary }}
+                    thumbColor={colors.onPrimary}
+                  />
+                </View>
+                <Text style={styles.reminderDefaultText}>
+                  {t('appointmentForm.remindersDefaultLabel', {
+                    value: defaultReminderOffsets.map((offset) => formatReminderOffsetLabel(offset, t)).join(', '),
+                  })}
+                </Text>
+                {!useDefaultReminders ? (
+                  <>
+                    <View style={styles.reminderChipsRow}>
+                      {REMINDER_PRESETS.map((offset) => {
+                        const isActive = reminderOffsets.includes(offset);
+                        return (
+                          <TouchableOpacity
+                            key={`appointment-reminder-${offset}`}
+                            style={[
+                              styles.reminderChip,
+                              isActive && styles.reminderChipActive,
+                            ]}
+                            onPress={() => handleToggleReminderOffset(offset)}
+                          >
+                            <Text
+                              style={[
+                                styles.reminderChipText,
+                                isActive && styles.reminderChipTextActive,
+                              ]}
+                            >
+                              {formatReminderOffsetLabel(offset, t)}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    <View style={styles.reminderCustomRow}>
+                      <TextInput
+                        value={customReminderInput}
+                        onChangeText={setCustomReminderInput}
+                        placeholder={t('appointmentForm.remindersCustomPlaceholder')}
+                        placeholderTextColor={colors.muted}
+                        keyboardType="number-pad"
+                        style={styles.reminderInput}
+                      />
+                      <TouchableOpacity
+                        style={styles.reminderAddButton}
+                        onPress={handleAddCustomReminder}
+                      >
+                        <Text style={styles.reminderAddButtonText}>
+                          {t('appointmentForm.remindersAdd')}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : null}
+              </View>
               
               <View style={styles.field}>
                 <Text style={styles.label}>{t('appointmentForm.notesLabel')}</Text>
@@ -2350,6 +2504,69 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       paddingVertical: 14,
       backgroundColor: colors.surface,
       marginBottom: 16,
+    },
+    reminderToggleLabel: {
+      color: colors.text,
+      fontWeight: '600',
+      fontSize: 13,
+    },
+    reminderDefaultText: {
+      color: colors.muted,
+      fontSize: 12,
+      marginTop: 6,
+      marginBottom: 8,
+    },
+    reminderChipsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 10,
+    },
+    reminderChip: {
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 16,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      backgroundColor: colors.background,
+    },
+    reminderChipActive: {
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.primary,
+    },
+    reminderChipText: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    reminderChipTextActive: {
+      color: colors.primary,
+    },
+    reminderCustomRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    reminderInput: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      color: colors.text,
+      backgroundColor: colors.background,
+    },
+    reminderAddButton: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 10,
+      backgroundColor: colors.primary,
+    },
+    reminderAddButtonText: {
+      color: colors.onPrimary,
+      fontWeight: '700',
+      fontSize: 12,
     },
     helperText: {
       color: colors.muted,

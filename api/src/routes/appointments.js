@@ -20,6 +20,7 @@ const APPOINTMENT_CONFIRM_SELECT = `
   notes,
   status,
   payment_status,
+  reminder_offsets,
   account_id,
   public_token,
   customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 ),
@@ -39,6 +40,7 @@ const APPOINTMENT_DETAIL_SELECT = `
   notes,
   payment_status,
   status,
+  reminder_offsets,
   before_photo_url,
   after_photo_url,
   public_token,
@@ -61,12 +63,24 @@ const PET_PHOTO_BUCKET = 'pets'
 const REMINDER_WINDOW_MINUTES = 10
 const REMINDER_MAX_OFFSET_MINUTES = 1440
 const REMINDER_EXCLUDED_STATUSES = new Set(['cancelled', 'completed', 'in_progress'])
+const DEFAULT_REMINDER_OFFSETS = [30]
 
 function formatAppointmentDateTime(appointment) {
   if (!appointment) return ''
   const date = appointment.appointment_date || appointment.appointmentDate
   const time = appointment.appointment_time || appointment.appointmentTime
   return [date, time].filter(Boolean).join(' ')
+}
+
+function normalizeReminderOffsets(value, fallback = DEFAULT_REMINDER_OFFSETS) {
+  if (!Array.isArray(value)) return fallback
+  const normalized = value
+    .map((entry) => Number(entry))
+    .filter((entry) => Number.isFinite(entry))
+    .map((entry) => Math.round(entry))
+    .filter((entry) => entry > 0 && entry <= REMINDER_MAX_OFFSET_MINUTES)
+  const unique = Array.from(new Set(normalized)).sort((a, b) => a - b)
+  return unique.length > 0 ? unique.slice(0, 2) : fallback
 }
 
 function formatLocalDate(value) {
@@ -307,6 +321,7 @@ router.get('/', async (req, res) => {
       notes,
       payment_status,
       status,
+      reminder_offsets,
       before_photo_url,
       after_photo_url,
       public_token,
@@ -603,6 +618,7 @@ router.patch('/:id', async (req, res) => {
     'appointment_date',
     'appointment_time',
     'customer_id',
+    'reminder_offsets',
   ]
 
   const updates = {}
@@ -633,6 +649,7 @@ router.patch('/:id', async (req, res) => {
       notes,
       payment_status,
       status,
+      reminder_offsets,
   customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 )
     `
     ).single()
@@ -1011,28 +1028,16 @@ router.post('/reminders', async (req, res) => {
   })
 
   const offsetsByUser = new Map()
-  let minOffset = null
-  let maxOffset = null
+  const reminderEnabledUsers = new Set()
   preferencesByUser.forEach((preferences, userId) => {
     if (!shouldSendNotification(preferences, 'appointments.reminder')) return
-    const offsets = Array.isArray(preferences?.push?.appointments?.reminder_offsets)
-      ? preferences.push.appointments.reminder_offsets
-      : []
-    const normalizedOffsets = offsets
-      .map((value) => Number(value))
-      .filter((value) => Number.isFinite(value))
-      .map((value) => Math.round(value))
-      .filter((value) => value > 0 && value <= REMINDER_MAX_OFFSET_MINUTES)
-
-    if (!normalizedOffsets.length) return
-    offsetsByUser.set(userId, normalizedOffsets)
-    normalizedOffsets.forEach((offset) => {
-      minOffset = minOffset === null ? offset : Math.min(minOffset, offset)
-      maxOffset = maxOffset === null ? offset : Math.max(maxOffset, offset)
-    })
+    const offsets = normalizeReminderOffsets(preferences?.push?.appointments?.reminder_offsets)
+    if (!offsets.length) return
+    offsetsByUser.set(userId, offsets)
+    reminderEnabledUsers.add(userId)
   })
 
-  if (!offsetsByUser.size) {
+  if (!reminderEnabledUsers.size) {
     return res.json({ ok: true, processed: 0, reminders: 0, sent: 0, failed: 0, skipped: 0 })
   }
 
@@ -1040,6 +1045,8 @@ router.post('/reminders', async (req, res) => {
   const windowMinutes = Math.max(1, Number(process.env.REMINDER_WINDOW_MINUTES) || REMINDER_WINDOW_MINUTES)
   const windowStart = new Date(now.getTime() - windowMinutes * 60 * 1000)
   const windowEnd = new Date(now.getTime() + windowMinutes * 60 * 1000)
+  const minOffset = 1
+  const maxOffset = REMINDER_MAX_OFFSET_MINUTES
   const rangeStart = new Date(windowStart.getTime() + minOffset * 60 * 1000)
   const rangeEnd = new Date(windowEnd.getTime() + maxOffset * 60 * 1000)
   const startDate = formatLocalDate(rangeStart)
@@ -1051,7 +1058,7 @@ router.post('/reminders', async (req, res) => {
 
   const { data: appointments, error: appointmentsError } = await supabaseAdmin
     .from('appointments')
-    .select('id, account_id, appointment_date, appointment_time, status')
+    .select('id, account_id, appointment_date, appointment_time, status, reminder_offsets')
     .gte('appointment_date', startDate)
     .lte('appointment_date', endDate)
 
@@ -1065,7 +1072,7 @@ router.post('/reminders', async (req, res) => {
     .from('notifications')
     .select('user_id, payload')
     .eq('type', 'appointments.reminder')
-    .in('user_id', Array.from(offsetsByUser.keys()))
+    .in('user_id', Array.from(reminderEnabledUsers))
     .gte('created_at', dedupeStart.toISOString())
 
   if (notificationsError) {
@@ -1093,9 +1100,11 @@ router.post('/reminders', async (req, res) => {
     if (!appointmentDateTime) return
     const accountMembers = membersByAccount.get(appointment.account_id)
     if (!accountMembers || accountMembers.size === 0) return
+    const appointmentOffsets = normalizeReminderOffsets(appointment.reminder_offsets, [])
 
     accountMembers.forEach((userId) => {
-      const offsets = offsetsByUser.get(userId)
+      if (!reminderEnabledUsers.has(userId)) return
+      const offsets = appointmentOffsets.length > 0 ? appointmentOffsets : offsetsByUser.get(userId)
       if (!offsets || offsets.length === 0) return
       offsets.forEach((offset) => {
         const reminderTimeMs = appointmentDateTime.getTime() - offset * 60 * 1000

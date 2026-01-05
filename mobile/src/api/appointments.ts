@@ -8,6 +8,7 @@ export type Appointment = {
   notes?: string | null;
   payment_status?: string | null;
   status?: string | null;
+  reminder_offsets?: number[] | null;
   public_token?: string | null;
   amount?: number | null;
   before_photo_url?: string | null;
@@ -89,6 +90,7 @@ export type CreateAppointmentPayload = {
   payment_status?: string | null;
   status?: string | null;
   amount?: number | null;
+  reminder_offsets?: number[] | null;
 };
 
 type CreateAppointmentResponse = {

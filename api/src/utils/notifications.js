@@ -47,7 +47,7 @@ function coerceReminderOffsets(value, fallback) {
     .filter((entry) => Number.isFinite(entry))
     .map((entry) => Math.round(entry))
     .filter((entry) => entry > 0 && entry <= 1440)
-  const unique = Array.from(new Set(normalized))
+  const unique = Array.from(new Set(normalized)).sort((a, b) => a - b)
   return unique.length > 0 ? unique.slice(0, 2) : fallback
 }
 

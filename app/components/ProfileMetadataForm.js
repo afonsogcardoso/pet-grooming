@@ -13,7 +13,8 @@ const DEFAULT_NOTIFICATION_PREFERENCES = {
       created: true,
       confirmed: true,
       cancelled: true,
-      reminder: true
+      reminder: true,
+      reminder_offsets: [30]
     },
     marketplace: {
       request: true
@@ -53,7 +54,10 @@ function normalizeNotificationPreferences(input) {
         reminder:
           typeof appointments.reminder === 'boolean'
             ? appointments.reminder
-            : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.reminder
+            : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.reminder,
+        reminder_offsets: Array.isArray(appointments.reminder_offsets)
+          ? appointments.reminder_offsets
+          : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.reminder_offsets
       },
       marketplace: {
         request:

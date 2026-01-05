@@ -29,6 +29,8 @@ WebBrowser.maybeCompleteAuthSession();
 
 type Props = NativeStackScreenProps<any>;
 type ProfileSection = 'info' | 'marketplace' | 'security' | 'notifications';
+const REMINDER_PRESETS = [15, 30, 60, 120, 1440];
+const MAX_REMINDER_OFFSETS = 2;
 
 function formatDate(value: string | null | undefined, locale: string, fallback: string) {
   if (!value) return fallback;
@@ -45,6 +47,17 @@ function formatDate(value: string | null | undefined, locale: string, fallback: 
   }
 }
 
+function normalizeReminderOffsets(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  const normalized = value
+    .map((entry) => Number(entry))
+    .filter((entry) => Number.isFinite(entry))
+    .map((entry) => Math.round(entry))
+    .filter((entry) => entry > 0 && entry <= 1440);
+  const unique = Array.from(new Set(normalized)).sort((a, b) => a - b);
+  return unique.slice(0, MAX_REMINDER_OFFSETS);
+}
+
 const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   push: {
     enabled: false,
@@ -53,6 +66,7 @@ const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
       confirmed: true,
       cancelled: true,
       reminder: true,
+      reminder_offsets: [30],
     },
     marketplace: {
       request: true,
@@ -72,6 +86,7 @@ function mergeNotificationPreferences(
   const appointments = source.appointments || {};
   const marketplace = source.marketplace || {};
   const payments = source.payments || {};
+  const reminderOffsets = appointments.reminder_offsets;
 
   return {
     push: {
@@ -89,6 +104,9 @@ function mergeNotificationPreferences(
         reminder: typeof appointments.reminder === 'boolean'
           ? appointments.reminder
           : current.push.appointments.reminder,
+        reminder_offsets: Array.isArray(reminderOffsets)
+          ? reminderOffsets
+          : current.push.appointments.reminder_offsets,
       },
       marketplace: {
         request: typeof marketplace.request === 'boolean'
@@ -140,6 +158,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const [uploadingMarketplaceLogo, setUploadingMarketplaceLogo] = useState(false);
   const [uploadingMarketplaceHero, setUploadingMarketplaceHero] = useState(false);
   const [marketplaceInitialized, setMarketplaceInitialized] = useState(false);
+  const [customReminderInput, setCustomReminderInput] = useState('');
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -192,6 +211,12 @@ export default function ProfileScreen({ navigation }: Props) {
   const canSwitchViewMode = availableRoles.includes('consumer') && availableRoles.includes('provider');
   const resolvedNotificationPreferences = notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES;
   const pushEnabled = resolvedNotificationPreferences.push?.enabled ?? false;
+  const reminderOffsets = useMemo(() => {
+    const offsets = normalizeReminderOffsets(
+      resolvedNotificationPreferences.push?.appointments?.reminder_offsets
+    );
+    return offsets.length ? offsets : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.reminder_offsets;
+  }, [resolvedNotificationPreferences]);
   const profileDefaults = useMemo(() => {
     const fallbackName = data?.displayName || user?.displayName || '';
     const [fallbackFirst, ...fallbackLast] = fallbackName.split(' ');
@@ -497,6 +522,10 @@ export default function ProfileScreen({ navigation }: Props) {
     },
   });
   const notificationsDisabled = preferencesMutation.isPending || loadingNotifications;
+  const remindersDisabled =
+    !pushEnabled ||
+    notificationsDisabled ||
+    !resolvedNotificationPreferences.push.appointments.reminder;
 
   const handleLinkProvider = async (provider: 'google' | 'apple') => {
     if (linkingProvider || updateMutation.isPending || languageMutation.isPending) return;
@@ -963,6 +992,50 @@ export default function ProfileScreen({ navigation }: Props) {
     if (preferencesMutation.isPending) return;
     preferencesMutation.mutate(payload);
   };
+  const formatReminderOffsetLabel = (offset: number) => {
+    if (offset % 1440 === 0) {
+      const days = offset / 1440;
+      return `${days} ${days === 1 ? t('common.dayShort') : t('common.daysShort')}`;
+    }
+    if (offset % 60 === 0) {
+      const hours = offset / 60;
+      return `${hours} ${hours === 1 ? t('common.hourShort') : t('common.hoursShort')}`;
+    }
+    return `${offset} ${t('common.minutesShort')}`;
+  };
+  const setReminderOffsets = (nextOffsets: number[]) => {
+    updatePreferences({ push: { appointments: { reminder_offsets: nextOffsets } } });
+  };
+  const handleToggleReminderOffset = (offset: number) => {
+    if (remindersDisabled) return;
+    if (reminderOffsets.includes(offset)) {
+      setReminderOffsets(reminderOffsets.filter((entry) => entry !== offset));
+      return;
+    }
+    if (reminderOffsets.length >= MAX_REMINDER_OFFSETS) {
+      Alert.alert(t('common.warning'), t('profile.notificationsRemindersLimit'));
+      return;
+    }
+    setReminderOffsets([...reminderOffsets, offset]);
+  };
+  const handleAddCustomReminder = () => {
+    if (remindersDisabled) return;
+    const parsed = Math.round(Number(customReminderInput.replace(',', '.')));
+    if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1440) {
+      Alert.alert(t('common.error'), t('profile.notificationsRemindersInvalid'));
+      return;
+    }
+    if (reminderOffsets.includes(parsed)) {
+      setCustomReminderInput('');
+      return;
+    }
+    if (reminderOffsets.length >= MAX_REMINDER_OFFSETS) {
+      Alert.alert(t('common.warning'), t('profile.notificationsRemindersLimit'));
+      return;
+    }
+    setReminderOffsets([...reminderOffsets, parsed]);
+    setCustomReminderInput('');
+  };
 
   const handleTogglePushNotifications = async (value: boolean) => {
     if (preferencesMutation.isPending) return;
@@ -1280,6 +1353,63 @@ export default function ProfileScreen({ navigation }: Props) {
                   thumbColor={resolvedNotificationPreferences.push.appointments.reminder ? colors.primary : colors.surfaceBorder}
                   trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
                 />
+              </View>
+              <View style={styles.reminderGroup}>
+                <Text style={styles.reminderTitle}>{t('profile.notificationsRemindersTitle')}</Text>
+                <Text style={styles.reminderHelper}>{t('profile.notificationsRemindersHelper')}</Text>
+                <View style={styles.reminderChipsRow}>
+                  {REMINDER_PRESETS.map((offset) => {
+                    const isActive = reminderOffsets.includes(offset);
+                    return (
+                      <TouchableOpacity
+                        key={`preset-${offset}`}
+                        style={[
+                          styles.reminderChip,
+                          isActive && styles.reminderChipActive,
+                          remindersDisabled && styles.reminderChipDisabled,
+                        ]}
+                        onPress={() => handleToggleReminderOffset(offset)}
+                        disabled={remindersDisabled}
+                      >
+                        <Text
+                          style={[
+                            styles.reminderChipText,
+                            isActive && styles.reminderChipTextActive,
+                            remindersDisabled && styles.reminderChipTextDisabled,
+                          ]}
+                        >
+                          {formatReminderOffsetLabel(offset)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <View style={styles.reminderCustomRow}>
+                  <TextInput
+                    value={customReminderInput}
+                    onChangeText={setCustomReminderInput}
+                    placeholder={t('profile.notificationsRemindersCustomPlaceholder')}
+                    placeholderTextColor={colors.muted}
+                    keyboardType="number-pad"
+                    editable={!remindersDisabled}
+                    style={[
+                      styles.reminderInput,
+                      remindersDisabled && styles.reminderInputDisabled,
+                    ]}
+                  />
+                  <TouchableOpacity
+                    style={[
+                      styles.reminderAddButton,
+                      remindersDisabled && styles.reminderAddButtonDisabled,
+                    ]}
+                    onPress={handleAddCustomReminder}
+                    disabled={remindersDisabled}
+                  >
+                    <Text style={styles.reminderAddButtonText}>
+                      {t('profile.notificationsRemindersAdd')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
 
@@ -1956,6 +2086,88 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       letterSpacing: 0.6,
       textTransform: 'uppercase',
       marginBottom: 6,
+    },
+    reminderGroup: {
+      marginTop: 8,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.surfaceBorder,
+    },
+    reminderTitle: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    reminderHelper: {
+      color: colors.muted,
+      fontSize: 12,
+      marginTop: 2,
+      marginBottom: 8,
+    },
+    reminderChipsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 10,
+    },
+    reminderChip: {
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 16,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      backgroundColor: colors.background,
+    },
+    reminderChipActive: {
+      backgroundColor: colors.primarySoft,
+      borderColor: colors.primary,
+    },
+    reminderChipDisabled: {
+      opacity: 0.5,
+    },
+    reminderChipText: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    reminderChipTextActive: {
+      color: colors.primary,
+    },
+    reminderChipTextDisabled: {
+      color: colors.muted,
+    },
+    reminderCustomRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    reminderInput: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      color: colors.text,
+      backgroundColor: colors.background,
+    },
+    reminderInputDisabled: {
+      backgroundColor: colors.surface,
+      color: colors.muted,
+    },
+    reminderAddButton: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 10,
+      backgroundColor: colors.primary,
+    },
+    reminderAddButtonDisabled: {
+      backgroundColor: colors.surfaceBorder,
+    },
+    reminderAddButtonText: {
+      color: colors.onPrimary,
+      fontWeight: '700',
+      fontSize: 12,
     },
     linkGroup: {
       gap: 12,
