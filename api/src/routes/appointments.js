@@ -164,19 +164,19 @@ async function applyServiceSelections({ supabase, appointmentId, selections }) {
   }
 
   const selectionBuckets = new Map()
-  ;(appointmentServices || []).forEach((row) => {
-    const key = `${row.service_id || ''}:${row.pet_id || ''}`
-    const bucket = selectionBuckets.get(key) || []
-    bucket.push(row.id)
-    selectionBuckets.set(key, bucket)
-  })
+    ; (appointmentServices || []).forEach((row) => {
+      const key = `${row.service_id || ''}:${row.pet_id || ''}`
+      const bucket = selectionBuckets.get(key) || []
+      bucket.push(row.id)
+      selectionBuckets.set(key, bucket)
+    })
 
   const fallbackBuckets = new Map()
-  ;(appointmentServices || []).forEach((row) => {
-    const bucket = fallbackBuckets.get(row.service_id) || []
-    bucket.push(row.id)
-    fallbackBuckets.set(row.service_id, bucket)
-  })
+    ; (appointmentServices || []).forEach((row) => {
+      const bucket = fallbackBuckets.get(row.service_id) || []
+      bucket.push(row.id)
+      fallbackBuckets.set(row.service_id, bucket)
+    })
 
   for (const selection of normalizedSelections) {
     const key = `${selection.service_id || ''}:${selection.pet_id || ''}`
@@ -985,7 +985,7 @@ router.post('/reminders', async (req, res) => {
   const { data: members, error: membersError } = await supabaseAdmin
     .from('account_members')
     .select('account_id, user_id, status')
-    .eq('status', 'active')
+    .eq('status', 'accepted')
 
   if (membersError) {
     console.error('[appointments] load account members error', membersError)
@@ -994,13 +994,13 @@ router.post('/reminders', async (req, res) => {
 
   const membersByAccount = new Map()
   const userIds = new Set()
-  ;(members || []).forEach((row) => {
-    if (!row?.account_id || !row?.user_id) return
-    const bucket = membersByAccount.get(row.account_id) || new Set()
-    bucket.add(row.user_id)
-    membersByAccount.set(row.account_id, bucket)
-    userIds.add(row.user_id)
-  })
+    ; (members || []).forEach((row) => {
+      if (!row?.account_id || !row?.user_id) return
+      const bucket = membersByAccount.get(row.account_id) || new Set()
+      bucket.add(row.user_id)
+      membersByAccount.set(row.account_id, bucket)
+      userIds.add(row.user_id)
+    })
 
   if (!userIds.size) {
     return res.json({ ok: true, processed: 0, reminders: 0, sent: 0, failed: 0, skipped: 0 })
@@ -1022,10 +1022,10 @@ router.post('/reminders', async (req, res) => {
     preferencesByUser.set(userId, defaultPreferences)
   })
 
-  ;(preferenceRows || []).forEach((row) => {
-    if (!row?.user_id) return
-    preferencesByUser.set(row.user_id, normalizeNotificationPreferences(row.preferences))
-  })
+    ; (preferenceRows || []).forEach((row) => {
+      if (!row?.user_id) return
+      preferencesByUser.set(row.user_id, normalizeNotificationPreferences(row.preferences))
+    })
 
   const offsetsByUser = new Map()
   const reminderEnabledUsers = new Set()
@@ -1080,49 +1080,49 @@ router.post('/reminders', async (req, res) => {
   }
 
   const alreadySent = new Set()
-  ;(existingNotifications || []).forEach((row) => {
-    const payload = row?.payload || {}
-    const appointmentId = payload.appointmentId || payload.appointment_id
-    const offsetMinutes =
-      payload.reminderOffsetMinutes || payload.offsetMinutes || payload.offset_minutes
-    if (!row?.user_id || !appointmentId || !offsetMinutes) return
-    alreadySent.add(`${row.user_id}:${appointmentId}:${offsetMinutes}`)
-  })
+    ; (existingNotifications || []).forEach((row) => {
+      const payload = row?.payload || {}
+      const appointmentId = payload.appointmentId || payload.appointment_id
+      const offsetMinutes =
+        payload.reminderOffsetMinutes || payload.offsetMinutes || payload.offset_minutes
+      if (!row?.user_id || !appointmentId || !offsetMinutes) return
+      alreadySent.add(`${row.user_id}:${appointmentId}:${offsetMinutes}`)
+    })
 
   const queuedByReminder = new Map()
   const windowStartMs = windowStart.getTime()
   const windowEndMs = windowEnd.getTime()
 
-  ;(appointments || []).forEach((appointment) => {
-    if (!appointment?.account_id) return
-    if (appointment.status && REMINDER_EXCLUDED_STATUSES.has(appointment.status)) return
-    const appointmentDateTime = parseAppointmentDateTime(appointment)
-    if (!appointmentDateTime) return
-    const accountMembers = membersByAccount.get(appointment.account_id)
-    if (!accountMembers || accountMembers.size === 0) return
-    const appointmentOffsets = normalizeReminderOffsets(appointment.reminder_offsets, [])
+    ; (appointments || []).forEach((appointment) => {
+      if (!appointment?.account_id) return
+      if (appointment.status && REMINDER_EXCLUDED_STATUSES.has(appointment.status)) return
+      const appointmentDateTime = parseAppointmentDateTime(appointment)
+      if (!appointmentDateTime) return
+      const accountMembers = membersByAccount.get(appointment.account_id)
+      if (!accountMembers || accountMembers.size === 0) return
+      const appointmentOffsets = normalizeReminderOffsets(appointment.reminder_offsets, [])
 
-    accountMembers.forEach((userId) => {
-      if (!reminderEnabledUsers.has(userId)) return
-      const offsets = appointmentOffsets.length > 0 ? appointmentOffsets : offsetsByUser.get(userId)
-      if (!offsets || offsets.length === 0) return
-      offsets.forEach((offset) => {
-        const reminderTimeMs = appointmentDateTime.getTime() - offset * 60 * 1000
-        if (reminderTimeMs < windowStartMs || reminderTimeMs > windowEndMs) return
-        const key = `${userId}:${appointment.id}:${offset}`
-        if (alreadySent.has(key)) return
-        alreadySent.add(key)
-        const reminderKey = `${appointment.id}:${offset}`
-        const entry = queuedByReminder.get(reminderKey) || {
-          appointment,
-          offset,
-          userIds: new Set()
-        }
-        entry.userIds.add(userId)
-        queuedByReminder.set(reminderKey, entry)
+      accountMembers.forEach((userId) => {
+        if (!reminderEnabledUsers.has(userId)) return
+        const offsets = appointmentOffsets.length > 0 ? appointmentOffsets : offsetsByUser.get(userId)
+        if (!offsets || offsets.length === 0) return
+        offsets.forEach((offset) => {
+          const reminderTimeMs = appointmentDateTime.getTime() - offset * 60 * 1000
+          if (reminderTimeMs < windowStartMs || reminderTimeMs > windowEndMs) return
+          const key = `${userId}:${appointment.id}:${offset}`
+          if (alreadySent.has(key)) return
+          alreadySent.add(key)
+          const reminderKey = `${appointment.id}:${offset}`
+          const entry = queuedByReminder.get(reminderKey) || {
+            appointment,
+            offset,
+            userIds: new Set()
+          }
+          entry.userIds.add(userId)
+          queuedByReminder.set(reminderKey, entry)
+        })
       })
     })
-  })
 
   const summary = { processed: appointments?.length || 0, reminders: 0, sent: 0, failed: 0, skipped: 0 }
 
