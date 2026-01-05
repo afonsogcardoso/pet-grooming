@@ -9,7 +9,8 @@ export const DEFAULT_NOTIFICATION_PREFERENCES = {
       created: true,
       confirmed: true,
       cancelled: true,
-      reminder: true
+      reminder: true,
+      reminder_offsets: [30]
     },
     marketplace: {
       request: true
@@ -37,6 +38,17 @@ function cloneDefaults() {
 
 function coerceBoolean(value, fallback) {
   return typeof value === 'boolean' ? value : fallback
+}
+
+function coerceReminderOffsets(value, fallback) {
+  if (!Array.isArray(value)) return fallback
+  const normalized = value
+    .map((entry) => Number(entry))
+    .filter((entry) => Number.isFinite(entry))
+    .map((entry) => Math.round(entry))
+    .filter((entry) => entry > 0 && entry <= 1440)
+  const unique = Array.from(new Set(normalized))
+  return unique.length > 0 ? unique.slice(0, 2) : fallback
 }
 
 export function normalizeNotificationPreferences(input) {
@@ -67,6 +79,10 @@ export function normalizeNotificationPreferences(input) {
         reminder: coerceBoolean(
           appointments.reminder,
           DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.reminder
+        ),
+        reminder_offsets: coerceReminderOffsets(
+          appointments.reminder_offsets,
+          DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.reminder_offsets
         )
       },
       marketplace: {
@@ -103,7 +119,11 @@ export function mergeNotificationPreferences(existing, updates) {
         created: coerceBoolean(appointments.created, base.push.appointments.created),
         confirmed: coerceBoolean(appointments.confirmed, base.push.appointments.confirmed),
         cancelled: coerceBoolean(appointments.cancelled, base.push.appointments.cancelled),
-        reminder: coerceBoolean(appointments.reminder, base.push.appointments.reminder)
+        reminder: coerceBoolean(appointments.reminder, base.push.appointments.reminder),
+        reminder_offsets: coerceReminderOffsets(
+          appointments.reminder_offsets,
+          base.push.appointments.reminder_offsets
+        )
       },
       marketplace: {
         request: coerceBoolean(marketplace.request, base.push.marketplace.request)

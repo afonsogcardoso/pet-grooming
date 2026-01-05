@@ -8,6 +8,7 @@ export type NotificationPreferences = {
       confirmed: boolean;
       cancelled: boolean;
       reminder: boolean;
+      reminder_offsets: number[];
     };
     marketplace: {
       request: boolean;
@@ -27,6 +28,7 @@ export type NotificationPreferencesPayload = {
       confirmed?: boolean;
       cancelled?: boolean;
       reminder?: boolean;
+      reminder_offsets?: number[];
     };
     marketplace?: {
       request?: boolean;

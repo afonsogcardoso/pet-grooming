@@ -3,7 +3,12 @@ import multer from 'multer'
 import crypto from 'crypto'
 import { getSupabaseClientWithAuth, getSupabaseServiceRoleClient } from '../authClient.js'
 import { formatCustomerAddress, formatCustomerName, mapAppointmentForApi } from '../utils/customer.js'
-import { sendPushNotifications } from '../utils/notifications.js'
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  normalizeNotificationPreferences,
+  sendPushNotifications,
+  shouldSendNotification
+} from '../utils/notifications.js'
 
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
@@ -53,12 +58,55 @@ const APPOINTMENT_DETAIL_SELECT = `
   )
 `
 const PET_PHOTO_BUCKET = 'pets'
+const REMINDER_WINDOW_MINUTES = 10
+const REMINDER_MAX_OFFSET_MINUTES = 1440
+const REMINDER_EXCLUDED_STATUSES = new Set(['cancelled', 'completed', 'in_progress'])
 
 function formatAppointmentDateTime(appointment) {
   if (!appointment) return ''
   const date = appointment.appointment_date || appointment.appointmentDate
   const time = appointment.appointment_time || appointment.appointmentTime
   return [date, time].filter(Boolean).join(' ')
+}
+
+function formatLocalDate(value) {
+  if (!value) return null
+  return value.toLocaleDateString('sv-SE')
+}
+
+function normalizeTimeString(value) {
+  if (!value) return null
+  const raw = value.toString().trim()
+  if (!raw) return null
+  const parts = raw.split(':').map((part) => part.trim())
+  if (parts.length < 2) return null
+  const [hours, minutes, seconds] = parts
+  const safeHours = hours?.padStart(2, '0')
+  const safeMinutes = minutes?.padStart(2, '0')
+  const safeSeconds = (seconds || '00').padStart(2, '0')
+  return `${safeHours}:${safeMinutes}:${safeSeconds}`
+}
+
+function parseAppointmentDateTime(appointment) {
+  if (!appointment?.appointment_date || !appointment?.appointment_time) return null
+  const time = normalizeTimeString(appointment.appointment_time)
+  if (!time) return null
+  const dateTime = new Date(`${appointment.appointment_date}T${time}`)
+  if (Number.isNaN(dateTime.getTime())) return null
+  return dateTime
+}
+
+function formatOffsetLabel(offsetMinutes) {
+  if (!Number.isFinite(offsetMinutes)) return ''
+  if (offsetMinutes % 1440 === 0) {
+    const days = offsetMinutes / 1440
+    return `${days} dia${days === 1 ? '' : 's'}`
+  }
+  if (offsetMinutes % 60 === 0) {
+    const hours = offsetMinutes / 60
+    return `${hours} h`
+  }
+  return `${offsetMinutes} min`
 }
 
 function normalizeServiceSelections(rawSelections) {
@@ -902,6 +950,212 @@ router.post('/:id/photos', upload.single('file'), async (req, res) => {
   }
 
   return res.json({ url: publicUrl })
+})
+
+router.post('/reminders', async (req, res) => {
+  const cronSecret = process.env.CRON_SECRET
+  const authHeader = req.get('authorization') || ''
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+  const secretToken = bearerToken || req.get('x-cron-secret')
+
+  if (!cronSecret || !secretToken || secretToken !== cronSecret) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  const supabaseAdmin = getSupabaseServiceRoleClient()
+  if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
+
+  const { data: members, error: membersError } = await supabaseAdmin
+    .from('account_members')
+    .select('account_id, user_id, status')
+    .eq('status', 'active')
+
+  if (membersError) {
+    console.error('[appointments] load account members error', membersError)
+    return res.status(500).json({ error: membersError.message })
+  }
+
+  const membersByAccount = new Map()
+  const userIds = new Set()
+  ;(members || []).forEach((row) => {
+    if (!row?.account_id || !row?.user_id) return
+    const bucket = membersByAccount.get(row.account_id) || new Set()
+    bucket.add(row.user_id)
+    membersByAccount.set(row.account_id, bucket)
+    userIds.add(row.user_id)
+  })
+
+  if (!userIds.size) {
+    return res.json({ ok: true, processed: 0, reminders: 0, sent: 0, failed: 0, skipped: 0 })
+  }
+
+  const { data: preferenceRows, error: preferencesError } = await supabaseAdmin
+    .from('notification_preferences')
+    .select('user_id, preferences')
+    .in('user_id', Array.from(userIds))
+
+  if (preferencesError) {
+    console.error('[appointments] load notification preferences error', preferencesError)
+    return res.status(500).json({ error: preferencesError.message })
+  }
+
+  const defaultPreferences = normalizeNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES)
+  const preferencesByUser = new Map()
+  userIds.forEach((userId) => {
+    preferencesByUser.set(userId, defaultPreferences)
+  })
+
+  ;(preferenceRows || []).forEach((row) => {
+    if (!row?.user_id) return
+    preferencesByUser.set(row.user_id, normalizeNotificationPreferences(row.preferences))
+  })
+
+  const offsetsByUser = new Map()
+  let minOffset = null
+  let maxOffset = null
+  preferencesByUser.forEach((preferences, userId) => {
+    if (!shouldSendNotification(preferences, 'appointments.reminder')) return
+    const offsets = Array.isArray(preferences?.push?.appointments?.reminder_offsets)
+      ? preferences.push.appointments.reminder_offsets
+      : []
+    const normalizedOffsets = offsets
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value))
+      .map((value) => Math.round(value))
+      .filter((value) => value > 0 && value <= REMINDER_MAX_OFFSET_MINUTES)
+
+    if (!normalizedOffsets.length) return
+    offsetsByUser.set(userId, normalizedOffsets)
+    normalizedOffsets.forEach((offset) => {
+      minOffset = minOffset === null ? offset : Math.min(minOffset, offset)
+      maxOffset = maxOffset === null ? offset : Math.max(maxOffset, offset)
+    })
+  })
+
+  if (!offsetsByUser.size) {
+    return res.json({ ok: true, processed: 0, reminders: 0, sent: 0, failed: 0, skipped: 0 })
+  }
+
+  const now = new Date()
+  const windowMinutes = Math.max(1, Number(process.env.REMINDER_WINDOW_MINUTES) || REMINDER_WINDOW_MINUTES)
+  const windowStart = new Date(now.getTime() - windowMinutes * 60 * 1000)
+  const windowEnd = new Date(now.getTime() + windowMinutes * 60 * 1000)
+  const rangeStart = new Date(windowStart.getTime() + minOffset * 60 * 1000)
+  const rangeEnd = new Date(windowEnd.getTime() + maxOffset * 60 * 1000)
+  const startDate = formatLocalDate(rangeStart)
+  const endDate = formatLocalDate(rangeEnd)
+
+  if (!startDate || !endDate) {
+    return res.status(500).json({ error: 'invalid_time_range' })
+  }
+
+  const { data: appointments, error: appointmentsError } = await supabaseAdmin
+    .from('appointments')
+    .select('id, account_id, appointment_date, appointment_time, status')
+    .gte('appointment_date', startDate)
+    .lte('appointment_date', endDate)
+
+  if (appointmentsError) {
+    console.error('[appointments] load reminders appointments error', appointmentsError)
+    return res.status(500).json({ error: appointmentsError.message })
+  }
+
+  const dedupeStart = new Date(now.getTime() - (maxOffset + windowMinutes) * 60 * 1000)
+  const { data: existingNotifications, error: notificationsError } = await supabaseAdmin
+    .from('notifications')
+    .select('user_id, payload')
+    .eq('type', 'appointments.reminder')
+    .in('user_id', Array.from(offsetsByUser.keys()))
+    .gte('created_at', dedupeStart.toISOString())
+
+  if (notificationsError) {
+    console.error('[appointments] load reminders notifications error', notificationsError)
+  }
+
+  const alreadySent = new Set()
+  ;(existingNotifications || []).forEach((row) => {
+    const payload = row?.payload || {}
+    const appointmentId = payload.appointmentId || payload.appointment_id
+    const offsetMinutes =
+      payload.reminderOffsetMinutes || payload.offsetMinutes || payload.offset_minutes
+    if (!row?.user_id || !appointmentId || !offsetMinutes) return
+    alreadySent.add(`${row.user_id}:${appointmentId}:${offsetMinutes}`)
+  })
+
+  const queuedByReminder = new Map()
+  const windowStartMs = windowStart.getTime()
+  const windowEndMs = windowEnd.getTime()
+
+  ;(appointments || []).forEach((appointment) => {
+    if (!appointment?.account_id) return
+    if (appointment.status && REMINDER_EXCLUDED_STATUSES.has(appointment.status)) return
+    const appointmentDateTime = parseAppointmentDateTime(appointment)
+    if (!appointmentDateTime) return
+    const accountMembers = membersByAccount.get(appointment.account_id)
+    if (!accountMembers || accountMembers.size === 0) return
+
+    accountMembers.forEach((userId) => {
+      const offsets = offsetsByUser.get(userId)
+      if (!offsets || offsets.length === 0) return
+      offsets.forEach((offset) => {
+        const reminderTimeMs = appointmentDateTime.getTime() - offset * 60 * 1000
+        if (reminderTimeMs < windowStartMs || reminderTimeMs > windowEndMs) return
+        const key = `${userId}:${appointment.id}:${offset}`
+        if (alreadySent.has(key)) return
+        alreadySent.add(key)
+        const reminderKey = `${appointment.id}:${offset}`
+        const entry = queuedByReminder.get(reminderKey) || {
+          appointment,
+          offset,
+          userIds: new Set()
+        }
+        entry.userIds.add(userId)
+        queuedByReminder.set(reminderKey, entry)
+      })
+    })
+  })
+
+  const summary = { processed: appointments?.length || 0, reminders: 0, sent: 0, failed: 0, skipped: 0 }
+
+  for (const entry of queuedByReminder.values()) {
+    const userIds = Array.from(entry.userIds || [])
+    if (!userIds.length) continue
+    summary.reminders += userIds.length
+    const timeLabel = entry.appointment?.appointment_time
+      ? entry.appointment.appointment_time.toString().slice(0, 5)
+      : ''
+    const dateLabel = entry.appointment?.appointment_date || ''
+    const dateTimeLabel = [dateLabel, timeLabel].filter(Boolean).join(' ')
+    const offsetLabel = formatOffsetLabel(entry.offset)
+    const body = offsetLabel
+      ? `Tens uma marcacao em ${offsetLabel}${dateTimeLabel ? ` (${dateTimeLabel})` : ''}.`
+      : `Tens uma marcacao${dateTimeLabel ? ` (${dateTimeLabel})` : ''}.`
+
+    const reminderAt = parseAppointmentDateTime(entry.appointment)
+    const payload = {
+      appointmentId: entry.appointment?.id,
+      reminderOffsetMinutes: entry.offset,
+      reminderAt: reminderAt
+        ? new Date(reminderAt.getTime() - entry.offset * 60 * 1000).toISOString()
+        : null
+    }
+
+    const result = await sendPushNotifications({
+      supabaseAdmin,
+      userIds,
+      accountId: entry.appointment?.account_id || null,
+      type: 'appointments.reminder',
+      title: 'Lembrete de marcacao',
+      body,
+      data: payload
+    })
+
+    summary.sent += result.sent || 0
+    summary.failed += result.failed || 0
+    summary.skipped += result.skipped || 0
+  }
+
+  return res.json({ ok: true, ...summary })
 })
 
 // Get shareable appointment with temporary signed URLs
