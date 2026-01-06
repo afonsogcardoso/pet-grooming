@@ -15,6 +15,7 @@ type ThemeColors = {
   text: string;
   muted: string;
   onPrimary: string;
+  switchTrack: string;
   danger: string;
   warning: string;
   success: string;
@@ -106,6 +107,8 @@ export function useBrandingTheme() {
     const muted = backgroundIsLight ? '#6F6F6F' : '#FFA85C';
     const surfaceBorder = withAlpha(text, backgroundIsLight ? 0.12 : 0.2);
     const onPrimary = isLightColor(primary) ? '#111827' : '#ffffff';
+    // Make active switch track more visible across light backgrounds — increase alpha
+    const switchTrack = withAlpha(primary, 0.32);
 
     return {
       primary,
@@ -117,6 +120,7 @@ export function useBrandingTheme() {
       text,
       muted,
       onPrimary,
+      switchTrack,
       danger: '#dc2626',
       warning: '#d97706',
       success: '#059669',

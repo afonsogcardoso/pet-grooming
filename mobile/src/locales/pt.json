@@ -223,6 +223,8 @@
     "overviewUnpaid": "Por pagar",
     "overviewNext": "Seguinte",
     "overviewNextEmpty": "Sem próximas marcações.",
+    "inProgressTitle": "Em progresso",
+    "nextAppointmentsTitle": "Próximas marcações",
     "newAppointmentTitle": "Nova Marcação",
     "newAppointmentSubtitle": "Criar agendamento rápido",
     "appointmentsTitle": "Agendamentos",

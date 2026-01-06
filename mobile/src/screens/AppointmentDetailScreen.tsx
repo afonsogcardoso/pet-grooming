@@ -587,28 +587,51 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                   <Text style={styles.compactCardTitle}>🐾 {t('appointmentDetail.pet')}</Text>
                   {appointmentPets.length === 1 ? (
                     <>
-                      {appointmentPets[0].photo_url ? (
-                        <Image source={{ uri: appointmentPets[0].photo_url }} style={styles.petThumbnail} />
-                      ) : null}
-                      <Text style={styles.compactCardName}>{appointmentPets[0].name}</Text>
-                      {appointmentPets[0].breed ? (
-                        <Text style={styles.compactCardBreed}>{appointmentPets[0].breed}</Text>
-                      ) : null}
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          const pet = appointmentPets[0];
+                          if (!pet) return;
+                          if (pet.id) {
+                            navigation.navigate('PetForm', { mode: 'edit', customerId, petId: pet.id, pet });
+                          }
+                        }}
+                      >
+                        {appointmentPets[0].photo_url ? (
+                          <Image source={{ uri: appointmentPets[0].photo_url }} style={styles.petThumbnail} />
+                        ) : (
+                          <View style={styles.petThumbnailPlaceholder}>
+                            <Text style={styles.petThumbnailInitials}>{String(appointmentPets[0].name || '').slice(0,1).toUpperCase() || '🐾'}</Text>
+                          </View>
+                        )}
+                        <Text style={styles.compactCardName}>{appointmentPets[0].name}</Text>
+                        {appointmentPets[0].breed ? (
+                          <Text style={styles.compactCardBreed}>{appointmentPets[0].breed}</Text>
+                        ) : null}
+                      </TouchableOpacity>
                     </>
                   ) : (
                     <View style={styles.petList}>
                       {appointmentPets.map((entry, index) => {
                         const key = entry.id ? String(entry.id) : `${entry.name || 'pet'}-${index}`;
                         return (
-                          <View
+                          <TouchableOpacity
                             key={key}
+                            activeOpacity={0.8}
+                            onPress={(e) => {
+                              e.stopPropagation?.();
+                              if (entry.id) {
+                                navigation.navigate('PetForm', { mode: 'edit', customerId, petId: entry.id, pet: entry });
+                              }
+                            }}
                             style={[styles.petRow, index === appointmentPets.length - 1 && styles.petRowLast]}
                           >
                             {entry.photo_url ? (
                               <Image source={{ uri: entry.photo_url }} style={styles.petRowImage} />
                             ) : (
                               <View style={styles.petRowPlaceholder}>
-                                <Text style={styles.petRowPlaceholderIcon}>🐾</Text>
+                                <Text style={styles.petRowInitials}>{String(entry.name || '').slice(0,1).toUpperCase() || '🐾'}</Text>
                               </View>
                             )}
                             <View style={styles.petRowInfo}>
@@ -621,7 +644,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                                 </Text>
                               ) : null}
                             </View>
-                          </View>
+                          </TouchableOpacity>
                         );
                       })}
                     </View>
@@ -807,6 +830,10 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
   const cardBase = getCardStyle(colors);
+  const placeholderBg =
+    colors.primarySoft && colors.primarySoft !== colors.surface
+      ? colors.primarySoft
+      : (colors.primary ? `${colors.primary}12` : colors.surfaceBorder || colors.surface);
 
   return StyleSheet.create({
     container: {
@@ -990,6 +1017,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     petCard: {
       alignItems: 'center',
+      justifyContent: 'center',
     },
     compactCardTitle: {
       fontSize: 13,
@@ -1045,7 +1073,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     petThumbnail: {
       width: 60,
       height: 60,
-      borderRadius: 12,
+      borderRadius: 30,
       marginBottom: 8,
       backgroundColor: colors.background,
     },
@@ -1068,19 +1096,35 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     petRowImage: {
       width: 44,
       height: 44,
-      borderRadius: 10,
+      borderRadius: 22,
       backgroundColor: colors.background,
     },
     petRowPlaceholder: {
       width: 44,
       height: 44,
-      borderRadius: 10,
-      backgroundColor: colors.primarySoft,
+      borderRadius: 22,
+      backgroundColor: placeholderBg,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    petRowPlaceholderIcon: {
-      fontSize: 18,
+    petRowInitials: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    petThumbnailPlaceholder: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: placeholderBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 8,
+    },
+    petThumbnailInitials: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: colors.text,
     },
     petRowInfo: {
       flex: 1,

@@ -223,6 +223,8 @@
     "overviewUnpaid": "Unpaid",
     "overviewNext": "Next up",
     "overviewNextEmpty": "No upcoming appointments.",
+    "inProgressTitle": "In progress",
+    "nextAppointmentsTitle": "Next appointments",
     "newAppointmentTitle": "New Appointment",
     "newAppointmentSubtitle": "Create a quick booking",
     "marketplaceSection": "Marketplace",

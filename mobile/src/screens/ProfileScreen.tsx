@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Image, TextInput, Alert, Platform, ActionSheetIOS, PermissionsAndroid, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 import * as AuthSession from 'expo-auth-session';
@@ -10,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { getProfile, updateProfile, uploadAvatar, resetPassword, Profile } from '../api/profile';
 import { Branding, getBranding, updateBranding, uploadBrandLogo, uploadPortalImage } from '../api/branding';
-import { getNotificationPreferences, registerPushToken, updateNotificationPreferences, NotificationPreferences, NotificationPreferencesPayload } from '../api/notifications';
+import { getNotificationPreferences, registerPushToken, unregisterPushToken, updateNotificationPreferences, NotificationPreferences, NotificationPreferencesPayload } from '../api/notifications';
 import { useAuthStore } from '../state/authStore';
 import { useViewModeStore, ViewMode } from '../state/viewModeStore';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
@@ -24,6 +26,7 @@ import { resolveSupabaseAnonKey, resolveSupabaseUrl } from '../config/supabase';
 import { formatVersionLabel } from '../utils/version';
 import { hapticError, hapticSelection, hapticSuccess } from '../utils/haptics';
 import { registerForPushNotifications } from '../utils/pushNotifications';
+import * as Notifications from 'expo-notifications';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -209,7 +212,32 @@ export default function ProfileScreen({ navigation }: Props) {
   const activeRole = data?.activeRole ?? user?.activeRole ?? 'provider';
   const resolvedViewMode: ViewMode = viewMode ?? (activeRole === 'consumer' ? 'consumer' : 'private');
   const canSwitchViewMode = availableRoles.includes('consumer') && availableRoles.includes('provider');
-  const resolvedNotificationPreferences = notificationPreferences || DEFAULT_NOTIFICATION_PREFERENCES;
+  const resolvedNotificationPreferences = useMemo<NotificationPreferences>(() => {
+    const raw = notificationPreferences;
+    if (!raw) return DEFAULT_NOTIFICATION_PREFERENCES;
+    const push = raw.push || {};
+    return {
+      push: {
+        enabled: typeof push.enabled === 'boolean' ? push.enabled : DEFAULT_NOTIFICATION_PREFERENCES.push.enabled,
+        appointments: {
+          created: typeof push.appointments?.created === 'boolean' ? push.appointments!.created : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.created,
+          confirmed: typeof push.appointments?.confirmed === 'boolean' ? push.appointments!.confirmed : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.confirmed,
+          cancelled: typeof push.appointments?.cancelled === 'boolean' ? push.appointments!.cancelled : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.cancelled,
+          reminder: typeof push.appointments?.reminder === 'boolean' ? push.appointments!.reminder : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.reminder,
+          reminder_offsets: Array.isArray(push.appointments?.reminder_offsets)
+            ? (push.appointments!.reminder_offsets as number[])
+            : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.reminder_offsets,
+        },
+        marketplace: {
+          request: typeof push.marketplace?.request === 'boolean' ? push.marketplace!.request : DEFAULT_NOTIFICATION_PREFERENCES.push.marketplace.request,
+        },
+        payments: {
+          updated: typeof push.payments?.updated === 'boolean' ? push.payments!.updated : DEFAULT_NOTIFICATION_PREFERENCES.push.payments.updated,
+        },
+        marketing: typeof push.marketing === 'boolean' ? push.marketing : DEFAULT_NOTIFICATION_PREFERENCES.push.marketing,
+      },
+    };
+  }, [notificationPreferences]);
   const pushEnabled = resolvedNotificationPreferences.push?.enabled ?? false;
   const reminderOffsets = useMemo(() => {
     const offsets = normalizeReminderOffsets(
@@ -260,6 +288,14 @@ export default function ProfileScreen({ navigation }: Props) {
     setEditAddress(profileDefaults.address);
     setEditAddress2(profileDefaults.address2);
   }, [profileDefaults, hasProfileEdits]);
+
+  // Ensure profile is refreshed every time the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      // Force a refetch of the profile when the user opens the Profile screen
+      queryClient.refetchQueries({ queryKey: ['profile'] });
+    }, [queryClient])
+  );
 
   const applyMarketplaceBranding = (data?: Branding | null) => {
     if (!data) return;
@@ -1059,8 +1095,34 @@ export default function ProfileScreen({ navigation }: Props) {
         Alert.alert(t('common.error'), t('profile.notificationsRegisterError'));
         return;
       }
+      try {
+        await preferencesMutation.mutateAsync({ push: { enabled: true } });
+      } catch (err) {
+        // If updating preferences failed after registering token, try to unregister the token to avoid orphaned tokens
+        try {
+          await unregisterPushToken({ pushToken: result.token });
+        } catch {}
+        Alert.alert(t('common.error'), t('profile.notificationsUpdateError'));
+      }
+      return;
     }
-    updatePreferences({ push: { enabled: value } });
+
+    // disabling notifications: attempt to unregister current expo token then update preferences
+    try {
+      const tokenData = await Notifications.getExpoPushTokenAsync();
+      const token = tokenData?.data;
+      if (token) {
+        await unregisterPushToken({ pushToken: token });
+      }
+    } catch (err) {
+      // ignore unregister failures
+    }
+
+    try {
+      await preferencesMutation.mutateAsync({ push: { enabled: false } });
+    } catch (err) {
+      Alert.alert(t('common.error'), t('profile.notificationsUpdateError'));
+    }
   };
 
   const handlePasswordSave = () => {
@@ -1311,8 +1373,9 @@ export default function ProfileScreen({ navigation }: Props) {
                 value={pushEnabled}
                 onValueChange={handleTogglePushNotifications}
                 disabled={notificationsDisabled}
-                thumbColor={pushEnabled ? colors.primary : colors.surfaceBorder}
-                trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                thumbColor={pushEnabled ? colors.primary : colors.surface}
+                trackColor={{ false: 'blue', true: 'green' }}
+                ios_backgroundColor={colors.surface}
               />
             </View>
 
@@ -1324,8 +1387,9 @@ export default function ProfileScreen({ navigation }: Props) {
                   value={resolvedNotificationPreferences.push.appointments.created}
                   onValueChange={(value) => updatePreferences({ push: { appointments: { created: value } } })}
                   disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={resolvedNotificationPreferences.push.appointments.created ? colors.primary : colors.surfaceBorder}
-                  trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                  thumbColor={resolvedNotificationPreferences.push.appointments.created ? colors.primary : colors.surface}
+                  trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
+                  ios_backgroundColor={colors.surface}
                 />
               </View>
               <View style={styles.toggleRow}>
@@ -1334,8 +1398,9 @@ export default function ProfileScreen({ navigation }: Props) {
                   value={resolvedNotificationPreferences.push.appointments.confirmed}
                   onValueChange={(value) => updatePreferences({ push: { appointments: { confirmed: value } } })}
                   disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={resolvedNotificationPreferences.push.appointments.confirmed ? colors.primary : colors.surfaceBorder}
-                  trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                  thumbColor={resolvedNotificationPreferences.push.appointments.confirmed ? colors.primary : colors.surface}
+                  trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
+                  ios_backgroundColor={colors.surface}
                 />
               </View>
               <View style={styles.toggleRow}>
@@ -1344,8 +1409,9 @@ export default function ProfileScreen({ navigation }: Props) {
                   value={resolvedNotificationPreferences.push.appointments.cancelled}
                   onValueChange={(value) => updatePreferences({ push: { appointments: { cancelled: value } } })}
                   disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={resolvedNotificationPreferences.push.appointments.cancelled ? colors.primary : colors.surfaceBorder}
-                  trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                  thumbColor={resolvedNotificationPreferences.push.appointments.cancelled ? colors.primary : colors.surface}
+                  trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
+                  ios_backgroundColor={colors.surface}
                 />
               </View>
               <View style={styles.toggleRow}>
@@ -1354,8 +1420,9 @@ export default function ProfileScreen({ navigation }: Props) {
                   value={resolvedNotificationPreferences.push.appointments.reminder}
                   onValueChange={(value) => updatePreferences({ push: { appointments: { reminder: value } } })}
                   disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={resolvedNotificationPreferences.push.appointments.reminder ? colors.primary : colors.surfaceBorder}
-                  trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                  thumbColor={resolvedNotificationPreferences.push.appointments.reminder ? colors.primary : colors.surface}
+                  trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
+                  ios_backgroundColor={colors.surface}
                 />
               </View>
               <View style={styles.reminderGroup}>
@@ -1425,8 +1492,9 @@ export default function ProfileScreen({ navigation }: Props) {
                   value={resolvedNotificationPreferences.push.marketplace.request}
                   onValueChange={(value) => updatePreferences({ push: { marketplace: { request: value } } })}
                   disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={resolvedNotificationPreferences.push.marketplace.request ? colors.primary : colors.surfaceBorder}
-                  trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                  thumbColor={resolvedNotificationPreferences.push.marketplace.request ? colors.primary : colors.surface}
+                  trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
+                  ios_backgroundColor={colors.surface}
                 />
               </View>
             </View>
@@ -1439,8 +1507,9 @@ export default function ProfileScreen({ navigation }: Props) {
                   value={resolvedNotificationPreferences.push.payments.updated}
                   onValueChange={(value) => updatePreferences({ push: { payments: { updated: value } } })}
                   disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={resolvedNotificationPreferences.push.payments.updated ? colors.primary : colors.surfaceBorder}
-                  trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                  thumbColor={resolvedNotificationPreferences.push.payments.updated ? colors.primary : colors.surface}
+                  trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
+                  ios_backgroundColor={colors.surface}
                 />
               </View>
             </View>
@@ -1453,8 +1522,9 @@ export default function ProfileScreen({ navigation }: Props) {
                   value={resolvedNotificationPreferences.push.marketing}
                   onValueChange={(value) => updatePreferences({ push: { marketing: value } })}
                   disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={resolvedNotificationPreferences.push.marketing ? colors.primary : colors.surfaceBorder}
-                  trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                  thumbColor={resolvedNotificationPreferences.push.marketing ? colors.primary : colors.surface}
+                  trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
+                  ios_backgroundColor={colors.surface}
                 />
               </View>
             </View>

@@ -399,8 +399,9 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
                 <Switch
                   value={savePetProfile}
                   onValueChange={setSavePetProfile}
-                  trackColor={{ false: colors.surfaceBorder, true: colors.primarySoft }}
+                  trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
                   thumbColor={savePetProfile ? colors.primary : colors.surface}
+                  ios_backgroundColor={colors.surface}
                 />
               </View>
               <Text style={styles.savePetHint}>{t('marketplaceRequest.savePetHint')}</Text>

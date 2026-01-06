@@ -31,6 +31,7 @@ import {
   getAppointmentPetNames,
   getAppointmentServiceEntries,
 } from '../../utils/appointmentSummary';
+import AppointmentCard from './AppointmentCard';
 import { Button } from '../common';
 import { meta } from 'zod/v4/core';
 
@@ -406,60 +407,7 @@ const AppointmentRow = React.memo(function AppointmentRow({
       onClose={onSwipeClose}
       renderLeftActions={renderLeftActions}
     >
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => onAppointmentPress(item)}
-      >
-        <View style={styles.petThumb}>
-          {item.pets?.photo_url ? (
-            <Image source={{ uri: item.pets.photo_url }} style={styles.petImage} />
-          ) : (
-            <Text style={styles.petInitial}>{petInitial}</Text>
-          )}
-        </View>
-
-        <View style={styles.content}>
-          <Text style={styles.time}>{formatTime(item.appointment_time)}</Text>
-          <Text style={styles.service}>
-            {serviceNames.length > 0
-              ? serviceNames.join(', ')
-              : t('listView.serviceFallback')}
-          </Text>
-          <Text style={styles.meta}>
-            {formatCustomerName(item.customers)}
-          </Text>
-          {petNames.length > 0 && (
-            <View style={{ marginTop: 4 }}>
-              {petNames.map((pn, idx) => (
-                <Text key={idx} style={[styles.meta, { marginTop: idx === 0 ? 2 : 0 }]} numberOfLines={1}>
-                  {pn}
-                </Text>
-              ))}
-            </View>
-          )}
-         
-        </View>
-
-        <View style={{ flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', alignSelf: 'stretch' }}>
-          <View style={styles.badges}>
-            <View style={[styles.pill, { backgroundColor: `${statusColor}14` }]}>
-              <View style={[ { backgroundColor: statusColor }]} />
-              <Text style={[styles.pillText, { color: statusColor }]}>{statusLabel}</Text>
-            </View>
-            {paymentStatus ? (
-              <>
-                <View style={[styles.pill, { backgroundColor: `${paymentColor}14` }]}> 
-                  <View style={[ { backgroundColor: paymentColor }]} />
-                  <Text style={[styles.pillText, { color: paymentColor }]}>{paymentLabel}</Text>
-                </View>
-                {amount !== undefined && amount !== null ? (
-                  <Text style={[styles.paymentAmount]}>{`€ ${Number(amount).toFixed(2)}`}</Text>
-                ) : null}
-              </>
-            ) : null}
-          </View>
-        </View>
-      </TouchableOpacity>
+      <AppointmentCard appointment={item} onPress={() => onAppointmentPress(item)} />
     </SwipeableRow>
   );
 });
@@ -527,12 +475,18 @@ export function ListView({
       if (!dayKey) return false;
 
       if (filterMode === 'upcoming') {
-        if (item.status === 'completed') return false;
+        // Exclude completed or cancelled
+        if (item.status === 'completed' || item.status === 'cancelled') return false;
+        // Future days are upcoming
         if (dayKey > todayKey) return true;
-        if (dayKey < todayKey) return false;
+        // Past days: include only if appointment is still active (in_progress) or was confirmed (overdue)
+        if (dayKey < todayKey) {
+          return item.status === 'in_progress' || item.status === 'confirmed';
+        }
+        // For today, if time missing treat as upcoming; otherwise compare time to now
         const dateTime = getAppointmentDateTime(item, dayKey);
         if (!dateTime) return true;
-        return dateTime >= now;
+        return dateTime >= now || item.status === 'in_progress';
       }
 
       if (filterMode === 'past') {

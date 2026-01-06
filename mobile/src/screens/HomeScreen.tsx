@@ -10,6 +10,13 @@ import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { getCardStyle } from '../theme/uiTokens';
 import { getStatusColor, getStatusLabel } from '../utils/appointmentStatus';
 import { formatCustomerName } from '../utils/customer';
+import {
+  getAppointmentServiceEntries,
+  getAppointmentPetNames,
+  formatPetLabel,
+  formatServiceLabels,
+} from '../utils/appointmentSummary';
+import AppointmentCard from '../components/appointments/AppointmentCard';
 
 type Props = NativeStackScreenProps<any>;
 
@@ -81,6 +88,19 @@ export default function HomeScreen({ navigation }: Props) {
       .map((appointment) => ({ appointment, dateTime: parseAppointmentDateTime(appointment) }))
       .filter((entry) => entry.dateTime && entry.dateTime >= now)
       .sort((a, b) => (a.dateTime?.getTime() || 0) - (b.dateTime?.getTime() || 0))[0]?.appointment || null;
+  }, [upcomingAppointments]);
+  const inProgressAppointments = useMemo(() => {
+    const now = new Date();
+    return upcomingAppointments
+      .map((appointment) => ({ appointment, dateTime: parseAppointmentDateTime(appointment) }))
+      .filter((entry) => {
+        const { appointment, dateTime } = entry;
+        if (appointment.status === 'in_progress') return true;
+        if (appointment.status === 'confirmed' && dateTime && dateTime < now) return true;
+        return false;
+      })
+      .sort((a, b) => (a.dateTime?.getTime() || 0) - (b.dateTime?.getTime() || 0))
+      .map((e) => e.appointment);
   }, [upcomingAppointments]);
   const nextDateTime = nextAppointment ? parseAppointmentDateTime(nextAppointment) : null;
   const nextTimeLabel = nextDateTime ? nextDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
@@ -173,49 +193,39 @@ export default function HomeScreen({ navigation }: Props) {
                 <Text style={styles.overviewValue}>{unpaidCount}</Text>
                 <Text style={styles.overviewLabel}>{t('home.overviewUnpaid')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.overviewCard}
-                onPress={() => {
-                  if (nextAppointment?.id) {
-                    navigation.navigate('AppointmentDetail', { id: nextAppointment.id });
-                  } else {
-                    navigation.navigate('Appointments');
-                  }
-                }}
-              >
-                <Text style={styles.overviewValue}>{nextTimeLabel}</Text>
-                <Text style={styles.overviewLabel}>{t('home.overviewNext')}</Text>
-              </TouchableOpacity>
+              {/* removed 'Next' small card per layout update */}
             </View>
           )}
 
-          {nextAppointment ? (
-            <TouchableOpacity
-              style={styles.nextCard}
-              onPress={() => navigation.navigate('AppointmentDetail', { id: nextAppointment.id })}
-              activeOpacity={0.8}
-            >
-              <View style={styles.nextHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.nextTitle} numberOfLines={1}>
-                    {nextCustomer || t('common.noData')}
-                  </Text>
-                  <Text style={styles.nextSubtitle} numberOfLines={1}>
-                    {nextAppointment.services?.name || t('common.service')}
-                  </Text>
-                </View>
-                <View style={[styles.statusPill, { borderColor: nextStatusColor }]}>
-                  <View style={[styles.statusDot, { backgroundColor: nextStatusColor }]} />
-                  <Text style={[styles.statusText, { color: nextStatusColor }]}>
-                    {getStatusLabel(nextAppointment.status)}
-                  </Text>
+            {inProgressAppointments && inProgressAppointments.length > 0 ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>{t('home.inProgressTitle')}</Text>
+                <View style={{ marginHorizontal: -4 }}>
+                  {inProgressAppointments
+                    .filter((a) => a.id !== nextAppointment?.id)
+                    .map((app) => (
+                      <View key={app.id} style={{ marginBottom: 12 }}>
+                        <AppointmentCard
+                          appointment={app}
+                          onPress={() => navigation.navigate('AppointmentDetail', { id: app.id })}
+                        />
+                      </View>
+                    ))}
                 </View>
               </View>
-              <Text style={styles.nextMeta}>
-                {nextAppointment.appointment_date} {t('common.at')} {nextTimeLabel}
-              </Text>
-            </TouchableOpacity>
-          ) : (
+            ) : null}
+
+            {nextAppointment ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>{t('home.nextAppointmentsTitle')}</Text>
+                <View style={{ marginHorizontal: -4 }}>
+                  <AppointmentCard
+                    appointment={nextAppointment}
+                    onPress={() => navigation.navigate('AppointmentDetail', { id: nextAppointment.id })}
+                  />
+                </View>
+              </View>
+            ) : (
             <View style={styles.emptyNextCard}>
               <Text style={styles.emptyNextText}>{t('home.overviewNextEmpty')}</Text>
             </View>
@@ -294,10 +304,10 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     heroCard: {
       marginHorizontal: 20,
-      borderRadius: 20,
-      height: 180,
+      borderRadius: 16,
+      height: 130,
       overflow: 'hidden',
-      marginBottom: 24,
+      marginBottom: 16,
       borderWidth: 1,
       borderColor: 'transparent',
     },
@@ -309,15 +319,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     heroOverlay: {
       flex: 1,
-      padding: 20,
+      padding: 16,
       justifyContent: 'flex-end',
     },
     heroBadge: {
       alignSelf: 'flex-start',
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 20,
-      marginBottom: 12,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 16,
+      marginBottom: 8,
     },
     heroBadgeText: {
       color: '#fff',
@@ -325,13 +335,13 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontSize: 13,
     },
     heroTitle: {
-      fontSize: 26,
+      fontSize: 20,
       fontWeight: '800',
       color: '#fff',
       marginBottom: 4,
     },
     heroSubtitle: {
-      fontSize: 15,
+      fontSize: 13,
       color: 'rgba(255,255,255,0.9)',
       fontWeight: '500',
     },
@@ -399,7 +409,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginBottom: 16,
     },
     overviewCard: {
-      width: (screenWidth - 52) / 2,
+      width: (screenWidth - 64) / 3,
       ...cardBase,
       alignItems: 'center',
     },
