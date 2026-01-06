@@ -1,24 +1,58 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, TextInput, Linking, Alert, Image, Platform, ActionSheetIOS, PermissionsAndroid, KeyboardAvoidingView } from 'react-native';
-import { FontAwesome, Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
-import * as MediaLibrary from 'expo-media-library';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
-import { useTranslation } from 'react-i18next';
-import { getAppointment, updateAppointment, deleteAppointment, uploadAppointmentPhoto } from '../api/appointments';
-import { getPetsByCustomer, type Pet } from '../api/customers';
-import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { ScreenHeader } from '../components/ScreenHeader';
-import { MiniMap } from '../components/common/MiniMap';
-import { getStatusColor, getStatusLabel } from '../utils/appointmentStatus';
-import { getDateLocale } from '../i18n';
-import { formatCustomerAddress, formatCustomerName, getCustomerFirstName } from '../utils/customer';
-import { hapticError, hapticSelection, hapticSuccess, hapticWarning } from '../utils/haptics';
-import { getCardStyle } from '../theme/uiTokens';
-import { getAppointmentServiceEntries } from '../utils/appointmentSummary';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  ScrollView,
+  TextInput,
+  Linking,
+  Alert,
+  Image,
+  Platform,
+  ActionSheetIOS,
+  PermissionsAndroid,
+  KeyboardAvoidingView,
+} from "react-native";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import * as FileSystem from "expo-file-system";
+import * as MediaLibrary from "expo-media-library";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  launchCamera,
+  launchImageLibrary,
+  ImageLibraryOptions,
+  CameraOptions,
+} from "react-native-image-picker";
+import { useTranslation } from "react-i18next";
+import {
+  getAppointment,
+  updateAppointment,
+  deleteAppointment,
+  uploadAppointmentPhoto,
+} from "../api/appointments";
+import { getPetsByCustomer, type Pet } from "../api/customers";
+import { useBrandingTheme } from "../theme/useBrandingTheme";
+import { ScreenHeader } from "../components/ScreenHeader";
+import { MiniMap } from "../components/common/MiniMap";
+import { getStatusColor, getStatusLabel } from "../utils/appointmentStatus";
+import { getDateLocale } from "../i18n";
+import {
+  formatCustomerAddress,
+  formatCustomerName,
+  getCustomerFirstName,
+} from "../utils/customer";
+import {
+  hapticError,
+  hapticSelection,
+  hapticSuccess,
+  hapticWarning,
+} from "../utils/haptics";
+import { getCardStyle } from "../theme/uiTokens";
+import { getAppointmentServiceEntries } from "../utils/appointmentSummary";
 
 type Props = NativeStackScreenProps<any>;
 
@@ -27,14 +61,18 @@ function formatDateTime(
   time: string | null | undefined,
   locale: string,
   noDateLabel: string,
-  atLabel: string,
+  atLabel: string
 ) {
   const safeDate = date ? new Date(`${date}T00:00:00`) : null;
   const dateLabel =
     safeDate && !Number.isNaN(safeDate.getTime())
-      ? safeDate.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: 'short' })
+      ? safeDate.toLocaleDateString(locale, {
+          weekday: "short",
+          day: "2-digit",
+          month: "short",
+        })
       : date || noDateLabel;
-  const timeLabel = time ? time.slice(0, 5) : '—';
+  const timeLabel = time ? time.slice(0, 5) : "—";
   return `${dateLabel} ${atLabel} ${timeLabel}`;
 }
 
@@ -48,11 +86,15 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const { t } = useTranslation();
   const dateLocale = getDateLocale();
   const [status, setStatus] = useState<string | null>(null);
-  const [uploadingPhoto, setUploadingPhoto] = useState<'before' | 'after' | null>(null);
-  const [savingPhoto, setSavingPhoto] = useState<'before' | 'after' | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState<
+    "before" | "after" | null
+  >(null);
+  const [savingPhoto, setSavingPhoto] = useState<"before" | "after" | null>(
+    null
+  );
 
   const { data, isLoading, isRefetching, error } = useQuery({
-    queryKey: ['appointment', appointmentId],
+    queryKey: ["appointment", appointmentId],
     queryFn: () => getAppointment(appointmentId),
     placeholderData: (prev) => prev,
     staleTime: 1000 * 60 * 5,
@@ -61,29 +103,36 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
 
   const customerId = data?.customers?.id;
   const { data: customerPets = [] } = useQuery<Pet[]>({
-    queryKey: ['customer-pets', customerId],
+    queryKey: ["customer-pets", customerId],
     queryFn: () => getPetsByCustomer(customerId as string),
     enabled: Boolean(customerId),
   });
 
   const mutation = useMutation({
-    mutationFn: (payload: { status?: string | null; payment_status?: string | null }) =>
-      updateAppointment(appointmentId, payload),
+    mutationFn: (payload: {
+      status?: string | null;
+      payment_status?: string | null;
+    }) => updateAppointment(appointmentId, payload),
     onMutate: async (payload) => {
-      const prevAppointment = queryClient.getQueryData(['appointment', appointmentId]);
+      const prevAppointment = queryClient.getQueryData([
+        "appointment",
+        appointmentId,
+      ]);
       const prevStatus = (prevAppointment as any)?.status ?? null;
-      const prevLists = queryClient.getQueriesData({ queryKey: ['appointments'] });
+      const prevLists = queryClient.getQueriesData({
+        queryKey: ["appointments"],
+      });
 
       // Optimistically update detail cache
-      queryClient.setQueryData(['appointment', appointmentId], (old: any) =>
-        old ? { ...old, ...payload } : old,
+      queryClient.setQueryData(["appointment", appointmentId], (old: any) =>
+        old ? { ...old, ...payload } : old
       );
 
       // Optimistically update all appointment list queries
       prevLists.forEach(([key, data]) => {
         if (!data || !Array.isArray((data as any).items)) return;
         const nextItems = (data as any).items.map((item: any) =>
-          item?.id === appointmentId ? { ...item, ...payload } : item,
+          item?.id === appointmentId ? { ...item, ...payload } : item
         );
         queryClient.setQueryData(key, { ...(data as any), items: nextItems });
       });
@@ -92,107 +141,155 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     },
     onSuccess: (updated) => {
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['appointments'] }).catch(() => null);
-      queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] }).catch(() => null);
+      queryClient
+        .invalidateQueries({ queryKey: ["appointments"] })
+        .catch(() => null);
+      queryClient
+        .invalidateQueries({ queryKey: ["appointment", appointmentId] })
+        .catch(() => null);
       if (updated) {
-        queryClient.setQueryData(['appointment', appointmentId], updated);
+        queryClient.setQueryData(["appointment", appointmentId], updated);
       }
     },
     onError: (err: any, _payload, context) => {
       hapticError();
       if (context?.prevAppointment) {
-        queryClient.setQueryData(['appointment', appointmentId], context.prevAppointment);
+        queryClient.setQueryData(
+          ["appointment", appointmentId],
+          context.prevAppointment
+        );
       }
       if (context?.prevLists) {
-        context.prevLists.forEach(([key, data]) => queryClient.setQueryData(key, data));
+        context.prevLists.forEach(([key, data]) =>
+          queryClient.setQueryData(key, data)
+        );
       }
       if (context?.prevStatus !== undefined && context.prevStatus !== null) {
         setStatus(context.prevStatus);
       }
-      const message = err?.response?.data?.error || err.message || t('appointmentDetail.updateError');
-      Alert.alert(t('common.error'), message);
+      const message =
+        err?.response?.data?.error ||
+        err.message ||
+        t("appointmentDetail.updateError");
+      Alert.alert(t("common.error"), message);
     },
   });
 
   const photoMutation = useMutation({
-    mutationFn: ({ type, file }: { type: 'before' | 'after'; file: { uri: string; name: string; type: string } }) =>
-      uploadAppointmentPhoto(appointmentId, type, file),
+    mutationFn: ({
+      type,
+      file,
+    }: {
+      type: "before" | "after";
+      file: { uri: string; name: string; type: string };
+    }) => uploadAppointmentPhoto(appointmentId, type, file),
     onSuccess: async (data, variables) => {
       hapticSuccess();
       const photoUrl = data?.url;
       if (photoUrl && appointment) {
         const updatedAppointment = {
           ...appointment,
-          [variables.type === 'before' ? 'before_photo_url' : 'after_photo_url']: photoUrl,
+          [variables.type === "before"
+            ? "before_photo_url"
+            : "after_photo_url"]: photoUrl,
         };
-        queryClient.setQueryData(['appointment', appointmentId], updatedAppointment);
+        queryClient.setQueryData(
+          ["appointment", appointmentId],
+          updatedAppointment
+        );
       }
-      await queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });
+      await queryClient.invalidateQueries({
+        queryKey: ["appointment", appointmentId],
+      });
     },
     onError: (err: any) => {
       hapticError();
-      const message = err?.response?.data?.error || err.message || t('appointmentDetail.photoUploadError');
-      Alert.alert(t('common.error'), message);
+      const message =
+        err?.response?.data?.error ||
+        err.message ||
+        t("appointmentDetail.photoUploadError");
+      Alert.alert(t("common.error"), message);
     },
   });
 
-
-
   const appointment = data;
-  const [notesDraft, setNotesDraft] = useState(appointment?.notes ?? '');
+  const [notesDraft, setNotesDraft] = useState(appointment?.notes ?? "");
   const notesSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasNoteChanges = useMemo(
-    () => (notesDraft ?? '') !== (appointment?.notes ?? ''),
-    [appointment?.notes, notesDraft],
+    () => (notesDraft ?? "") !== (appointment?.notes ?? ""),
+    [appointment?.notes, notesDraft]
   );
 
   const notesMutation = useMutation({
-    mutationFn: (nextNotes: string | null) => updateAppointment(appointmentId, { notes: nextNotes }),
+    mutationFn: (nextNotes: string | null) =>
+      updateAppointment(appointmentId, { notes: nextNotes }),
     onMutate: async (nextNotes) => {
-      const prevAppointment = queryClient.getQueryData(['appointment', appointmentId]);
-      const prevLists = queryClient.getQueriesData({ queryKey: ['appointments'] });
+      const prevAppointment = queryClient.getQueryData([
+        "appointment",
+        appointmentId,
+      ]);
+      const prevLists = queryClient.getQueriesData({
+        queryKey: ["appointments"],
+      });
 
-      queryClient.setQueryData(['appointment', appointmentId], (old: any) =>
-        old ? { ...old, notes: nextNotes ?? null } : old,
+      queryClient.setQueryData(["appointment", appointmentId], (old: any) =>
+        old ? { ...old, notes: nextNotes ?? null } : old
       );
 
       prevLists.forEach(([key, listData]) => {
         if (!listData || !Array.isArray((listData as any).items)) return;
         const nextItems = (listData as any).items.map((item: any) =>
-          item?.id === appointmentId ? { ...item, notes: nextNotes ?? null } : item,
+          item?.id === appointmentId
+            ? { ...item, notes: nextNotes ?? null }
+            : item
         );
-        queryClient.setQueryData(key, { ...(listData as any), items: nextItems });
+        queryClient.setQueryData(key, {
+          ...(listData as any),
+          items: nextItems,
+        });
       });
 
-      setNotesDraft(nextNotes ?? '');
+      setNotesDraft(nextNotes ?? "");
 
       return { prevAppointment, prevLists };
     },
     onSuccess: (updated) => {
       hapticSuccess();
       if (updated) {
-        queryClient.setQueryData(['appointment', appointmentId], updated);
-        setNotesDraft(updated.notes ?? '');
+        queryClient.setQueryData(["appointment", appointmentId], updated);
+        setNotesDraft(updated.notes ?? "");
       }
-      queryClient.invalidateQueries({ queryKey: ['appointments'] }).catch(() => null);
-      queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] }).catch(() => null);
+      queryClient
+        .invalidateQueries({ queryKey: ["appointments"] })
+        .catch(() => null);
+      queryClient
+        .invalidateQueries({ queryKey: ["appointment", appointmentId] })
+        .catch(() => null);
     },
     onError: (err: any, _nextNotes, context) => {
       hapticError();
       if (context?.prevAppointment) {
-        queryClient.setQueryData(['appointment', appointmentId], context.prevAppointment);
-        setNotesDraft((context.prevAppointment as any)?.notes ?? '');
+        queryClient.setQueryData(
+          ["appointment", appointmentId],
+          context.prevAppointment
+        );
+        setNotesDraft((context.prevAppointment as any)?.notes ?? "");
       }
       if (context?.prevLists) {
-        context.prevLists.forEach(([key, listData]) => queryClient.setQueryData(key, listData));
+        context.prevLists.forEach(([key, listData]) =>
+          queryClient.setQueryData(key, listData)
+        );
       }
-      const message = err?.response?.data?.error || err.message || t('appointmentDetail.updateError');
-      Alert.alert(t('common.error'), message);
+      const message =
+        err?.response?.data?.error ||
+        err.message ||
+        t("appointmentDetail.updateError");
+      Alert.alert(t("common.error"), message);
     },
   });
 
   useEffect(() => {
-    setNotesDraft(appointment?.notes ?? '');
+    setNotesDraft(appointment?.notes ?? "");
   }, [appointment?.notes]);
 
   const focusNotes = useCallback(() => {
@@ -230,13 +327,19 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         clearTimeout(notesSaveTimeout.current);
       }
     };
-  }, [appointment, hasNoteChanges, notesDraft, notesMutation.isPending, handleSaveNotes]);
-  const displayStatus = status ?? appointment?.status ?? 'scheduled';
+  }, [
+    appointment,
+    hasNoteChanges,
+    notesDraft,
+    notesMutation.isPending,
+    handleSaveNotes,
+  ]);
+  const displayStatus = status ?? appointment?.status ?? "scheduled";
   const customer = appointment?.customers;
   const customerName = formatCustomerName(customer);
   const appointmentServiceEntries = useMemo(
     () => (appointment ? getAppointmentServiceEntries(appointment) : []),
-    [appointment],
+    [appointment]
   );
   const customerPetsById = useMemo(() => {
     const map = new Map<string, Pet>();
@@ -261,19 +364,21 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     const unique = new Map<string, any>();
     collected.forEach((entry, index) => {
       if (!entry) return;
-      const key = entry.id ? String(entry.id) : `${entry.name || 'pet'}-${entry.breed || ''}-${index}`;
+      const key = entry.id
+        ? String(entry.id)
+        : `${entry.name || "pet"}-${entry.breed || ""}-${index}`;
       if (!unique.has(key)) unique.set(key, entry);
     });
     return Array.from(unique.values());
   }, [appointment, appointmentServiceEntries, customerPetsById]);
-  const paymentStatus = appointment?.payment_status || 'unpaid';
+  const paymentStatus = appointment?.payment_status || "unpaid";
   const statusOptions = [
-    { value: 'pending', emoji: '⏳' },
-    { value: 'scheduled', emoji: '📅' },
-    { value: 'in_progress', emoji: '⚡' },
-    { value: 'completed', emoji: '✅' },
+    { value: "pending", emoji: "⏳" },
+    { value: "scheduled", emoji: "📅" },
+    { value: "in_progress", emoji: "⚡" },
+    { value: "completed", emoji: "✅" },
   ];
-  
+
   const appointmentServices = useMemo(() => {
     if (appointmentServiceEntries.length > 0) {
       return appointmentServiceEntries;
@@ -287,7 +392,10 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         ? entry.appointment_service_addons
         : [];
       const basePrice = entry.price_tier_price ?? entry.services?.price ?? 0;
-      const addonsTotal = addons.reduce((sum, addon) => sum + (addon.price || 0), 0);
+      const addonsTotal = addons.reduce(
+        (sum, addon) => sum + (addon.price || 0),
+        0
+      );
       return {
         key: entry.id || `${entry.service_id}-${index}`,
         entry,
@@ -297,7 +405,10 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         addons,
         addonsTotal,
         total: basePrice + addonsTotal,
-        hasTier: entry.price_tier_id || entry.price_tier_label || entry.price_tier_price != null,
+        hasTier:
+          entry.price_tier_id ||
+          entry.price_tier_label ||
+          entry.price_tier_price != null,
         hasAddons: addons.length > 0,
       };
     });
@@ -313,22 +424,27 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const servicesTotal = useMemo(() => {
     return serviceDetails.reduce((sum, detail) => sum + detail.total, 0);
   }, [serviceDetails]);
-  const amount = appointment?.amount ?? (servicesTotal > 0 ? servicesTotal : null);
-  const showServiceBreakdown = serviceDetails.length > 0 && (
-    serviceDetails.length > 1 || serviceDetails.some((detail) => detail.hasTier || detail.hasAddons)
-  );
+  const amount =
+    appointment?.amount ?? (servicesTotal > 0 ? servicesTotal : null);
+  const showServiceBreakdown =
+    serviceDetails.length > 0 &&
+    (serviceDetails.length > 1 ||
+      serviceDetails.some((detail) => detail.hasTier || detail.hasAddons));
 
   const openMaps = async () => {
     const address = formatCustomerAddress(customer);
     if (!address) return;
-    
+
     try {
-      const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
+      const GOOGLE_MAPS_API_KEY =
+        process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || "";
       const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+          address
+        )}&key=${GOOGLE_MAPS_API_KEY}`
       );
       const data = await response.json();
-      
+
       if (data.results && data.results.length > 0) {
         const location = data.results[0].geometry.location;
         const url = Platform.select({
@@ -336,41 +452,51 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
           android: `geo:0,0?q=${location.lat},${location.lng}`,
           default: `https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`,
         });
-        Linking.openURL(url).catch(() => Alert.alert(t('common.error'), t('appointmentDetail.mapOpenError')));
+        Linking.openURL(url).catch(() =>
+          Alert.alert(t("common.error"), t("appointmentDetail.mapOpenError"))
+        );
       } else {
-        Alert.alert(t('common.error'), t('appointmentDetail.addressNotFound'));
+        Alert.alert(t("common.error"), t("appointmentDetail.addressNotFound"));
       }
     } catch (error) {
-      console.error('Geocoding error:', error);
-      Alert.alert(t('common.error'), t('appointmentDetail.geocodeError'));
+      console.error("Geocoding error:", error);
+      Alert.alert(t("common.error"), t("appointmentDetail.geocodeError"));
     }
   };
 
   const callCustomer = () => {
     const phone = customer?.phone;
     if (!phone) return;
-    Linking.openURL(`tel:${phone}`).catch(() => Alert.alert(t('common.error'), t('appointmentDetail.callError')));
+    Linking.openURL(`tel:${phone}`).catch(() =>
+      Alert.alert(t("common.error"), t("appointmentDetail.callError"))
+    );
   };
 
   const whatsappCustomer = () => {
     const phone = customer?.phone;
     if (!phone) return;
     // Remove espaços e caracteres especiais, mantém apenas números
-    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const cleanPhone = phone.replace(/[^0-9]/g, "");
     // Se começar com 9, adiciona +351 (Portugal)
-    const formattedPhone = cleanPhone.startsWith('9') ? `351${cleanPhone}` : cleanPhone;
-    const message = t('appointmentDetail.whatsappMessage', {
+    const formattedPhone = cleanPhone.startsWith("9")
+      ? `351${cleanPhone}`
+      : cleanPhone;
+    const message = t("appointmentDetail.whatsappMessage", {
       name: getCustomerFirstName(customer),
       dateTime: formatDateTime(
         appointment?.appointment_date,
         appointment?.appointment_time,
         dateLocale,
-        t('common.noDate'),
-        t('common.at'),
+        t("common.noDate"),
+        t("common.at")
       ),
     });
-    const url = `whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`;
-    Linking.openURL(url).catch(() => Alert.alert(t('common.error'), t('appointmentDetail.whatsappError')));
+    const url = `whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(
+      message
+    )}`;
+    Linking.openURL(url).catch(() =>
+      Alert.alert(t("common.error"), t("appointmentDetail.whatsappError"))
+    );
   };
 
   const saveStatus = (next: string) => {
@@ -381,18 +507,18 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
 
   const togglePayment = () => {
     hapticSelection();
-    const next = paymentStatus === 'paid' ? 'unpaid' : 'paid';
+    const next = paymentStatus === "paid" ? "unpaid" : "paid";
     mutation.mutate({ payment_status: next });
   };
 
   const handleEditAppointment = () => {
-    navigation.navigate('NewAppointment', { editId: appointmentId });
+    navigation.navigate("NewAppointment", { editId: appointmentId });
   };
 
   const handleDuplicateAppointment = () => {
     if (!appointment) return;
     hapticSelection();
-    navigation.navigate('NewAppointment', {
+    navigation.navigate("NewAppointment", {
       duplicateFromId: appointment.id,
       date: appointment.appointment_date || undefined,
       time: appointment.appointment_time || undefined,
@@ -401,26 +527,31 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
 
   const handleDelete = () => {
     Alert.alert(
-      t('appointmentDetail.deleteTitle'),
-      t('appointmentDetail.deleteMessage'),
+      t("appointmentDetail.deleteTitle"),
+      t("appointmentDetail.deleteMessage"),
       [
-        { text: t('common.cancel'), style: 'cancel' },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: t('appointmentDetail.deleteAction'),
-          style: 'destructive',
+          text: t("appointmentDetail.deleteAction"),
+          style: "destructive",
           onPress: async () => {
             try {
               hapticWarning();
               await deleteAppointment(appointmentId);
               hapticSuccess();
-              queryClient.invalidateQueries({ queryKey: ['appointments'] }).catch(() => null);
+              queryClient
+                .invalidateQueries({ queryKey: ["appointments"] })
+                .catch(() => null);
               navigation.goBack();
             } catch (error) {
               hapticError();
-              console.error('Delete error:', error);
+              console.error("Delete error:", error);
               const err = error as any;
-              const errorMessage = err?.response?.data?.message || err?.message || t('appointmentDetail.deleteError');
-              Alert.alert(t('common.error'), errorMessage);
+              const errorMessage =
+                err?.response?.data?.message ||
+                err?.message ||
+                t("appointmentDetail.deleteError");
+              Alert.alert(t("common.error"), errorMessage);
             }
           },
         },
@@ -429,16 +560,16 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   };
 
   const requestAndroidPermissions = async () => {
-    if (Platform.OS === 'android') {
+    if (Platform.OS === "android") {
       try {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.CAMERA,
           {
-            title: t('profile.cameraPermissionTitle'),
-            message: t('profile.cameraPermissionMessage'),
-            buttonNeutral: t('common.later'),
-            buttonNegative: t('common.cancel'),
-            buttonPositive: t('common.ok'),
+            title: t("profile.cameraPermissionTitle"),
+            message: t("profile.cameraPermissionMessage"),
+            buttonNeutral: t("common.later"),
+            buttonNegative: t("common.cancel"),
+            buttonPositive: t("common.ok"),
           }
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
@@ -450,13 +581,18 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     return true;
   };
 
-  const uploadPhoto = async (type: 'before' | 'after', uri: string, fileName?: string) => {
+  const uploadPhoto = async (
+    type: "before" | "after",
+    uri: string,
+    fileName?: string
+  ) => {
     try {
       setUploadingPhoto(type);
       const timestamp = Date.now();
-      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
+      const extension =
+        fileName?.split(".").pop() || uri.split(".").pop() || "jpg";
       const filename = `appointment-${appointmentId}-${type}-${timestamp}.${extension}`;
-      const fileType = `image/${extension === 'jpg' ? 'jpeg' : extension}`;
+      const fileType = `image/${extension === "jpg" ? "jpeg" : extension}`;
 
       await photoMutation.mutateAsync({
         type,
@@ -467,21 +603,24 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         },
       });
     } catch (error) {
-      console.error('Erro ao preparar upload:', error);
+      console.error("Erro ao preparar upload:", error);
     } finally {
       setUploadingPhoto(null);
     }
   };
 
-  const openCamera = async (type: 'before' | 'after') => {
+  const openCamera = async (type: "before" | "after") => {
     const hasPermission = await requestAndroidPermissions();
     if (!hasPermission) {
-      Alert.alert(t('profile.cameraPermissionDeniedTitle'), t('profile.cameraPermissionDeniedMessage'));
+      Alert.alert(
+        t("profile.cameraPermissionDeniedTitle"),
+        t("profile.cameraPermissionDeniedMessage")
+      );
       return;
     }
 
     const options: CameraOptions = {
-      mediaType: 'photo',
+      mediaType: "photo",
       quality: 0.8,
       maxWidth: 1200,
       maxHeight: 1200,
@@ -494,19 +633,23 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         return;
       }
       if (response.errorCode) {
-        console.error('Erro ao abrir câmara:', response.errorMessage);
-        Alert.alert(t('common.error'), t('profile.openCameraError'));
+        console.error("Erro ao abrir câmara:", response.errorMessage);
+        Alert.alert(t("common.error"), t("profile.openCameraError"));
         return;
       }
       if (response.assets && response.assets[0]) {
-        await uploadPhoto(type, response.assets[0].uri!, response.assets[0].fileName);
+        await uploadPhoto(
+          type,
+          response.assets[0].uri!,
+          response.assets[0].fileName
+        );
       }
     });
   };
 
-  const openGallery = async (type: 'before' | 'after') => {
+  const openGallery = async (type: "before" | "after") => {
     const options: ImageLibraryOptions = {
-      mediaType: 'photo',
+      mediaType: "photo",
       quality: 0.8,
       maxWidth: 1200,
       maxHeight: 1200,
@@ -519,21 +662,29 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         return;
       }
       if (response.errorCode) {
-        console.error('Erro ao abrir galeria:', response.errorMessage);
-        Alert.alert(t('common.error'), t('profile.openGalleryError'));
+        console.error("Erro ao abrir galeria:", response.errorMessage);
+        Alert.alert(t("common.error"), t("profile.openGalleryError"));
         return;
       }
       if (response.assets && response.assets[0]) {
-        await uploadPhoto(type, response.assets[0].uri!, response.assets[0].fileName);
+        await uploadPhoto(
+          type,
+          response.assets[0].uri!,
+          response.assets[0].fileName
+        );
       }
     });
   };
 
-  const pickImage = (type: 'before' | 'after') => {
-    if (Platform.OS === 'ios') {
+  const pickImage = (type: "before" | "after") => {
+    if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: [t('common.cancel'), t('profile.takePhoto'), t('profile.chooseFromGallery')],
+          options: [
+            t("common.cancel"),
+            t("profile.takePhoto"),
+            t("profile.chooseFromGallery"),
+          ],
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
@@ -546,50 +697,67 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       );
     } else {
       Alert.alert(
-        t('profile.choosePhotoTitle'),
-        t('profile.choosePhotoMessage'),
+        t("profile.choosePhotoTitle"),
+        t("profile.choosePhotoMessage"),
         [
-          { text: t('common.cancel'), style: 'cancel' },
-          { text: t('profile.takePhoto'), onPress: () => openCamera(type) },
-          { text: t('profile.chooseFromGallery'), onPress: () => openGallery(type) },
+          { text: t("common.cancel"), style: "cancel" },
+          { text: t("profile.takePhoto"), onPress: () => openCamera(type) },
+          {
+            text: t("profile.chooseFromGallery"),
+            onPress: () => openGallery(type),
+          },
         ]
       );
     }
   };
 
-  const getPhotoUrl = (type: 'before' | 'after') =>
-    type === 'before' ? appointment?.before_photo_url : appointment?.after_photo_url;
+  const getPhotoUrl = (type: "before" | "after") =>
+    type === "before"
+      ? appointment?.before_photo_url
+      : appointment?.after_photo_url;
 
-  const savePhotoToDevice = async (type: 'before' | 'after') => {
+  const savePhotoToDevice = async (type: "before" | "after") => {
     const photoUrl = getPhotoUrl(type);
     if (!photoUrl) return;
 
     try {
       setSavingPhoto(type);
       const permission = await MediaLibrary.requestPermissionsAsync();
-      if (!permission.granted && permission.status !== MediaLibrary.PermissionStatus.LIMITED) {
-        Alert.alert(t('common.error'), t('appointmentDetail.photoSavePermission'));
+      if (
+        !permission.granted &&
+        permission.status !== MediaLibrary.PermissionStatus.LIMITED
+      ) {
+        Alert.alert(
+          t("common.error"),
+          t("appointmentDetail.photoSavePermission")
+        );
         return;
       }
 
-      const extFromUrl = photoUrl.split('.').pop()?.split('?')[0] || 'jpg';
-      const extension = extFromUrl.length <= 5 ? extFromUrl : 'jpg';
+      const extFromUrl = photoUrl.split(".").pop()?.split("?")[0] || "jpg";
+      const extension = extFromUrl.length <= 5 ? extFromUrl : "jpg";
       const filename = `appointment-${appointmentId}-${type}-${Date.now()}.${extension}`;
       const targetUri = `${FileSystem.cacheDirectory}${filename}`;
 
-      const downloadResult = await FileSystem.downloadAsync(photoUrl, targetUri);
+      const downloadResult = await FileSystem.downloadAsync(
+        photoUrl,
+        targetUri
+      );
       await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
 
-      Alert.alert(t('appointmentDetail.photoSavedTitle'), t('appointmentDetail.photoSavedMessage'));
+      Alert.alert(
+        t("appointmentDetail.photoSavedTitle"),
+        t("appointmentDetail.photoSavedMessage")
+      );
     } catch (error) {
-      console.error('Erro ao guardar foto:', error);
-      Alert.alert(t('common.error'), t('appointmentDetail.photoSaveError'));
+      console.error("Erro ao guardar foto:", error);
+      Alert.alert(t("common.error"), t("appointmentDetail.photoSaveError"));
     } finally {
       setSavingPhoto(null);
     }
   };
 
-  const handlePhotoPress = (type: 'before' | 'after') => {
+  const handlePhotoPress = (type: "before" | "after") => {
     const hasPhoto = Boolean(getPhotoUrl(type));
 
     if (!hasPhoto) {
@@ -597,13 +765,13 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       return;
     }
 
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
           options: [
-            t('common.cancel'),
-            t('appointmentDetail.savePhoto'),
-            t('appointmentDetail.replacePhoto'),
+            t("common.cancel"),
+            t("appointmentDetail.savePhoto"),
+            t("appointmentDetail.replacePhoto"),
           ],
           cancelButtonIndex: 0,
         },
@@ -615,30 +783,32 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       return;
     }
 
-    Alert.alert(
-      t('appointmentDetail.photoOptionsTitle'),
-      undefined,
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('appointmentDetail.savePhoto'), onPress: () => savePhotoToDevice(type) },
-        { text: t('appointmentDetail.replacePhoto'), onPress: () => pickImage(type) },
-      ]
-    );
+    Alert.alert(t("appointmentDetail.photoOptionsTitle"), undefined, [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("appointmentDetail.savePhoto"),
+        onPress: () => savePhotoToDevice(type),
+      },
+      {
+        text: t("appointmentDetail.replacePhoto"),
+        onPress: () => pickImage(type),
+      },
+    ]);
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <ScreenHeader 
-        title={t('appointmentDetail.title')} 
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <ScreenHeader
+        title={t("appointmentDetail.title")}
         rightElement={
           <View style={styles.headerActions}>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={handleDuplicateAppointment}
               style={[styles.actionButton, { backgroundColor: colors.surface }]}
             >
               <Ionicons name="copy-outline" size={18} color={colors.text} />
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={handleEditAppointment}
               style={[styles.actionButton, { backgroundColor: colors.surface }]}
             >
@@ -648,8 +818,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         }
       />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
         style={{ flex: 1 }}
       >
         <ScrollView
@@ -658,431 +828,607 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
           contentInsetAdjustmentBehavior="automatic"
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          keyboardDismissMode={
+            Platform.OS === "ios" ? "interactive" : "on-drag"
+          }
         >
-        {isLoading && !isRefetching ? (
-          <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} size="large" />
-        ) : null}
-        {error ? (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>⚠️ {t('appointmentDetail.loadError')}</Text>
-          </View>
-        ) : null}
-
-        {appointment ? (
-          <>
-            {/* Hero Card - Serviço */}
-            <View style={styles.heroCard}>
-              <View style={styles.heroHeader}>
-                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(displayStatus) + '20', borderColor: getStatusColor(displayStatus) }]}>
-                  <View style={[styles.statusDot, { backgroundColor: getStatusColor(displayStatus) }]} />
-                  <Text style={[styles.statusBadgeText, { color: getStatusColor(displayStatus) }]}>{getStatusLabel(displayStatus)}</Text>
-                </View>
-                <TouchableOpacity 
-                  style={[styles.paymentBadge, paymentStatus === 'paid' && styles.paymentBadgePaid]}
-                  onPress={togglePayment}
-                >
-                  <Text style={[styles.paymentBadgeText, paymentStatus === 'paid' && styles.paymentBadgeTextPaid]}>
-                    {paymentStatus === 'paid' ? t('payment.paid') : t('payment.unpaid')}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              
-              <Text style={styles.heroTitle}>
-                {services.length === 1 
-                  ? (services[0]?.name || t('common.service'))
-                  : t('appointmentDetail.servicesCount', { count: services.length })
-                }
+          {isLoading && !isRefetching ? (
+            <ActivityIndicator
+              color={colors.primary}
+              style={{ marginVertical: 20 }}
+              size="large"
+            />
+          ) : null}
+          {error ? (
+            <View style={styles.errorCard}>
+              <Text style={styles.errorText}>
+                ⚠️ {t("appointmentDetail.loadError")}
               </Text>
-              
-              <View style={styles.dateTimeRow}>
-                <Text style={styles.heroSubtitle}>
-                  {formatDateTime(
-                    appointment.appointment_date,
-                    appointment.appointment_time,
-                    dateLocale,
-                    t('common.noDate'),
-                    t('common.at'),
-                  )}
-                </Text>
-              </View>
-              
-              <View style={styles.heroDetails}>
-                {amount !== null && amount !== undefined ? (
-                  <View style={styles.heroDetailItem}>
-                    <Text style={styles.heroDetailLabel}>{t('appointmentDetail.totalValue')}</Text>
-                    <Text style={styles.heroDetailValue}>€{Number(amount).toFixed(2)}</Text>
+            </View>
+          ) : null}
+
+          {appointment ? (
+            <>
+              {/* Hero Card - Serviço */}
+              <View style={styles.heroCard}>
+                <View style={styles.heroHeader}>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      {
+                        backgroundColor: getStatusColor(displayStatus) + "20",
+                        borderColor: getStatusColor(displayStatus),
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.statusDot,
+                        { backgroundColor: getStatusColor(displayStatus) },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        { color: getStatusColor(displayStatus) },
+                      ]}
+                    >
+                      {getStatusLabel(displayStatus)}
+                    </Text>
                   </View>
-                ) : null}
-                <View style={styles.heroDetailItem}>
-                  <Text style={styles.heroDetailLabel}>{t('appointmentDetail.duration')}</Text>
-                  <Text style={styles.heroDetailValue}>
-                    {appointment.duration ? `${appointment.duration} ${t('common.minutesShort')}` : '—'}
+                  <TouchableOpacity
+                    style={[
+                      styles.paymentBadge,
+                      paymentStatus === "paid" && styles.paymentBadgePaid,
+                    ]}
+                    onPress={togglePayment}
+                  >
+                    <Text
+                      style={[
+                        styles.paymentBadgeText,
+                        paymentStatus === "paid" && styles.paymentBadgeTextPaid,
+                      ]}
+                    >
+                      {paymentStatus === "paid"
+                        ? t("payment.paid")
+                        : t("payment.unpaid")}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.heroTitle}>
+                  {services.length === 1
+                    ? services[0]?.name || t("common.service")
+                    : t("appointmentDetail.servicesCount", {
+                        count: services.length,
+                      })}
+                </Text>
+
+                <View style={styles.dateTimeRow}>
+                  <Text style={styles.heroSubtitle}>
+                    {formatDateTime(
+                      appointment.appointment_date,
+                      appointment.appointment_time,
+                      dateLocale,
+                      t("common.noDate"),
+                      t("common.at")
+                    )}
                   </Text>
                 </View>
-              </View>
-              
-              {showServiceBreakdown && (
-                <View style={styles.servicesDetailBox}>
-                  <Text style={styles.servicesDetailTitle}>{t('appointmentDetail.servicesIncluded')}</Text>
-                  {serviceDetails.map((detail, index) => {
-                    const tierLabel = detail.entry.price_tier_label || t('appointmentDetail.tierDefault');
-                    const tierPrice = detail.entry.price_tier_price;
-                    const addonsLabel = detail.addons
-                      .map((addon) => {
-                        const price = addon.price != null ? `€${Number(addon.price).toFixed(2)}` : '';
-                        return price ? `${addon.name} (${price})` : addon.name;
-                      })
-                      .filter(Boolean)
-                      .join(', ');
-                    const petName = detail.pet?.name;
-                    const showPrice = detail.total > 0 || detail.basePrice > 0 || detail.addonsTotal > 0;
-                    return (
-                      <View
-                        key={detail.key}
-                        style={[styles.serviceDetailRow, index === serviceDetails.length - 1 && styles.serviceDetailRowLast]}
-                      >
-                        <View style={styles.serviceDetailLeft}>
-                          <View style={styles.serviceBullet} />
-                          <View style={styles.serviceDetailInfo}>
-                            <Text style={styles.serviceDetailName}>
-                              {detail.service?.name || t('common.service')}
-                            </Text>
-                            {petName ? (
-                              <Text style={styles.serviceDetailMeta}>
-                                {t('appointmentDetail.pet')}: {petName}
-                              </Text>
-                            ) : null}
-                            {detail.hasTier ? (
-                              <Text style={styles.serviceDetailMeta}>
-                                {t('appointmentDetail.tierLabel')}: {tierLabel}
-                                {tierPrice != null ? ` · €${Number(tierPrice).toFixed(2)}` : ''}
-                              </Text>
-                            ) : null}
-                            {detail.hasAddons ? (
-                              <Text style={styles.serviceDetailMeta}>
-                                {t('appointmentDetail.addonsLabel')}: {addonsLabel}
-                              </Text>
-                            ) : null}
-                          </View>
-                        </View>
-                        {showPrice ? (
-                          <Text style={styles.serviceDetailPrice}>€{detail.total.toFixed(2)}</Text>
-                        ) : null}
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
 
-            {/* Cliente & Pet em Grid */}
-            <View style={styles.gridRow}>
-              <TouchableOpacity 
-                style={[styles.compactCard, styles.petCard, { flex: 1 }]}
-                onPress={() => customer?.id && navigation.navigate('CustomerDetail', { customerId: customer.id })}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.compactCardTitle}>👤 {t('appointmentDetail.customer')}</Text>
-                <Text style={styles.compactCardName}>{customerName || t('appointmentDetail.noCustomer')}</Text>
-                {customer?.phone ? (
-                  <View style={styles.contactActions}>
-                    <TouchableOpacity 
-                      style={styles.contactButton} 
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        callCustomer();
-                      }}
-                    >
-                      <Ionicons name="call" size={20} color="#FFFFFF" />
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[styles.contactButton, styles.whatsappButton]} 
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        whatsappCustomer();
-                      }}
-                    >
-                      <FontAwesome name="whatsapp" size={22} color="#FFFFFF" />
-                    </TouchableOpacity>
+                <View style={styles.heroDetails}>
+                  {amount !== null && amount !== undefined ? (
+                    <View style={styles.heroDetailItem}>
+                      <Text style={styles.heroDetailLabel}>
+                        {t("appointmentDetail.totalValue")}
+                      </Text>
+                      <Text style={styles.heroDetailValue}>
+                        €{Number(amount).toFixed(2)}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <View style={styles.heroDetailItem}>
+                    <Text style={styles.heroDetailLabel}>
+                      {t("appointmentDetail.duration")}
+                    </Text>
+                    <Text style={styles.heroDetailValue}>
+                      {appointment.duration
+                        ? `${appointment.duration} ${t("common.minutesShort")}`
+                        : "—"}
+                    </Text>
                   </View>
-                ) : null}
-              </TouchableOpacity>
+                </View>
 
-              {appointmentPets.length > 0 ? (
-                <View style={[styles.compactCard, styles.petCard, { flex: 1 }]}>
-                  <Text style={styles.compactCardTitle}>🐾 {t('appointmentDetail.pet')}</Text>
-                  {appointmentPets.length === 1 ? (
-                    <>
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={(e) => {
-                          e.stopPropagation?.();
-                          const pet = appointmentPets[0];
-                          if (!pet) return;
-                          if (pet.id) {
-                            navigation.navigate('PetForm', { mode: 'edit', customerId, petId: pet.id, pet });
-                          }
-                        }}
-                      >
-                        {appointmentPets[0].photo_url ? (
-                          <Image source={{ uri: appointmentPets[0].photo_url }} style={styles.petThumbnail} />
-                        ) : (
-                          <View style={styles.petThumbnailPlaceholder}>
-                            <Text style={styles.petThumbnailInitials}>{String(appointmentPets[0].name || '').slice(0,1).toUpperCase() || '🐾'}</Text>
-                          </View>
-                        )}
-                        <Text style={styles.compactCardName}>{appointmentPets[0].name}</Text>
-                        {appointmentPets[0].breed ? (
-                          <Text style={styles.compactCardBreed}>{appointmentPets[0].breed}</Text>
-                        ) : null}
-                      </TouchableOpacity>
-                    </>
-                  ) : (
-                    <View style={styles.petList}>
-                      {appointmentPets.map((entry, index) => {
-                        const key = entry.id ? String(entry.id) : `${entry.name || 'pet'}-${index}`;
-                        return (
-                          <TouchableOpacity
-                            key={key}
-                            activeOpacity={0.8}
-                            onPress={(e) => {
-                              e.stopPropagation?.();
-                              if (entry.id) {
-                                navigation.navigate('PetForm', { mode: 'edit', customerId, petId: entry.id, pet: entry });
-                              }
-                            }}
-                            style={[styles.petRow, index === appointmentPets.length - 1 && styles.petRowLast]}
-                          >
-                            {entry.photo_url ? (
-                              <Image source={{ uri: entry.photo_url }} style={styles.petRowImage} />
-                            ) : (
-                              <View style={styles.petRowPlaceholder}>
-                                <Text style={styles.petRowInitials}>{String(entry.name || '').slice(0,1).toUpperCase() || '🐾'}</Text>
-                              </View>
-                            )}
-                            <View style={styles.petRowInfo}>
-                              <Text style={styles.petRowName} numberOfLines={1}>
-                                {entry.name}
+                {showServiceBreakdown && (
+                  <View style={styles.servicesDetailBox}>
+                    <Text style={styles.servicesDetailTitle}>
+                      {t("appointmentDetail.servicesIncluded")}
+                    </Text>
+                    {serviceDetails.map((detail, index) => {
+                      const tierLabel =
+                        detail.entry.price_tier_label ||
+                        t("appointmentDetail.tierDefault");
+                      const tierPrice = detail.entry.price_tier_price;
+                      const addonsLabel = detail.addons
+                        .map((addon) => {
+                          const price =
+                            addon.price != null
+                              ? `€${Number(addon.price).toFixed(2)}`
+                              : "";
+                          return price
+                            ? `${addon.name} (${price})`
+                            : addon.name;
+                        })
+                        .filter(Boolean)
+                        .join(", ");
+                      const petName = detail.pet?.name;
+                      const showPrice =
+                        detail.total > 0 ||
+                        detail.basePrice > 0 ||
+                        detail.addonsTotal > 0;
+                      return (
+                        <View
+                          key={detail.key}
+                          style={[
+                            styles.serviceDetailRow,
+                            index === serviceDetails.length - 1 &&
+                              styles.serviceDetailRowLast,
+                          ]}
+                        >
+                          <View style={styles.serviceDetailLeft}>
+                            <View style={styles.serviceBullet} />
+                            <View style={styles.serviceDetailInfo}>
+                              <Text style={styles.serviceDetailName}>
+                                {detail.service?.name || t("common.service")}
                               </Text>
-                              {entry.breed ? (
-                                <Text style={styles.petRowBreed} numberOfLines={1}>
-                                  {entry.breed}
+                              {petName ? (
+                                <Text style={styles.serviceDetailMeta}>
+                                  {t("appointmentDetail.pet")}: {petName}
+                                </Text>
+                              ) : null}
+                              {detail.hasTier ? (
+                                <Text style={styles.serviceDetailMeta}>
+                                  {t("appointmentDetail.tierLabel")}:{" "}
+                                  {tierLabel}
+                                  {tierPrice != null
+                                    ? ` · €${Number(tierPrice).toFixed(2)}`
+                                    : ""}
+                                </Text>
+                              ) : null}
+                              {detail.hasAddons ? (
+                                <Text style={styles.serviceDetailMeta}>
+                                  {t("appointmentDetail.addonsLabel")}:{" "}
+                                  {addonsLabel}
                                 </Text>
                               ) : null}
                             </View>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
-              ) : null}
-            </View>
-
-            {formatCustomerAddress(customer) ? (
-              <View style={styles.mapCardContainer}>
-                <View style={styles.mapCardHeader}>
-                  <Text style={styles.mapIcon}>📍</Text>
-                  <View style={styles.mapContent}>
-                    <Text style={styles.mapTitle}>{t('appointmentDetail.address')}</Text>
-                    <Text style={styles.mapAddress}>{formatCustomerAddress(customer, '\n')}</Text>
+                          </View>
+                          {showPrice ? (
+                            <Text style={styles.serviceDetailPrice}>
+                              €{detail.total.toFixed(2)}
+                            </Text>
+                          ) : null}
+                        </View>
+                      );
+                    })}
                   </View>
-                </View>
-                <MiniMap address={formatCustomerAddress(customer)} />
-              </View>
-            ) : null}
-
-            {/* Fotos Antes/Depois */}
-            <View style={styles.photosCard}>
-              <Text style={styles.photosCardTitle}>📸 {t('appointmentDetail.servicePhotos')}</Text>
-              <View style={styles.photosGrid}>
-                <View style={styles.photoItem}>
-                  <Text style={styles.photoItemLabel}>{t('appointmentDetail.before')}</Text>
-                  <TouchableOpacity
-                    onPress={() => handlePhotoPress('before')}
-                    activeOpacity={0.7}
-                    disabled={uploadingPhoto === 'before' || savingPhoto === 'before'}
-                  >
-                    {appointment?.before_photo_url ? (
-                      <>
-                        <Image source={{ uri: appointment.before_photo_url }} style={styles.photoItemImage} />
-                        {(uploadingPhoto === 'before' || savingPhoto === 'before') && (
-                          <View style={styles.photoLoadingOverlay}>
-                            <ActivityIndicator color="#fff" />
-                          </View>
-                        )}
-                      </>
-                    ) : (
-                      <View style={styles.photoItemPlaceholder}>
-                        {uploadingPhoto === 'before' || savingPhoto === 'before' ? (
-                          <ActivityIndicator color={colors.primary} />
-                        ) : (
-                          <>
-                            <Text style={styles.photoItemPlaceholderText}>+</Text>
-                            <Text style={styles.photoItemPlaceholderLabel}>{t('appointmentDetail.tapToAdd')}</Text>
-                          </>
-                        )}
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.photoItem}>
-                  <Text style={styles.photoItemLabel}>{t('appointmentDetail.after')}</Text>
-                  <TouchableOpacity
-                    onPress={() => handlePhotoPress('after')}
-                    activeOpacity={0.7}
-                    disabled={uploadingPhoto === 'after' || savingPhoto === 'after'}
-                  >
-                    {appointment?.after_photo_url ? (
-                      <>
-                        <Image source={{ uri: appointment.after_photo_url }} style={styles.photoItemImage} />
-                        {(uploadingPhoto === 'after' || savingPhoto === 'after') && (
-                          <View style={styles.photoLoadingOverlay}>
-                            <ActivityIndicator color="#fff" />
-                          </View>
-                        )}
-                      </>
-                    ) : (
-                      <View style={styles.photoItemPlaceholder}>
-                        {uploadingPhoto === 'after' || savingPhoto === 'after' ? (
-                          <ActivityIndicator color={colors.primary} />
-                        ) : (
-                          <>
-                            <Text style={styles.photoItemPlaceholderText}>+</Text>
-                            <Text style={styles.photoItemPlaceholderLabel}>{t('appointmentDetail.tapToAdd')}</Text>
-                          </>
-                        )}
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-
-            {/* Estado - Buttons Modernos */}
-            <View style={styles.statusCard}>
-              <Text style={styles.statusCardTitle}>{t('appointmentDetail.changeStatus')}</Text>
-              <View style={styles.statusGrid}>
-                {statusOptions.map(({ value, emoji }) => {
-                  const active = displayStatus === value;
-                  const statusColor = getStatusColor(value);
-                  
-                  return (
-                    <TouchableOpacity
-                      key={value}
-                      style={[
-                        styles.statusButton,
-                        active && { backgroundColor: statusColor, borderColor: statusColor },
-                      ]}
-                      onPress={() => saveStatus(value)}
-                    >
-                      <Text style={styles.statusButtonEmoji}>{emoji}</Text>
-                      <Text
-                        style={[
-                          styles.statusButtonText,
-                          { color: active ? '#fff' : colors.text },
-                        ]}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.75}
-                      >
-                        {getStatusLabel(value)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              
-              {/* Botões Cancelar e Apagar */}
-              <View style={styles.dangerActions}>
-                <TouchableOpacity
-                  style={[
-                    styles.cancelButton,
-                    displayStatus === 'cancelled' && {
-                      backgroundColor: getStatusColor('cancelled'),
-                      borderColor: getStatusColor('cancelled'),
-                    },
-                  ]}
-                  onPress={() => {
-                    Alert.alert(
-                      t('appointmentDetail.cancelTitle'),
-                      t('appointmentDetail.cancelMessage'),
-                      [
-                        { text: t('appointmentDetail.cancelNo'), style: 'cancel' },
-                        {
-                          text: t('appointmentDetail.cancelYes'),
-                          style: 'destructive',
-                          onPress: () => {
-                            hapticWarning();
-                            saveStatus('cancelled');
-                          },
-                        },
-                      ]
-                    );
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.cancelButtonText,
-                      displayStatus === 'cancelled' && { color: '#fff' },
-                    ]}
-                  >
-                    {displayStatus === 'cancelled' ? t('status.cancelled') : t('appointmentDetail.cancelAction')}
-                  </Text>
-                </TouchableOpacity>
-
-                {displayStatus === 'cancelled' && (
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={handleDelete}
-                  >
-                    <Text style={styles.deleteButtonText}>{t('appointmentDetail.deleteAction')}</Text>
-                  </TouchableOpacity>
                 )}
               </View>
-            </View>
 
-            {/* Notas */}
-            <View
-              style={styles.notesCard}
-              onLayout={(event) => {
-                notesYRef.current = event.nativeEvent.layout.y;
-              }}
-            >
-              <View style={styles.notesHeader}>
-                <Text style={styles.notesTitle}>{t('appointmentDetail.notes')}</Text>
-                {notesMutation.isPending ? <ActivityIndicator size="small" color={colors.primary} /> : null}
+              {/* Cliente & Pet em Grid */}
+              <View style={styles.gridRow}>
+                <TouchableOpacity
+                  style={[styles.compactCard, styles.petCard, { flex: 1 }]}
+                  onPress={() =>
+                    customer?.id &&
+                    navigation.navigate("CustomerDetail", {
+                      customerId: customer.id,
+                    })
+                  }
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.compactCardTitle}>
+                    👤 {t("appointmentDetail.customer")}
+                  </Text>
+                  <Text style={styles.compactCardName}>
+                    {customerName || t("appointmentDetail.noCustomer")}
+                  </Text>
+                  {customer?.phone ? (
+                    <View style={styles.contactActions}>
+                      <TouchableOpacity
+                        style={styles.contactButton}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          callCustomer();
+                        }}
+                      >
+                        <Ionicons name="call" size={20} color="#FFFFFF" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.contactButton, styles.whatsappButton]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          whatsappCustomer();
+                        }}
+                      >
+                        <FontAwesome
+                          name="whatsapp"
+                          size={22}
+                          color="#FFFFFF"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+
+                {appointmentPets.length > 0 ? (
+                  <View
+                    style={[styles.compactCard, styles.petCard, { flex: 1 }]}
+                  >
+                    <Text style={styles.compactCardTitle}>
+                      🐾 {t("appointmentDetail.pet")}
+                    </Text>
+                    {appointmentPets.length === 1 ? (
+                      <>
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={(e) => {
+                            e.stopPropagation?.();
+                            const pet = appointmentPets[0];
+                            if (!pet) return;
+                            if (pet.id) {
+                              navigation.navigate("PetForm", {
+                                mode: "edit",
+                                customerId,
+                                petId: pet.id,
+                                pet,
+                              });
+                            }
+                          }}
+                        >
+                          {appointmentPets[0].photo_url ? (
+                            <Image
+                              source={{ uri: appointmentPets[0].photo_url }}
+                              style={styles.petThumbnail}
+                            />
+                          ) : (
+                            <View style={styles.petThumbnailPlaceholder}>
+                              <Text style={styles.petThumbnailInitials}>
+                                {String(appointmentPets[0].name || "")
+                                  .slice(0, 1)
+                                  .toUpperCase() || "🐾"}
+                              </Text>
+                            </View>
+                          )}
+                          <Text style={styles.compactCardName}>
+                            {appointmentPets[0].name}
+                          </Text>
+                          {appointmentPets[0].breed ? (
+                            <Text style={styles.compactCardBreed}>
+                              {appointmentPets[0].breed}
+                            </Text>
+                          ) : null}
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <View style={styles.petList}>
+                        {appointmentPets.map((entry, index) => {
+                          const key = entry.id
+                            ? String(entry.id)
+                            : `${entry.name || "pet"}-${index}`;
+                          return (
+                            <TouchableOpacity
+                              key={key}
+                              activeOpacity={0.8}
+                              onPress={(e) => {
+                                e.stopPropagation?.();
+                                if (entry.id) {
+                                  navigation.navigate("PetForm", {
+                                    mode: "edit",
+                                    customerId,
+                                    petId: entry.id,
+                                    pet: entry,
+                                  });
+                                }
+                              }}
+                              style={[
+                                styles.petRow,
+                                index === appointmentPets.length - 1 &&
+                                  styles.petRowLast,
+                              ]}
+                            >
+                              {entry.photo_url ? (
+                                <Image
+                                  source={{ uri: entry.photo_url }}
+                                  style={styles.petRowImage}
+                                />
+                              ) : (
+                                <View style={styles.petRowPlaceholder}>
+                                  <Text style={styles.petRowInitials}>
+                                    {String(entry.name || "")
+                                      .slice(0, 1)
+                                      .toUpperCase() || "🐾"}
+                                  </Text>
+                                </View>
+                              )}
+                              <View style={styles.petRowInfo}>
+                                <Text
+                                  style={styles.petRowName}
+                                  numberOfLines={1}
+                                >
+                                  {entry.name}
+                                </Text>
+                                {entry.breed ? (
+                                  <Text
+                                    style={styles.petRowBreed}
+                                    numberOfLines={1}
+                                  >
+                                    {entry.breed}
+                                  </Text>
+                                ) : null}
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                ) : null}
               </View>
-              <TextInput
-                style={styles.notesInput}
-                multiline
-                value={notesDraft}
-                onChangeText={setNotesDraft}
-                onBlur={handleSaveNotes}
-                onFocus={focusNotes}
-                placeholder={t('appointmentForm.notesPlaceholder')}
-                placeholderTextColor={colors.muted}
-                textAlignVertical="top"
-                returnKeyType="default"
-                blurOnSubmit={false}
-              />
-            </View>
-          </>
-        ) : null}
+
+              {formatCustomerAddress(customer) ? (
+                <View style={styles.mapCardContainer}>
+                  <View style={styles.mapCardHeader}>
+                    <Text style={styles.mapIcon}>📍</Text>
+                    <View style={styles.mapContent}>
+                      <Text style={styles.mapTitle}>
+                        {t("appointmentDetail.address")}
+                      </Text>
+                      <Text style={styles.mapAddress}>
+                        {formatCustomerAddress(customer, "\n")}
+                      </Text>
+                    </View>
+                  </View>
+                  <MiniMap address={formatCustomerAddress(customer)} />
+                </View>
+              ) : null}
+
+              {/* Fotos Antes/Depois */}
+              <View style={styles.photosCard}>
+                <Text style={styles.photosCardTitle}>
+                  📸 {t("appointmentDetail.servicePhotos")}
+                </Text>
+                <View style={styles.photosGrid}>
+                  <View style={styles.photoItem}>
+                    <Text style={styles.photoItemLabel}>
+                      {t("appointmentDetail.before")}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => handlePhotoPress("before")}
+                      activeOpacity={0.7}
+                      disabled={
+                        uploadingPhoto === "before" || savingPhoto === "before"
+                      }
+                    >
+                      {appointment?.before_photo_url ? (
+                        <>
+                          <Image
+                            source={{ uri: appointment.before_photo_url }}
+                            style={styles.photoItemImage}
+                          />
+                          {(uploadingPhoto === "before" ||
+                            savingPhoto === "before") && (
+                            <View style={styles.photoLoadingOverlay}>
+                              <ActivityIndicator color="#fff" />
+                            </View>
+                          )}
+                        </>
+                      ) : (
+                        <View style={styles.photoItemPlaceholder}>
+                          {uploadingPhoto === "before" ||
+                          savingPhoto === "before" ? (
+                            <ActivityIndicator color={colors.primary} />
+                          ) : (
+                            <>
+                              <Text style={styles.photoItemPlaceholderText}>
+                                +
+                              </Text>
+                              <Text style={styles.photoItemPlaceholderLabel}>
+                                {t("appointmentDetail.tapToAdd")}
+                              </Text>
+                            </>
+                          )}
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.photoItem}>
+                    <Text style={styles.photoItemLabel}>
+                      {t("appointmentDetail.after")}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => handlePhotoPress("after")}
+                      activeOpacity={0.7}
+                      disabled={
+                        uploadingPhoto === "after" || savingPhoto === "after"
+                      }
+                    >
+                      {appointment?.after_photo_url ? (
+                        <>
+                          <Image
+                            source={{ uri: appointment.after_photo_url }}
+                            style={styles.photoItemImage}
+                          />
+                          {(uploadingPhoto === "after" ||
+                            savingPhoto === "after") && (
+                            <View style={styles.photoLoadingOverlay}>
+                              <ActivityIndicator color="#fff" />
+                            </View>
+                          )}
+                        </>
+                      ) : (
+                        <View style={styles.photoItemPlaceholder}>
+                          {uploadingPhoto === "after" ||
+                          savingPhoto === "after" ? (
+                            <ActivityIndicator color={colors.primary} />
+                          ) : (
+                            <>
+                              <Text style={styles.photoItemPlaceholderText}>
+                                +
+                              </Text>
+                              <Text style={styles.photoItemPlaceholderLabel}>
+                                {t("appointmentDetail.tapToAdd")}
+                              </Text>
+                            </>
+                          )}
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+
+              {/* Estado - Buttons Modernos */}
+              <View style={styles.statusCard}>
+                <Text style={styles.statusCardTitle}>
+                  {t("appointmentDetail.changeStatus")}
+                </Text>
+                <View style={styles.statusGrid}>
+                  {statusOptions.map(({ value, emoji }) => {
+                    const active = displayStatus === value;
+                    const statusColor = getStatusColor(value);
+
+                    return (
+                      <TouchableOpacity
+                        key={value}
+                        style={[
+                          styles.statusButton,
+                          active && {
+                            backgroundColor: statusColor,
+                            borderColor: statusColor,
+                          },
+                        ]}
+                        onPress={() => saveStatus(value)}
+                      >
+                        <Text style={styles.statusButtonEmoji}>{emoji}</Text>
+                        <Text
+                          style={[
+                            styles.statusButtonText,
+                            { color: active ? "#fff" : colors.text },
+                          ]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.75}
+                        >
+                          {getStatusLabel(value)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Botões Cancelar e Apagar */}
+                <View style={styles.dangerActions}>
+                  <TouchableOpacity
+                    style={[
+                      styles.cancelButton,
+                      displayStatus === "cancelled" && {
+                        backgroundColor: getStatusColor("cancelled"),
+                        borderColor: getStatusColor("cancelled"),
+                      },
+                    ]}
+                    onPress={() => {
+                      Alert.alert(
+                        t("appointmentDetail.cancelTitle"),
+                        t("appointmentDetail.cancelMessage"),
+                        [
+                          {
+                            text: t("appointmentDetail.cancelNo"),
+                            style: "cancel",
+                          },
+                          {
+                            text: t("appointmentDetail.cancelYes"),
+                            style: "destructive",
+                            onPress: () => {
+                              hapticWarning();
+                              saveStatus("cancelled");
+                            },
+                          },
+                        ]
+                      );
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.cancelButtonText,
+                        displayStatus === "cancelled" && { color: "#fff" },
+                      ]}
+                    >
+                      {displayStatus === "cancelled"
+                        ? t("status.cancelled")
+                        : t("appointmentDetail.cancelAction")}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {displayStatus === "cancelled" && (
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={handleDelete}
+                    >
+                      <Text style={styles.deleteButtonText}>
+                        {t("appointmentDetail.deleteAction")}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+
+              {/* Notas */}
+              <View
+                style={styles.notesCard}
+                onLayout={(event) => {
+                  notesYRef.current = event.nativeEvent.layout.y;
+                }}
+              >
+                <View style={styles.notesHeader}>
+                  <Text style={styles.notesTitle}>
+                    {t("appointmentDetail.notes")}
+                  </Text>
+                  {notesMutation.isPending ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : null}
+                </View>
+                <TextInput
+                  style={styles.notesInput}
+                  multiline
+                  value={notesDraft}
+                  onChangeText={setNotesDraft}
+                  onBlur={handleSaveNotes}
+                  onFocus={focusNotes}
+                  placeholder={t("appointmentForm.notesPlaceholder")}
+                  placeholderTextColor={colors.muted}
+                  textAlignVertical="top"
+                  returnKeyType="default"
+                  blurOnSubmit={false}
+                />
+              </View>
+            </>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
   const cardBase = getCardStyle(colors);
   const placeholderBg =
     colors.primarySoft && colors.primarySoft !== colors.surface
       ? colors.primarySoft
-      : (colors.primary ? `${colors.primary}12` : colors.surfaceBorder || colors.surface);
+      : colors.primary
+      ? `${colors.primary}12`
+      : colors.surfaceBorder || colors.surface;
 
   return StyleSheet.create({
     container: {
@@ -1093,11 +1439,11 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       width: 40,
       height: 40,
       borderRadius: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     headerActions: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 10,
     },
     scrollContent: {
@@ -1107,14 +1453,14 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     errorCard: {
       ...cardBase,
-      backgroundColor: '#fee2e2',
-      borderColor: '#fecaca',
+      backgroundColor: "#fee2e2",
+      borderColor: "#fecaca",
       padding: 16,
-      alignItems: 'center',
+      alignItems: "center",
     },
     errorText: {
-      color: '#dc2626',
-      fontWeight: '600',
+      color: "#dc2626",
+      fontWeight: "600",
       fontSize: 15,
     },
     // Hero Card - Destaque do Serviço
@@ -1123,14 +1469,14 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       padding: 20,
     },
     heroHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
       marginBottom: 16,
     },
     statusBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       paddingHorizontal: 12,
       paddingVertical: 6,
       borderRadius: 20,
@@ -1144,44 +1490,44 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     statusBadgeText: {
       fontSize: 13,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     paymentBadge: {
-      backgroundColor: '#fef3c7',
+      backgroundColor: "#fef3c7",
       paddingHorizontal: 12,
       paddingVertical: 6,
       borderRadius: 20,
     },
     paymentBadgePaid: {
-      backgroundColor: '#d1fae5',
+      backgroundColor: "#d1fae5",
     },
     paymentBadgeText: {
-      color: '#92400e',
+      color: "#92400e",
       fontSize: 13,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     paymentBadgeTextPaid: {
-      color: '#065f46',
+      color: "#065f46",
     },
     heroTitle: {
       fontSize: 26,
-      fontWeight: '800',
+      fontWeight: "800",
       color: colors.text,
       marginBottom: 8,
     },
     heroSubtitle: {
       fontSize: 16,
       color: colors.muted,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     dateTimeRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
       marginBottom: 20,
     },
     heroDetails: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 16,
     },
     heroDetailItem: {
@@ -1189,17 +1535,17 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       backgroundColor: colors.background,
       padding: 12,
       borderRadius: 12,
-      alignItems: 'center',
+      alignItems: "center",
     },
     heroDetailLabel: {
       fontSize: 12,
       color: colors.muted,
       marginBottom: 4,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     heroDetailValue: {
       fontSize: 18,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.primary,
     },
     // Services Detail Box
@@ -1213,21 +1559,21 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     servicesDetailTitle: {
       fontSize: 14,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
       marginBottom: 12,
     },
     serviceDetailRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
       paddingVertical: 8,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.surfaceBorder,
     },
     serviceDetailLeft: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
+      flexDirection: "row",
+      alignItems: "flex-start",
       gap: 10,
       flex: 1,
     },
@@ -1244,7 +1590,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     serviceDetailName: {
       fontSize: 15,
       color: colors.text,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     serviceDetailMeta: {
       fontSize: 12,
@@ -1253,7 +1599,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     serviceDetailPrice: {
       fontSize: 15,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.primary,
     },
     serviceDetailRowLast: {
@@ -1261,7 +1607,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     // Grid Row para Cliente/Pet
     gridRow: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 12,
     },
     compactCard: {
@@ -1269,27 +1615,27 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       padding: 16,
     },
     petCard: {
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     compactCardTitle: {
       fontSize: 13,
       color: colors.muted,
       marginBottom: 8,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     compactCardName: {
       fontSize: 17,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
       marginBottom: 4,
-      textAlign: 'center',
+      textAlign: "center",
     },
     compactCardBreed: {
       fontSize: 13,
       color: colors.muted,
       marginBottom: 8,
-      textAlign: 'center',
+      textAlign: "center",
     },
     compactAction: {
       marginTop: 8,
@@ -1297,15 +1643,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       paddingHorizontal: 12,
       backgroundColor: colors.primarySoft,
       borderRadius: 8,
-      alignSelf: 'flex-start',
+      alignSelf: "flex-start",
     },
     compactActionText: {
       color: colors.primary,
       fontSize: 13,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     contactActions: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 8,
       marginTop: 12,
     },
@@ -1314,11 +1660,11 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       height: 44,
       borderRadius: 22,
       backgroundColor: colors.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     whatsappButton: {
-      backgroundColor: '#25D366',
+      backgroundColor: "#25D366",
     },
     contactButtonIcon: {
       fontSize: 20,
@@ -1331,12 +1677,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       backgroundColor: colors.background,
     },
     petList: {
-      width: '100%',
+      width: "100%",
       gap: 10,
     },
     petRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 10,
       paddingBottom: 10,
       borderBottomWidth: StyleSheet.hairlineWidth,
@@ -1357,12 +1703,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       height: 44,
       borderRadius: 22,
       backgroundColor: placeholderBg,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     petRowInitials: {
       fontSize: 14,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
     },
     petThumbnailPlaceholder: {
@@ -1370,29 +1716,29 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       height: 60,
       borderRadius: 30,
       backgroundColor: placeholderBg,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       marginBottom: 8,
     },
     petThumbnailInitials: {
       fontSize: 20,
-      fontWeight: '800',
+      fontWeight: "800",
       color: colors.text,
     },
     petRowInfo: {
       flex: 1,
-      alignItems: 'flex-start',
+      alignItems: "flex-start",
     },
     petRowName: {
       fontSize: 15,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
-      textAlign: 'left',
+      textAlign: "left",
     },
     petRowBreed: {
       fontSize: 12,
       color: colors.muted,
-      textAlign: 'left',
+      textAlign: "left",
       marginTop: 2,
     },
     // Map Card
@@ -1401,14 +1747,14 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       padding: 16,
     },
     mapCardHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 12,
       marginBottom: 12,
     },
     mapCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       ...cardBase,
       padding: 16,
       gap: 12,
@@ -1423,12 +1769,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontSize: 12,
       color: colors.muted,
       marginBottom: 4,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     mapAddress: {
       fontSize: 15,
       color: colors.text,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     mapArrow: {
       fontSize: 24,
@@ -1441,64 +1787,64 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     photosCardTitle: {
       fontSize: 18,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
       marginBottom: 16,
     },
     photosGrid: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 12,
     },
     photoItem: {
       flex: 1,
-      alignItems: 'center',
+      alignItems: "center",
     },
     photoItemLabel: {
       fontSize: 14,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
       marginBottom: 10,
     },
     photoItemImage: {
-      width: '100%',
+      width: "100%",
       aspectRatio: 3 / 4,
       borderRadius: 16,
       marginBottom: 10,
       backgroundColor: colors.background,
     },
     photoLoadingOverlay: {
-      position: 'absolute',
+      position: "absolute",
       top: 0,
       left: 0,
       right: 0,
       bottom: 10,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
       borderRadius: 16,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     photoItemPlaceholder: {
-      width: '100%',
+      width: "100%",
       aspectRatio: 3 / 4,
       borderRadius: 16,
       backgroundColor: colors.background,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
       marginBottom: 10,
       borderWidth: 2,
       borderColor: colors.surfaceBorder,
-      borderStyle: 'dashed',
+      borderStyle: "dashed",
     },
     photoItemPlaceholderText: {
       fontSize: 48,
       color: colors.muted,
-      fontWeight: '200',
+      fontWeight: "200",
     },
     photoItemPlaceholderLabel: {
       fontSize: 11,
       color: colors.muted,
       marginTop: 8,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     // Status Card
     statusCard: {
@@ -1507,12 +1853,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     statusCardTitle: {
       fontSize: 18,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
       marginBottom: 16,
     },
     statusGrid: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 8,
       marginBottom: 12,
     },
@@ -1524,7 +1870,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderRadius: 14,
       paddingVertical: 12,
       paddingHorizontal: 8,
-      alignItems: 'center',
+      alignItems: "center",
       gap: 4,
     },
     statusButtonEmoji: {
@@ -1532,11 +1878,11 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     statusButtonText: {
       fontSize: 11,
-      fontWeight: '700',
-      textAlign: 'center',
+      fontWeight: "700",
+      textAlign: "center",
     },
     dangerActions: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 8,
     },
     duplicateButton: {
@@ -1547,46 +1893,46 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderRadius: 14,
       paddingVertical: 14,
       paddingHorizontal: 10,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     duplicateButtonText: {
       fontSize: 13,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
     },
     cancelButton: {
       flex: 1,
-      backgroundColor: '#fee2e2',
+      backgroundColor: "#fee2e2",
       borderWidth: 2,
-      borderColor: '#fca5a5',
+      borderColor: "#fca5a5",
       borderRadius: 14,
       padding: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
       gap: 8,
     },
     cancelButtonText: {
       fontSize: 13,
-      fontWeight: '700',
-      color: '#dc2626',
+      fontWeight: "700",
+      color: "#dc2626",
     },
     deleteButton: {
       flex: 1,
-      backgroundColor: '#fee2e2',
+      backgroundColor: "#fee2e2",
       borderWidth: 2,
-      borderColor: '#fca5a5',
+      borderColor: "#fca5a5",
       borderRadius: 14,
       paddingVertical: 14,
       paddingHorizontal: 10,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     deleteButtonText: {
       fontSize: 13,
-      fontWeight: '700',
-      color: '#dc2626',
+      fontWeight: "700",
+      color: "#dc2626",
     },
     // Notas
     notesCard: {
@@ -1594,21 +1940,21 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       padding: 20,
     },
     notesHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
       gap: 8,
       marginBottom: 10,
     },
     notesTitle: {
       fontSize: 18,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
       marginBottom: 0,
     },
     notesInput: {
       borderWidth: 1,
-      borderColor: colors.surfaceBorder || '#e5e7eb',
+      borderColor: colors.surfaceBorder || "#e5e7eb",
       backgroundColor: colors.surface,
       borderRadius: 12,
       padding: 12,
