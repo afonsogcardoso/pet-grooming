@@ -134,6 +134,9 @@ export function DayView({
   } | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const [nowMinutes, setNowMinutes] = useState<number | null>(null);
+  const todayStr = useMemo(() => new Date().toLocaleDateString("sv-SE"), []);
 
   useEffect(() => {
     return () => {
@@ -176,6 +179,7 @@ export function DayView({
   );
 
   const selectedDateStr = selectedDate.toLocaleDateString("sv-SE");
+  const isToday = selectedDateStr === todayStr;
 
   const dayAppointments = appointments
     .filter((apt) => apt.appointment_date === selectedDateStr)
@@ -227,6 +231,31 @@ export function DayView({
       durationMinutes,
     };
   };
+
+  useEffect(() => {
+    const updateNow = () => {
+      const now = new Date();
+      setNowMinutes(now.getHours() * 60 + now.getMinutes());
+    };
+    updateNow();
+    const id = setInterval(updateNow, 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  const currentTimeTop = useMemo(() => {
+    if (!isToday || nowMinutes == null) return null;
+    const offsetMinutes = nowMinutes - START_HOUR * 60;
+    if (offsetMinutes < 0 || nowMinutes > END_HOUR * 60) return null;
+    return (offsetMinutes / 60) * HOUR_HEIGHT;
+  }, [isToday, nowMinutes]);
+
+  useEffect(() => {
+    if (currentTimeTop == null) return;
+    const scrollY = Math.max(currentTimeTop - 180, 0);
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: scrollY, animated: false });
+    });
+  }, [currentTimeTop]);
 
   const cardBase = getCardStyle(colors);
   const styles = StyleSheet.create({
@@ -318,6 +347,24 @@ export function DayView({
       borderWidth: 1,
       borderColor: colors.primary,
       opacity: 0.45,
+    },
+    currentTimeLine: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      height: 1,
+      backgroundColor: "#ff5a5f",
+      zIndex: 2,
+      pointerEvents: "none",
+    },
+    currentTimeDot: {
+      position: "absolute",
+      left: -5,
+      top: -5,
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: "#ff5a5f",
     },
     appointmentBlock: {
       position: "absolute",
@@ -467,7 +514,7 @@ export function DayView({
         </View>
       </View>
 
-      <ScrollView style={styles.gridContainer}>
+      <ScrollView style={styles.gridContainer} ref={scrollRef}>
         <View style={styles.gridContent}>
           {/* Time column */}
           <View style={styles.timeColumn}>
@@ -490,6 +537,11 @@ export function DayView({
                 style={[styles.hourLine, { top: index * HOUR_HEIGHT }]}
               />
             ))}
+            {currentTimeTop != null ? (
+              <View style={[styles.currentTimeLine, { top: currentTimeTop }]}>
+                <View style={styles.currentTimeDot} />
+              </View>
+            ) : null}
             {tapHighlight ? (
               <View
                 pointerEvents="none"
