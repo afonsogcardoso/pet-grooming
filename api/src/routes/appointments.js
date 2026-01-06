@@ -55,7 +55,7 @@ const APPOINTMENT_DETAIL_SELECT = `
     price_tier_label,
     price_tier_price,
     services ( id, name, price, display_order ),
-    pets ( id, name, breed, weight ),
+    pets ( id, name, breed, photo_url, weight ),
     appointment_service_addons ( id, service_addon_id, name, price )
   )
 `
@@ -345,7 +345,7 @@ router.get('/', async (req, res) => {
         price_tier_label,
         price_tier_price,
         services ( id, name, price, display_order ),
-        pets ( id, name, breed, weight ),
+        pets ( id, name, breed, photo_url, weight ),
         appointment_service_addons ( id, service_addon_id, name, price )
       )
     `
