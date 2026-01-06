@@ -40,7 +40,7 @@ export function getGoogleMapsLink(address) {
  * @param {string} address - Address string or Google Maps link
  * @returns {string} Formatted address for display
  */
-export function formatAddressForDisplay(address, { mapLabel = '📍 Location Link', emptyLabel = 'No address' } = {}) {
+export function formatAddressForDisplay(address, { mapLabel = 'Location Link', emptyLabel = 'No address' } = {}) {
     if (!address) return emptyLabel
 
     // If it's a Maps link, show a shorter version

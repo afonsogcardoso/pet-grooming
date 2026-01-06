@@ -1,13 +1,21 @@
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { useBrandingTheme } from '../../theme/useBrandingTheme';
-import { AddressAutocomplete } from './AddressAutocomplete';
-import { PhoneInput } from '../common/PhoneInput';
-import { Input } from '../common/Input';
-import type { Customer, Pet } from '../../api/customers';
-import { useEffect, useState } from 'react';
-import { formatCustomerName } from '../../utils/customer';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  StyleSheet,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import { useBrandingTheme } from "../../theme/useBrandingTheme";
+import { AddressAutocomplete } from "./AddressAutocomplete";
+import { PhoneInput } from "../common/PhoneInput";
+import { Input } from "../common/Input";
+import type { Customer, Pet } from "../../api/customers";
+import { useEffect, useState } from "react";
+import { formatCustomerName } from "../../utils/customer";
 
 type ExistingCustomerFormProps = {
   customerSearch: string;
@@ -15,8 +23,14 @@ type ExistingCustomerFormProps = {
   showCustomerList: boolean;
   setShowCustomerList: (value: boolean) => void;
   searchResults: Array<
-    | { type: 'customer'; customer: Customer; label: string; subtitle?: string }
-    | { type: 'pet'; customer: Customer; pet: Pet; label: string; subtitle?: string }
+    | { type: "customer"; customer: Customer; label: string; subtitle?: string }
+    | {
+        type: "pet";
+        customer: Customer;
+        pet: Pet;
+        label: string;
+        subtitle?: string;
+      }
   >;
   loadingCustomers: boolean;
   selectedCustomerId?: string;
@@ -76,7 +90,7 @@ export function ExistingCustomerForm({
     label: {
       color: colors.text,
       marginBottom: 8,
-      fontWeight: '600',
+      fontWeight: "600",
       fontSize: 15,
     },
     select: {
@@ -89,12 +103,12 @@ export function ExistingCustomerForm({
     },
     selectText: {
       color: colors.text,
-      fontWeight: '600',
+      fontWeight: "600",
       fontSize: 15,
     },
     placeholder: {
       color: colors.muted,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     dropdown: {
       borderWidth: 1,
@@ -113,7 +127,7 @@ export function ExistingCustomerForm({
       backgroundColor: colors.surface,
       borderColor: colors.surfaceBorder,
       fontSize: 15,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     option: {
       paddingVertical: 10,
@@ -122,7 +136,7 @@ export function ExistingCustomerForm({
     },
     optionTitle: {
       color: colors.text,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     optionSubtitle: {
       color: colors.muted,
@@ -141,6 +155,7 @@ export function ExistingCustomerForm({
       fontSize: 12,
       marginTop: 8,
       marginBottom: 4,
+      fontWeight: "400",
     },
     inlineInput: {
       marginBottom: 4,
@@ -154,12 +169,12 @@ export function ExistingCustomerForm({
     },
     changeButtonText: {
       color: colors.primary,
-      fontWeight: '600',
+      fontWeight: "600",
       fontSize: 13,
     },
     searchBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       backgroundColor: colors.surface,
       borderRadius: 12,
       paddingHorizontal: 16,
@@ -175,15 +190,15 @@ export function ExistingCustomerForm({
       color: colors.text,
     },
     customerHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
       gap: 12,
       marginBottom: 8,
     },
     customerHeaderText: {
       color: colors.text,
-      fontWeight: '700',
+      fontWeight: "700",
       fontSize: 16,
     },
     customerHeaderSubtext: {
@@ -191,8 +206,8 @@ export function ExistingCustomerForm({
       marginTop: 4,
     },
     customerActions: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
+      flexDirection: "row",
+      flexWrap: "wrap",
       gap: 8,
       marginTop: 8,
     },
@@ -206,7 +221,7 @@ export function ExistingCustomerForm({
     },
     actionButtonText: {
       color: colors.text,
-      fontWeight: '600',
+      fontWeight: "600",
       fontSize: 13,
     },
   });
@@ -222,7 +237,9 @@ export function ExistingCustomerForm({
               onPress={() => setShowCustomerList(!showCustomerList)}
             >
               <Text style={[styles.selectText, styles.placeholder]}>
-                {loadingCustomers ? t('common.loading') : t('existingCustomerForm.selectCustomer')}
+                {loadingCustomers
+                  ? t("common.loading")
+                  : t("existingCustomerForm.selectCustomer")}
               </Text>
             </TouchableOpacity>
 
@@ -233,21 +250,28 @@ export function ExistingCustomerForm({
                   <TextInput
                     value={customerSearch}
                     onChangeText={setCustomerSearch}
-                    placeholder={t('existingCustomerForm.searchPlaceholder')}
+                    placeholder={t("existingCustomerForm.searchPlaceholder")}
                     placeholderTextColor={colors.muted}
                     style={styles.searchInput}
                     autoFocus
                   />
                   {customerSearch.length > 0 && (
-                    <TouchableOpacity onPress={() => setCustomerSearch('')}>
-                      <Ionicons name="close-circle" size={20} color={colors.muted} />
+                    <TouchableOpacity onPress={() => setCustomerSearch("")}>
+                      <Ionicons
+                        name="close-circle"
+                        size={20}
+                        color={colors.muted}
+                      />
                     </TouchableOpacity>
                   )}
                 </View>
-                <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
+                <ScrollView
+                  style={{ maxHeight: 200 }}
+                  keyboardShouldPersistTaps="handled"
+                >
                   {searchResults.map((result) => {
                     const key =
-                      result.type === 'customer'
+                      result.type === "customer"
                         ? `customer-${result.customer.id}`
                         : `pet-${result.pet.id}`;
                     return (
@@ -256,26 +280,36 @@ export function ExistingCustomerForm({
                         style={styles.option}
                         onPress={() => {
                           setSelectedCustomer(result.customer.id);
-                          if (result.type === 'pet') {
+                          if (result.type === "pet") {
                             onSelectPet(result.pet.id);
                           }
                           setShowCustomerList(false);
-                          setCustomerSearch('');
+                          setCustomerSearch("");
                         }}
                       >
                         <Text style={styles.optionTitle}>
                           {result.label}
-                          {result.type === 'pet' ? ` ${t('existingCustomerForm.petSuffix')}` : ''}
+                          {result.type === "pet"
+                            ? ` ${t("existingCustomerForm.petSuffix")}`
+                            : ""}
                         </Text>
-                        {result.subtitle ? <Text style={styles.optionSubtitle}>{result.subtitle}</Text> : null}
-                        {result.type === 'pet' && result.customer.phone ? (
-                          <Text style={styles.optionSubtitle}>{result.customer.phone}</Text>
+                        {result.subtitle ? (
+                          <Text style={styles.optionSubtitle}>
+                            {result.subtitle}
+                          </Text>
+                        ) : null}
+                        {result.type === "pet" && result.customer.phone ? (
+                          <Text style={styles.optionSubtitle}>
+                            {result.customer.phone}
+                          </Text>
                         ) : null}
                       </TouchableOpacity>
                     );
                   })}
                   {!loadingCustomers && searchResults.length === 0 ? (
-                    <Text style={styles.optionSubtitle}>{t('existingCustomerForm.noResults')}</Text>
+                    <Text style={styles.optionSubtitle}>
+                      {t("existingCustomerForm.noResults")}
+                    </Text>
                   ) : null}
                 </ScrollView>
               </View>
@@ -290,7 +324,9 @@ export function ExistingCustomerForm({
                   {formatCustomerName(selectedCustomerData)}
                 </Text>
                 {selectedCustomerData.phone ? (
-                  <Text style={styles.customerHeaderSubtext}>{selectedCustomerData.phone}</Text>
+                  <Text style={styles.customerHeaderSubtext}>
+                    {selectedCustomerData.phone}
+                  </Text>
                 ) : null}
               </View>
               <TouchableOpacity
@@ -298,11 +334,51 @@ export function ExistingCustomerForm({
                 onPress={() => setDetailsOpen((prev) => !prev)}
               >
                 <Text style={styles.actionButtonText}>
-                  {detailsOpen ? t('existingCustomerForm.hideDetails') : t('existingCustomerForm.showDetails')}
+                  {detailsOpen
+                    ? t("existingCustomerForm.hideDetails")
+                    : t("existingCustomerForm.showDetails")}
                 </Text>
               </TouchableOpacity>
             </View>
 
+            {detailsOpen ? (
+              <>
+                <PhoneInput
+                  label={`${t("common.phone")}`}
+                  value={customerPhone}
+                  onChange={setCustomerPhone}
+                  placeholder={t("common.phone")}
+                  labelStyle={styles.customerDetailLabel}
+                />
+                <Text style={styles.customerDetailLabel}>
+                  {t("customerDetail.address")}
+                </Text>
+                <AddressAutocomplete
+                  value={customerAddress}
+                  onSelect={setCustomerAddress}
+                  placeholder={addressPlaceholder}
+                />
+                <Text style={styles.customerDetailLabel}>
+                  {t("customerDetail.address2")}
+                </Text>
+                <Input
+                  value={customerAddress2}
+                  onChangeText={setCustomerAddress2}
+                  placeholder={address2Placeholder}
+                  style={styles.inlineInput}
+                />
+                <Text style={styles.customerDetailLabel}>
+                  {t("customerDetail.nif")}
+                </Text>
+                <Input
+                  value={customerNif}
+                  onChangeText={setCustomerNif}
+                  placeholder={t("customerDetail.nif")}
+                  keyboardType="number-pad"
+                  style={styles.inlineInput}
+                />
+              </>
+            ) : null}
             <View style={styles.customerActions}>
               <TouchableOpacity
                 style={styles.changeButton}
@@ -310,56 +386,36 @@ export function ExistingCustomerForm({
                   setShowCustomerList(!showCustomerList);
                 }}
               >
-                <Text style={styles.changeButtonText}>🔄 {t('existingCustomerForm.changeCustomer')}</Text>
+                <Text style={styles.changeButtonText}>
+                  {t("existingCustomerForm.changeCustomer")}
+                </Text>
               </TouchableOpacity>
             </View>
-
-            {detailsOpen ? (
-              <>
-                <PhoneInput
-                  label={`📱 ${t('common.phone')}`}
-                  value={customerPhone}
-                  onChange={setCustomerPhone}
-                  placeholder={t('common.phone')}
-                />
-                <Text style={styles.customerDetailLabel}>📍 {t('customerDetail.address')}</Text>
-                <AddressAutocomplete
-                  value={customerAddress}
-                  onSelect={setCustomerAddress}
-                  placeholder={addressPlaceholder}
-                />
-                <Text style={styles.customerDetailLabel}>🏢 {t('customerDetail.address2')}</Text>
-                <Input
-                  value={customerAddress2}
-                  onChangeText={setCustomerAddress2}
-                  placeholder={address2Placeholder}
-                  style={styles.inlineInput}
-                />
-                <Text style={styles.customerDetailLabel}>🆔 {t('customerDetail.nif')}</Text>
-                <Input
-                  value={customerNif}
-                  onChangeText={setCustomerNif}
-                  placeholder={t('customerDetail.nif')}
-                  keyboardType="number-pad"
-                  style={styles.inlineInput}
-                />
-              </>
-            ) : null}
-
             {showCustomerList ? (
-              <View style={[styles.dropdown, { borderColor: primarySoft, marginTop: 12 }]}>
+              <View
+                style={[
+                  styles.dropdown,
+                  { borderColor: primarySoft, marginTop: 12 },
+                ]}
+              >
                 <TextInput
                   value={customerSearch}
                   onChangeText={setCustomerSearch}
-                  placeholder={t('existingCustomerForm.searchPlaceholder')}
+                  placeholder={t("existingCustomerForm.searchPlaceholder")}
                   placeholderTextColor={colors.muted}
-                  style={[styles.input, { borderColor: primarySoft, marginBottom: 10 }]}
+                  style={[
+                    styles.input,
+                    { borderColor: primarySoft, marginBottom: 10 },
+                  ]}
                   autoFocus
                 />
-                <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
+                <ScrollView
+                  style={{ maxHeight: 200 }}
+                  keyboardShouldPersistTaps="handled"
+                >
                   {searchResults.map((result) => {
                     const key =
-                      result.type === 'customer'
+                      result.type === "customer"
                         ? `customer-${result.customer.id}`
                         : `pet-${result.pet.id}`;
                     return (
@@ -368,26 +424,36 @@ export function ExistingCustomerForm({
                         style={styles.option}
                         onPress={() => {
                           setSelectedCustomer(result.customer.id);
-                          if (result.type === 'pet') {
+                          if (result.type === "pet") {
                             onSelectPet(result.pet.id);
                           }
                           setShowCustomerList(false);
-                          setCustomerSearch('');
+                          setCustomerSearch("");
                         }}
                       >
                         <Text style={styles.optionTitle}>
                           {result.label}
-                          {result.type === 'pet' ? ` ${t('existingCustomerForm.petSuffix')}` : ''}
+                          {result.type === "pet"
+                            ? ` ${t("existingCustomerForm.petSuffix")}`
+                            : ""}
                         </Text>
-                        {result.subtitle ? <Text style={styles.optionSubtitle}>{result.subtitle}</Text> : null}
-                        {result.type === 'pet' && result.customer.phone ? (
-                          <Text style={styles.optionSubtitle}>{result.customer.phone}</Text>
+                        {result.subtitle ? (
+                          <Text style={styles.optionSubtitle}>
+                            {result.subtitle}
+                          </Text>
+                        ) : null}
+                        {result.type === "pet" && result.customer.phone ? (
+                          <Text style={styles.optionSubtitle}>
+                            {result.customer.phone}
+                          </Text>
                         ) : null}
                       </TouchableOpacity>
                     );
                   })}
                   {!loadingCustomers && searchResults.length === 0 ? (
-                    <Text style={styles.optionSubtitle}>{t('existingCustomerForm.noResults')}</Text>
+                    <Text style={styles.optionSubtitle}>
+                      {t("existingCustomerForm.noResults")}
+                    </Text>
                   ) : null}
                 </ScrollView>
               </View>
@@ -395,7 +461,6 @@ export function ExistingCustomerForm({
           </View>
         )}
       </View>
-
     </>
   );
 }

@@ -329,7 +329,7 @@ export default function ConsumerAppointmentDetailScreen({ route }: Props) {
 
         {formatCustomerAddress(appointment.customers) ? (
           <View style={styles.infoCard}>
-            <Text style={styles.sectionTitle}>📍 {t('appointmentDetail.address')}</Text>
+            <Text style={styles.sectionTitle}>{t('appointmentDetail.address')}</Text>
             <Text style={styles.addressText}>{formatCustomerAddress(appointment.customers, '\n')}</Text>
             <MiniMap address={formatCustomerAddress(appointment.customers)} />
           </View>

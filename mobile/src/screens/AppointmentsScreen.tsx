@@ -1,25 +1,50 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Animated, Alert } from 'react-native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getAppointments, Appointment, deleteAppointment } from '../api/appointments';
-import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { ViewSelector } from '../components/appointments/ViewSelector';
-import { ListView } from '../components/appointments/ListView';
-import { DayView } from '../components/appointments/DayView';
-import { WeekView } from '../components/appointments/WeekView';
-import { MonthView } from '../components/appointments/MonthView';
-import { ScreenHeader } from '../components/ScreenHeader';
-import { useTranslation } from 'react-i18next';
-import { UndoToast } from '../components/common/UndoToast';
-import { hapticError, hapticSelection, hapticSuccess, hapticWarning } from '../utils/haptics';
-import { useSwipeDeleteIndicator } from '../hooks/useSwipeDeleteIndicator';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  useInfiniteQuery,
+} from "@tanstack/react-query";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  Animated,
+  Alert,
+} from "react-native";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import {
+  getAppointments,
+  Appointment,
+  deleteAppointment,
+} from "../api/appointments";
+import { useBrandingTheme } from "../theme/useBrandingTheme";
+import { ViewSelector } from "../components/appointments/ViewSelector";
+import { ListView } from "../components/appointments/ListView";
+import { DayView } from "../components/appointments/DayView";
+import { WeekView } from "../components/appointments/WeekView";
+import { MonthView } from "../components/appointments/MonthView";
+import { ScreenHeader } from "../components/ScreenHeader";
+import { useTranslation } from "react-i18next";
+import { UndoToast } from "../components/common/UndoToast";
+import {
+  hapticError,
+  hapticSelection,
+  hapticSuccess,
+  hapticWarning,
+} from "../utils/haptics";
+import { useSwipeDeleteIndicator } from "../hooks/useSwipeDeleteIndicator";
 
 type Props = NativeStackScreenProps<any>;
-type ViewMode = 'list' | 'day' | 'week' | 'month';
-type FilterMode = 'upcoming' | 'past' | 'unpaid';
+type ViewMode = "list" | "day" | "week" | "month";
+type FilterMode = "upcoming" | "past" | "unpaid";
 type DeletePayload = {
   appointment: Appointment;
   affectedQueries: Array<{ key: readonly unknown[]; index: number }>;
@@ -28,15 +53,35 @@ const UNDO_TIMEOUT_MS = 4000;
 
 function todayLocalISO() {
   // YYYY-MM-DD usando timezone local (evita “pular” para amanhã em UTC)
-  return new Date().toLocaleDateString('sv-SE'); // sv-SE => 2024-07-01
+  return new Date().toLocaleDateString("sv-SE"); // sv-SE => 2024-07-01
 }
 
-export default function AppointmentsScreen({ navigation }: Props) {
+type AppointmentRouteParams = Partial<{
+  filterMode: FilterMode;
+  viewMode: ViewMode;
+  pendingOnly: boolean;
+  selectedDate: string;
+}>;
+
+export default function AppointmentsScreen({ navigation, route }: Props) {
+  const routeParams = route?.params as AppointmentRouteParams | undefined;
   const today = todayLocalISO();
-  const [filterMode, setFilterMode] = useState<FilterMode>('upcoming');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [pendingOnly, setPendingOnly] = useState(false);
+  const [filterMode, setFilterMode] = useState<FilterMode>(
+    routeParams?.filterMode || "upcoming"
+  );
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    routeParams?.viewMode || "list"
+  );
+  const [selectedDate, setSelectedDate] = useState(() => {
+    if (routeParams?.selectedDate) {
+      const parsed = new Date(routeParams.selectedDate);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+    return new Date();
+  });
+  const [pendingOnly, setPendingOnly] = useState(
+    Boolean(routeParams?.pendingOnly)
+  );
 
   const { branding: brandingData, colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -51,44 +96,80 @@ export default function AppointmentsScreen({ navigation }: Props) {
   // For list/day view: fetch appointments based on filter mode
   // For week/month view: fetch a broader range
   const dateRange = useMemo(() => {
-    if (viewMode === 'list') {
+    if (viewMode === "list") {
       return {
-        from: filterMode === 'upcoming' ? today : undefined,
-        to: filterMode === 'past' ? today : undefined,
+        from: filterMode === "upcoming" ? today : undefined,
+        to:
+          filterMode === "past"
+            ? today
+            : filterMode === "unpaid"
+            ? today
+            : undefined,
       };
     }
-    
-    if (viewMode === 'day') {
-      const dayStr = selectedDate.toLocaleDateString('sv-SE');
+
+    if (viewMode === "day") {
+      const dayStr = selectedDate.toLocaleDateString("sv-SE");
       return { from: dayStr, to: dayStr };
     }
 
-    if (viewMode === 'week') {
+    if (viewMode === "week") {
       // Calculate Sunday as start of week (like in WeekView)
       const day = selectedDate.getDay();
       const startOfWeek = new Date(selectedDate);
       startOfWeek.setDate(selectedDate.getDate() - day);
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 6);
-      
+
       return {
-        from: startOfWeek.toLocaleDateString('sv-SE'),
-        to: endOfWeek.toLocaleDateString('sv-SE'),
+        from: startOfWeek.toLocaleDateString("sv-SE"),
+        to: endOfWeek.toLocaleDateString("sv-SE"),
       };
     }
 
-    if (viewMode === 'month') {
-      const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-      const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
-      
+    if (viewMode === "month") {
+      const startOfMonth = new Date(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        1
+      );
+      const endOfMonth = new Date(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth() + 1,
+        0
+      );
+
       return {
-        from: startOfMonth.toLocaleDateString('sv-SE'),
-        to: endOfMonth.toLocaleDateString('sv-SE'),
+        from: startOfMonth.toLocaleDateString("sv-SE"),
+        to: endOfMonth.toLocaleDateString("sv-SE"),
       };
     }
 
     return {};
   }, [viewMode, filterMode, selectedDate, today]);
+
+  const isUnpaidPastOrCompleted = useCallback(
+    (appointment: Appointment, now: Date) => {
+      const unpaid = (appointment.payment_status || "unpaid") !== "paid";
+      if (!unpaid) return false;
+      if (appointment.status === "completed") return true;
+
+      const dayKey = appointment.appointment_date;
+      if (!dayKey) return false;
+      if (dayKey < today) return true;
+      if (dayKey > today) return false;
+
+      const time = appointment.appointment_time;
+      if (!time) return false;
+      const m = String(time).match(/(\d{1,2}):(\d{2})/);
+      if (!m) return false;
+      const hh = `${m[1]}`.padStart(2, "0");
+      const mm = m[2];
+      const apptDate = new Date(`${dayKey}T${hh}:${mm}:00`);
+      return apptDate < now;
+    },
+    [today]
+  );
 
   const PAGE_SIZE = 20;
 
@@ -102,7 +183,13 @@ export default function AppointmentsScreen({ navigation }: Props) {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ['appointments', viewMode, filterMode, dateRange.from, dateRange.to],
+    queryKey: [
+      "appointments",
+      viewMode,
+      filterMode,
+      dateRange.from,
+      dateRange.to,
+    ],
     queryFn: ({ pageParam = 0 }) =>
       getAppointments({
         from: dateRange.from,
@@ -114,37 +201,92 @@ export default function AppointmentsScreen({ navigation }: Props) {
     retry: 1,
   });
 
-  const appointments = appointmentsData?.pages?.flatMap((page) => page.items) || [];
+  const appointments =
+    appointmentsData?.pages?.flatMap((page) => page.items) || [];
   const pendingAppointments = useMemo(
-    () => appointments.filter((appointment) => appointment.status === 'pending'),
-    [appointments],
+    () =>
+      appointments.filter((appointment) => appointment.status === "pending"),
+    [appointments]
   );
   const pendingCount = pendingAppointments.length;
   const hasPendingAppointments = pendingCount > 0;
+  const hasUnpaidAppointments = useMemo(() => {
+    if (isLoading) return false;
+    const now = new Date();
+    return appointments.some((appointment) =>
+      isUnpaidPastOrCompleted(appointment, now)
+    );
+  }, [appointments, isLoading, isUnpaidPastOrCompleted]);
+
+  // Lightweight server check: only if local pages found none; keep tiny page for speed.
+  const { data: unpaidCheckData } = useQuery({
+    queryKey: ["appointments-unpaid-check", today],
+    queryFn: () => getAppointments({ to: today, limit: 10 }),
+    staleTime: 1000 * 60 * 10,
+    retry: 1,
+    enabled: !hasUnpaidAppointments,
+  });
+
+  const hasUnpaidServer = useMemo(() => {
+    const items = unpaidCheckData?.items || [];
+    const now = new Date();
+    return items.some((appointment) =>
+      isUnpaidPastOrCompleted(appointment, now)
+    );
+  }, [isUnpaidPastOrCompleted, unpaidCheckData]);
+
+  const displayAppointments = useMemo(() => {
+    const now = new Date();
+    let base = appointments;
+    if (filterMode === "unpaid") {
+      base = appointments.filter((appointment) =>
+        isUnpaidPastOrCompleted(appointment, now)
+      );
+    }
+    if (pendingOnly) {
+      base = base.filter((appointment) => appointment.status === "pending");
+    }
+    return base;
+  }, [appointments, filterMode, isUnpaidPastOrCompleted, pendingOnly]);
+
+  const showUnpaidTab =
+    hasUnpaidAppointments ||
+    hasUnpaidServer ||
+    routeParams?.filterMode === "unpaid";
   const queryClient = useQueryClient();
   const [undoVisible, setUndoVisible] = useState(false);
-  const { deletingId, beginDelete, clearDeletingId } = useSwipeDeleteIndicator();
+  const { deletingId, beginDelete, clearDeletingId } =
+    useSwipeDeleteIndicator();
   const pendingDeleteRef = useRef<DeletePayload | null>(null);
 
-  const restoreAppointment = useCallback((payload: DeletePayload) => {
-    payload.affectedQueries.forEach(({ key, index }) => {
-      queryClient.setQueryData(key, (old: any) => {
-        if (!old || !Array.isArray(old.items)) return old;
-        if (old.items.some((item: Appointment) => item.id === payload.appointment.id)) return old;
-        const nextItems = [...old.items];
-        const insertIndex = Math.min(Math.max(index, 0), nextItems.length);
-        nextItems.splice(insertIndex, 0, payload.appointment);
-        return { ...old, items: nextItems };
+  const restoreAppointment = useCallback(
+    (payload: DeletePayload) => {
+      payload.affectedQueries.forEach(({ key, index }) => {
+        queryClient.setQueryData(key, (old: any) => {
+          if (!old || !Array.isArray(old.items)) return old;
+          if (
+            old.items.some(
+              (item: Appointment) => item.id === payload.appointment.id
+            )
+          )
+            return old;
+          const nextItems = [...old.items];
+          const insertIndex = Math.min(Math.max(index, 0), nextItems.length);
+          nextItems.splice(insertIndex, 0, payload.appointment);
+          return { ...old, items: nextItems };
+        });
       });
-    });
-  }, [queryClient]);
+    },
+    [queryClient]
+  );
 
   const deleteMutation = useMutation({
-    mutationFn: ({ appointment }: DeletePayload) => deleteAppointment(appointment.id),
+    mutationFn: ({ appointment }: DeletePayload) =>
+      deleteAppointment(appointment.id),
     onSuccess: () => {
       hapticSuccess();
       if (!pendingDeleteRef.current) {
-        queryClient.invalidateQueries({ queryKey: ['appointments'] });
+        queryClient.invalidateQueries({ queryKey: ["appointments"] });
       }
     },
     onError: (err: any, variables) => {
@@ -153,9 +295,14 @@ export default function AppointmentsScreen({ navigation }: Props) {
         restoreAppointment(variables);
       }
       if (!pendingDeleteRef.current) {
-        queryClient.invalidateQueries({ queryKey: ['appointments'] });
+        queryClient.invalidateQueries({ queryKey: ["appointments"] });
       }
-      Alert.alert(t('common.error'), err?.response?.data?.error || err.message || t('appointments.deleteError'));
+      Alert.alert(
+        t("common.error"),
+        err?.response?.data?.error ||
+          err.message ||
+          t("appointments.deleteError")
+      );
     },
   });
 
@@ -168,30 +315,43 @@ export default function AppointmentsScreen({ navigation }: Props) {
     deleteMutation.mutate(pending);
   }, [clearDeletingId, deleteMutation]);
 
-  const startOptimisticDelete = useCallback((appointment: Appointment) => {
-    if (pendingDeleteRef.current) {
-      commitPendingDelete();
-    }
-
-    const affectedQueries: DeletePayload['affectedQueries'] = [];
-    queryClient.getQueriesData({ queryKey: ['appointments'] }).forEach(([key, data]) => {
-      const items = (data as any)?.items;
-      if (!Array.isArray(items)) return;
-      const index = items.findIndex((item: Appointment) => item.id === appointment.id);
-      if (index !== -1) {
-        affectedQueries.push({ key, index });
+  const startOptimisticDelete = useCallback(
+    (appointment: Appointment) => {
+      if (pendingDeleteRef.current) {
+        commitPendingDelete();
       }
-    });
 
-    queryClient.setQueriesData({ queryKey: ['appointments'] }, (old: any) => {
-      if (!old || !Array.isArray(old.items)) return old;
-      if (!old.items.some((item: Appointment) => item.id === appointment.id)) return old;
-      return { ...old, items: old.items.filter((item: Appointment) => item.id !== appointment.id) };
-    });
+      const affectedQueries: DeletePayload["affectedQueries"] = [];
+      queryClient
+        .getQueriesData({ queryKey: ["appointments"] })
+        .forEach(([key, data]) => {
+          const items = (data as any)?.items;
+          if (!Array.isArray(items)) return;
+          const index = items.findIndex(
+            (item: Appointment) => item.id === appointment.id
+          );
+          if (index !== -1) {
+            affectedQueries.push({ key, index });
+          }
+        });
 
-    pendingDeleteRef.current = { appointment, affectedQueries };
-    setUndoVisible(true);
-  }, [commitPendingDelete, queryClient]);
+      queryClient.setQueriesData({ queryKey: ["appointments"] }, (old: any) => {
+        if (!old || !Array.isArray(old.items)) return old;
+        if (!old.items.some((item: Appointment) => item.id === appointment.id))
+          return old;
+        return {
+          ...old,
+          items: old.items.filter(
+            (item: Appointment) => item.id !== appointment.id
+          ),
+        };
+      });
+
+      pendingDeleteRef.current = { appointment, affectedQueries };
+      setUndoVisible(true);
+    },
+    [commitPendingDelete, queryClient]
+  );
 
   const handleUndo = useCallback(() => {
     const pending = pendingDeleteRef.current;
@@ -205,20 +365,28 @@ export default function AppointmentsScreen({ navigation }: Props) {
   useEffect(() => {
     // Expose a simple global hook used by ListView's SwipeableRow
     (globalThis as any).onDeleteAppointment = (appointment: Appointment) => {
-      Alert.alert(t('appointments.deleteTitle'), t('appointments.deleteMessage'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('appointments.deleteAction'),
-          style: 'destructive',
-          onPress: () => {
-            hapticWarning();
-            beginDelete(appointment.id, () => startOptimisticDelete(appointment));
+      Alert.alert(
+        t("appointments.deleteTitle"),
+        t("appointments.deleteMessage"),
+        [
+          { text: t("common.cancel"), style: "cancel" },
+          {
+            text: t("appointments.deleteAction"),
+            style: "destructive",
+            onPress: () => {
+              hapticWarning();
+              beginDelete(appointment.id, () =>
+                startOptimisticDelete(appointment)
+              );
+            },
           },
-        },
-      ]);
+        ]
+      );
     };
     return () => {
-      try { delete (globalThis as any).onDeleteAppointment; } catch {}
+      try {
+        delete (globalThis as any).onDeleteAppointment;
+      } catch {}
     };
   }, [beginDelete, startOptimisticDelete, t]);
 
@@ -232,13 +400,36 @@ export default function AppointmentsScreen({ navigation }: Props) {
   }, [deleteMutation]);
 
   useEffect(() => {
-    if (viewMode === 'list' && !hasPendingAppointments && pendingOnly) {
+    if (viewMode === "list" && !hasPendingAppointments && pendingOnly) {
       setPendingOnly(false);
     }
   }, [hasPendingAppointments, pendingOnly, viewMode]);
 
   useEffect(() => {
-    if (viewMode !== 'list') {
+    if (!routeParams) return;
+
+    if (routeParams.filterMode) {
+      setFilterMode(routeParams.filterMode);
+    }
+
+    if (routeParams.viewMode) {
+      setViewMode(routeParams.viewMode);
+    }
+
+    if (typeof routeParams.pendingOnly === "boolean") {
+      setPendingOnly(routeParams.pendingOnly);
+    }
+
+    if (routeParams.selectedDate) {
+      const parsed = new Date(routeParams.selectedDate);
+      if (!Number.isNaN(parsed.getTime())) {
+        setSelectedDate(parsed);
+      }
+    }
+  }, [routeParams]);
+
+  useEffect(() => {
+    if (viewMode !== "list") {
       scrollY.setValue(0);
     }
   }, [viewMode, scrollY]);
@@ -251,12 +442,12 @@ export default function AppointmentsScreen({ navigation }: Props) {
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, collapseDistance * 0.5, collapseDistance],
     outputRange: [1, 0.88, 0.7],
-    extrapolate: 'clamp',
+    extrapolate: "clamp",
   });
   const headerTranslate = scrollY.interpolate({
     inputRange: [0, collapseDistance],
     outputRange: [0, -14],
-    extrapolate: 'clamp',
+    extrapolate: "clamp",
   });
 
   const handleListScroll = useCallback(
@@ -280,7 +471,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
 
   const handleAppointmentPress = useCallback(
     (appointment: Appointment) => {
-      navigation.navigate('AppointmentDetail', { id: appointment.id });
+      navigation.navigate("AppointmentDetail", { id: appointment.id });
     },
     [navigation]
   );
@@ -292,17 +483,17 @@ export default function AppointmentsScreen({ navigation }: Props) {
 
   const handleNewAppointment = useCallback(
     (date?: string, time?: string) => {
-      navigation.navigate('NewAppointment', { date, time });
+      navigation.navigate("NewAppointment", { date, time });
     },
     [navigation]
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <ScreenHeader 
-        title={t('appointments.title')}
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <ScreenHeader
+        title={t("appointments.title")}
         rightElement={
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => handleNewAppointment()}
             style={[styles.actionButton, { backgroundColor: colors.primary }]}
             activeOpacity={0.7}
@@ -322,7 +513,6 @@ export default function AppointmentsScreen({ navigation }: Props) {
         }}
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
-
         {/* View Mode Selector */}
         <Animated.View
           style={{
@@ -330,11 +520,15 @@ export default function AppointmentsScreen({ navigation }: Props) {
             marginBottom: isCompactHeader ? -4 : 6,
           }}
         >
-          <ViewSelector currentView={viewMode} onViewChange={handleViewChange} compact={isCompactHeader} />
+          <ViewSelector
+            currentView={viewMode}
+            onViewChange={handleViewChange}
+            compact={isCompactHeader}
+          />
         </Animated.View>
 
         {/* Filter for List view only */}
-        {viewMode === 'list' && (
+        {viewMode === "list" && (
           <Animated.View
             style={{
               transform: [{ scale: isCompactHeader ? 0.9 : 1 }],
@@ -347,56 +541,58 @@ export default function AppointmentsScreen({ navigation }: Props) {
                 style={[
                   styles.segmentButton,
                   isCompactHeader && styles.segmentButtonCompact,
-                  filterMode === 'upcoming' && styles.segmentButtonActive,
+                  filterMode === "upcoming" && styles.segmentButtonActive,
                 ]}
-                onPress={() => handleFilterChange('upcoming')}
+                onPress={() => handleFilterChange("upcoming")}
               >
                 <Text
                   style={[
                     styles.segmentText,
                     isCompactHeader && styles.segmentTextCompact,
-                    filterMode === 'upcoming' && styles.segmentTextActive,
+                    filterMode === "upcoming" && styles.segmentTextActive,
                   ]}
                 >
-                  {t('appointments.filterUpcoming')}
+                  {t("appointments.filterUpcoming")}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
                   styles.segmentButton,
                   isCompactHeader && styles.segmentButtonCompact,
-                  filterMode === 'past' && styles.segmentButtonActive,
+                  filterMode === "past" && styles.segmentButtonActive,
                 ]}
-                onPress={() => handleFilterChange('past')}
+                onPress={() => handleFilterChange("past")}
               >
                 <Text
                   style={[
                     styles.segmentText,
                     isCompactHeader && styles.segmentTextCompact,
-                    filterMode === 'past' && styles.segmentTextActive,
+                    filterMode === "past" && styles.segmentTextActive,
                   ]}
                 >
-                  {t('appointments.filterPast')}
+                  {t("appointments.filterPast")}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.segmentButton,
-                  isCompactHeader && styles.segmentButtonCompact,
-                  filterMode === 'unpaid' && styles.segmentButtonActive,
-                ]}
-                onPress={() => handleFilterChange('unpaid')}
-              >
-                <Text
+              {showUnpaidTab ? (
+                <TouchableOpacity
                   style={[
-                    styles.segmentText,
-                    isCompactHeader && styles.segmentTextCompact,
-                    filterMode === 'unpaid' && styles.segmentTextActive,
+                    styles.segmentButton,
+                    isCompactHeader && styles.segmentButtonCompact,
+                    filterMode === "unpaid" && styles.segmentButtonActive,
                   ]}
+                  onPress={() => handleFilterChange("unpaid")}
                 >
-                  {t('appointments.filterUnpaid')}
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      isCompactHeader && styles.segmentTextCompact,
+                      filterMode === "unpaid" && styles.segmentTextActive,
+                    ]}
+                  >
+                    {t("appointments.filterUnpaid")}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
               {hasPendingAppointments ? (
                 <TouchableOpacity
                   style={[
@@ -413,7 +609,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
                       pendingOnly && styles.segmentTextActive,
                     ]}
                   >
-                    {t('appointments.filterPending', { count: pendingCount })}
+                    {t("appointments.filterPending", { count: pendingCount })}
                   </Text>
                 </TouchableOpacity>
               ) : null}
@@ -424,23 +620,29 @@ export default function AppointmentsScreen({ navigation }: Props) {
 
       {/* Loading State */}
       {isLoading && !isRefetching ? (
-        <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} />
+        <ActivityIndicator
+          color={colors.primary}
+          style={{ marginVertical: 12 }}
+        />
       ) : null}
 
       {/* Error State */}
       {error ? (
         <Text style={styles.error}>
-          {t('appointments.loadError')}{'\n'}
-          {(error as any)?.response?.data?.error || (error as Error)?.message || ''}
+          {t("appointments.loadError")}
+          {"\n"}
+          {(error as any)?.response?.data?.error ||
+            (error as Error)?.message ||
+            ""}
         </Text>
       ) : null}
 
       {/* View Content */}
       {!isLoading && !error && (
         <>
-          {viewMode === 'list' && (
+          {viewMode === "list" && (
             <ListView
-              appointments={pendingOnly ? pendingAppointments : appointments}
+              appointments={displayAppointments}
               filterMode={filterMode}
               onAppointmentPress={handleAppointmentPress}
               onNewAppointment={handleNewAppointment}
@@ -455,7 +657,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
             />
           )}
 
-          {viewMode === 'day' && (
+          {viewMode === "day" && (
             <DayView
               appointments={appointments}
               selectedDate={selectedDate}
@@ -467,7 +669,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
             />
           )}
 
-          {viewMode === 'week' && (
+          {viewMode === "week" && (
             <WeekView
               appointments={appointments}
               selectedDate={selectedDate}
@@ -479,14 +681,14 @@ export default function AppointmentsScreen({ navigation }: Props) {
             />
           )}
 
-          {viewMode === 'month' && (
+          {viewMode === "month" && (
             <MonthView
               appointments={appointments}
               selectedDate={selectedDate}
               onDateChange={setSelectedDate}
               onDayPress={(date) => {
                 setSelectedDate(date);
-                setViewMode('day');
+                setViewMode("day");
               }}
               onRefresh={refetch}
               isRefreshing={isRefetching}
@@ -497,8 +699,8 @@ export default function AppointmentsScreen({ navigation }: Props) {
 
       <UndoToast
         visible={undoVisible}
-        message={t('appointments.deleteUndoMessage')}
-        actionLabel={t('appointments.deleteUndoAction')}
+        message={t("appointments.deleteUndoMessage")}
+        actionLabel={t("appointments.deleteUndoAction")}
         onAction={handleUndo}
         onTimeout={commitPendingDelete}
         onDismiss={commitPendingDelete}
@@ -509,7 +711,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
   );
 }
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -519,22 +721,22 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       width: 40,
       height: 40,
       borderRadius: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     actionButtonText: {
       fontSize: 28,
-      fontWeight: '300',
-      color: '#ffffff',
+      fontWeight: "300",
+      color: "#ffffff",
       lineHeight: 28,
     },
     headerInfo: {
       paddingHorizontal: 16,
       paddingTop: 6,
-      paddingBottom: 4
+      paddingBottom: 4,
     },
     segment: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 10,
       marginBottom: 10,
       paddingHorizontal: 16,
@@ -542,18 +744,18 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderRadius: 16,
       backgroundColor: `${colors.primary}10`,
       marginHorizontal: 16,
-      alignItems: 'center',
+      alignItems: "center",
     },
     segmentButton: {
       flex: 1,
-      backgroundColor: 'transparent',
+      backgroundColor: "transparent",
       borderWidth: 0,
-      borderColor: 'transparent',
+      borderColor: "transparent",
       paddingVertical: 12,
       paddingHorizontal: 10,
       borderRadius: 14,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     segmentButtonCompact: {
       paddingVertical: 7,
@@ -564,22 +766,22 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderColor: colors.primarySoft || colors.primary,
     },
     segmentText: {
-      fontWeight: '500',
+      fontWeight: "500",
       color: colors.muted,
       fontSize: 12,
     },
     segmentTextCompact: {
       fontSize: 12,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     segmentTextActive: {
       color: colors.primary,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     error: {
       color: colors.danger,
       marginBottom: 10,
-      textAlign: 'center',
+      textAlign: "center",
     },
     secondaryButton: {
       backgroundColor: colors.surface,
@@ -587,11 +789,11 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderColor: colors.primary,
       borderRadius: 12,
       paddingVertical: 12,
-      alignItems: 'center',
+      alignItems: "center",
     },
     secondaryButtonText: {
       color: colors.text,
-      fontWeight: '700',
+      fontWeight: "700",
       fontSize: 15,
     },
   });

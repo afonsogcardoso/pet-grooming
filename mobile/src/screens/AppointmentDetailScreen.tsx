@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, TextInput, Linking, Alert, Image, Platform, ActionSheetIOS, PermissionsAndroid, KeyboardAvoidingView } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -47,6 +49,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const dateLocale = getDateLocale();
   const [status, setStatus] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState<'before' | 'after' | null>(null);
+  const [savingPhoto, setSavingPhoto] = useState<'before' | 'after' | null>(null);
 
   const { data, isLoading, isRefetching, error } = useQuery({
     queryKey: ['appointment', appointmentId],
@@ -554,6 +557,75 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     }
   };
 
+  const getPhotoUrl = (type: 'before' | 'after') =>
+    type === 'before' ? appointment?.before_photo_url : appointment?.after_photo_url;
+
+  const savePhotoToDevice = async (type: 'before' | 'after') => {
+    const photoUrl = getPhotoUrl(type);
+    if (!photoUrl) return;
+
+    try {
+      setSavingPhoto(type);
+      const permission = await MediaLibrary.requestPermissionsAsync();
+      if (!permission.granted && permission.status !== MediaLibrary.PermissionStatus.LIMITED) {
+        Alert.alert(t('common.error'), t('appointmentDetail.photoSavePermission'));
+        return;
+      }
+
+      const extFromUrl = photoUrl.split('.').pop()?.split('?')[0] || 'jpg';
+      const extension = extFromUrl.length <= 5 ? extFromUrl : 'jpg';
+      const filename = `appointment-${appointmentId}-${type}-${Date.now()}.${extension}`;
+      const targetUri = `${FileSystem.cacheDirectory}${filename}`;
+
+      const downloadResult = await FileSystem.downloadAsync(photoUrl, targetUri);
+      await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
+
+      Alert.alert(t('appointmentDetail.photoSavedTitle'), t('appointmentDetail.photoSavedMessage'));
+    } catch (error) {
+      console.error('Erro ao guardar foto:', error);
+      Alert.alert(t('common.error'), t('appointmentDetail.photoSaveError'));
+    } finally {
+      setSavingPhoto(null);
+    }
+  };
+
+  const handlePhotoPress = (type: 'before' | 'after') => {
+    const hasPhoto = Boolean(getPhotoUrl(type));
+
+    if (!hasPhoto) {
+      pickImage(type);
+      return;
+    }
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: [
+            t('common.cancel'),
+            t('appointmentDetail.savePhoto'),
+            t('appointmentDetail.replacePhoto'),
+          ],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) savePhotoToDevice(type);
+          if (buttonIndex === 2) pickImage(type);
+        }
+      );
+      return;
+    }
+
+    Alert.alert(
+      t('appointmentDetail.photoOptionsTitle'),
+      undefined,
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('appointmentDetail.savePhoto'), onPress: () => savePhotoToDevice(type) },
+        { text: t('appointmentDetail.replacePhoto'), onPress: () => pickImage(type) },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScreenHeader 
@@ -828,14 +900,14 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                 <View style={styles.photoItem}>
                   <Text style={styles.photoItemLabel}>{t('appointmentDetail.before')}</Text>
                   <TouchableOpacity
-                    onPress={() => pickImage('before')}
+                    onPress={() => handlePhotoPress('before')}
                     activeOpacity={0.7}
-                    disabled={uploadingPhoto === 'before'}
+                    disabled={uploadingPhoto === 'before' || savingPhoto === 'before'}
                   >
                     {appointment?.before_photo_url ? (
                       <>
                         <Image source={{ uri: appointment.before_photo_url }} style={styles.photoItemImage} />
-                        {uploadingPhoto === 'before' && (
+                        {(uploadingPhoto === 'before' || savingPhoto === 'before') && (
                           <View style={styles.photoLoadingOverlay}>
                             <ActivityIndicator color="#fff" />
                           </View>
@@ -843,7 +915,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                       </>
                     ) : (
                       <View style={styles.photoItemPlaceholder}>
-                        {uploadingPhoto === 'before' ? (
+                        {uploadingPhoto === 'before' || savingPhoto === 'before' ? (
                           <ActivityIndicator color={colors.primary} />
                         ) : (
                           <>
@@ -859,14 +931,14 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                 <View style={styles.photoItem}>
                   <Text style={styles.photoItemLabel}>{t('appointmentDetail.after')}</Text>
                   <TouchableOpacity
-                    onPress={() => pickImage('after')}
+                    onPress={() => handlePhotoPress('after')}
                     activeOpacity={0.7}
-                    disabled={uploadingPhoto === 'after'}
+                    disabled={uploadingPhoto === 'after' || savingPhoto === 'after'}
                   >
                     {appointment?.after_photo_url ? (
                       <>
                         <Image source={{ uri: appointment.after_photo_url }} style={styles.photoItemImage} />
-                        {uploadingPhoto === 'after' && (
+                        {(uploadingPhoto === 'after' || savingPhoto === 'after') && (
                           <View style={styles.photoLoadingOverlay}>
                             <ActivityIndicator color="#fff" />
                           </View>
@@ -874,7 +946,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                       </>
                     ) : (
                       <View style={styles.photoItemPlaceholder}>
-                        {uploadingPhoto === 'after' ? (
+                        {uploadingPhoto === 'after' || savingPhoto === 'after' ? (
                           <ActivityIndicator color={colors.primary} />
                         ) : (
                           <>

@@ -97,7 +97,7 @@
     "emptyFilteredDescription": "Try changing the filter above"
   },
   "appointmentCard": {
-    "addressLink": "📍 Map",
+    "addressLink": "Map",
     "addressMissing": "No address",
     "statusCompleted": "Completed",
     "status": {
@@ -108,12 +108,12 @@
       "cancelled": "Cancelled"
     },
     "labels": {
-      "pet": "🐕 Pet",
-      "phone": "📱 Phone",
-      "service": "✂️ Service",
-      "date": "📅 Date",
-      "address": "📍 Address",
-      "notes": "📝 Notes",
+      "pet": "Pet",
+      "phone": "Phone",
+      "service": "Service",
+      "date": "Date",
+      "address": "Address",
+      "notes": "Notes",
       "petPhotoAlt": "Photo of {{pet}}",
       "beforeAfter": "Before & After",
       "before": "Before",
@@ -518,7 +518,7 @@
     },
     "cards": {
       "petBadge": "🐾 {{count}} pets",
-      "appointmentBadge": "📅 {{count}} appts",
+      "appointmentBadge": "{{count}} appts",
       "viewDetails": "View details"
     },
     "confirmDelete": "Delete {{name}} and all their pets/appointments? This cannot be undone.",
@@ -778,7 +778,7 @@
     "currentWeek": "Current week",
     "instructions": "💡 Click an empty time slot to create a new appointment, or click an existing one to edit it",
     "timeColumn": "Time",
-    "mapLink": "📍 Map",
+    "mapLink": "Map",
     "add": "+ Add",
     "overlap": "Overlap",
     "legend": {

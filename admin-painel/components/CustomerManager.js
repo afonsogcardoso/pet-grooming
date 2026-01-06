@@ -239,7 +239,7 @@ export default function CustomerManager() {
                                     </span>
                                 </button>
                                 <p className="text-gray-600 flex flex-wrap gap-2">
-                                    <span>📱 {selectedCustomer.phone}</span>
+                                    <span>{selectedCustomer.phone}</span>
                                     {selectedCustomer.email && <span>• ✉️ {selectedCustomer.email}</span>}
                                 </p>
                                 {selectedCustomer.nif && (
@@ -248,7 +248,7 @@ export default function CustomerManager() {
                                     </p>
                                 )}
                                 {selectedCustomer.address && (
-                                    <p className="text-gray-600">📍 {selectedCustomer.address}</p>
+                                    <p className="text-gray-600">{selectedCustomer.address}</p>
                                 )}
                             </div>
                             <div className="flex gap-2">
@@ -315,7 +315,7 @@ export default function CustomerManager() {
                     {/* Appointment History */}
                     <div className="bg-white rounded-lg shadow-md p-6">
                         <h3 className="text-lg font-bold text-gray-800 mb-4">
-                            📅 {t('customersPage.history.heading')}
+                            {t('customersPage.history.heading')}
                         </h3>
                         {loadingHistory ? (
                             <p className="text-center text-gray-600">{t('customersPage.history.loading')}</p>
@@ -390,7 +390,7 @@ export default function CustomerManager() {
                                     </div>
 
                                     <div className="text-sm text-gray-700 space-y-1">
-                                        <div>📱 {customer.phone}</div>
+                                        <div>{customer.phone}</div>
                                         {customer.email && <div>✉️ {customer.email}</div>}
                                         {customer.nif && (
                                             <div>🧾 {t('customerForm.labels.nif')}: {customer.nif}</div>

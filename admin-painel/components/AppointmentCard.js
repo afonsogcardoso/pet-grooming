@@ -28,8 +28,8 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
     const servicePriceLabel =
         servicePrice != null
             ? new Intl.NumberFormat(resolvedLocale, { style: 'currency', currency: 'EUR' }).format(
-                  servicePrice
-              )
+                servicePrice
+            )
             : null
     const paymentStatus = appointment.payment_status || 'unpaid'
     const phoneDigits = (phoneNumber || '').replace(/\D/g, '')
@@ -143,7 +143,7 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                                 <div className="inline-flex items-center gap-1 rounded-full border border-brand-primary bg-white px-3 py-1 text-xs font-semibold text-brand-primary shadow-sm">
-                                    📅 <span>{dateText}</span>
+                                    <span>{dateText}</span>
                                 </div>
                                 <div className="inline-flex items-center gap-1 rounded-full border border-brand-primary bg-white px-3 py-1 text-xs font-semibold text-brand-primary shadow-sm">
                                     ⏱ <span>{timeText}</span>
@@ -155,11 +155,10 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
                                     </div>
                                 )}
                                 <div
-                                    className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${
-                                        paymentStatus === 'paid'
-                                            ? 'border-green-200 bg-green-50 text-green-700'
-                                            : 'border-orange-200 bg-orange-100 text-orange-800'
-                                    }`}
+                                    className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${paymentStatus === 'paid'
+                                        ? 'border-green-200 bg-green-50 text-green-700'
+                                        : 'border-orange-200 bg-orange-100 text-orange-800'
+                                        }`}
                                 >
                                     <span>{paymentStatus === 'paid' ? '💳' : '💸'}</span>
                                     <span>

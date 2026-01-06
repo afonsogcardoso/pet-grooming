@@ -90,16 +90,16 @@
     "emptyFilteredDescription": "Experimenta alterar o filtro acima"
   },
   "appointmentCard": {
-    "addressLink": "📍 Mapa",
+    "addressLink": "Mapa",
     "addressMissing": "Sem morada",
     "statusCompleted": "Concluído",
     "labels": {
-      "pet": "🐕 Animal",
-      "phone": "📱 Telefone",
-      "service": "✂️ Serviço",
-      "date": "📅 Data",
-      "address": "📍 Morada",
-      "notes": "📝 Notas",
+      "pet": "Animal",
+      "phone": "Telefone",
+      "service": "Serviço",
+      "date": "Data",
+      "address": "Morada",
+      "notes": "Notas",
       "petPhotoAlt": "Fotografia de {{pet}}",
       "beforeAfter": "Antes e Depois",
       "before": "Antes",
@@ -448,7 +448,7 @@
     },
     "cards": {
       "petBadge": "🐾 {{count}} animais",
-      "appointmentBadge": "📅 {{count}} agendamentos",
+      "appointmentBadge": "{{count}} agendamentos",
       "viewDetails": "Ver detalhes"
     },
     "confirmDelete": "Eliminar {{name}} e todos os respetivos animais/agendamentos? Não é possível desfazer.",
@@ -659,7 +659,7 @@
     "currentWeek": "Semana corrente",
     "instructions": "💡 Clica num horário vazio para criar um agendamento ou num existente para editar",
     "timeColumn": "Hora",
-    "mapLink": "📍 Mapa",
+    "mapLink": "Mapa",
     "add": "+ Adicionar",
     "overlap": "Conflito",
     "legend": {
