@@ -299,6 +299,15 @@ async function getAppointmentByPublicToken(id, token) {
     .maybeSingle()
 }
 
+// Map common PostgREST auth failures to 401 so clients can refresh tokens instead of seeing 500
+function statusFromSupabaseError(error) {
+  if (!error) return 500
+  const authCodes = new Set(['PGRST301', 'PGRST302', 'PGRST303'])
+  if (authCodes.has(error.code)) return 401
+  if ((error.message || '').toLowerCase().includes('jwt')) return 401
+  return 500
+}
+
 router.get('/', async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
@@ -363,7 +372,8 @@ router.get('/', async (req, res) => {
 
   if (error) {
     console.error('[api] appointments error', error)
-    return res.status(500).json({ error: error.message })
+    const status = statusFromSupabaseError(error)
+    return res.status(status).json({ error: error.message })
   }
 
   const nextOffset = data.length === limit ? offset + limit : null

@@ -433,6 +433,7 @@
     "deleteTitle": "Apagar Marcação",
     "deleteMessage": "Esta ação é irreversível. Tem a certeza que deseja apagar esta marcação?",
     "deleteAction": "Apagar",
+    "duplicateAction": "Duplicar",
     "deleteError": "Não foi possível apagar a marcação.",
     "totalValue": "Valor Total",
     "duration": "Duração",
@@ -687,8 +688,6 @@
   "appointmentForm": {
     "createTitle": "Nova Marcação",
     "editTitle": "Editar Marcação",
-    "createSubtitle": "Cria rapidamente uma nova marcação",
-    "editSubtitle": "Atualiza os dados da marcação",
     "addressPlaceholder": "Comece a escrever uma morada",
     "address2Placeholder": "Andar, piso, lote, etc.",
     "createError": "Erro ao criar marcação",
@@ -769,7 +768,7 @@
     "remindersTitle": "Lembretes da marcação",
     "remindersHelper": "Podes usar os lembretes do perfil ou definir um tempo específico para esta marcação.",
     "remindersUseDefault": "Usar lembretes do perfil",
-    "remindersDefaultLabel": "Padrão: {{value}}",
+    "remindersDefaultLabel": "Padrão {{value}}",
     "remindersCustomPlaceholder": "Minutos (ex: 45)",
     "remindersAdd": "Adicionar",
     "remindersLimit": "Podes escolher no máximo 2 lembretes.",
@@ -779,8 +778,8 @@
     "sendWhatsapp": "Enviar por WhatsApp",
     "addPhoneHint": "Adiciona um número de telefone",
     "processing": "A processar...",
-    "saveAction": "✅ Guardar Alterações",
-    "createAction": "✨ Criar Marcação"
+    "saveAction": "Guardar",
+    "createAction": "Criar"
   },
   "language": {
     "pt": "Português",

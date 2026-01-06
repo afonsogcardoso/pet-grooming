@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Linking, Alert, Image, Platform, ActionSheetIOS, PermissionsAndroid } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, TextInput, Linking, Alert, Image, Platform, ActionSheetIOS, PermissionsAndroid, KeyboardAvoidingView } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -38,6 +38,8 @@ function formatDateTime(
 
 export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const appointmentId = route.params?.id as string;
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const notesYRef = useRef(0);
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const queryClient = useQueryClient();
@@ -134,6 +136,98 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
 
 
   const appointment = data;
+  const [notesDraft, setNotesDraft] = useState(appointment?.notes ?? '');
+  const notesSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasNoteChanges = useMemo(
+    () => (notesDraft ?? '') !== (appointment?.notes ?? ''),
+    [appointment?.notes, notesDraft],
+  );
+
+  const notesMutation = useMutation({
+    mutationFn: (nextNotes: string | null) => updateAppointment(appointmentId, { notes: nextNotes }),
+    onMutate: async (nextNotes) => {
+      const prevAppointment = queryClient.getQueryData(['appointment', appointmentId]);
+      const prevLists = queryClient.getQueriesData({ queryKey: ['appointments'] });
+
+      queryClient.setQueryData(['appointment', appointmentId], (old: any) =>
+        old ? { ...old, notes: nextNotes ?? null } : old,
+      );
+
+      prevLists.forEach(([key, listData]) => {
+        if (!listData || !Array.isArray((listData as any).items)) return;
+        const nextItems = (listData as any).items.map((item: any) =>
+          item?.id === appointmentId ? { ...item, notes: nextNotes ?? null } : item,
+        );
+        queryClient.setQueryData(key, { ...(listData as any), items: nextItems });
+      });
+
+      setNotesDraft(nextNotes ?? '');
+
+      return { prevAppointment, prevLists };
+    },
+    onSuccess: (updated) => {
+      hapticSuccess();
+      if (updated) {
+        queryClient.setQueryData(['appointment', appointmentId], updated);
+        setNotesDraft(updated.notes ?? '');
+      }
+      queryClient.invalidateQueries({ queryKey: ['appointments'] }).catch(() => null);
+      queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] }).catch(() => null);
+    },
+    onError: (err: any, _nextNotes, context) => {
+      hapticError();
+      if (context?.prevAppointment) {
+        queryClient.setQueryData(['appointment', appointmentId], context.prevAppointment);
+        setNotesDraft((context.prevAppointment as any)?.notes ?? '');
+      }
+      if (context?.prevLists) {
+        context.prevLists.forEach(([key, listData]) => queryClient.setQueryData(key, listData));
+      }
+      const message = err?.response?.data?.error || err.message || t('appointmentDetail.updateError');
+      Alert.alert(t('common.error'), message);
+    },
+  });
+
+  useEffect(() => {
+    setNotesDraft(appointment?.notes ?? '');
+  }, [appointment?.notes]);
+
+  const focusNotes = useCallback(() => {
+    // Scroll the notes card into view when focusing so the keyboard doesn't cover it
+    requestAnimationFrame(() => {
+      const targetY = Math.max(notesYRef.current - 8, 0);
+      scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
+    });
+  }, []);
+
+  const handleSaveNotes = useCallback(() => {
+    if (!appointment || notesMutation.isPending) return;
+    const trimmed = notesDraft.trim();
+    const nextNotes = trimmed.length > 0 ? trimmed : null;
+    const currentNotes = appointment.notes ?? null;
+    if (nextNotes === currentNotes) return;
+    notesMutation.mutate(nextNotes);
+  }, [appointment, notesDraft, notesMutation]);
+
+  useEffect(() => {
+    if (notesSaveTimeout.current) {
+      clearTimeout(notesSaveTimeout.current);
+    }
+
+    if (!appointment || !hasNoteChanges || notesMutation.isPending) {
+      return undefined;
+    }
+
+    notesSaveTimeout.current = setTimeout(() => {
+      handleSaveNotes();
+    }, 800);
+
+    return () => {
+      if (notesSaveTimeout.current) {
+        clearTimeout(notesSaveTimeout.current);
+      }
+    };
+  }, [appointment, hasNoteChanges, notesDraft, notesMutation.isPending, handleSaveNotes]);
   const displayStatus = status ?? appointment?.status ?? 'scheduled';
   const customer = appointment?.customers;
   const customerName = formatCustomerName(customer);
@@ -292,6 +386,16 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     navigation.navigate('NewAppointment', { editId: appointmentId });
   };
 
+  const handleDuplicateAppointment = () => {
+    if (!appointment) return;
+    hapticSelection();
+    navigation.navigate('NewAppointment', {
+      duplicateFromId: appointment.id,
+      date: appointment.appointment_date || undefined,
+      time: appointment.appointment_time || undefined,
+    });
+  };
+
   const handleDelete = () => {
     Alert.alert(
       t('appointmentDetail.deleteTitle'),
@@ -311,7 +415,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
             } catch (error) {
               hapticError();
               console.error('Delete error:', error);
-              const errorMessage = error?.response?.data?.message || error?.message || t('appointmentDetail.deleteError');
+              const err = error as any;
+              const errorMessage = err?.response?.data?.message || err?.message || t('appointmentDetail.deleteError');
               Alert.alert(t('common.error'), errorMessage);
             }
           },
@@ -454,15 +559,35 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       <ScreenHeader 
         title={t('appointmentDetail.title')} 
         rightElement={
-          <TouchableOpacity 
-            onPress={handleEditAppointment}
-            style={[styles.actionButton, { backgroundColor: colors.surface }]}
-          >
-            <Ionicons name="create-outline" size={18} color={colors.text} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity 
+              onPress={handleDuplicateAppointment}
+              style={[styles.actionButton, { backgroundColor: colors.surface }]}
+            >
+              <Ionicons name="copy-outline" size={18} color={colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={handleEditAppointment}
+              style={[styles.actionButton, { backgroundColor: colors.surface }]}
+            >
+              <Ionicons name="create-outline" size={18} color={colors.text} />
+            </TouchableOpacity>
+          </View>
         }
       />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={styles.scrollContent}
+          contentInsetAdjustmentBehavior="automatic"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        >
         {isLoading && !isRefetching ? (
           <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} size="large" />
         ) : null}
@@ -803,7 +928,10 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                 <TouchableOpacity
                   style={[
                     styles.cancelButton,
-                    displayStatus === 'cancelled' && { backgroundColor: getStatusColor('cancelled'), borderColor: getStatusColor('cancelled') },
+                    displayStatus === 'cancelled' && {
+                      backgroundColor: getStatusColor('cancelled'),
+                      borderColor: getStatusColor('cancelled'),
+                    },
                   ]}
                   onPress={() => {
                     Alert.alert(
@@ -845,15 +973,34 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
             </View>
 
             {/* Notas */}
-            {appointment.notes ? (
-              <View style={styles.notesCard}>
+            <View
+              style={styles.notesCard}
+              onLayout={(event) => {
+                notesYRef.current = event.nativeEvent.layout.y;
+              }}
+            >
+              <View style={styles.notesHeader}>
                 <Text style={styles.notesTitle}>{t('appointmentDetail.notes')}</Text>
-                <Text style={styles.notesText}>{appointment.notes}</Text>
+                {notesMutation.isPending ? <ActivityIndicator size="small" color={colors.primary} /> : null}
               </View>
-            ) : null}
+              <TextInput
+                style={styles.notesInput}
+                multiline
+                value={notesDraft}
+                onChangeText={setNotesDraft}
+                onBlur={handleSaveNotes}
+                onFocus={focusNotes}
+                placeholder={t('appointmentForm.notesPlaceholder')}
+                placeholderTextColor={colors.muted}
+                textAlignVertical="top"
+                returnKeyType="default"
+                blurOnSubmit={false}
+              />
+            </View>
           </>
         ) : null}
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -877,9 +1024,13 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       alignItems: 'center',
       justifyContent: 'center',
     },
+    headerActions: {
+      flexDirection: 'row',
+      gap: 10,
+    },
     scrollContent: {
       padding: 16,
-      paddingBottom: 40,
+      paddingBottom: 8,
       gap: 16,
     },
     errorCard: {
@@ -1316,6 +1467,22 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       flexDirection: 'row',
       gap: 8,
     },
+    duplicateButton: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderWidth: 2,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 14,
+      paddingVertical: 14,
+      paddingHorizontal: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    duplicateButtonText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.text,
+    },
     cancelButton: {
       flex: 1,
       backgroundColor: '#fee2e2',
@@ -1354,11 +1521,28 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       ...cardBase,
       padding: 20,
     },
+    notesHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+      marginBottom: 10,
+    },
     notesTitle: {
       fontSize: 18,
       fontWeight: '700',
       color: colors.text,
-      marginBottom: 12,
+      marginBottom: 0,
+    },
+    notesInput: {
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder || '#e5e7eb',
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 12,
+      minHeight: 120,
+      fontSize: 15,
+      color: colors.text,
     },
     notesText: {
       fontSize: 15,

@@ -214,8 +214,6 @@ export function ExistingCustomerForm({
   return (
     <>
       <View style={styles.field}>
-        <Text style={styles.label}>{t('existingCustomerForm.customerLabel')}</Text>
-        
         {!selectedCustomerData ? (
           // Modo de pesquisa: mostrar sempre a caixa de pesquisa
           <>

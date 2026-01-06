@@ -427,6 +427,7 @@
     "deleteTitle": "Delete Appointment",
     "deleteMessage": "This action is irreversible. Are you sure you want to delete this appointment?",
     "deleteAction": "Delete",
+    "duplicateAction": "Duplicate",
     "deleteError": "Could not delete the appointment.",
     "totalValue": "Total Value",
     "duration": "Duration",
@@ -681,8 +682,6 @@
   "appointmentForm": {
     "createTitle": "New Appointment",
     "editTitle": "Edit Appointment",
-    "createSubtitle": "Quickly create a new appointment",
-    "editSubtitle": "Update appointment details",
     "addressPlaceholder": "Start typing an address",
     "address2Placeholder": "Apartment, floor, lot, etc.",
     "createError": "Error creating appointment",
@@ -773,8 +772,8 @@
     "sendWhatsapp": "Send via WhatsApp",
     "addPhoneHint": "Add a phone number",
     "processing": "Processing...",
-    "saveAction": "✅ Save Changes",
-    "createAction": "✨ Create Appointment"
+    "saveAction": "Save",
+    "createAction": "Create"
   },
   "language": {
     "pt": "Portuguese",
