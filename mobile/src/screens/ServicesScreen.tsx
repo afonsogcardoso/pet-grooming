@@ -302,7 +302,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     ...cardBase,
     shadowOffset: { width: 0, height: 8 },
     shadowRadius: 12,
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.05,
     elevation: 3,
   };
   return StyleSheet.create({

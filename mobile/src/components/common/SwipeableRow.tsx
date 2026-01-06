@@ -9,11 +9,15 @@ type Props = {
   onDelete?: () => void;
   deleteLabel?: string;
   isDeleting?: boolean;
+  renderLeftActions?: (progress?: any, dragX?: any) => React.ReactNode;
+  onOpen?: (ref: Swipeable | null) => void;
+  onClose?: (ref: Swipeable | null) => void;
 };
 
-export function SwipeableRow({ children, onDelete, deleteLabel = 'Apagar', isDeleting = false }: Props) {
+export function SwipeableRow({ children, onDelete, deleteLabel = 'Apagar', isDeleting = false, renderLeftActions, onOpen, onClose }: Props) {
   const { colors } = useBrandingTheme();
   const isDisabled = !onDelete || isDeleting;
+  const swipeRef = React.useRef<Swipeable | null>(null);
 
   const renderRightActions = (_progress?: any, _dragX?: any) => (
     <View style={styles.actionContainer}>
@@ -37,10 +41,14 @@ export function SwipeableRow({ children, onDelete, deleteLabel = 'Apagar', isDel
 
   return (
     <Swipeable
+      ref={swipeRef}
       renderRightActions={renderRightActions}
+      renderLeftActions={renderLeftActions}
       overshootRight={false}
       enabled={!isDeleting}
       containerStyle={styles.container}
+      onSwipeableOpen={() => onOpen?.(swipeRef.current)}
+      onSwipeableClose={() => onClose?.(swipeRef.current)}
     >
       {children}
     </Swipeable>
@@ -55,6 +63,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingRight: 20,
+    justifyContent: 'center',
+    height: '100%',
+  },
+  actionContainerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 20,
     justifyContent: 'center',
     height: '100%',
   },

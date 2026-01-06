@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, View } from 'react-native';
+import { ActivityIndicator, Animated, View, TouchableOpacity } from 'react-native';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import { Ionicons } from '@expo/vector-icons';
@@ -58,10 +58,10 @@ function parseHex(input?: string | null) {
   if (![3, 6].includes(hex.length)) return null;
   const normalized = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
   const int = Number.parseInt(normalized, 16);
+  if (Number.isNaN(int)) return null;
   const r = (int >> 16) & 255;
   const g = (int >> 8) & 255;
   const b = int & 255;
-  if ([r, g, b].some((v) => Number.isNaN(v))) return null;
   return { r, g, b };
 }
 
@@ -92,6 +92,72 @@ function extractAppointmentId(data: any) {
 function ProviderTabs() {
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+
+  const TabButton = ({ children, accessibilityState, onPress, onLongPress }: any) => {
+    const focused = accessibilityState?.selected;
+    const scale = useRef(new Animated.Value(focused ? 1.05 : 1)).current;
+
+    useEffect(() => {
+      Animated.spring(scale, {
+        toValue: focused ? 1.05 : 1,
+        friction: 8,
+        tension: 80,
+        useNativeDriver: true,
+      }).start();
+    }, [focused, scale]);
+
+    const handlePressIn = () => {
+      Animated.spring(scale, {
+        toValue: 1.08,
+        friction: 7,
+        tension: 120,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    const handlePressOut = () => {
+      Animated.spring(scale, {
+        toValue: focused ? 1.05 : 1,
+        friction: 8,
+        tension: 80,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    return (
+      <Animated.View style={{ flex: 1, height: '100%', transform: [{ scale }] }}>
+        <TouchableOpacity
+          onPress={onPress}
+          onLongPress={onLongPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          activeOpacity={0.9}
+          style={[
+            {
+              flex: 1,
+              marginHorizontal: 0,
+              paddingVertical: 6,
+              borderRadius: 10,
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4,
+              height: '100%',
+            },
+            focused
+              ? {
+                  backgroundColor: colors.primarySoft,
+                  borderWidth: 1,
+                  borderColor: colors.primarySoft,
+                }
+              : null,
+          ]}
+        >
+          {children}
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
 
   const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
     Home: 'home',
@@ -108,13 +174,23 @@ function ProviderTabs() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
-          backgroundColor: colors.surface,
+          backgroundColor: '#ffffff',
           borderTopColor: colors.surfaceBorder,
+          height: 58 + insets.bottom,
+          paddingBottom: Math.max(8, insets.bottom),
+          paddingTop: 6,
+          paddingHorizontal: 0,
+          shadowColor: 'transparent',
+          elevation: 0,
         },
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
         },
+        tabBarItemStyle: {
+          paddingVertical: 0,
+        },
+        tabBarButton: (props) => <TabButton {...props} />,
         tabBarIcon: ({ color, size }) => {
           const name = icons[route.name] || 'ellipse';
           return <Ionicons name={name} size={size} color={color} />;
@@ -137,6 +213,69 @@ function ProviderTabs() {
 function ConsumerTabs() {
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+
+  const TabButton = ({ children, accessibilityState, onPress, onLongPress }: any) => {
+    const focused = accessibilityState?.selected;
+    const scale = useRef(new Animated.Value(focused ? 1.05 : 1)).current;
+
+    useEffect(() => {
+      Animated.spring(scale, {
+        toValue: focused ? 1.05 : 1,
+        friction: 8,
+        tension: 80,
+        useNativeDriver: true,
+      }).start();
+    }, [focused, scale]);
+
+    const handlePressIn = () => {
+      Animated.spring(scale, {
+        toValue: 1.08,
+        friction: 7,
+        tension: 120,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    const handlePressOut = () => {
+      Animated.spring(scale, {
+        toValue: focused ? 1.05 : 1,
+        friction: 8,
+        tension: 80,
+        useNativeDriver: true,
+      }).start();
+    };
+    return (
+      <Animated.View style={{ flex: 1, transform: [{ scale }] }}>
+        <TouchableOpacity
+          onPress={onPress}
+          onLongPress={onLongPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          activeOpacity={0.9}
+          style={[
+            {
+              flex: 1,
+              marginHorizontal: 6,
+              paddingVertical: 10,
+              borderRadius: 14,
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+            focused
+              ? {
+                  backgroundColor: colors.primarySoft,
+                  borderWidth: 1,
+                  borderColor: colors.primarySoft,
+                }
+              : null,
+          ]}
+        >
+          {children}
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
 
   const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
     ConsumerHome: 'home',
@@ -153,13 +292,23 @@ function ConsumerTabs() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
-          backgroundColor: colors.surface,
+          backgroundColor: '#ffffff',
           borderTopColor: colors.surfaceBorder,
+          height: 58 + insets.bottom,
+          paddingBottom: Math.max(8, insets.bottom),
+          paddingTop: 6,
+          paddingHorizontal: 0,
+          shadowColor: 'transparent',
+          elevation: 0,
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '600',
+          fontWeight: 600,
         },
+        tabBarItemStyle: {
+          paddingVertical: 0,
+        },
+        tabBarButton: (props) => <TabButton {...props} />,
         tabBarIcon: ({ color, size }) => {
           const name = icons[route.name] || 'ellipse';
           return <Ionicons name={name} size={size} color={color} />;
@@ -320,8 +469,9 @@ export default function App() {
           activeRole: cached.activeRole,
         });
         queryClient.setQueryData(['profile'], cached);
-        if (cached.locale) {
-          setAppLanguage(cached.locale);
+        const cachedLocale = (cached as any).locale;
+        if (cachedLocale) {
+          setAppLanguage(cachedLocale);
         }
       }
 
@@ -347,8 +497,9 @@ export default function App() {
           activeRole: fresh.activeRole,
           availableRoles: fresh.availableRoles,
         });
-        if (fresh.locale) {
-          setAppLanguage(fresh.locale);
+        const freshLocale = (fresh as any).locale;
+        if (freshLocale) {
+          setAppLanguage(freshLocale);
         }
       } catch (err: any) {
         console.warn('Failed to load profile:', err?.message || err);
@@ -388,7 +539,7 @@ export default function App() {
       const params = { id: appointmentId };
 
       if (navigationRef.isReady()) {
-        navigationRef.navigate(route, params);
+        (navigationRef as any).navigate(route, params);
       } else {
         pendingNavigationRef.current = { route, params };
       }
@@ -431,7 +582,7 @@ export default function App() {
               const pending = pendingNavigationRef.current;
               if (pending && navigationRef.isReady()) {
                 pendingNavigationRef.current = null;
-                navigationRef.navigate(pending.route, pending.params);
+                (navigationRef as any).navigate(pending.route, pending.params);
               }
             }}
           >

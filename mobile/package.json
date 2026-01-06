@@ -19,6 +19,7 @@
     "axios": "^1.13.2",
     "dotenv": "^17.2.3",
     "expo": "~54.0.29",
+    "@expo/vector-icons": "^14.0.2",
     "expo-auth-session": "~7.0.10",
     "expo-constants": "^18.0.12",
     "expo-dev-client": "~6.0.20",

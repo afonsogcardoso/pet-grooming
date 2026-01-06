@@ -21,16 +21,19 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
     const customerName = formatCustomerName(appointment.customers) || t('appointmentCard.unknownCustomer')
     const phoneNumber = appointment.customers?.phone || ''
     const address = appointment.customers?.address
-    const petName = appointment.pets?.name || t('appointmentCard.unknownPet')
-    const petBreed = appointment.pets?.breed
+    const pets = Array.isArray(appointment.pets)
+        ? appointment.pets
+        : appointment.pets
+            ? [appointment.pets]
+            : []
     const petPhoto = appointment.pets?.photo_url
     const serviceName = appointment.services?.name || t('appointmentCard.unknownService')
     const servicePrice = appointment.services?.price
     const servicePriceLabel =
         servicePrice != null
             ? new Intl.NumberFormat(resolvedLocale, { style: 'currency', currency: 'EUR' }).format(
-                  servicePrice
-              )
+                servicePrice
+            )
             : null
     const paymentStatus = appointment.payment_status || 'unpaid'
     const phoneDigits = formatPhoneForWhatsapp(phoneNumber)
@@ -39,12 +42,12 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
     const statusKey = appointment.status || 'scheduled'
     const statusLabel = t(`appointmentCard.status.${statusKey}`)
     const statusEmoji = {
-        pending: '⏳',
-        scheduled: '📅',
-        in_progress: '⚡',
-        completed: '✅',
-        cancelled: '⛔'
-    }[statusKey] || '📅'
+        pending: 'hourglass',
+        scheduled: 'calendar',
+        in_progress: 'bolt',
+        completed: 'check',
+        cancelled: 'x'
+    }[statusKey] || 'calendar'
     const statusStyles = {
         pending: {
             badge: 'border-amber-200 bg-amber-50 text-amber-700',
@@ -177,25 +180,47 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                                 <div className="inline-flex items-center gap-1 rounded-full border border-brand-primary bg-white px-3 py-1 text-xs font-semibold text-brand-primary shadow-sm">
-                                    📅 <span>{dateText}</span>
+                                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M7 10h5V5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.5" />
+                                    </svg>
+                                    <span>{dateText}</span>
                                 </div>
                                 <div className="inline-flex items-center gap-1 rounded-full border border-brand-primary bg-white px-3 py-1 text-xs font-semibold text-brand-primary shadow-sm">
-                                    ⏱ <span>{timeText}</span>
+                                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+                                    </svg>
+                                    <span>{timeText}</span>
                                 </div>
                                 {servicePriceLabel && (
                                     <div className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 shadow-sm">
-                                        <span>💰</span>
+                                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                            <path d="M12 8c-2.2 0-4 1.343-4 3s1.8 3 4 3 4-1.343 4-3-1.8-3-4-3z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                                            <path d="M12 5v2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
                                         <span>{servicePriceLabel}</span>
                                     </div>
                                 )}
                                 <div
-                                    className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${
-                                        paymentStatus === 'paid'
-                                            ? 'border-green-200 bg-green-50 text-green-700'
-                                            : 'border-orange-200 bg-orange-100 text-orange-800'
-                                    }`}
+                                    className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${paymentStatus === 'paid'
+                                        ? 'border-green-200 bg-green-50 text-green-700'
+                                        : 'border-orange-200 bg-orange-100 text-orange-800'
+                                        }`}
                                 >
-                                    <span>{paymentStatus === 'paid' ? '💳' : '💸'}</span>
+                                    <span>
+                                        {paymentStatus === 'paid' ? (
+                                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                                <rect x="2" y="6" width="20" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                                                <path d="M2 10h20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                            </svg>
+                                        ) : (
+                                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                                <path d="M12 2v20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                                <circle cx="12" cy="15" r="3" stroke="currentColor" strokeWidth="1.5" />
+                                            </svg>
+                                        )}
+                                    </span>
                                     <span>
                                         {paymentStatus === 'paid'
                                             ? t('appointmentCard.payment.paid')
@@ -205,9 +230,9 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
                                 {whatsappSentAt && (
                                     <div className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 shadow-sm">
                                         <span aria-hidden="true">
-                                            <svg width="14" height="14" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path fill="#25D366" d="M16 3C9.375 3 4 8.373 4 15c0 2.591.782 4.997 2.125 7.009L4 29l7.219-2.09C12.97 27.59 14.455 28 16 28c6.627 0 12-5.373 12-12S22.627 3 16 3Z" />
-                                                <path fill="#fff" d="M23.484 20.398c-.299.846-1.45 1.545-2.367 1.75-.63.14-1.45.25-4.219-.903-3.538-1.466-5.807-5.063-5.983-5.303-.176-.24-1.426-1.903-1.426-3.63 0-1.726.904-2.572 1.226-2.93.322-.357.703-.446.937-.446.234 0 .468 0 .674.012.217.012.51-.082.798.61.299.716 1.017 2.476 1.108 2.656.09.18.15.39.03.63-.12.24-.18.39-.35.6-.18.216-.37.48-.53.645-.18.18-.37.375-.16.732.21.357.928 1.53 1.993 2.476 1.37 1.226 2.526 1.61 2.883 1.79.357.18.563.15.773-.09.21-.24.896-1.05 1.14-1.41.234-.36.48-.3.804-.18.323.12 2.06.97 2.414 1.144.357.18.59.27.674.42.083.15.083.87-.216 1.716Z" />
+                                            <svg className="w-3 h-3 text-emerald-500" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M16 3C9.375 3 4 8.373 4 15c0 2.591.782 4.997 2.125 7.009L4 29l7.219-2.09C12.97 27.59 14.455 28 16 28c6.627 0 12-5.373 12-12S22.627 3 16 3Z" />
+                                                <path d="M23.484 20.398c-.299.846-1.45 1.545-2.367 1.75-.63.14-1.45.25-4.219-.903-3.538-1.466-5.807-5.063-5.983-5.303-.176-.24-1.426-1.903-1.426-3.63 0-1.726.904-2.572 1.226-2.93.322-.357.703-.446.937-.446.234 0 .468 0 .674.012.217.012.51-.082.798.61.299.716 1.017 2.476 1.108 2.656.09.18.15.39.03.63-.12.24-.18.39-.35.6-.18.216-.37.48-.53.645-.18.18-.37.375-.16.732.21.357.928 1.53 1.993 2.476 1.37 1.226 2.526 1.61 2.883 1.79.357.18.563.15.773-.09.21-.24.896-1.05 1.14-1.41.234-.36.48-.3.804-.18.323.12 2.06.97 2.414 1.144.357.18.59.27.674.42.083.15.083.87-.216 1.716Z" />
                                             </svg>
                                         </span>
                                         <span>
@@ -220,7 +245,10 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
                                 )}
                                 {confirmationOpenedAt && (
                                     <div className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm">
-                                        👀{' '}
+                                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                            <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                            <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
+                                        </svg>
                                         <span>
                                             {t('appointmentCard.labels.confirmationOpened')}
                                             <span className="ml-1 text-[10px] text-blue-800/80">
@@ -231,18 +259,66 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
                                 )}
                             </div>
 
+                            <div className="mt-2 flex items-center gap-2">
+                                {phoneNumber && (
+                                    <a
+                                        href={`tel:${phoneNumber}`}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-sm font-medium text-gray-800 hover:bg-gray-50"
+                                    >
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 3.08 4.18 2 2 0 0 1 5 2h3a2 2 0 0 1 2 1.72c.12.9.37 1.76.74 2.56a2 2 0 0 1-.45 2.11L9.91 9.91a16 16 0 0 0 6 6l1.52-1.52a2 2 0 0 1 2.11-.45c.8.37 1.66.62 2.56.74A2 2 0 0 1 22 16.92z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                        <span className="hidden sm:inline">{t('appointmentCard.buttons.call')}</span>
+                                    </a>
+                                )}
+                                {address && (
+                                    <a
+                                        href={getGoogleMapsLink(address)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-sm font-medium text-gray-800 hover:bg-gray-50"
+                                    >
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                            <path d="M20.5 3l-5.5 2-5 2-5-2v16l5.5-2 5-2 5 2V3z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                        <span className="hidden sm:inline">{t('appointmentCard.buttons.location')}</span>
+                                    </a>
+                                )}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleShareWhatsApp()
+                                    }}
+                                    className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-800 hover:bg-emerald-100"
+                                >
+                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                    <span className="hidden sm:inline">{t('appointmentCard.buttons.shareShort')}</span>
+                                </button>
+                            </div>
+
                             <div className="mt-1 space-y-1 text-sm text-gray-700 sm:text-base">
-                                <div className="flex items-center gap-2">
+                                <div>
                                     <span className="font-bold">{t('appointmentCard.labels.pet')}:</span>
-                                    <span className="font-medium">
-                                        {petName}
-                                        {petBreed && (
-                                            <span className="text-gray-500 font-normal text-sm">
-                                                {' '}
-                                                ({petBreed})
-                                            </span>
+                                    <div className="ml-2 mt-1 space-y-1">
+                                        {pets.length > 0 ? (
+                                            pets.map((p, i) => (
+                                                <div key={i} className="font-medium">
+                                                    {p.name}
+                                                    {p.breed && (
+                                                        <span className="text-gray-500 font-normal text-sm"> {' '}
+                                                            ({p.breed})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <span className="font-medium">{t('appointmentCard.unknownPet')}</span>
                                         )}
-                                    </span>
+                                    </div>
                                 </div>
                                 {phoneNumber && (
                                     <div className="flex items-center gap-2">
@@ -385,7 +461,9 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
                             }}
                             className="inline-flex items-center justify-center gap-1 rounded-full bg-brand-accent px-3 py-2 text-sm font-semibold text-brand-secondary transition hover:bg-brand-accent-dark hover:text-white sm:w-auto"
                         >
-                            ✓
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
                             <span className="hidden sm:inline">{t('appointmentCard.buttons.complete')}</span>
                         </button>
                     )}
@@ -396,7 +474,11 @@ export default function AppointmentCard({ appointment, onComplete, onDelete, onE
                         }}
                         className="inline-flex items-center justify-center gap-1 rounded-full border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100 sm:w-auto"
                     >
-                        🗑
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M3 6h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
                         <span className="hidden sm:inline">{t('appointmentCard.buttons.delete')}</span>
                     </button>
                 </div>

@@ -1,5 +1,20 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, SectionList, Image, StyleSheet, Linking, Platform, TextInput } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  SectionList,
+  Image,
+  StyleSheet,
+  Linking,
+  Platform,
+  TextInput,
+  SectionListData,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+  Animated,
+} from 'react-native';
+import { RectButton } from 'react-native-gesture-handler';
 import SwipeableRow from '../common/SwipeableRow';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +23,8 @@ import { getCardStyle } from '../../theme/uiTokens';
 import { getDateLocale } from '../../i18n';
 import { matchesSearchQuery } from '../../utils/textHelpers';
 import { formatCustomerAddress, formatCustomerName, getCustomerFirstName } from '../../utils/customer';
+import type { Appointment } from '../../api/appointments';
+import { getStatusColor, getStatusLabel } from '../../utils/appointmentStatus';
 import {
   formatPetLabel,
   formatServiceLabels,
@@ -15,10 +32,9 @@ import {
   getAppointmentServiceEntries,
 } from '../../utils/appointmentSummary';
 import { Button } from '../common';
+import { meta } from 'zod/v4/core';
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
-import type { Appointment } from '../../api/appointments';
-import { getStatusColor, getStatusLabel } from '../../utils/appointmentStatus';
 
 type ListViewProps = {
   appointments: Appointment[];
@@ -28,9 +44,12 @@ type ListViewProps = {
   onRefresh: () => void;
   isRefreshing: boolean;
   deletingId?: string | null;
+  onScrollYChange?: (y: number) => void;
+  scrollY?: any;
 };
 
 const SEARCH_HEADER_HEIGHT = 44;
+type Section = { dayKey: string; title: string; data: Appointment[] };
 
 function formatTime(value?: string | null) {
   if (!value) return '—';
@@ -82,10 +101,11 @@ function createStyles(colors: ThemeColors) {
   const cardBase = getCardStyle(colors);
   const listCardBase = {
     ...cardBase,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 12,
-    shadowOpacity: 0.08,
-    elevation: 3,
+    backgroundColor: colors.surface,
+    shadowOffset: { width: 0, height: 14 },
+    shadowRadius: 24,
+    shadowOpacity: 0.05,
+    elevation: 8,
   };
   return StyleSheet.create({
     list: {
@@ -95,14 +115,16 @@ function createStyles(colors: ThemeColors) {
       ...listCardBase,
       flexDirection: 'row',
       gap: 14,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderRadius: 18,
     },
     petThumb: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      backgroundColor: colors.primarySoft,
-      borderWidth: 2,
-      borderColor: colors.primary,
+      width: 54,
+      height: 54,
+      borderRadius: 18,
+      backgroundColor: `${colors.primary}12`,
+      borderWidth: 0,
       justifyContent: 'center',
       alignItems: 'center',
       overflow: 'hidden',
@@ -122,13 +144,13 @@ function createStyles(colors: ThemeColors) {
     },
     time: {
       fontSize: 18,
-      fontWeight: '700',
+      fontWeight: '800',
       color: colors.text,
     },
     service: {
       fontSize: 15,
       color: colors.text,
-      fontWeight: '600',
+      fontWeight: '700',
     },
     meta: {
       fontSize: 13,
@@ -141,35 +163,45 @@ function createStyles(colors: ThemeColors) {
     },
     pill: {
       paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderRadius: 12,
-      borderWidth: 1,
+      paddingVertical: 6,
+      borderRadius: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+
     },
     pillText: {
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: '700',
+      color: colors.text,
+    },
+    paymentAmount: {
+      fontSize: 12,
+      fontWeight: '600',
+      marginTop: 4,
+      marginRight: 4,
+      alignSelf: 'flex-end',
+      color: colors.muted,
     },
     actions: {
       flexDirection: 'row',
       gap: 6,
       marginTop: 4,
     },
-    actionButton: {
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      backgroundColor: colors.surface,
+    actionContainerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingLeft: 12,
+      justifyContent: 'center',
+      height: '100%',
     },
-    whatsappButton: {
-      borderColor: '#25D366',
-      backgroundColor: '#E7F8EE',
-    },
-    actionText: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: colors.primary,
+    iconButton: {
+      width: 44,
+      height: 36,
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginHorizontal: 6,
+      alignSelf: 'center',
     },
     emptyContainer: {
       flex: 1,
@@ -200,19 +232,17 @@ function createStyles(colors: ThemeColors) {
       flexDirection: 'row',
       alignItems: 'center',
       alignSelf: 'flex-start',
-      paddingHorizontal: 12,
-      paddingVertical: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
       borderRadius: 999,
-      borderWidth: 1,
-      marginBottom: 8,
-      marginTop: 12,
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.primary,
+      marginBottom: 10,
+      marginTop: 14,
+      backgroundColor: `${colors.primary}12`,
       gap: 8,
     },
     sectionHeaderText: {
       color: colors.primary,
-      fontWeight: '700',
+      fontWeight: '600',
       fontSize: 13,
     },
     addButton: {
@@ -229,7 +259,7 @@ function createStyles(colors: ThemeColors) {
       color: colors.primary,
       fontWeight: '700',
       fontSize: 12,
-      lineHeight: 14,
+      lineHeight: 12
     },
     searchContainer: {
       height: SEARCH_HEADER_HEIGHT,
@@ -238,12 +268,11 @@ function createStyles(colors: ThemeColors) {
     searchBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
+      backgroundColor: `${colors.primary}08`,
+      borderRadius: 16,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderWidth: 0,
       gap: 8,
     },
     searchInput: {
@@ -257,6 +286,8 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
+const AnimatedSectionList = Animated.createAnimatedComponent(SectionList as any);
+
 type AppointmentRowProps = {
   item: Appointment;
   colors: ThemeColors;
@@ -264,6 +295,8 @@ type AppointmentRowProps = {
   t: (key: string, options?: any) => string;
   onAppointmentPress: (appointment: Appointment) => void;
   isDeleting: boolean;
+  onSwipeOpen: (ref: any) => void;
+  onSwipeClose: (ref: any) => void;
 };
 
 const AppointmentRow = React.memo(function AppointmentRow({
@@ -273,6 +306,8 @@ const AppointmentRow = React.memo(function AppointmentRow({
   t,
   onAppointmentPress,
   isDeleting,
+  onSwipeOpen,
+  onSwipeClose,
 }: AppointmentRowProps) {
   const appointmentServices = getAppointmentServiceEntries(item);
   const petNames = getAppointmentPetNames(item, appointmentServices);
@@ -299,18 +334,77 @@ const AppointmentRow = React.memo(function AppointmentRow({
   const paymentColor = paymentStatus === 'paid' ? colors.success : colors.warning;
   const paymentLabel = paymentStatus === 'paid' ? t('listView.paid') : t('listView.unpaid');
 
+  const renderLeftActions = (_progress?: any, _dragX?: any) => (
+    <View style={styles.actionContainerLeft}>
+      {address ? (
+        <RectButton
+          style={[styles.iconButton, { backgroundColor: colors.primarySoft || `${colors.primary}22` }]}
+          onPress={async () => {
+            try {
+              const response = await fetch(
+                `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`
+              );
+              const data = await response.json();
+
+              if (data.results && data.results.length > 0) {
+                const location = data.results[0].geometry.location;
+                const url = Platform.select({
+                  ios: `maps:0,0?q=${location.lat},${location.lng}`,
+                  android: `geo:0,0?q=${location.lat},${location.lng}`,
+                  default: `https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`,
+                });
+                Linking.openURL(url).catch(() => null);
+              }
+            } catch (error) {
+              console.error('Geocoding error:', error);
+            }
+          }}
+        >
+          <Ionicons name="location" size={18} color={colors.primary} />
+        </RectButton>
+      ) : null}
+
+      {phone ? (
+        <RectButton
+          style={[styles.iconButton, { backgroundColor: colors.surface }]}
+          onPress={() => Linking.openURL(`tel:${phone}`).catch(() => null)}
+        >
+          <Ionicons name="call" size={18} color={colors.primary} />
+        </RectButton>
+      ) : null}
+
+      {phone ? (
+        <RectButton
+          style={[styles.iconButton, { backgroundColor: `${colors.success}22` }]}
+          onPress={() => {
+            const cleanPhone = phone.replace(/[^0-9]/g, '');
+            const formattedPhone = cleanPhone.startsWith('9') ? `351${cleanPhone}` : cleanPhone;
+            const customerFirstName = getCustomerFirstName(item.customers);
+            const message = t('listView.whatsappMessage', { name: customerFirstName });
+            Linking.openURL(`whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`).catch(() => null);
+          }}
+        >
+          <FontAwesome name="whatsapp" size={18} color={colors.success} />
+        </RectButton>
+      ) : null}
+    </View>
+  );
+
   return (
     <SwipeableRow
       isDeleting={isDeleting}
       onDelete={() => {
         try {
-          if ((global as any).onDeleteAppointment) {
-            (global as any).onDeleteAppointment(item);
+          if ((globalThis as any).onDeleteAppointment) {
+            (globalThis as any).onDeleteAppointment(item);
           }
         } catch {
           // ignore
         }
       }}
+      onOpen={onSwipeOpen}
+      onClose={onSwipeClose}
+      renderLeftActions={renderLeftActions}
     >
       <TouchableOpacity
         style={styles.card}
@@ -333,73 +427,37 @@ const AppointmentRow = React.memo(function AppointmentRow({
           </Text>
           <Text style={styles.meta}>
             {formatCustomerName(item.customers)}
-            {petLabel ? ` • ${petLabel}` : ''}
           </Text>
-          {amount !== undefined && amount !== null ? (
-            <Text style={styles.meta}>€ {Number(amount).toFixed(2)}</Text>
-          ) : null}
-          <View style={styles.actions}>
-            {address ? (
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={async () => {
-                  try {
-                    const response = await fetch(
-                      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`
-                    );
-                    const data = await response.json();
+          {petNames.length > 0 && (
+            <View style={{ marginTop: 4 }}>
+              {petNames.map((pn, idx) => (
+                <Text key={idx} style={[styles.meta, { marginTop: idx === 0 ? 2 : 0 }]} numberOfLines={1}>
+                  {pn}
+                </Text>
+              ))}
+            </View>
+          )}
+         
+        </View>
 
-                    if (data.results && data.results.length > 0) {
-                      const location = data.results[0].geometry.location;
-                      const url = Platform.select({
-                        ios: `maps:0,0?q=${location.lat},${location.lng}`,
-                        android: `geo:0,0?q=${location.lat},${location.lng}`,
-                        default: `https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`,
-                      });
-                      Linking.openURL(url).catch(() => null);
-                    }
-                  } catch (error) {
-                    console.error('Geocoding error:', error);
-                  }
-                }}
-              >
-                <Ionicons name="location" size={14} color={colors.primary} />
-              </TouchableOpacity>
-            ) : null}
-            {phone ? (
+        <View style={{ flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', alignSelf: 'stretch' }}>
+          <View style={styles.badges}>
+            <View style={[styles.pill, { backgroundColor: `${statusColor}14` }]}>
+              <View style={[ { backgroundColor: statusColor }]} />
+              <Text style={[styles.pillText, { color: statusColor }]}>{statusLabel}</Text>
+            </View>
+            {paymentStatus ? (
               <>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => Linking.openURL(`tel:${phone}`).catch(() => null)}
-                >
-                  <Ionicons name="call" size={14} color={colors.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.whatsappButton]}
-                  onPress={() => {
-                    const cleanPhone = phone.replace(/[^0-9]/g, '');
-                    const formattedPhone = cleanPhone.startsWith('9') ? `351${cleanPhone}` : cleanPhone;
-                    const customerFirstName = getCustomerFirstName(item.customers);
-                    const message = t('listView.whatsappMessage', { name: customerFirstName });
-                    Linking.openURL(`whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`).catch(() => null);
-                  }}
-                >
-                  <FontAwesome name="whatsapp" size={16} color="#25D366" />
-                </TouchableOpacity>
+                <View style={[styles.pill, { backgroundColor: `${paymentColor}14` }]}> 
+                  <View style={[ { backgroundColor: paymentColor }]} />
+                  <Text style={[styles.pillText, { color: paymentColor }]}>{paymentLabel}</Text>
+                </View>
+                {amount !== undefined && amount !== null ? (
+                  <Text style={[styles.paymentAmount]}>{`€ ${Number(amount).toFixed(2)}`}</Text>
+                ) : null}
               </>
             ) : null}
           </View>
-        </View>
-
-        <View style={styles.badges}>
-          <View style={[styles.pill, { backgroundColor: statusColor + '20', borderColor: statusColor }]}>
-            <Text style={[styles.pillText, { color: statusColor }]}>{statusLabel}</Text>
-          </View>
-          {paymentStatus ? (
-            <View style={[styles.pill, { backgroundColor: paymentColor + '33', borderColor: paymentColor }]}>
-              <Text style={[styles.pillText, { color: paymentColor }]}>{paymentLabel}</Text>
-            </View>
-          ) : null}
         </View>
       </TouchableOpacity>
     </SwipeableRow>
@@ -414,9 +472,12 @@ export function ListView({
   onRefresh,
   isRefreshing,
   deletingId,
+  onScrollYChange,
+  scrollY,
 }: ListViewProps) {
-  const listRef = React.useRef<SectionList<Appointment>>(null);
+  const listRef = React.useRef<SectionList<Appointment, Section>>(null);
   const searchInputRef = React.useRef<TextInput>(null);
+  const openSwipeRef = React.useRef<any>(null);
   const hasSetInitialOffset = React.useRef(false);
   const { colors } = useBrandingTheme();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
@@ -454,7 +515,7 @@ export function ListView({
   }, [appointments, searchTerm]);
 
   // Group appointments by day
-  const sections = React.useMemo(() => {
+  const sections = React.useMemo<Section[]>(() => {
     const now = new Date();
     const todayKey = today;
     const source = filteredAppointments.filter((item) => {
@@ -494,7 +555,7 @@ export function ListView({
       }
     }
 
-    const entries = Object.entries(grouped).map(([dayKey, items]) => {
+    const entries: Section[] = Object.entries(grouped).map(([dayKey, items]) => {
       const titleLabel = dayKey === todayKey ? t('common.today') : formatDateLabel(dayKey, dateLocale, t('common.noDate'));
       return {
         dayKey,
@@ -520,13 +581,43 @@ export function ListView({
         t={t}
         onAppointmentPress={onAppointmentPress}
         isDeleting={item.id === deletingId}
+        onSwipeOpen={(ref) => {
+          if (openSwipeRef.current && openSwipeRef.current !== ref) {
+            openSwipeRef.current.close();
+          }
+          openSwipeRef.current = ref;
+        }}
+        onSwipeClose={(ref) => {
+          if (openSwipeRef.current === ref) {
+            openSwipeRef.current = null;
+          }
+        }}
       />
     ),
     [colors, styles, t, onAppointmentPress, deletingId]
   );
 
+  const handleScrollCloseSwipe = React.useCallback(() => {
+    if (openSwipeRef.current) {
+      try {
+        openSwipeRef.current.close();
+      } catch {}
+      openSwipeRef.current = null;
+    }
+  }, []);
+
+  const handleScroll = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      handleScrollCloseSwipe();
+      if (onScrollYChange) {
+        onScrollYChange(event.nativeEvent.contentOffset.y);
+      }
+    },
+    [handleScrollCloseSwipe, onScrollYChange]
+  );
+
   const renderSectionHeader = React.useCallback(
-    ({ section }: { section: typeof sections[0] }) => {
+    ({ section }: { section: SectionListData<Appointment, Section> }) => {
       const isPast = filterMode === 'past';
       const sectionIsPast = section.dayKey && section.dayKey < today;
       const canCreate = !isPast && !sectionIsPast;
@@ -617,7 +708,7 @@ export function ListView({
   }, [filterMode]);
 
   return (
-    <SectionList
+    <AnimatedSectionList
       ref={listRef}
       style={styles.list}
       sections={sections}
@@ -626,15 +717,34 @@ export function ListView({
       renderSectionHeader={renderSectionHeader}
       ListHeaderComponent={listHeader}
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 20 }}
+        onScroll={
+          scrollY
+            ? Animated.event(
+                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                {
+                  useNativeDriver: true,
+                  listener: (event: any) => {
+                    handleScrollCloseSwipe();
+                    if (onScrollYChange) onScrollYChange(event.nativeEvent.contentOffset.y);
+                  },
+                }
+              )
+            : handleScroll
+        }
       SectionSeparatorComponent={() => <View style={{ height: 8 }} />}
       ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
       onContentSizeChange={applyInitialOffset}
       keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
       contentInsetAdjustmentBehavior="never"
+      scrollEventThrottle={16}
       ListEmptyComponent={
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>{searchTerm ? '🔍' : '📭'}</Text>
+          {searchTerm ? (
+            <Ionicons name="search" size={64} color={colors.muted} style={{ marginBottom: 16 }} />
+          ) : (
+            <Ionicons name="mail-open" size={64} color={colors.muted} style={{ marginBottom: 16 }} />
+          )}
           <Text style={styles.emptyText}>{listEmptyTitle}</Text>
           <Text style={styles.emptySubtext}>{listEmptySubtitle}</Text>
           {canCreateOnEmpty ? (

@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
 
@@ -7,54 +8,56 @@ type ViewMode = 'list' | 'day' | 'week' | 'month';
 type ViewSelectorProps = {
   currentView: ViewMode;
   onViewChange: (view: ViewMode) => void;
+  compact?: boolean;
 };
 
-export function ViewSelector({ currentView, onViewChange }: ViewSelectorProps) {
+export function ViewSelector({ currentView, onViewChange, compact = false }: ViewSelectorProps) {
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
 
-  const views: Array<{ mode: ViewMode; icon: string; label: string }> = [
-    { mode: 'list', icon: '📋', label: t('viewSelector.list') },
-    { mode: 'day', icon: '📅', label: t('viewSelector.day') },
-    { mode: 'week', icon: '📆', label: t('viewSelector.week') },
-    { mode: 'month', icon: '🗓️', label: t('viewSelector.month') },
+  const views: Array<{ mode: ViewMode; icon: keyof typeof Ionicons.glyphMap; label: string }> = [
+    { mode: 'list', icon: 'list', label: t('viewSelector.list') },
+    { mode: 'day', icon: 'calendar', label: t('viewSelector.day') },
+    { mode: 'week', icon: 'calendar-outline', label: t('viewSelector.week') },
+    { mode: 'month', icon: 'calendar-number', label: t('viewSelector.month') },
   ];
 
   const styles = StyleSheet.create({
     container: {
       flexDirection: 'row',
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      padding: 4,
-      gap: 4,
-      marginHorizontal: 20,
-      marginBottom: 16,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
+      backgroundColor: `${colors.primary}10`,
+      borderRadius: 16,
+      paddingHorizontal: compact ? 6 : 10,
+      paddingVertical: compact ? 5 : 8,
+      gap: compact ? 6 : 8,
+      marginHorizontal: 16,
+      marginBottom: 12,
+      alignSelf: 'stretch',
+      alignItems: 'center',
     },
     button: {
       flex: 1,
-      paddingVertical: 10,
-      paddingHorizontal: 8,
-      borderRadius: 8,
+      paddingVertical: compact ? 7 : 12,
+      paddingHorizontal: compact ? 7 : 10,
+      borderRadius: 16,
       alignItems: 'center',
       justifyContent: 'center',
     },
     activeButton: {
-      backgroundColor: colors.primary,
+      backgroundColor: colors.surface,
+      // backgroundColor: '#F123D2',
     },
     buttonText: {
-      fontSize: 20,
-      marginBottom: 2,
+      marginBottom: compact ? 0 : 4,
     },
     label: {
-      fontSize: 11,
-      fontWeight: '600',
+      fontSize: 12,
+      fontWeight: '400',
       color: colors.muted,
     },
     activeLabel: {
-      color: '#fff',
-      fontWeight: '700',
+      color: colors.primary,
+      fontWeight: '600',
     },
   });
 
@@ -68,8 +71,15 @@ export function ViewSelector({ currentView, onViewChange }: ViewSelectorProps) {
             style={[styles.button, isActive && styles.activeButton]}
             onPress={() => onViewChange(view.mode)}
           >
-            <Text style={styles.buttonText}>{view.icon}</Text>
-            <Text style={[styles.label, isActive && styles.activeLabel]}>{view.label}</Text>
+            <Ionicons
+              name={view.icon}
+              size={compact ? 16 : 18}
+              color={isActive ? colors.primary : colors.muted}
+              style={styles.buttonText}
+            />
+            {compact ? null : (
+              <Text style={[styles.label, isActive && styles.activeLabel]}>{view.label}</Text>
+            )}
           </TouchableOpacity>
         );
       })}

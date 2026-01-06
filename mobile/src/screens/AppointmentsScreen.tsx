@@ -1,18 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  TouchableOpacity,
-} from 'react-native';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Animated, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAppointments, Appointment, deleteAppointment } from '../api/appointments';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Alert } from 'react-native';
 import { useBrandingTheme } from '../theme/useBrandingTheme';
 import { ViewSelector } from '../components/appointments/ViewSelector';
 import { ListView } from '../components/appointments/ListView';
@@ -30,7 +22,7 @@ type ViewMode = 'list' | 'day' | 'week' | 'month';
 type FilterMode = 'upcoming' | 'past' | 'unpaid';
 type DeletePayload = {
   appointment: Appointment;
-  affectedQueries: Array<{ key: unknown; index: number }>;
+  affectedQueries: Array<{ key: readonly unknown[]; index: number }>;
 };
 const UNDO_TIMEOUT_MS = 4000;
 
@@ -52,6 +44,9 @@ export default function AppointmentsScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const undoBottomOffset = tabBarHeight > 0 ? tabBarHeight : insets.bottom + 16;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [isCompactHeader, setIsCompactHeader] = useState(false);
 
   // For list/day view: fetch appointments based on filter mode
   // For week/month view: fetch a broader range
@@ -203,7 +198,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
 
   useEffect(() => {
     // Expose a simple global hook used by ListView's SwipeableRow
-    (global as any).onDeleteAppointment = (appointment: Appointment) => {
+    (globalThis as any).onDeleteAppointment = (appointment: Appointment) => {
       Alert.alert(t('appointments.deleteTitle'), t('appointments.deleteMessage'), [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -217,7 +212,7 @@ export default function AppointmentsScreen({ navigation }: Props) {
       ]);
     };
     return () => {
-      try { delete (global as any).onDeleteAppointment; } catch {}
+      try { delete (globalThis as any).onDeleteAppointment; } catch {}
     };
   }, [beginDelete, startOptimisticDelete, t]);
 
@@ -235,9 +230,36 @@ export default function AppointmentsScreen({ navigation }: Props) {
       setPendingOnly(false);
     }
   }, [hasPendingAppointments, pendingOnly, viewMode]);
+
+  useEffect(() => {
+    if (viewMode !== 'list') {
+      scrollY.setValue(0);
+    }
+  }, [viewMode, scrollY]);
   const primary = colors.primary;
   const surface = colors.surface;
   const primarySoft = colors.primarySoft;
+
+  const baseHeaderHeight = headerHeight || 150;
+  const collapseDistance = Math.min(Math.max(baseHeaderHeight - 60, 50), 160);
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, collapseDistance * 0.5, collapseDistance],
+    outputRange: [1, 0.88, 0.7],
+    extrapolate: 'clamp',
+  });
+  const headerTranslate = scrollY.interpolate({
+    inputRange: [0, collapseDistance],
+    outputRange: [0, -14],
+    extrapolate: 'clamp',
+  });
+
+  const handleListScroll = useCallback(
+    (y: number) => {
+      const nextCompact = y > collapseDistance * 0.15;
+      setIsCompactHeader((prev) => (prev === nextCompact ? prev : nextCompact));
+    },
+    [collapseDistance]
+  );
 
   const handleViewChange = useCallback((nextView: ViewMode) => {
     hapticSelection();
@@ -278,66 +300,116 @@ export default function AppointmentsScreen({ navigation }: Props) {
           </TouchableOpacity>
         }
       />
-      <View style={styles.headerInfo}>
-        <Text style={styles.subtitle}>{t('appointments.subtitle')}</Text>
-      </View>
+      <Animated.View
+        style={{
+          opacity: headerOpacity,
+          transform: [{ translateY: headerTranslate }],
+          paddingTop: isCompactHeader ? 2 : 8,
+          paddingBottom: isCompactHeader ? 2 : 8,
+          gap: 6,
+          marginTop: isCompactHeader ? 8 : 0,
+        }}
+        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+      >
 
-      {/* View Mode Selector */}
-      <ViewSelector currentView={viewMode} onViewChange={handleViewChange} />
+        {/* View Mode Selector */}
+        <Animated.View
+          style={{
+            transform: [{ scale: isCompactHeader ? 0.86 : 1 }],
+            marginBottom: isCompactHeader ? -4 : 6,
+          }}
+        >
+          <ViewSelector currentView={viewMode} onViewChange={handleViewChange} compact={isCompactHeader} />
+        </Animated.View>
 
-      {/* Filter for List view only */}
-      {viewMode === 'list' && (
-        <>
-          <View style={styles.segment}>
-            <TouchableOpacity
-              style={[
-                styles.segmentButton,
-                filterMode === 'upcoming' && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
-              ]}
-              onPress={() => handleFilterChange('upcoming')}
-            >
-              <Text style={[styles.segmentText, { color: filterMode === 'upcoming' ? primary : colors.text }]}>
-                {t('appointments.filterUpcoming')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.segmentButton,
-                filterMode === 'past' && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
-              ]}
-              onPress={() => handleFilterChange('past')}
-            >
-              <Text style={[styles.segmentText, { color: filterMode === 'past' ? primary : colors.text }]}>
-                {t('appointments.filterPast')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.segmentButton,
-                filterMode === 'unpaid' && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
-              ]}
-              onPress={() => handleFilterChange('unpaid')}
-            >
-              <Text style={[styles.segmentText, { color: filterMode === 'unpaid' ? primary : colors.text }]}>
-                {t('appointments.filterUnpaid')}
-              </Text>
-            </TouchableOpacity>
-            {hasPendingAppointments ? (
+        {/* Filter for List view only */}
+        {viewMode === 'list' && (
+          <Animated.View
+            style={{
+              transform: [{ scale: isCompactHeader ? 0.9 : 1 }],
+              marginTop: isCompactHeader ? -6 : -5,
+              marginBottom: isCompactHeader ? -10 : 0,
+            }}
+          >
+            <View style={styles.segment}>
               <TouchableOpacity
                 style={[
                   styles.segmentButton,
-                  pendingOnly && { backgroundColor: primarySoft, borderColor: colors.surfaceBorder },
+                  isCompactHeader && styles.segmentButtonCompact,
+                  filterMode === 'upcoming' && styles.segmentButtonActive,
                 ]}
-                onPress={() => setPendingOnly((prev) => !prev)}
+                onPress={() => handleFilterChange('upcoming')}
               >
-                <Text style={[styles.segmentText, { color: pendingOnly ? primary : colors.text }]}>
-                  {t('appointments.filterPending', { count: pendingCount })}
+                <Text
+                  style={[
+                    styles.segmentText,
+                    isCompactHeader && styles.segmentTextCompact,
+                    filterMode === 'upcoming' && styles.segmentTextActive,
+                  ]}
+                >
+                  {t('appointments.filterUpcoming')}
                 </Text>
               </TouchableOpacity>
-            ) : null}
-          </View>
-        </>
-      )}
+              <TouchableOpacity
+                style={[
+                  styles.segmentButton,
+                  isCompactHeader && styles.segmentButtonCompact,
+                  filterMode === 'past' && styles.segmentButtonActive,
+                ]}
+                onPress={() => handleFilterChange('past')}
+              >
+                <Text
+                  style={[
+                    styles.segmentText,
+                    isCompactHeader && styles.segmentTextCompact,
+                    filterMode === 'past' && styles.segmentTextActive,
+                  ]}
+                >
+                  {t('appointments.filterPast')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.segmentButton,
+                  isCompactHeader && styles.segmentButtonCompact,
+                  filterMode === 'unpaid' && styles.segmentButtonActive,
+                ]}
+                onPress={() => handleFilterChange('unpaid')}
+              >
+                <Text
+                  style={[
+                    styles.segmentText,
+                    isCompactHeader && styles.segmentTextCompact,
+                    filterMode === 'unpaid' && styles.segmentTextActive,
+                  ]}
+                >
+                  {t('appointments.filterUnpaid')}
+                </Text>
+              </TouchableOpacity>
+              {hasPendingAppointments ? (
+                <TouchableOpacity
+                  style={[
+                    styles.segmentButton,
+                    isCompactHeader && styles.segmentButtonCompact,
+                    pendingOnly && styles.segmentButtonActive,
+                  ]}
+                  onPress={() => setPendingOnly((prev) => !prev)}
+                >
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      isCompactHeader && styles.segmentTextCompact,
+                      pendingOnly && styles.segmentTextActive,
+                    ]}
+                  >
+                    {t('appointments.filterPending', { count: pendingCount })}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </Animated.View>
+        )}
+      </Animated.View>
 
       {/* Loading State */}
       {isLoading && !isRefetching ? (
@@ -364,6 +436,8 @@ export default function AppointmentsScreen({ navigation }: Props) {
               onRefresh={refetch}
               isRefreshing={isRefetching}
               deletingId={deletingId}
+              onScrollYChange={handleListScroll}
+              scrollY={scrollY}
             />
           )}
 
@@ -442,31 +516,51 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     headerInfo: {
       paddingHorizontal: 16,
-      paddingTop: 8,
-      paddingBottom: 8,
-    },
-    subtitle: {
-      color: colors.muted,
-      fontSize: 13,
+      paddingTop: 6,
+      paddingBottom: 4
     },
     segment: {
       flexDirection: 'row',
-      gap: 8,
-      marginBottom: 12,
+      gap: 10,
+      marginBottom: 10,
       paddingHorizontal: 16,
+      paddingVertical: 2,
+      borderRadius: 16,
+      backgroundColor: `${colors.primary}10`,
+      marginHorizontal: 16,
+      alignItems: 'center',
     },
     segmentButton: {
       flex: 1,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      paddingVertical: 10,
-      borderRadius: 10,
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderColor: 'transparent',
+      paddingVertical: 12,
+      paddingHorizontal: 10,
+      borderRadius: 14,
       alignItems: 'center',
+      justifyContent: 'center',
+    },
+    segmentButtonCompact: {
+      paddingVertical: 7,
+      borderRadius: 11,
+    },
+    segmentButtonActive: {
+      backgroundColor: colors.surface,
+      borderColor: colors.primarySoft || colors.primary,
     },
     segmentText: {
+      fontWeight: '500',
+      color: colors.muted,
+      fontSize: 12,
+    },
+    segmentTextCompact: {
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    segmentTextActive: {
+      color: colors.primary,
       fontWeight: '700',
-      color: colors.text,
     },
     error: {
       color: colors.danger,
