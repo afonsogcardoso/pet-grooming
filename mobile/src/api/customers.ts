@@ -155,6 +155,6 @@ export async function deleteCustomer(customerId: string): Promise<void> {
   await api.delete(`/customers/${customerId}`);
 }
 
-export async function deletePet(petId: string): Promise<void> {
-  await api.delete(`/customers/pets/${petId}`);
+export async function deletePet(customerId: string, petId: string): Promise<void> {
+  await api.delete(`/customers/${customerId}/pets/${petId}`);
 }

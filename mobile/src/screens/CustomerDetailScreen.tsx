@@ -122,7 +122,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
   );
 
   const deletePetMutation = useMutation({
-    mutationFn: ({ pet }: DeletePetPayload) => deletePet(pet.id),
+    mutationFn: ({ pet }: DeletePetPayload) => deletePet(customerId, pet.id),
     onSuccess: async () => {
       hapticSuccess();
       if (!pendingDeleteRef.current) {

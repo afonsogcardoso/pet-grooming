@@ -273,7 +273,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
   };
 
   const deleteMutation = useMutation({
-    mutationFn: () => deletePet(petId!),
+    mutationFn: () => deletePet(customerId, petId!),
     onSuccess: () => {
       hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ["customers"] });
