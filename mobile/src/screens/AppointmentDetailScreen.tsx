@@ -16,17 +16,13 @@ import {
   KeyboardAvoidingView,
 } from "react-native";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
-import * as FileSystem from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import * as MediaLibrary from "expo-media-library";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  launchCamera,
-  launchImageLibrary,
-  ImageLibraryOptions,
-  CameraOptions,
-} from "react-native-image-picker";
+import { launchCamera, launchImageLibrary } from "react-native-image-picker";
+import { cameraOptions, galleryOptions } from "../utils/imageOptions";
 import { useTranslation } from "react-i18next";
 import {
   getAppointment,
@@ -619,16 +615,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       return;
     }
 
-    const options: CameraOptions = {
-      mediaType: "photo",
-      quality: 0.8,
-      maxWidth: 1200,
-      maxHeight: 1200,
-      includeBase64: false,
-      saveToPhotos: false,
-    };
-
-    launchCamera(options, async (response) => {
+    launchCamera(cameraOptions, async (response) => {
       if (response.didCancel) {
         return;
       }
@@ -648,16 +635,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   };
 
   const openGallery = async (type: "before" | "after") => {
-    const options: ImageLibraryOptions = {
-      mediaType: "photo",
-      quality: 0.8,
-      maxWidth: 1200,
-      maxHeight: 1200,
-      includeBase64: false,
-      selectionLimit: 1,
-    };
-
-    launchImageLibrary(options, async (response) => {
+    launchImageLibrary(galleryOptions, async (response) => {
       if (response.didCancel) {
         return;
       }
@@ -737,13 +715,15 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       const extFromUrl = photoUrl.split(".").pop()?.split("?")[0] || "jpg";
       const extension = extFromUrl.length <= 5 ? extFromUrl : "jpg";
       const filename = `appointment-${appointmentId}-${type}-${Date.now()}.${extension}`;
-      const targetUri = `${FileSystem.cacheDirectory}${filename}`;
-
-      const downloadResult = await FileSystem.downloadAsync(
+      const targetFile = new File(Paths.cache, filename);
+      const downloadedFile = await File.downloadFileAsync(
         photoUrl,
-        targetUri
+        targetFile,
+        {
+          idempotent: true,
+        }
       );
-      await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
+      await MediaLibrary.saveToLibraryAsync(downloadedFile.uri);
 
       Alert.alert(
         t("appointmentDetail.photoSavedTitle"),
@@ -1071,6 +1051,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                     {appointmentPets.length === 1 ? (
                       <>
                         <TouchableOpacity
+                          style={styles.singlePetRow}
                           activeOpacity={0.8}
                           onPress={(e) => {
                             e.stopPropagation?.();
@@ -1089,10 +1070,18 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                           {appointmentPets[0].photo_url ? (
                             <Image
                               source={{ uri: appointmentPets[0].photo_url }}
-                              style={styles.petThumbnail}
+                              style={[
+                                styles.petThumbnail,
+                                styles.singlePetAvatar,
+                              ]}
                             />
                           ) : (
-                            <View style={styles.petThumbnailPlaceholder}>
+                            <View
+                              style={[
+                                styles.petThumbnailPlaceholder,
+                                styles.singlePetAvatar,
+                              ]}
+                            >
                               <Text style={styles.petThumbnailInitials}>
                                 {String(appointmentPets[0].name || "")
                                   .slice(0, 1)
@@ -1100,14 +1089,16 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                               </Text>
                             </View>
                           )}
-                          <Text style={styles.compactCardName}>
-                            {appointmentPets[0].name}
-                          </Text>
-                          {appointmentPets[0].breed ? (
-                            <Text style={styles.compactCardBreed}>
-                              {appointmentPets[0].breed}
+                          <View style={styles.singlePetInfo}>
+                            <Text style={styles.singlePetName}>
+                              {appointmentPets[0].name}
                             </Text>
-                          ) : null}
+                            {appointmentPets[0].breed ? (
+                              <Text style={styles.singlePetBreed}>
+                                {appointmentPets[0].breed}
+                              </Text>
+                            ) : null}
+                          </View>
                         </TouchableOpacity>
                       </>
                     ) : (
@@ -1673,8 +1664,31 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       width: 60,
       height: 60,
       borderRadius: 30,
-      marginBottom: 8,
       backgroundColor: colors.background,
+    },
+    singlePetRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    singlePetAvatar: {
+      marginBottom: 0,
+    },
+    singlePetInfo: {
+      flex: 1,
+      alignItems: "flex-start",
+    },
+    singlePetName: {
+      fontSize: 17,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: 2,
+      textAlign: "left",
+    },
+    singlePetBreed: {
+      fontSize: 13,
+      color: colors.muted,
+      textAlign: "left",
     },
     petList: {
       width: "100%",

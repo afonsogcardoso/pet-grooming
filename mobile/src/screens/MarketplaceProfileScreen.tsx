@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -11,16 +11,23 @@ import {
   Platform,
   ActionSheetIOS,
   PermissionsAndroid,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { launchCamera, launchImageLibrary, CameraOptions, ImageLibraryOptions } from 'react-native-image-picker';
-import { ScreenHeader } from '../components/ScreenHeader';
-import { Button, Input } from '../components/common';
-import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { Branding, getBranding, updateBranding, uploadBrandLogo, uploadPortalImage } from '../api/branding';
-import { hapticError, hapticSuccess } from '../utils/haptics';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { launchCamera, launchImageLibrary } from "react-native-image-picker";
+import { ScreenHeader } from "../components/ScreenHeader";
+import { Button, Input } from "../components/common";
+import { useBrandingTheme } from "../theme/useBrandingTheme";
+import {
+  Branding,
+  getBranding,
+  updateBranding,
+  uploadBrandLogo,
+  uploadPortalImage,
+} from "../api/branding";
+import { hapticError, hapticSuccess } from "../utils/haptics";
+import { cameraOptions, galleryOptions } from "../utils/imageOptions";
 
 export default function MarketplaceProfileScreen() {
   const { t } = useTranslation();
@@ -28,36 +35,40 @@ export default function MarketplaceProfileScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const queryClient = useQueryClient();
 
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [region, setRegion] = useState('');
-  const [instagram, setInstagram] = useState('');
-  const [facebook, setFacebook] = useState('');
-  const [tiktok, setTiktok] = useState('');
-  const [website, setWebsite] = useState('');
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [region, setRegion] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [tiktok, setTiktok] = useState("");
+  const [website, setWebsite] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
   const [uploadingHeroImage, setUploadingHeroImage] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
-  const { data: branding, isLoading, error } = useQuery({
-    queryKey: ['branding'],
+  const {
+    data: branding,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["branding"],
     queryFn: () => getBranding(),
     staleTime: 1000 * 60 * 2,
-    initialData: () => queryClient.getQueryData<Branding>(['branding']),
-    placeholderData: () => queryClient.getQueryData<Branding>(['branding']),
+    initialData: () => queryClient.getQueryData<Branding>(["branding"]),
+    placeholderData: () => queryClient.getQueryData<Branding>(["branding"]),
   });
 
   const applyBranding = (data?: Branding | null) => {
     if (!data) return;
-    setName(data.account_name || '');
-    setDescription(data.marketplace_description || '');
-    setRegion(data.marketplace_region || '');
-    setInstagram(data.marketplace_instagram_url || '');
-    setFacebook(data.marketplace_facebook_url || '');
-    setTiktok(data.marketplace_tiktok_url || '');
-    setWebsite(data.marketplace_website_url || '');
+    setName(data.account_name || "");
+    setDescription(data.marketplace_description || "");
+    setRegion(data.marketplace_region || "");
+    setInstagram(data.marketplace_instagram_url || "");
+    setFacebook(data.marketplace_facebook_url || "");
+    setTiktok(data.marketplace_tiktok_url || "");
+    setWebsite(data.marketplace_website_url || "");
     setLogoUrl(data.logo_url || null);
     setHeroImageUrl(data.portal_image_url || null);
   };
@@ -73,26 +84,26 @@ export default function MarketplaceProfileScreen() {
     mutationFn: updateBranding,
     onSuccess: (updated) => {
       hapticSuccess();
-      queryClient.setQueryData(['branding'], updated);
+      queryClient.setQueryData(["branding"], updated);
       applyBranding(updated);
     },
     onError: () => {
       hapticError();
-      Alert.alert(t('common.error'), t('marketplaceProfile.updateError'));
+      Alert.alert(t("common.error"), t("marketplaceProfile.updateError"));
     },
   });
 
   const requestAndroidPermissions = async () => {
-    if (Platform.OS === 'android') {
+    if (Platform.OS === "android") {
       try {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.CAMERA,
           {
-            title: t('profile.cameraPermissionTitle'),
-            message: t('profile.cameraPermissionMessage'),
-            buttonNeutral: t('common.later'),
-            buttonNegative: t('common.cancel'),
-            buttonPositive: t('common.ok'),
+            title: t("profile.cameraPermissionTitle"),
+            message: t("profile.cameraPermissionMessage"),
+            buttonNeutral: t("common.later"),
+            buttonNegative: t("common.cancel"),
+            buttonPositive: t("common.ok"),
           }
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
@@ -109,12 +120,13 @@ export default function MarketplaceProfileScreen() {
       setUploadingLogo(true);
       const formData = new FormData();
       const timestamp = Date.now();
-      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
-      const safeExtension = extension === 'jpg' ? 'jpeg' : extension;
+      const extension =
+        fileName?.split(".").pop() || uri.split(".").pop() || "jpg";
+      const safeExtension = extension === "jpg" ? "jpeg" : extension;
       const filename = `logo-${timestamp}.${extension}`;
       const fileType = `image/${safeExtension}`;
 
-      formData.append('file', {
+      formData.append("file", {
         uri,
         type: fileType,
         name: filename,
@@ -123,28 +135,32 @@ export default function MarketplaceProfileScreen() {
       const { url } = await uploadBrandLogo(formData);
       const updated = await updateBranding({ logo_url: url });
       hapticSuccess();
-      queryClient.setQueryData(['branding'], updated);
+      queryClient.setQueryData(["branding"], updated);
       applyBranding(updated);
     } catch (err) {
       hapticError();
-      console.error('Erro ao carregar logotipo:', err);
-      Alert.alert(t('common.error'), t('marketplaceProfile.logoUploadError'));
+      console.error("Erro ao carregar logotipo:", err);
+      Alert.alert(t("common.error"), t("marketplaceProfile.logoUploadError"));
     } finally {
       setUploadingLogo(false);
     }
   };
 
-  const uploadHeroImageFromUri = async (uri: string, fileName?: string | null) => {
+  const uploadHeroImageFromUri = async (
+    uri: string,
+    fileName?: string | null
+  ) => {
     try {
       setUploadingHeroImage(true);
       const formData = new FormData();
       const timestamp = Date.now();
-      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
-      const safeExtension = extension === 'jpg' ? 'jpeg' : extension;
+      const extension =
+        fileName?.split(".").pop() || uri.split(".").pop() || "jpg";
+      const safeExtension = extension === "jpg" ? "jpeg" : extension;
       const filename = `portal-${timestamp}.${extension}`;
       const fileType = `image/${safeExtension}`;
 
-      formData.append('file', {
+      formData.append("file", {
         uri,
         type: fileType,
         name: filename,
@@ -153,12 +169,12 @@ export default function MarketplaceProfileScreen() {
       const { url } = await uploadPortalImage(formData);
       const updated = await updateBranding({ portal_image_url: url });
       hapticSuccess();
-      queryClient.setQueryData(['branding'], updated);
+      queryClient.setQueryData(["branding"], updated);
       applyBranding(updated);
     } catch (err) {
       hapticError();
-      console.error('Erro ao carregar imagem de capa:', err);
-      Alert.alert(t('common.error'), t('marketplaceProfile.heroUploadError'));
+      console.error("Erro ao carregar imagem de capa:", err);
+      Alert.alert(t("common.error"), t("marketplaceProfile.heroUploadError"));
     } finally {
       setUploadingHeroImage(false);
     }
@@ -169,24 +185,18 @@ export default function MarketplaceProfileScreen() {
   ) => {
     const hasPermission = await requestAndroidPermissions();
     if (!hasPermission) {
-      Alert.alert(t('profile.cameraPermissionDeniedTitle'), t('profile.cameraPermissionDeniedMessage'));
+      Alert.alert(
+        t("profile.cameraPermissionDeniedTitle"),
+        t("profile.cameraPermissionDeniedMessage")
+      );
       return;
     }
 
-    const options: CameraOptions = {
-      mediaType: 'photo',
-      quality: 0.8,
-      maxWidth: 1200,
-      maxHeight: 1200,
-      includeBase64: false,
-      saveToPhotos: false,
-    };
-
-    launchCamera(options, async (response) => {
+    launchCamera(cameraOptions, async (response) => {
       if (response.didCancel) return;
       if (response.errorCode) {
-        console.error('Erro ao abrir camera:', response.errorMessage);
-        Alert.alert(t('common.error'), t('profile.openCameraError'));
+        console.error("Erro ao abrir camera:", response.errorMessage);
+        Alert.alert(t("common.error"), t("profile.openCameraError"));
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -198,20 +208,11 @@ export default function MarketplaceProfileScreen() {
   const openGallery = async (
     onSelected: (uri: string, fileName?: string | null) => Promise<void>
   ) => {
-    const options: ImageLibraryOptions = {
-      mediaType: 'photo',
-      quality: 0.8,
-      maxWidth: 1200,
-      maxHeight: 1200,
-      includeBase64: false,
-      selectionLimit: 1,
-    };
-
-    launchImageLibrary(options, async (response) => {
+    launchImageLibrary(galleryOptions, async (response) => {
       if (response.didCancel) return;
       if (response.errorCode) {
-        console.error('Erro ao abrir galeria:', response.errorMessage);
-        Alert.alert(t('common.error'), t('profile.openGalleryError'));
+        console.error("Erro ao abrir galeria:", response.errorMessage);
+        Alert.alert(t("common.error"), t("profile.openGalleryError"));
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -220,11 +221,17 @@ export default function MarketplaceProfileScreen() {
     });
   };
 
-  const pickImage = (onSelected: (uri: string, fileName?: string | null) => Promise<void>) => {
-    if (Platform.OS === 'ios') {
+  const pickImage = (
+    onSelected: (uri: string, fileName?: string | null) => Promise<void>
+  ) => {
+    if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: [t('common.cancel'), t('profile.takePhoto'), t('profile.chooseFromGallery')],
+          options: [
+            t("common.cancel"),
+            t("profile.takePhoto"),
+            t("profile.chooseFromGallery"),
+          ],
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
@@ -237,12 +244,18 @@ export default function MarketplaceProfileScreen() {
       );
     } else {
       Alert.alert(
-        t('profile.choosePhotoTitle'),
-        t('profile.choosePhotoMessage'),
+        t("profile.choosePhotoTitle"),
+        t("profile.choosePhotoMessage"),
         [
-          { text: t('common.cancel'), style: 'cancel' },
-          { text: t('profile.takePhoto'), onPress: () => openCamera(onSelected) },
-          { text: t('profile.chooseFromGallery'), onPress: () => openGallery(onSelected) },
+          { text: t("common.cancel"), style: "cancel" },
+          {
+            text: t("profile.takePhoto"),
+            onPress: () => openCamera(onSelected),
+          },
+          {
+            text: t("profile.chooseFromGallery"),
+            onPress: () => openGallery(onSelected),
+          },
         ]
       );
     }
@@ -254,7 +267,7 @@ export default function MarketplaceProfileScreen() {
   const handleSave = async () => {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      Alert.alert(t('common.warning'), t('marketplaceProfile.nameRequired'));
+      Alert.alert(t("common.warning"), t("marketplaceProfile.nameRequired"));
       return;
     }
 
@@ -269,19 +282,34 @@ export default function MarketplaceProfileScreen() {
     });
   };
 
-  const logoFallback = name.trim().charAt(0).toUpperCase() || 'P';
+  const logoFallback = name.trim().charAt(0).toUpperCase() || "P";
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <ScreenHeader title={t('marketplaceProfile.title')} />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {isLoading ? <ActivityIndicator color={colors.primary} style={styles.loading} /> : null}
-        {error ? <Text style={styles.errorText}>{t('marketplaceProfile.loadError')}</Text> : null}
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <ScreenHeader title={t("marketplaceProfile.title")} />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {isLoading ? (
+          <ActivityIndicator color={colors.primary} style={styles.loading} />
+        ) : null}
+        {error ? (
+          <Text style={styles.errorText}>
+            {t("marketplaceProfile.loadError")}
+          </Text>
+        ) : null}
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('marketplaceProfile.logoTitle')}</Text>
+          <Text style={styles.cardTitle}>
+            {t("marketplaceProfile.logoTitle")}
+          </Text>
           <View style={styles.logoRow}>
-            <TouchableOpacity style={styles.logo} onPress={pickLogo} disabled={uploadingLogo}>
+            <TouchableOpacity
+              style={styles.logo}
+              onPress={pickLogo}
+              disabled={uploadingLogo}
+            >
               {logoUrl ? (
                 <Image source={{ uri: logoUrl }} style={styles.logoImage} />
               ) : (
@@ -298,9 +326,11 @@ export default function MarketplaceProfileScreen() {
               )}
             </TouchableOpacity>
             <View style={styles.logoInfo}>
-              <Text style={styles.logoLabel}>{t('marketplaceProfile.logoHelper')}</Text>
+              <Text style={styles.logoLabel}>
+                {t("marketplaceProfile.logoHelper")}
+              </Text>
               <Button
-                title={t('marketplaceProfile.changeLogo')}
+                title={t("marketplaceProfile.changeLogo")}
                 onPress={pickLogo}
                 variant="outline"
                 size="small"
@@ -312,18 +342,24 @@ export default function MarketplaceProfileScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('marketplaceProfile.heroTitle')}</Text>
+          <Text style={styles.cardTitle}>
+            {t("marketplaceProfile.heroTitle")}
+          </Text>
           <TouchableOpacity
             style={styles.heroPreview}
             onPress={pickHeroImage}
             disabled={uploadingHeroImage}
           >
             {heroImageUrl ? (
-              <Image source={{ uri: heroImageUrl }} style={styles.heroImage} resizeMode="cover" />
+              <Image
+                source={{ uri: heroImageUrl }}
+                style={styles.heroImage}
+                resizeMode="cover"
+              />
             ) : (
               <View style={styles.heroPlaceholder}>
                 <Text style={styles.heroPlaceholderText}>
-                  {t('marketplaceProfile.heroPlaceholder')}
+                  {t("marketplaceProfile.heroPlaceholder")}
                 </Text>
               </View>
             )}
@@ -333,9 +369,11 @@ export default function MarketplaceProfileScreen() {
               </View>
             ) : null}
           </TouchableOpacity>
-          <Text style={styles.heroHelper}>{t('marketplaceProfile.heroHelper')}</Text>
+          <Text style={styles.heroHelper}>
+            {t("marketplaceProfile.heroHelper")}
+          </Text>
           <Button
-            title={t('marketplaceProfile.changeHero')}
+            title={t("marketplaceProfile.changeHero")}
             onPress={pickHeroImage}
             variant="outline"
             size="small"
@@ -345,24 +383,26 @@ export default function MarketplaceProfileScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('marketplaceProfile.businessSection')}</Text>
+          <Text style={styles.cardTitle}>
+            {t("marketplaceProfile.businessSection")}
+          </Text>
           <Input
-            label={t('marketplaceProfile.nameLabel')}
+            label={t("marketplaceProfile.nameLabel")}
             value={name}
             onChangeText={setName}
-            placeholder={t('marketplaceProfile.namePlaceholder')}
+            placeholder={t("marketplaceProfile.namePlaceholder")}
           />
           <Input
-            label={t('marketplaceProfile.regionLabel')}
+            label={t("marketplaceProfile.regionLabel")}
             value={region}
             onChangeText={setRegion}
-            placeholder={t('marketplaceProfile.regionPlaceholder')}
+            placeholder={t("marketplaceProfile.regionPlaceholder")}
           />
           <Input
-            label={t('marketplaceProfile.descriptionLabel')}
+            label={t("marketplaceProfile.descriptionLabel")}
             value={description}
             onChangeText={setDescription}
-            placeholder={t('marketplaceProfile.descriptionPlaceholder')}
+            placeholder={t("marketplaceProfile.descriptionPlaceholder")}
             multiline
             numberOfLines={4}
             style={styles.textArea}
@@ -370,36 +410,38 @@ export default function MarketplaceProfileScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('marketplaceProfile.socialTitle')}</Text>
+          <Text style={styles.cardTitle}>
+            {t("marketplaceProfile.socialTitle")}
+          </Text>
           <Input
-            label={t('marketplaceProfile.instagramLabel')}
+            label={t("marketplaceProfile.instagramLabel")}
             value={instagram}
             onChangeText={setInstagram}
-            placeholder={t('marketplaceProfile.instagramPlaceholder')}
+            placeholder={t("marketplaceProfile.instagramPlaceholder")}
             autoCapitalize="none"
             autoCorrect={false}
           />
           <Input
-            label={t('marketplaceProfile.facebookLabel')}
+            label={t("marketplaceProfile.facebookLabel")}
             value={facebook}
             onChangeText={setFacebook}
-            placeholder={t('marketplaceProfile.facebookPlaceholder')}
+            placeholder={t("marketplaceProfile.facebookPlaceholder")}
             autoCapitalize="none"
             autoCorrect={false}
           />
           <Input
-            label={t('marketplaceProfile.tiktokLabel')}
+            label={t("marketplaceProfile.tiktokLabel")}
             value={tiktok}
             onChangeText={setTiktok}
-            placeholder={t('marketplaceProfile.tiktokPlaceholder')}
+            placeholder={t("marketplaceProfile.tiktokPlaceholder")}
             autoCapitalize="none"
             autoCorrect={false}
           />
           <Input
-            label={t('marketplaceProfile.websiteLabel')}
+            label={t("marketplaceProfile.websiteLabel")}
             value={website}
             onChangeText={setWebsite}
-            placeholder={t('marketplaceProfile.websitePlaceholder')}
+            placeholder={t("marketplaceProfile.websitePlaceholder")}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
@@ -407,10 +449,12 @@ export default function MarketplaceProfileScreen() {
         </View>
 
         <Button
-          title={t('marketplaceProfile.saveAction')}
+          title={t("marketplaceProfile.saveAction")}
           onPress={handleSave}
           loading={updateMutation.isPending}
-          disabled={updateMutation.isPending || uploadingLogo || uploadingHeroImage}
+          disabled={
+            updateMutation.isPending || uploadingLogo || uploadingHeroImage
+          }
           style={styles.saveButton}
         />
       </ScrollView>
@@ -418,7 +462,7 @@ export default function MarketplaceProfileScreen() {
   );
 }
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -446,12 +490,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     cardTitle: {
       color: colors.text,
       fontSize: 16,
-      fontWeight: '700',
+      fontWeight: "700",
       marginBottom: 12,
     },
     logoRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 14,
     },
     logo: {
@@ -461,17 +505,17 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       backgroundColor: colors.background,
       borderWidth: 1,
       borderColor: colors.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     logoImage: {
-      width: '100%',
-      height: '100%',
+      width: "100%",
+      height: "100%",
       borderRadius: 16,
     },
     logoFallback: {
       fontSize: 28,
-      fontWeight: '800',
+      fontWeight: "800",
       color: colors.primary,
     },
     logoInfo: {
@@ -483,18 +527,18 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginBottom: 8,
     },
     logoButton: {
-      alignSelf: 'flex-start',
+      alignSelf: "flex-start",
     },
     logoBadge: {
-      position: 'absolute',
+      position: "absolute",
       right: -4,
       bottom: -4,
       backgroundColor: colors.primary,
       width: 24,
       height: 24,
       borderRadius: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       borderWidth: 2,
       borderColor: colors.surface,
     },
@@ -502,15 +546,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontSize: 12,
     },
     logoLoading: {
-      position: 'absolute',
+      position: "absolute",
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.4)',
+      backgroundColor: "rgba(0, 0, 0, 0.4)",
       borderRadius: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     heroPreview: {
       height: 140,
@@ -518,33 +562,33 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
       backgroundColor: colors.background,
-      overflow: 'hidden',
+      overflow: "hidden",
       marginBottom: 10,
     },
     heroImage: {
-      width: '100%',
-      height: '100%',
+      width: "100%",
+      height: "100%",
     },
     heroPlaceholder: {
       flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       paddingHorizontal: 16,
     },
     heroPlaceholderText: {
       color: colors.muted,
       fontSize: 13,
-      textAlign: 'center',
+      textAlign: "center",
     },
     heroLoading: {
-      position: 'absolute',
+      position: "absolute",
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.35)',
-      alignItems: 'center',
-      justifyContent: 'center',
+      backgroundColor: "rgba(0, 0, 0, 0.35)",
+      alignItems: "center",
+      justifyContent: "center",
     },
     heroHelper: {
       color: colors.muted,
@@ -552,11 +596,11 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginBottom: 8,
     },
     heroButton: {
-      alignSelf: 'flex-start',
+      alignSelf: "flex-start",
     },
     textArea: {
       minHeight: 120,
-      textAlignVertical: 'top',
+      textAlignVertical: "top",
     },
     saveButton: {
       marginTop: 4,

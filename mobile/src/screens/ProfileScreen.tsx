@@ -1,48 +1,86 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Image, TextInput, Alert, Platform, ActionSheetIOS, PermissionsAndroid, Switch } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useCallback } from 'react';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
-import * as AuthSession from 'expo-auth-session';
-import * as WebBrowser from 'expo-web-browser';
-import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { getProfile, updateProfile, uploadAvatar, resetPassword, Profile } from '../api/profile';
-import { Branding, getBranding, updateBranding, uploadBrandLogo, uploadPortalImage } from '../api/branding';
-import { getNotificationPreferences, registerPushToken, unregisterPushToken, updateNotificationPreferences, NotificationPreferences, NotificationPreferencesPayload } from '../api/notifications';
-import { useAuthStore } from '../state/authStore';
-import { useViewModeStore, ViewMode } from '../state/viewModeStore';
-import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { ScreenHeader } from '../components/ScreenHeader';
-import { getDateLocale, normalizeLanguage, setAppLanguage } from '../i18n';
-import { PhoneInput } from '../components/common/PhoneInput';
-import { AddressAutocomplete } from '../components/appointment/AddressAutocomplete';
-import { Input } from '../components/common';
-import { buildPhone, splitPhone } from '../utils/phone';
-import { resolveSupabaseAnonKey, resolveSupabaseUrl } from '../config/supabase';
-import { formatVersionLabel } from '../utils/version';
-import { hapticError, hapticSelection, hapticSuccess } from '../utils/haptics';
-import { registerForPushNotifications } from '../utils/pushNotifications';
-import * as Notifications from 'expo-notifications';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  TextInput,
+  Alert,
+  Platform,
+  ActionSheetIOS,
+  PermissionsAndroid,
+  Switch,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useCallback } from "react";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { launchCamera, launchImageLibrary } from "react-native-image-picker";
+import * as AuthSession from "expo-auth-session";
+import * as WebBrowser from "expo-web-browser";
+import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import {
+  getProfile,
+  updateProfile,
+  uploadAvatar,
+  resetPassword,
+  Profile,
+} from "../api/profile";
+import {
+  Branding,
+  getBranding,
+  updateBranding,
+  uploadBrandLogo,
+  uploadPortalImage,
+} from "../api/branding";
+import {
+  getNotificationPreferences,
+  registerPushToken,
+  unregisterPushToken,
+  updateNotificationPreferences,
+  NotificationPreferences,
+  NotificationPreferencesPayload,
+} from "../api/notifications";
+import { useAuthStore } from "../state/authStore";
+import { useViewModeStore, ViewMode } from "../state/viewModeStore";
+import { useBrandingTheme } from "../theme/useBrandingTheme";
+import { ScreenHeader } from "../components/ScreenHeader";
+import { getDateLocale, normalizeLanguage, setAppLanguage } from "../i18n";
+import { PhoneInput } from "../components/common/PhoneInput";
+import { AddressAutocomplete } from "../components/appointment/AddressAutocomplete";
+import { Input } from "../components/common";
+import { buildPhone, splitPhone } from "../utils/phone";
+import { resolveSupabaseAnonKey, resolveSupabaseUrl } from "../config/supabase";
+import { formatVersionLabel } from "../utils/version";
+import { hapticError, hapticSelection, hapticSuccess } from "../utils/haptics";
+import { registerForPushNotifications } from "../utils/pushNotifications";
+import * as Notifications from "expo-notifications";
+import { cameraOptions, galleryOptions } from "../utils/imageOptions";
 
 WebBrowser.maybeCompleteAuthSession();
 
 type Props = NativeStackScreenProps<any>;
-type ProfileSection = 'info' | 'marketplace' | 'security' | 'notifications';
+type ProfileSection = "info" | "marketplace" | "security" | "notifications";
 const REMINDER_PRESETS = [15, 30, 60, 120, 1440];
 const MAX_REMINDER_OFFSETS = 2;
 
-function formatDate(value: string | null | undefined, locale: string, fallback: string) {
+function formatDate(
+  value: string | null | undefined,
+  locale: string,
+  fallback: string
+) {
   if (!value) return fallback;
   try {
     return new Date(value).toLocaleString(locale, {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch {
     return value;
@@ -92,37 +130,47 @@ function mergeNotificationPreferences(
 
   return {
     push: {
-      enabled: typeof source.enabled === 'boolean' ? source.enabled : current.push.enabled,
+      enabled:
+        typeof source.enabled === "boolean"
+          ? source.enabled
+          : current.push.enabled,
       appointments: {
-        created: typeof appointments.created === 'boolean'
-          ? appointments.created
-          : current.push.appointments.created,
-        confirmed: typeof appointments.confirmed === 'boolean'
-          ? appointments.confirmed
-          : current.push.appointments.confirmed,
-        cancelled: typeof appointments.cancelled === 'boolean'
-          ? appointments.cancelled
-          : current.push.appointments.cancelled,
-        reminder: typeof appointments.reminder === 'boolean'
-          ? appointments.reminder
-          : current.push.appointments.reminder,
+        created:
+          typeof appointments.created === "boolean"
+            ? appointments.created
+            : current.push.appointments.created,
+        confirmed:
+          typeof appointments.confirmed === "boolean"
+            ? appointments.confirmed
+            : current.push.appointments.confirmed,
+        cancelled:
+          typeof appointments.cancelled === "boolean"
+            ? appointments.cancelled
+            : current.push.appointments.cancelled,
+        reminder:
+          typeof appointments.reminder === "boolean"
+            ? appointments.reminder
+            : current.push.appointments.reminder,
         reminder_offsets: Array.isArray(reminderOffsets)
           ? reminderOffsets
           : current.push.appointments.reminder_offsets,
       },
       marketplace: {
-        request: typeof marketplace.request === 'boolean'
-          ? marketplace.request
-          : current.push.marketplace.request,
+        request:
+          typeof marketplace.request === "boolean"
+            ? marketplace.request
+            : current.push.marketplace.request,
       },
       payments: {
-        updated: typeof payments.updated === 'boolean'
-          ? payments.updated
-          : current.push.payments.updated,
+        updated:
+          typeof payments.updated === "boolean"
+            ? payments.updated
+            : current.push.payments.updated,
       },
-      marketing: typeof source.marketing === 'boolean'
-        ? source.marketing
-        : current.push.marketing,
+      marketing:
+        typeof source.marketing === "boolean"
+          ? source.marketing
+          : current.push.marketing,
     },
   };
 }
@@ -140,123 +188,169 @@ export default function ProfileScreen({ navigation }: Props) {
   const dateLocale = getDateLocale();
   const versionLabel = useMemo(() => formatVersionLabel(), []);
   const scrollRef = useRef<ScrollView>(null);
-  const [activeSection, setActiveSection] = useState<ProfileSection>('info');
+  const [activeSection, setActiveSection] = useState<ProfileSection>("info");
   const [hasProfileEdits, setHasProfileEdits] = useState(false);
-  const [editFirstName, setEditFirstName] = useState('');
-  const [editLastName, setEditLastName] = useState('');
-  const [editPhone, setEditPhone] = useState('');
-  const [editAddress, setEditAddress] = useState('');
-  const [editAddress2, setEditAddress2] = useState('');
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editAddress2, setEditAddress2] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [marketplaceName, setMarketplaceName] = useState('');
-  const [marketplaceDescription, setMarketplaceDescription] = useState('');
-  const [marketplaceRegion, setMarketplaceRegion] = useState('');
-  const [marketplaceInstagram, setMarketplaceInstagram] = useState('');
-  const [marketplaceFacebook, setMarketplaceFacebook] = useState('');
-  const [marketplaceTiktok, setMarketplaceTiktok] = useState('');
-  const [marketplaceWebsite, setMarketplaceWebsite] = useState('');
-  const [marketplaceLogoUrl, setMarketplaceLogoUrl] = useState<string | null>(null);
-  const [marketplaceHeroUrl, setMarketplaceHeroUrl] = useState<string | null>(null);
-  const [uploadingMarketplaceLogo, setUploadingMarketplaceLogo] = useState(false);
-  const [uploadingMarketplaceHero, setUploadingMarketplaceHero] = useState(false);
+  const [marketplaceName, setMarketplaceName] = useState("");
+  const [marketplaceDescription, setMarketplaceDescription] = useState("");
+  const [marketplaceRegion, setMarketplaceRegion] = useState("");
+  const [marketplaceInstagram, setMarketplaceInstagram] = useState("");
+  const [marketplaceFacebook, setMarketplaceFacebook] = useState("");
+  const [marketplaceTiktok, setMarketplaceTiktok] = useState("");
+  const [marketplaceWebsite, setMarketplaceWebsite] = useState("");
+  const [marketplaceLogoUrl, setMarketplaceLogoUrl] = useState<string | null>(
+    null
+  );
+  const [marketplaceHeroUrl, setMarketplaceHeroUrl] = useState<string | null>(
+    null
+  );
+  const [uploadingMarketplaceLogo, setUploadingMarketplaceLogo] =
+    useState(false);
+  const [uploadingMarketplaceHero, setUploadingMarketplaceHero] =
+    useState(false);
   const [marketplaceInitialized, setMarketplaceInitialized] = useState(false);
-  const [customReminderInput, setCustomReminderInput] = useState('');
+  const [customReminderInput, setCustomReminderInput] = useState("");
   const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [linkingProvider, setLinkingProvider] = useState<'google' | 'apple' | null>(null);
+  const [linkingProvider, setLinkingProvider] = useState<
+    "google" | "apple" | null
+  >(null);
   const showAppleLink = false;
 
   const { data, isLoading, error, isRefetching } = useQuery({
-    queryKey: ['profile'],
+    queryKey: ["profile"],
     queryFn: getProfile,
     retry: 1,
     staleTime: 1000 * 60 * 2,
     refetchOnMount: false,
-    placeholderData: () => queryClient.getQueryData(['profile']),
+    placeholderData: () => queryClient.getQueryData(["profile"]),
   });
   const { data: branding } = useQuery({
-    queryKey: ['branding'],
+    queryKey: ["branding"],
     queryFn: () => getBranding(),
     staleTime: 1000 * 60 * 2,
-    initialData: () => queryClient.getQueryData<Branding>(['branding']),
-    placeholderData: () => queryClient.getQueryData<Branding>(['branding']),
+    initialData: () => queryClient.getQueryData<Branding>(["branding"]),
+    placeholderData: () => queryClient.getQueryData<Branding>(["branding"]),
   });
-  const {
-    data: notificationPreferences,
-    isLoading: loadingNotifications,
-  } = useQuery({
-    queryKey: ['notificationPreferences'],
-    queryFn: getNotificationPreferences,
-    retry: 1,
-    staleTime: 1000 * 60 * 5,
-  });
+  const { data: notificationPreferences, isLoading: loadingNotifications } =
+    useQuery({
+      queryKey: ["notificationPreferences"],
+      queryFn: getNotificationPreferences,
+      retry: 1,
+      staleTime: 1000 * 60 * 5,
+    });
   const currentLanguage = normalizeLanguage(data?.locale || i18n.language);
-  const authProviders = Array.isArray(data?.authProviders) ? data.authProviders : [];
+  const authProviders = Array.isArray(data?.authProviders)
+    ? data.authProviders
+    : [];
   const linkedProviders = new Set(
-    authProviders.map((provider) => provider?.toString().toLowerCase()).filter(Boolean)
+    authProviders
+      .map((provider) => provider?.toString().toLowerCase())
+      .filter(Boolean)
   );
-  const isGoogleLinked = linkedProviders.has('google');
-  const isAppleLinked = linkedProviders.has('apple');
-  const googleButtonLabel = isGoogleLinked ? t('profile.linked') : t('profile.linkGoogle');
-  const appleButtonLabel = isAppleLinked ? t('profile.linked') : t('profile.linkApple');
+  const isGoogleLinked = linkedProviders.has("google");
+  const isAppleLinked = linkedProviders.has("apple");
+  const googleButtonLabel = isGoogleLinked
+    ? t("profile.linked")
+    : t("profile.linkGoogle");
+  const appleButtonLabel = isAppleLinked
+    ? t("profile.linked")
+    : t("profile.linkApple");
   const availableRoles = useMemo(() => {
-    const roles = Array.isArray(data?.availableRoles) ? data.availableRoles : [];
+    const roles = Array.isArray(data?.availableRoles)
+      ? data.availableRoles
+      : [];
     if (roles.length) return Array.from(new Set(roles));
     if (data?.activeRole) return [data.activeRole];
     if (user?.activeRole) return [user.activeRole];
     return [];
   }, [data?.availableRoles, data?.activeRole, user?.activeRole]);
-  const activeRole = data?.activeRole ?? user?.activeRole ?? 'provider';
-  const resolvedViewMode: ViewMode = viewMode ?? (activeRole === 'consumer' ? 'consumer' : 'private');
-  const canSwitchViewMode = availableRoles.includes('consumer') && availableRoles.includes('provider');
-  const resolvedNotificationPreferences = useMemo<NotificationPreferences>(() => {
-    const raw = notificationPreferences;
-    if (!raw) return DEFAULT_NOTIFICATION_PREFERENCES;
-    const push = raw.push || {};
-    return {
-      push: {
-        enabled: typeof push.enabled === 'boolean' ? push.enabled : DEFAULT_NOTIFICATION_PREFERENCES.push.enabled,
-        appointments: {
-          created: typeof push.appointments?.created === 'boolean' ? push.appointments!.created : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.created,
-          confirmed: typeof push.appointments?.confirmed === 'boolean' ? push.appointments!.confirmed : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.confirmed,
-          cancelled: typeof push.appointments?.cancelled === 'boolean' ? push.appointments!.cancelled : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.cancelled,
-          reminder: typeof push.appointments?.reminder === 'boolean' ? push.appointments!.reminder : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.reminder,
-          reminder_offsets: Array.isArray(push.appointments?.reminder_offsets)
-            ? (push.appointments!.reminder_offsets as number[])
-            : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.reminder_offsets,
+  const activeRole = data?.activeRole ?? user?.activeRole ?? "provider";
+  const resolvedViewMode: ViewMode =
+    viewMode ?? (activeRole === "consumer" ? "consumer" : "private");
+  const canSwitchViewMode =
+    availableRoles.includes("consumer") && availableRoles.includes("provider");
+  const resolvedNotificationPreferences =
+    useMemo<NotificationPreferences>(() => {
+      const raw = notificationPreferences;
+      if (!raw) return DEFAULT_NOTIFICATION_PREFERENCES;
+      const push = raw.push || {};
+      return {
+        push: {
+          enabled:
+            typeof push.enabled === "boolean"
+              ? push.enabled
+              : DEFAULT_NOTIFICATION_PREFERENCES.push.enabled,
+          appointments: {
+            created:
+              typeof push.appointments?.created === "boolean"
+                ? push.appointments!.created
+                : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.created,
+            confirmed:
+              typeof push.appointments?.confirmed === "boolean"
+                ? push.appointments!.confirmed
+                : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.confirmed,
+            cancelled:
+              typeof push.appointments?.cancelled === "boolean"
+                ? push.appointments!.cancelled
+                : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.cancelled,
+            reminder:
+              typeof push.appointments?.reminder === "boolean"
+                ? push.appointments!.reminder
+                : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.reminder,
+            reminder_offsets: Array.isArray(push.appointments?.reminder_offsets)
+              ? (push.appointments!.reminder_offsets as number[])
+              : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments
+                  .reminder_offsets,
+          },
+          marketplace: {
+            request:
+              typeof push.marketplace?.request === "boolean"
+                ? push.marketplace!.request
+                : DEFAULT_NOTIFICATION_PREFERENCES.push.marketplace.request,
+          },
+          payments: {
+            updated:
+              typeof push.payments?.updated === "boolean"
+                ? push.payments!.updated
+                : DEFAULT_NOTIFICATION_PREFERENCES.push.payments.updated,
+          },
+          marketing:
+            typeof push.marketing === "boolean"
+              ? push.marketing
+              : DEFAULT_NOTIFICATION_PREFERENCES.push.marketing,
         },
-        marketplace: {
-          request: typeof push.marketplace?.request === 'boolean' ? push.marketplace!.request : DEFAULT_NOTIFICATION_PREFERENCES.push.marketplace.request,
-        },
-        payments: {
-          updated: typeof push.payments?.updated === 'boolean' ? push.payments!.updated : DEFAULT_NOTIFICATION_PREFERENCES.push.payments.updated,
-        },
-        marketing: typeof push.marketing === 'boolean' ? push.marketing : DEFAULT_NOTIFICATION_PREFERENCES.push.marketing,
-      },
-    };
-  }, [notificationPreferences]);
+      };
+    }, [notificationPreferences]);
   const pushEnabled = resolvedNotificationPreferences.push?.enabled ?? false;
   const reminderOffsets = useMemo(() => {
     const offsets = normalizeReminderOffsets(
       resolvedNotificationPreferences.push?.appointments?.reminder_offsets
     );
-    return offsets.length ? offsets : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.reminder_offsets;
+    return offsets.length
+      ? offsets
+      : DEFAULT_NOTIFICATION_PREFERENCES.push.appointments.reminder_offsets;
   }, [resolvedNotificationPreferences]);
   const reminderChipOptions = useMemo(() => {
     const combined = new Set([...REMINDER_PRESETS, ...reminderOffsets]);
     return Array.from(combined).sort((a, b) => a - b);
   }, [reminderOffsets]);
   const profileDefaults = useMemo(() => {
-    const fallbackName = data?.displayName || user?.displayName || '';
-    const [fallbackFirst, ...fallbackLast] = fallbackName.split(' ');
+    const fallbackName = data?.displayName || user?.displayName || "";
+    const [fallbackFirst, ...fallbackLast] = fallbackName.split(" ");
     return {
-      firstName: data?.firstName || fallbackFirst || '',
-      lastName: data?.lastName || fallbackLast.join(' ') || '',
-      phone: data?.phone || '',
-      address: data?.address || user?.address || '',
-      address2: data?.address2 || user?.address2 || '',
+      firstName: data?.firstName || fallbackFirst || "",
+      lastName: data?.lastName || fallbackLast.join(" ") || "",
+      phone: data?.phone || "",
+      address: data?.address || user?.address || "",
+      address2: data?.address2 || user?.address2 || "",
     };
   }, [
     data?.displayName,
@@ -277,7 +371,14 @@ export default function ProfileScreen({ navigation }: Props) {
       editAddress.trim() !== profileDefaults.address.trim() ||
       editAddress2.trim() !== profileDefaults.address2.trim()
     );
-  }, [editFirstName, editLastName, editPhone, editAddress, editAddress2, profileDefaults]);
+  }, [
+    editFirstName,
+    editLastName,
+    editPhone,
+    editAddress,
+    editAddress2,
+    profileDefaults,
+  ]);
 
   useEffect(() => {
     if (hasProfileEdits) return;
@@ -292,26 +393,26 @@ export default function ProfileScreen({ navigation }: Props) {
 
   const applyMarketplaceBranding = (data?: Branding | null) => {
     if (!data) return;
-    setMarketplaceName(data.account_name || '');
-    setMarketplaceDescription(data.marketplace_description || '');
-    setMarketplaceRegion(data.marketplace_region || '');
-    setMarketplaceInstagram(data.marketplace_instagram_url || '');
-    setMarketplaceFacebook(data.marketplace_facebook_url || '');
-    setMarketplaceTiktok(data.marketplace_tiktok_url || '');
-    setMarketplaceWebsite(data.marketplace_website_url || '');
+    setMarketplaceName(data.account_name || "");
+    setMarketplaceDescription(data.marketplace_description || "");
+    setMarketplaceRegion(data.marketplace_region || "");
+    setMarketplaceInstagram(data.marketplace_instagram_url || "");
+    setMarketplaceFacebook(data.marketplace_facebook_url || "");
+    setMarketplaceTiktok(data.marketplace_tiktok_url || "");
+    setMarketplaceWebsite(data.marketplace_website_url || "");
     setMarketplaceLogoUrl(data.logo_url || null);
     setMarketplaceHeroUrl(data.portal_image_url || null);
   };
 
   const isMarketplaceDirty = useMemo(() => {
     const defaults = {
-      name: branding?.account_name || '',
-      description: branding?.marketplace_description || '',
-      region: branding?.marketplace_region || '',
-      instagram: branding?.marketplace_instagram_url || '',
-      facebook: branding?.marketplace_facebook_url || '',
-      tiktok: branding?.marketplace_tiktok_url || '',
-      website: branding?.marketplace_website_url || '',
+      name: branding?.account_name || "",
+      description: branding?.marketplace_description || "",
+      region: branding?.marketplace_region || "",
+      instagram: branding?.marketplace_instagram_url || "",
+      facebook: branding?.marketplace_facebook_url || "",
+      tiktok: branding?.marketplace_tiktok_url || "",
+      website: branding?.marketplace_website_url || "",
     };
     return (
       marketplaceName.trim() !== defaults.name.trim() ||
@@ -346,11 +447,15 @@ export default function ProfileScreen({ navigation }: Props) {
     }
   }, [branding, marketplaceInitialized]);
 
-
-  const mergeProfileUpdate = (current: Profile | undefined, updated: Profile, payload?: Partial<Profile>) => {
+  const mergeProfileUpdate = (
+    current: Profile | undefined,
+    updated: Profile,
+    payload?: Partial<Profile>
+  ) => {
     if (!current) return updated;
     const next: Profile = { ...current };
-    const isBlankString = (value: unknown) => typeof value === 'string' && value.trim().length === 0;
+    const isBlankString = (value: unknown) =>
+      typeof value === "string" && value.trim().length === 0;
     const applyIfProvided = <K extends keyof Profile>(key: K) => {
       const value = updated[key];
       if (payload && key in payload) {
@@ -363,23 +468,23 @@ export default function ProfileScreen({ navigation }: Props) {
         next[key] = value;
       }
     };
-    applyIfProvided('displayName');
-    applyIfProvided('firstName');
-    applyIfProvided('lastName');
-    applyIfProvided('address');
-    applyIfProvided('address2');
-    applyIfProvided('phone');
-    applyIfProvided('phoneCountryCode');
-    applyIfProvided('phoneNumber');
-    applyIfProvided('locale');
-    applyIfProvided('avatarUrl');
-    applyIfProvided('activeRole');
-    applyIfProvided('availableRoles');
-    applyIfProvided('email');
-    applyIfProvided('lastLoginAt');
-    applyIfProvided('createdAt');
-    applyIfProvided('memberships');
-    applyIfProvided('platformAdmin');
+    applyIfProvided("displayName");
+    applyIfProvided("firstName");
+    applyIfProvided("lastName");
+    applyIfProvided("address");
+    applyIfProvided("address2");
+    applyIfProvided("phone");
+    applyIfProvided("phoneCountryCode");
+    applyIfProvided("phoneNumber");
+    applyIfProvided("locale");
+    applyIfProvided("avatarUrl");
+    applyIfProvided("activeRole");
+    applyIfProvided("availableRoles");
+    applyIfProvided("email");
+    applyIfProvided("lastLoginAt");
+    applyIfProvided("createdAt");
+    applyIfProvided("memberships");
+    applyIfProvided("platformAdmin");
     return next;
   };
 
@@ -387,7 +492,7 @@ export default function ProfileScreen({ navigation }: Props) {
     mutationFn: updateProfile,
     onMutate: () => {
       const previousProfile =
-        queryClient.getQueryData<Profile>(['profile']) ||
+        queryClient.getQueryData<Profile>(["profile"]) ||
         data ||
         (user
           ? {
@@ -400,15 +505,15 @@ export default function ProfileScreen({ navigation }: Props) {
               avatarUrl: user.avatarUrl,
             }
           : undefined);
-      if (previousProfile && !queryClient.getQueryData(['profile'])) {
-        queryClient.setQueryData(['profile'], previousProfile);
+      if (previousProfile && !queryClient.getQueryData(["profile"])) {
+        queryClient.setQueryData(["profile"], previousProfile);
       }
       return { previousProfile };
     },
     onSuccess: (updated, payload, context) => {
       hapticSuccess();
       const current =
-        queryClient.getQueryData<Profile>(['profile']) ||
+        queryClient.getQueryData<Profile>(["profile"]) ||
         context?.previousProfile ||
         data ||
         (user
@@ -422,45 +527,59 @@ export default function ProfileScreen({ navigation }: Props) {
               avatarUrl: user.avatarUrl,
             }
           : undefined);
-      const merged = current ? mergeProfileUpdate(current, updated, payload) : updated;
-      queryClient.setQueryData<Profile | undefined>(['profile'], merged);
+      const merged = current
+        ? mergeProfileUpdate(current, updated, payload)
+        : updated;
+      queryClient.setQueryData<Profile | undefined>(["profile"], merged);
       const nextUser = {
         email: merged.email ?? user?.email,
         displayName:
-          payload && 'displayName' in payload ? merged.displayName : merged.displayName ?? user?.displayName,
+          payload && "displayName" in payload
+            ? merged.displayName
+            : merged.displayName ?? user?.displayName,
         firstName:
-          payload && 'firstName' in payload ? merged.firstName : merged.firstName ?? user?.firstName,
+          payload && "firstName" in payload
+            ? merged.firstName
+            : merged.firstName ?? user?.firstName,
         lastName:
-          payload && 'lastName' in payload ? merged.lastName : merged.lastName ?? user?.lastName,
+          payload && "lastName" in payload
+            ? merged.lastName
+            : merged.lastName ?? user?.lastName,
         address:
-          payload && 'address' in payload ? merged.address : merged.address ?? user?.address,
+          payload && "address" in payload
+            ? merged.address
+            : merged.address ?? user?.address,
         address2:
-          payload && 'address2' in payload ? merged.address2 : merged.address2 ?? user?.address2,
+          payload && "address2" in payload
+            ? merged.address2
+            : merged.address2 ?? user?.address2,
         avatarUrl:
-          payload && 'avatarUrl' in payload ? merged.avatarUrl : merged.avatarUrl ?? user?.avatarUrl,
+          payload && "avatarUrl" in payload
+            ? merged.avatarUrl
+            : merged.avatarUrl ?? user?.avatarUrl,
         activeRole: merged.activeRole ?? user?.activeRole,
       };
       setUser(nextUser);
       if (
         payload &&
-        ('firstName' in payload ||
-          'lastName' in payload ||
-          'phone' in payload ||
-          'address' in payload ||
-          'address2' in payload)
+        ("firstName" in payload ||
+          "lastName" in payload ||
+          "phone" in payload ||
+          "address" in payload ||
+          "address2" in payload)
       ) {
         setHasProfileEdits(false);
-        setEditFirstName(merged.firstName ?? '');
-        setEditLastName(merged.lastName ?? '');
-        setEditPhone(merged.phone ?? '');
-        setEditAddress(merged.address ?? '');
-        setEditAddress2(merged.address2 ?? '');
+        setEditFirstName(merged.firstName ?? "");
+        setEditLastName(merged.lastName ?? "");
+        setEditPhone(merged.phone ?? "");
+        setEditAddress(merged.address ?? "");
+        setEditAddress2(merged.address2 ?? "");
       }
       // profile updated
     },
     onError: () => {
       hapticError();
-      Alert.alert(t('common.error'), t('profile.updateError'));
+      Alert.alert(t("common.error"), t("profile.updateError"));
     },
   });
 
@@ -468,22 +587,22 @@ export default function ProfileScreen({ navigation }: Props) {
     mutationFn: updateBranding,
     onSuccess: (updated) => {
       hapticSuccess();
-      queryClient.setQueryData(['branding'], updated);
+      queryClient.setQueryData(["branding"], updated);
       applyMarketplaceBranding(updated);
     },
     onError: () => {
       hapticError();
-      Alert.alert(t('common.error'), t('profile.marketplaceUpdateError'));
+      Alert.alert(t("common.error"), t("profile.marketplaceUpdateError"));
     },
   });
 
-
   const languageMutation = useMutation({
-    mutationFn: async (language: string) => updateProfile({ locale: normalizeLanguage(language) }),
+    mutationFn: async (language: string) =>
+      updateProfile({ locale: normalizeLanguage(language) }),
     onMutate: async (language) => {
       const normalized = normalizeLanguage(language);
-      const previousProfile = queryClient.getQueryData<Profile>(['profile']);
-      queryClient.setQueryData<Profile | undefined>(['profile'], (current) =>
+      const previousProfile = queryClient.getQueryData<Profile>(["profile"]);
+      queryClient.setQueryData<Profile | undefined>(["profile"], (current) =>
         current ? { ...current, locale: normalized } : current
       );
       const previousLanguage = i18n.language;
@@ -493,11 +612,13 @@ export default function ProfileScreen({ navigation }: Props) {
     onSuccess: (updated, _language, context) => {
       hapticSuccess();
       if (updated?.locale) {
-        queryClient.setQueryData<Profile | undefined>(['profile'], (current) =>
-          current ? { ...current, locale: normalizeLanguage(updated.locale) } : current
+        queryClient.setQueryData<Profile | undefined>(["profile"], (current) =>
+          current
+            ? { ...current, locale: normalizeLanguage(updated.locale) }
+            : current
         );
       } else if (context?.normalized) {
-        queryClient.setQueryData<Profile | undefined>(['profile'], (current) =>
+        queryClient.setQueryData<Profile | undefined>(["profile"], (current) =>
           current ? { ...current, locale: context.normalized } : current
         );
       }
@@ -505,12 +626,12 @@ export default function ProfileScreen({ navigation }: Props) {
     onError: (_err, _language, context) => {
       hapticError();
       if (context?.previousProfile) {
-        queryClient.setQueryData(['profile'], context.previousProfile);
+        queryClient.setQueryData(["profile"], context.previousProfile);
       }
       if (context?.previousLanguage) {
         setAppLanguage(context.previousLanguage);
       }
-      Alert.alert(t('common.error'), t('profile.updateError'));
+      Alert.alert(t("common.error"), t("profile.updateError"));
     },
   });
 
@@ -518,15 +639,15 @@ export default function ProfileScreen({ navigation }: Props) {
     mutationFn: resetPassword,
     onSuccess: () => {
       hapticSuccess();
-      setNewPassword('');
-      setConfirmPassword('');
+      setNewPassword("");
+      setConfirmPassword("");
       setShowPasswordForm(false);
       setPasswordError(null);
-      Alert.alert(t('common.done'), t('profile.passwordUpdated'));
+      Alert.alert(t("common.done"), t("profile.passwordUpdated"));
     },
     onError: () => {
       hapticError();
-      Alert.alert(t('common.error'), t('profile.passwordUpdateError'));
+      Alert.alert(t("common.error"), t("profile.passwordUpdateError"));
     },
   });
 
@@ -534,50 +655,59 @@ export default function ProfileScreen({ navigation }: Props) {
     mutationFn: updateNotificationPreferences,
     onMutate: async (payload) => {
       hapticSelection();
-      await queryClient.cancelQueries({ queryKey: ['notificationPreferences'] });
+      await queryClient.cancelQueries({
+        queryKey: ["notificationPreferences"],
+      });
       const previous =
-        queryClient.getQueryData<NotificationPreferences>(['notificationPreferences']) ||
-        resolvedNotificationPreferences;
+        queryClient.getQueryData<NotificationPreferences>([
+          "notificationPreferences",
+        ]) || resolvedNotificationPreferences;
       const merged = mergeNotificationPreferences(previous, payload);
-      queryClient.setQueryData(['notificationPreferences'], merged);
+      queryClient.setQueryData(["notificationPreferences"], merged);
       return { previous };
     },
     onSuccess: (updated) => {
       hapticSuccess();
-      queryClient.setQueryData(['notificationPreferences'], updated);
+      queryClient.setQueryData(["notificationPreferences"], updated);
     },
     onError: (_error, _payload, context) => {
       hapticError();
       if (context?.previous) {
-        queryClient.setQueryData(['notificationPreferences'], context.previous);
+        queryClient.setQueryData(["notificationPreferences"], context.previous);
       }
-      Alert.alert(t('common.error'), t('profile.notificationsUpdateError'));
+      Alert.alert(t("common.error"), t("profile.notificationsUpdateError"));
     },
   });
-  const notificationsDisabled = preferencesMutation.isPending || loadingNotifications;
+  const notificationsDisabled =
+    preferencesMutation.isPending || loadingNotifications;
   const remindersDisabled =
     !pushEnabled ||
     notificationsDisabled ||
     !resolvedNotificationPreferences.push.appointments.reminder;
 
-  const handleLinkProvider = async (provider: 'google' | 'apple') => {
-    if (linkingProvider || updateMutation.isPending || languageMutation.isPending) return;
+  const handleLinkProvider = async (provider: "google" | "apple") => {
+    if (
+      linkingProvider ||
+      updateMutation.isPending ||
+      languageMutation.isPending
+    )
+      return;
     if (linkedProviders.has(provider)) return;
 
     const supabaseUrl = resolveSupabaseUrl();
     const supabaseAnonKey = resolveSupabaseAnonKey();
     if (!supabaseUrl || !supabaseAnonKey || !token) {
       hapticError();
-      Alert.alert(t('common.error'), t('profile.linkConfigError'));
+      Alert.alert(t("common.error"), t("profile.linkConfigError"));
       return;
     }
 
     const providerLabel = t(`login.providers.${provider}`);
     const redirectUri = AuthSession.makeRedirectUri({
-      scheme: 'pawmi',
-      path: 'auth/callback',
+      scheme: "pawmi",
+      path: "auth/callback",
     });
-    const scopeParam = provider === 'apple' ? '&scopes=name%20email' : '';
+    const scopeParam = provider === "apple" ? "&scopes=name%20email" : "";
     const requestUrl = `${supabaseUrl}/auth/v1/user/identities/authorize?provider=${provider}&redirect_to=${encodeURIComponent(
       redirectUri
     )}&skip_http_redirect=true${scopeParam}`;
@@ -589,13 +719,16 @@ export default function ProfileScreen({ navigation }: Props) {
         headers: {
           Authorization: `Bearer ${token}`,
           apikey: supabaseAnonKey,
-          Accept: 'application/json',
+          Accept: "application/json",
         },
       });
 
       if (!response.ok) {
         hapticError();
-        Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
+        Alert.alert(
+          t("common.error"),
+          t("profile.linkError", { provider: providerLabel })
+        );
         return;
       }
 
@@ -604,38 +737,53 @@ export default function ProfileScreen({ navigation }: Props) {
 
       if (!authUrl) {
         hapticError();
-        Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
+        Alert.alert(
+          t("common.error"),
+          t("profile.linkError", { provider: providerLabel })
+        );
         return;
       }
 
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-      if (result.type === 'success') {
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        redirectUri
+      );
+      if (result.type === "success") {
         hapticSuccess();
-        Alert.alert(t('common.done'), t('profile.linkSuccess', { provider: providerLabel }));
-        await queryClient.refetchQueries({ queryKey: ['profile'] });
-      } else if (result.type !== 'cancel' && result.type !== 'dismiss') {
+        Alert.alert(
+          t("common.done"),
+          t("profile.linkSuccess", { provider: providerLabel })
+        );
+        await queryClient.refetchQueries({ queryKey: ["profile"] });
+      } else if (result.type !== "cancel" && result.type !== "dismiss") {
         hapticError();
-        Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
+        Alert.alert(
+          t("common.error"),
+          t("profile.linkError", { provider: providerLabel })
+        );
       }
     } catch {
       hapticError();
-      Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
+      Alert.alert(
+        t("common.error"),
+        t("profile.linkError", { provider: providerLabel })
+      );
     } finally {
       setLinkingProvider(null);
     }
   };
 
   const requestAndroidPermissions = async () => {
-    if (Platform.OS === 'android') {
+    if (Platform.OS === "android") {
       try {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.CAMERA,
           {
-            title: t('profile.cameraPermissionTitle'),
-            message: t('profile.cameraPermissionMessage'),
-            buttonNeutral: t('common.later'),
-            buttonNegative: t('common.cancel'),
-            buttonPositive: t('common.ok'),
+            title: t("profile.cameraPermissionTitle"),
+            message: t("profile.cameraPermissionMessage"),
+            buttonNeutral: t("common.later"),
+            buttonNegative: t("common.cancel"),
+            buttonPositive: t("common.ok"),
           }
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
@@ -650,55 +798,46 @@ export default function ProfileScreen({ navigation }: Props) {
   const openCamera = async () => {
     const hasPermission = await requestAndroidPermissions();
     if (!hasPermission) {
-      Alert.alert(t('profile.cameraPermissionDeniedTitle'), t('profile.cameraPermissionDeniedMessage'));
+      Alert.alert(
+        t("profile.cameraPermissionDeniedTitle"),
+        t("profile.cameraPermissionDeniedMessage")
+      );
       return;
     }
 
-    const options: CameraOptions = {
-      mediaType: 'photo',
-      quality: 0.8,
-      maxWidth: 1200,
-      maxHeight: 1200,
-      includeBase64: false,
-      saveToPhotos: false,
-    };
-
-    launchCamera(options, async (response) => {
+    launchCamera(cameraOptions, async (response) => {
       if (response.didCancel) {
         return;
       }
       if (response.errorCode) {
-        console.error('Erro ao abrir câmara:', response.errorMessage);
-        Alert.alert(t('common.error'), t('profile.openCameraError'));
+        console.error("Erro ao abrir câmara:", response.errorMessage);
+        Alert.alert(t("common.error"), t("profile.openCameraError"));
         return;
       }
       if (response.assets && response.assets[0]) {
-        await uploadAvatarFromUri(response.assets[0].uri!, response.assets[0].fileName);
+        await uploadAvatarFromUri(
+          response.assets[0].uri!,
+          response.assets[0].fileName
+        );
       }
     });
   };
 
   const openGallery = async () => {
-    const options: ImageLibraryOptions = {
-      mediaType: 'photo',
-      quality: 0.8,
-      maxWidth: 1200,
-      maxHeight: 1200,
-      includeBase64: false,
-      selectionLimit: 1,
-    };
-
-    launchImageLibrary(options, async (response) => {
+    launchImageLibrary(galleryOptions, async (response) => {
       if (response.didCancel) {
         return;
       }
       if (response.errorCode) {
-        console.error('Erro ao abrir galeria:', response.errorMessage);
-        Alert.alert(t('common.error'), t('profile.openGalleryError'));
+        console.error("Erro ao abrir galeria:", response.errorMessage);
+        Alert.alert(t("common.error"), t("profile.openGalleryError"));
         return;
       }
       if (response.assets && response.assets[0]) {
-        await uploadAvatarFromUri(response.assets[0].uri!, response.assets[0].fileName);
+        await uploadAvatarFromUri(
+          response.assets[0].uri!,
+          response.assets[0].fileName
+        );
       }
     });
   };
@@ -708,11 +847,14 @@ export default function ProfileScreen({ navigation }: Props) {
       setUploadingAvatar(true);
       const formData = new FormData();
       const timestamp = Date.now();
-      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
-      const filename = `profile-${user?.id || 'unknown'}-${timestamp}.${extension}`;
-      const fileType = `image/${extension === 'jpg' ? 'jpeg' : extension}`;
+      const extension =
+        fileName?.split(".").pop() || uri.split(".").pop() || "jpg";
+      const filename = `profile-${
+        user?.id || "unknown"
+      }-${timestamp}.${extension}`;
+      const fileType = `image/${extension === "jpg" ? "jpeg" : extension}`;
 
-      formData.append('file', {
+      formData.append("file", {
         uri,
         type: fileType,
         name: filename,
@@ -721,24 +863,28 @@ export default function ProfileScreen({ navigation }: Props) {
       const { url } = await uploadAvatar(formData);
       await updateMutation.mutateAsync({ avatarUrl: url });
     } catch (error) {
-      console.error('Erro ao fazer upload:', error);
-      Alert.alert(t('common.error'), t('profile.uploadError'));
+      console.error("Erro ao fazer upload:", error);
+      Alert.alert(t("common.error"), t("profile.uploadError"));
     } finally {
       setUploadingAvatar(false);
     }
   };
 
-  const uploadMarketplaceLogoFromUri = async (uri: string, fileName?: string | null) => {
+  const uploadMarketplaceLogoFromUri = async (
+    uri: string,
+    fileName?: string | null
+  ) => {
     try {
       setUploadingMarketplaceLogo(true);
       const formData = new FormData();
       const timestamp = Date.now();
-      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
-      const safeExtension = extension === 'jpg' ? 'jpeg' : extension;
+      const extension =
+        fileName?.split(".").pop() || uri.split(".").pop() || "jpg";
+      const safeExtension = extension === "jpg" ? "jpeg" : extension;
       const filename = `logo-${timestamp}.${extension}`;
       const fileType = `image/${safeExtension}`;
 
-      formData.append('file', {
+      formData.append("file", {
         uri,
         type: fileType,
         name: filename,
@@ -746,28 +892,32 @@ export default function ProfileScreen({ navigation }: Props) {
 
       const { url } = await uploadBrandLogo(formData);
       const updated = await updateBranding({ logo_url: url });
-      queryClient.setQueryData(['branding'], updated);
+      queryClient.setQueryData(["branding"], updated);
       applyMarketplaceBranding(updated);
     } catch (err) {
       hapticError();
-      console.error('Erro ao carregar logotipo:', err);
-      Alert.alert(t('common.error'), t('marketplaceProfile.logoUploadError'));
+      console.error("Erro ao carregar logotipo:", err);
+      Alert.alert(t("common.error"), t("marketplaceProfile.logoUploadError"));
     } finally {
       setUploadingMarketplaceLogo(false);
     }
   };
 
-  const uploadMarketplaceHeroFromUri = async (uri: string, fileName?: string | null) => {
+  const uploadMarketplaceHeroFromUri = async (
+    uri: string,
+    fileName?: string | null
+  ) => {
     try {
       setUploadingMarketplaceHero(true);
       const formData = new FormData();
       const timestamp = Date.now();
-      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
-      const safeExtension = extension === 'jpg' ? 'jpeg' : extension;
+      const extension =
+        fileName?.split(".").pop() || uri.split(".").pop() || "jpg";
+      const safeExtension = extension === "jpg" ? "jpeg" : extension;
       const filename = `portal-${timestamp}.${extension}`;
       const fileType = `image/${safeExtension}`;
 
-      formData.append('file', {
+      formData.append("file", {
         uri,
         type: fileType,
         name: filename,
@@ -775,38 +925,34 @@ export default function ProfileScreen({ navigation }: Props) {
 
       const { url } = await uploadPortalImage(formData);
       const updated = await updateBranding({ portal_image_url: url });
-      queryClient.setQueryData(['branding'], updated);
+      queryClient.setQueryData(["branding"], updated);
       applyMarketplaceBranding(updated);
     } catch (err) {
       hapticError();
-      console.error('Erro ao carregar imagem de capa:', err);
-      Alert.alert(t('common.error'), t('marketplaceProfile.heroUploadError'));
+      console.error("Erro ao carregar imagem de capa:", err);
+      Alert.alert(t("common.error"), t("marketplaceProfile.heroUploadError"));
     } finally {
       setUploadingMarketplaceHero(false);
     }
   };
 
-  const openMarketplaceCamera = async (onSelected: (uri: string, fileName?: string | null) => Promise<void>) => {
+  const openMarketplaceCamera = async (
+    onSelected: (uri: string, fileName?: string | null) => Promise<void>
+  ) => {
     const hasPermission = await requestAndroidPermissions();
     if (!hasPermission) {
-      Alert.alert(t('profile.cameraPermissionDeniedTitle'), t('profile.cameraPermissionDeniedMessage'));
+      Alert.alert(
+        t("profile.cameraPermissionDeniedTitle"),
+        t("profile.cameraPermissionDeniedMessage")
+      );
       return;
     }
 
-    const options: CameraOptions = {
-      mediaType: 'photo',
-      quality: 0.8,
-      maxWidth: 1200,
-      maxHeight: 1200,
-      includeBase64: false,
-      saveToPhotos: false,
-    };
-
-    launchCamera(options, async (response) => {
+    launchCamera(cameraOptions, async (response) => {
       if (response.didCancel) return;
       if (response.errorCode) {
-        console.error('Erro ao abrir câmara:', response.errorMessage);
-        Alert.alert(t('common.error'), t('profile.openCameraError'));
+        console.error("Erro ao abrir câmara:", response.errorMessage);
+        Alert.alert(t("common.error"), t("profile.openCameraError"));
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -815,21 +961,14 @@ export default function ProfileScreen({ navigation }: Props) {
     });
   };
 
-  const openMarketplaceGallery = async (onSelected: (uri: string, fileName?: string | null) => Promise<void>) => {
-    const options: ImageLibraryOptions = {
-      mediaType: 'photo',
-      quality: 0.8,
-      maxWidth: 1200,
-      maxHeight: 1200,
-      includeBase64: false,
-      selectionLimit: 1,
-    };
-
-    launchImageLibrary(options, async (response) => {
+  const openMarketplaceGallery = async (
+    onSelected: (uri: string, fileName?: string | null) => Promise<void>
+  ) => {
+    launchImageLibrary(galleryOptions, async (response) => {
       if (response.didCancel) return;
       if (response.errorCode) {
-        console.error('Erro ao abrir galeria:', response.errorMessage);
-        Alert.alert(t('common.error'), t('profile.openGalleryError'));
+        console.error("Erro ao abrir galeria:", response.errorMessage);
+        Alert.alert(t("common.error"), t("profile.openGalleryError"));
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -838,11 +977,17 @@ export default function ProfileScreen({ navigation }: Props) {
     });
   };
 
-  const pickMarketplaceImage = (onSelected: (uri: string, fileName?: string | null) => Promise<void>) => {
-    if (Platform.OS === 'ios') {
+  const pickMarketplaceImage = (
+    onSelected: (uri: string, fileName?: string | null) => Promise<void>
+  ) => {
+    if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: [t('common.cancel'), t('profile.takePhoto'), t('profile.chooseFromGallery')],
+          options: [
+            t("common.cancel"),
+            t("profile.takePhoto"),
+            t("profile.chooseFromGallery"),
+          ],
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
@@ -855,24 +1000,32 @@ export default function ProfileScreen({ navigation }: Props) {
       );
     } else {
       Alert.alert(
-        t('profile.choosePhotoTitle'),
-        t('profile.choosePhotoMessage'),
+        t("profile.choosePhotoTitle"),
+        t("profile.choosePhotoMessage"),
         [
-          { text: t('common.cancel'), style: 'cancel' },
-          { text: t('profile.takePhoto'), onPress: () => openMarketplaceCamera(onSelected) },
-          { text: t('profile.chooseFromGallery'), onPress: () => openMarketplaceGallery(onSelected) },
+          { text: t("common.cancel"), style: "cancel" },
+          {
+            text: t("profile.takePhoto"),
+            onPress: () => openMarketplaceCamera(onSelected),
+          },
+          {
+            text: t("profile.chooseFromGallery"),
+            onPress: () => openMarketplaceGallery(onSelected),
+          },
         ]
       );
     }
   };
 
-
-
   const pickImage = () => {
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: [t('common.cancel'), t('profile.takePhoto'), t('profile.chooseFromGallery')],
+          options: [
+            t("common.cancel"),
+            t("profile.takePhoto"),
+            t("profile.chooseFromGallery"),
+          ],
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
@@ -885,12 +1038,12 @@ export default function ProfileScreen({ navigation }: Props) {
       );
     } else {
       Alert.alert(
-        t('profile.choosePhotoTitle'),
-        t('profile.choosePhotoMessage'),
+        t("profile.choosePhotoTitle"),
+        t("profile.choosePhotoMessage"),
         [
-          { text: t('common.cancel'), style: 'cancel' },
-          { text: t('profile.takePhoto'), onPress: openCamera },
-          { text: t('profile.chooseFromGallery'), onPress: openGallery },
+          { text: t("common.cancel"), style: "cancel" },
+          { text: t("profile.takePhoto"), onPress: openCamera },
+          { text: t("profile.chooseFromGallery"), onPress: openGallery },
         ]
       );
     }
@@ -899,7 +1052,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const handleSave = () => {
     if (!isProfileDirty) return;
     if (!editFirstName.trim() || !editLastName.trim()) {
-      Alert.alert(t('common.warning'), t('profile.nameRequired'));
+      Alert.alert(t("common.warning"), t("profile.nameRequired"));
       return;
     }
     updateMutation.mutate({
@@ -923,7 +1076,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const handleMarketplaceSave = () => {
     const trimmedName = marketplaceName.trim();
     if (!trimmedName) {
-      Alert.alert(t('common.warning'), t('marketplaceProfile.nameRequired'));
+      Alert.alert(t("common.warning"), t("marketplaceProfile.nameRequired"));
       return;
     }
     marketplaceMutation.mutate({
@@ -941,7 +1094,6 @@ export default function ProfileScreen({ navigation }: Props) {
     applyMarketplaceBranding(branding);
     setMarketplaceInitialized(true);
   };
-
 
   const handleFirstNameChange = (value: string) => {
     setEditFirstName(value);
@@ -985,7 +1137,7 @@ export default function ProfileScreen({ navigation }: Props) {
     if (mode === resolvedViewMode) return;
     const previousViewMode = viewMode;
     setViewMode(mode);
-    const nextRole = mode === 'consumer' ? 'consumer' : 'provider';
+    const nextRole = mode === "consumer" ? "consumer" : "provider";
     if (nextRole === activeRole) return;
     updateMutation.mutate(
       { activeRole: nextRole },
@@ -1006,8 +1158,8 @@ export default function ProfileScreen({ navigation }: Props) {
   const handlePasswordCancel = () => {
     if (resetPasswordMutation.isPending) return;
     setShowPasswordForm(false);
-    setNewPassword('');
-    setConfirmPassword('');
+    setNewPassword("");
+    setConfirmPassword("");
     setPasswordError(null);
   };
 
@@ -1028,16 +1180,22 @@ export default function ProfileScreen({ navigation }: Props) {
   const formatReminderOffsetLabel = (offset: number) => {
     if (offset % 1440 === 0) {
       const days = offset / 1440;
-      return `${days} ${days === 1 ? t('common.dayShort') : t('common.daysShort')}`;
+      return `${days} ${
+        days === 1 ? t("common.dayShort") : t("common.daysShort")
+      }`;
     }
     if (offset % 60 === 0) {
       const hours = offset / 60;
-      return `${hours} ${hours === 1 ? t('common.hourShort') : t('common.hoursShort')}`;
+      return `${hours} ${
+        hours === 1 ? t("common.hourShort") : t("common.hoursShort")
+      }`;
     }
-    return `${offset} ${t('common.minutesShort')}`;
+    return `${offset} ${t("common.minutesShort")}`;
   };
   const setReminderOffsets = (nextOffsets: number[]) => {
-    updatePreferences({ push: { appointments: { reminder_offsets: nextOffsets } } });
+    updatePreferences({
+      push: { appointments: { reminder_offsets: nextOffsets } },
+    });
   };
   const handleToggleReminderOffset = (offset: number) => {
     if (remindersDisabled) return;
@@ -1046,28 +1204,37 @@ export default function ProfileScreen({ navigation }: Props) {
       return;
     }
     if (reminderOffsets.length >= MAX_REMINDER_OFFSETS) {
-      Alert.alert(t('common.warning'), t('profile.notificationsRemindersLimit'));
+      Alert.alert(
+        t("common.warning"),
+        t("profile.notificationsRemindersLimit")
+      );
       return;
     }
     setReminderOffsets([...reminderOffsets, offset]);
   };
   const handleAddCustomReminder = () => {
     if (remindersDisabled) return;
-    const parsed = Math.round(Number(customReminderInput.replace(',', '.')));
+    const parsed = Math.round(Number(customReminderInput.replace(",", ".")));
     if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1440) {
-      Alert.alert(t('common.error'), t('profile.notificationsRemindersInvalid'));
+      Alert.alert(
+        t("common.error"),
+        t("profile.notificationsRemindersInvalid")
+      );
       return;
     }
     if (reminderOffsets.includes(parsed)) {
-      setCustomReminderInput('');
+      setCustomReminderInput("");
       return;
     }
     if (reminderOffsets.length >= MAX_REMINDER_OFFSETS) {
-      Alert.alert(t('common.warning'), t('profile.notificationsRemindersLimit'));
+      Alert.alert(
+        t("common.warning"),
+        t("profile.notificationsRemindersLimit")
+      );
       return;
     }
     setReminderOffsets([...reminderOffsets, parsed]);
-    setCustomReminderInput('');
+    setCustomReminderInput("");
   };
 
   const handleTogglePushNotifications = async (value: boolean) => {
@@ -1076,16 +1243,19 @@ export default function ProfileScreen({ navigation }: Props) {
       const result = await registerForPushNotifications();
       if (!result.token) {
         const message =
-          result.status === 'unavailable'
-            ? t('profile.notificationsUnavailableMessage')
-            : t('profile.notificationsPermissionMessage');
-        Alert.alert(t('common.warning'), message);
+          result.status === "unavailable"
+            ? t("profile.notificationsUnavailableMessage")
+            : t("profile.notificationsPermissionMessage");
+        Alert.alert(t("common.warning"), message);
         return;
       }
       try {
-        await registerPushToken({ pushToken: result.token, platform: Platform.OS });
+        await registerPushToken({
+          pushToken: result.token,
+          platform: Platform.OS,
+        });
       } catch {
-        Alert.alert(t('common.error'), t('profile.notificationsRegisterError'));
+        Alert.alert(t("common.error"), t("profile.notificationsRegisterError"));
         return;
       }
       try {
@@ -1095,7 +1265,7 @@ export default function ProfileScreen({ navigation }: Props) {
         try {
           await unregisterPushToken({ pushToken: result.token });
         } catch {}
-        Alert.alert(t('common.error'), t('profile.notificationsUpdateError'));
+        Alert.alert(t("common.error"), t("profile.notificationsUpdateError"));
       }
       return;
     }
@@ -1114,18 +1284,18 @@ export default function ProfileScreen({ navigation }: Props) {
     try {
       await preferencesMutation.mutateAsync({ push: { enabled: false } });
     } catch (err) {
-      Alert.alert(t('common.error'), t('profile.notificationsUpdateError'));
+      Alert.alert(t("common.error"), t("profile.notificationsUpdateError"));
     }
   };
 
   const handlePasswordSave = () => {
     if (resetPasswordMutation.isPending) return;
     if (newPassword.length < 8) {
-      setPasswordError(t('profile.passwordMinLength'));
+      setPasswordError(t("profile.passwordMinLength"));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordError(t('profile.passwordMismatch'));
+      setPasswordError(t("profile.passwordMismatch"));
       return;
     }
     setPasswordError(null);
@@ -1133,22 +1303,26 @@ export default function ProfileScreen({ navigation }: Props) {
   };
 
   const displayName =
-    [data?.firstName, data?.lastName].filter(Boolean).join(' ') ||
+    [data?.firstName, data?.lastName].filter(Boolean).join(" ") ||
     data?.displayName ||
     user?.displayName ||
-    t('common.user');
-  const emailValue = data?.email || user?.email || t('common.noData');
-  const createdAtValue = formatDate(data?.createdAt, dateLocale, t('common.noData'));
+    t("common.user");
+  const emailValue = data?.email || user?.email || t("common.noData");
+  const createdAtValue = formatDate(
+    data?.createdAt,
+    dateLocale,
+    t("common.noData")
+  );
   const phoneParts = splitPhone(data?.phone);
   const phoneDisplay = buildPhone(
     data?.phoneCountryCode || phoneParts.phoneCountryCode,
-    data?.phoneNumber || phoneParts.phoneNumber,
+    data?.phoneNumber || phoneParts.phoneNumber
   );
-  const avatarFallback = displayName.charAt(0).toUpperCase() || '?';
+  const avatarFallback = displayName.charAt(0).toUpperCase() || "?";
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <ScreenHeader title={t('profile.title')} />
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <ScreenHeader title={t("profile.title")} />
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.scrollContent}
@@ -1162,7 +1336,10 @@ export default function ProfileScreen({ navigation }: Props) {
               disabled={uploadingAvatar || updateMutation.isPending}
             >
               {data?.avatarUrl ? (
-                <Image source={{ uri: data.avatarUrl }} style={styles.avatarImage} />
+                <Image
+                  source={{ uri: data.avatarUrl }}
+                  style={styles.avatarImage}
+                />
               ) : (
                 <Text style={styles.avatarText}>{avatarFallback}</Text>
               )}
@@ -1177,19 +1354,28 @@ export default function ProfileScreen({ navigation }: Props) {
               )}
             </TouchableOpacity>
             <View style={styles.headerInfo}>
-              <Text style={styles.headerLabel}>{t('profile.header')}</Text>
+              <Text style={styles.headerLabel}>{t("profile.header")}</Text>
               <Text style={styles.headerTitle}>{displayName}</Text>
               <Text style={styles.headerSubtitle}>{emailValue}</Text>
-              {phoneDisplay ? <Text style={styles.headerDetail}>{phoneDisplay}</Text> : null}
+              {phoneDisplay ? (
+                <Text style={styles.headerDetail}>{phoneDisplay}</Text>
+              ) : null}
               <Text style={styles.headerMeta}>
-                {t('profile.createdAt')}: {createdAtValue}
+                {t("profile.createdAt")}: {createdAtValue}
               </Text>
             </View>
           </View>
         </View>
 
-        {isLoading || isRefetching ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} /> : null}
-        {error ? <Text style={styles.error}>{t('profile.loadError')}</Text> : null}
+        {isLoading || isRefetching ? (
+          <ActivityIndicator
+            color={colors.primary}
+            style={{ marginVertical: 12 }}
+          />
+        ) : null}
+        {error ? (
+          <Text style={styles.error}>{t("profile.loadError")}</Text>
+        ) : null}
 
         <ScrollView
           horizontal
@@ -1198,10 +1384,10 @@ export default function ProfileScreen({ navigation }: Props) {
         >
           {(
             [
-              { key: 'info', label: t('profile.sectionInfo') },
-              { key: 'marketplace', label: t('profile.sectionMarketplace') },
-              { key: 'security', label: t('profile.security') },
-              { key: 'notifications', label: t('profile.notificationsTitle') },
+              { key: "info", label: t("profile.sectionInfo") },
+              { key: "marketplace", label: t("profile.sectionMarketplace") },
+              { key: "security", label: t("profile.security") },
+              { key: "notifications", label: t("profile.notificationsTitle") },
             ] as const
           ).map((section) => {
             const isActive = activeSection === section.key;
@@ -1211,7 +1397,12 @@ export default function ProfileScreen({ navigation }: Props) {
                 style={[styles.sectionTab, isActive && styles.sectionTabActive]}
                 onPress={() => handleSectionChange(section.key)}
               >
-                <Text style={[styles.sectionTabText, isActive && styles.sectionTabTextActive]}>
+                <Text
+                  style={[
+                    styles.sectionTabText,
+                    isActive && styles.sectionTabTextActive,
+                  ]}
+                >
                   {section.label}
                 </Text>
               </TouchableOpacity>
@@ -1219,59 +1410,71 @@ export default function ProfileScreen({ navigation }: Props) {
           })}
         </ScrollView>
 
-        {activeSection === 'info' ? (
+        {activeSection === "info" ? (
           <>
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t('profile.sectionInfo')}</Text>
-              <Text style={styles.sectionText}>{t('profile.infoDescription')}</Text>
+              <Text style={styles.sectionTitle}>
+                {t("profile.sectionInfo")}
+              </Text>
+              <Text style={styles.sectionText}>
+                {t("profile.infoDescription")}
+              </Text>
               <View style={styles.inputRow}>
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>{t('profile.firstNamePlaceholder')}</Text>
+                  <Text style={styles.inputLabel}>
+                    {t("profile.firstNamePlaceholder")}
+                  </Text>
                   <TextInput
                     style={styles.editInput}
                     value={editFirstName}
                     onChangeText={handleFirstNameChange}
-                    placeholder={t('profile.firstNamePlaceholder')}
+                    placeholder={t("profile.firstNamePlaceholder")}
                     placeholderTextColor={colors.muted}
                   />
                 </View>
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>{t('profile.lastNamePlaceholder')}</Text>
+                  <Text style={styles.inputLabel}>
+                    {t("profile.lastNamePlaceholder")}
+                  </Text>
                   <TextInput
                     style={styles.editInput}
                     value={editLastName}
                     onChangeText={handleLastNameChange}
-                    placeholder={t('profile.lastNamePlaceholder')}
+                    placeholder={t("profile.lastNamePlaceholder")}
                     placeholderTextColor={colors.muted}
                   />
                 </View>
               </View>
               <View style={styles.inputGroup}>
                 <PhoneInput
-                  label={t('common.phone')}
+                  label={t("common.phone")}
                   labelStyle={[styles.inputLabel, styles.inputLabelRegular]}
                   containerStyle={styles.phoneField}
                   value={editPhone}
                   onChange={handlePhoneChange}
-                  placeholder={t('common.phone')}
+                  placeholder={t("common.phone")}
                   disabled={updateMutation.isPending}
                 />
               </View>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('profile.addressLabel')}</Text>
+                <Text style={styles.inputLabel}>
+                  {t("profile.addressLabel")}
+                </Text>
                 <AddressAutocomplete
                   value={editAddress}
                   onSelect={handleAddressChange}
-                  placeholder={t('profile.addressPlaceholder')}
+                  placeholder={t("profile.addressPlaceholder")}
                 />
               </View>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('profile.address2Label')}</Text>
+                <Text style={styles.inputLabel}>
+                  {t("profile.address2Label")}
+                </Text>
                 <TextInput
                   style={styles.editInput}
                   value={editAddress2}
                   onChangeText={handleAddress2Change}
-                  placeholder={t('profile.address2Placeholder')}
+                  placeholder={t("profile.address2Placeholder")}
                   placeholderTextColor={colors.muted}
                 />
               </View>
@@ -1285,15 +1488,21 @@ export default function ProfileScreen({ navigation }: Props) {
                     {updateMutation.isPending ? (
                       <ActivityIndicator color="#fff" />
                     ) : (
-                      <Text style={styles.buttonText}>{t('common.save')}</Text>
+                      <Text style={styles.buttonText}>{t("common.save")}</Text>
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.button, styles.secondary, styles.buttonInline]}
+                    style={[
+                      styles.button,
+                      styles.secondary,
+                      styles.buttonInline,
+                    ]}
                     onPress={handleProfileReset}
                     disabled={updateMutation.isPending}
                   >
-                    <Text style={styles.buttonTextSecondary}>{t('common.cancel')}</Text>
+                    <Text style={styles.buttonTextSecondary}>
+                      {t("common.cancel")}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -1301,25 +1510,52 @@ export default function ProfileScreen({ navigation }: Props) {
 
             {canSwitchViewMode ? (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{t('profile.viewModeTitle')}</Text>
-                <Text style={styles.sectionText}>{t('profile.viewModeDescription')}</Text>
+                <Text style={styles.sectionTitle}>
+                  {t("profile.viewModeTitle")}
+                </Text>
+                <Text style={styles.sectionText}>
+                  {t("profile.viewModeDescription")}
+                </Text>
                 <View style={styles.modeOptions}>
                   <TouchableOpacity
-                    style={[styles.modeOption, resolvedViewMode === 'consumer' && styles.modeOptionActive]}
-                    onPress={() => handleViewModeChange('consumer')}
-                    disabled={updateMutation.isPending || languageMutation.isPending}
+                    style={[
+                      styles.modeOption,
+                      resolvedViewMode === "consumer" &&
+                        styles.modeOptionActive,
+                    ]}
+                    onPress={() => handleViewModeChange("consumer")}
+                    disabled={
+                      updateMutation.isPending || languageMutation.isPending
+                    }
                   >
-                    <Text style={[styles.modeOptionText, resolvedViewMode === 'consumer' && styles.modeOptionTextActive]}>
-                      {t('profile.viewModeConsumer')}
+                    <Text
+                      style={[
+                        styles.modeOptionText,
+                        resolvedViewMode === "consumer" &&
+                          styles.modeOptionTextActive,
+                      ]}
+                    >
+                      {t("profile.viewModeConsumer")}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.modeOption, resolvedViewMode === 'private' && styles.modeOptionActive]}
-                    onPress={() => handleViewModeChange('private')}
-                    disabled={updateMutation.isPending || languageMutation.isPending}
+                    style={[
+                      styles.modeOption,
+                      resolvedViewMode === "private" && styles.modeOptionActive,
+                    ]}
+                    onPress={() => handleViewModeChange("private")}
+                    disabled={
+                      updateMutation.isPending || languageMutation.isPending
+                    }
                   >
-                    <Text style={[styles.modeOptionText, resolvedViewMode === 'private' && styles.modeOptionTextActive]}>
-                      {t('profile.viewModePrivate')}
+                    <Text
+                      style={[
+                        styles.modeOptionText,
+                        resolvedViewMode === "private" &&
+                          styles.modeOptionTextActive,
+                      ]}
+                    >
+                      {t("profile.viewModePrivate")}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1327,18 +1563,28 @@ export default function ProfileScreen({ navigation }: Props) {
             ) : null}
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t('profile.language')}</Text>
+              <Text style={styles.sectionTitle}>{t("profile.language")}</Text>
               <View style={styles.languageOptions}>
-                {(['pt', 'en'] as const).map((lang) => {
+                {(["pt", "en"] as const).map((lang) => {
                   const isActive = currentLanguage === lang;
                   return (
                     <TouchableOpacity
                       key={lang}
-                      style={[styles.languageOption, isActive && styles.languageOptionActive]}
+                      style={[
+                        styles.languageOption,
+                        isActive && styles.languageOptionActive,
+                      ]}
                       onPress={() => handleLanguageChange(lang)}
-                      disabled={updateMutation.isPending || languageMutation.isPending}
+                      disabled={
+                        updateMutation.isPending || languageMutation.isPending
+                      }
                     >
-                      <Text style={[styles.languageOptionText, isActive && styles.languageOptionTextActive]}>
+                      <Text
+                        style={[
+                          styles.languageOptionText,
+                          isActive && styles.languageOptionTextActive,
+                        ]}
+                      >
                         {t(`language.${lang}`)}
                       </Text>
                     </TouchableOpacity>
@@ -1346,81 +1592,160 @@ export default function ProfileScreen({ navigation }: Props) {
                 })}
               </View>
             </View>
-
           </>
         ) : null}
 
-        {activeSection === 'notifications' ? (
+        {activeSection === "notifications" ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('profile.notificationsTitle')}</Text>
-            <Text style={styles.sectionText}>{t('profile.notificationsDescription')}</Text>
+            <Text style={styles.sectionTitle}>
+              {t("profile.notificationsTitle")}
+            </Text>
+            <Text style={styles.sectionText}>
+              {t("profile.notificationsDescription")}
+            </Text>
             {loadingNotifications ? (
-              <ActivityIndicator color={colors.primary} style={{ marginBottom: 12 }} />
+              <ActivityIndicator
+                color={colors.primary}
+                style={{ marginBottom: 12 }}
+              />
             ) : null}
             <View style={styles.toggleRow}>
               <View style={styles.toggleTextGroup}>
-                <Text style={styles.toggleLabel}>{t('profile.notificationsPush')}</Text>
-                <Text style={styles.toggleHelper}>{t('profile.notificationsPushHelper')}</Text>
+                <Text style={styles.toggleLabel}>
+                  {t("profile.notificationsPush")}
+                </Text>
+                <Text style={styles.toggleHelper}>
+                  {t("profile.notificationsPushHelper")}
+                </Text>
               </View>
               <Switch
                 value={pushEnabled}
                 onValueChange={handleTogglePushNotifications}
                 disabled={notificationsDisabled}
                 thumbColor={pushEnabled ? colors.primary : colors.surface}
-                trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
+                trackColor={{
+                  false: colors.surfaceBorder,
+                  true: colors.switchTrack,
+                }}
                 ios_backgroundColor={colors.surface}
               />
             </View>
 
             <View style={styles.toggleGroup}>
-              <Text style={styles.toggleGroupLabel}>{t('profile.notificationsAppointments')}</Text>
+              <Text style={styles.toggleGroupLabel}>
+                {t("profile.notificationsAppointments")}
+              </Text>
               <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>{t('profile.notificationsAppointmentsCreated')}</Text>
+                <Text style={styles.toggleLabel}>
+                  {t("profile.notificationsAppointmentsCreated")}
+                </Text>
                 <Switch
-                  value={resolvedNotificationPreferences.push.appointments.created}
-                  onValueChange={(value) => updatePreferences({ push: { appointments: { created: value } } })}
+                  value={
+                    resolvedNotificationPreferences.push.appointments.created
+                  }
+                  onValueChange={(value) =>
+                    updatePreferences({
+                      push: { appointments: { created: value } },
+                    })
+                  }
                   disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={resolvedNotificationPreferences.push.appointments.created ? colors.primary : colors.surface}
-                  trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
+                  thumbColor={
+                    resolvedNotificationPreferences.push.appointments.created
+                      ? colors.primary
+                      : colors.surface
+                  }
+                  trackColor={{
+                    false: colors.surfaceBorder,
+                    true: colors.switchTrack,
+                  }}
                   ios_backgroundColor={colors.surface}
                 />
               </View>
               <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>{t('profile.notificationsAppointmentsConfirmed')}</Text>
+                <Text style={styles.toggleLabel}>
+                  {t("profile.notificationsAppointmentsConfirmed")}
+                </Text>
                 <Switch
-                  value={resolvedNotificationPreferences.push.appointments.confirmed}
-                  onValueChange={(value) => updatePreferences({ push: { appointments: { confirmed: value } } })}
+                  value={
+                    resolvedNotificationPreferences.push.appointments.confirmed
+                  }
+                  onValueChange={(value) =>
+                    updatePreferences({
+                      push: { appointments: { confirmed: value } },
+                    })
+                  }
                   disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={resolvedNotificationPreferences.push.appointments.confirmed ? colors.primary : colors.surface}
-                  trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
+                  thumbColor={
+                    resolvedNotificationPreferences.push.appointments.confirmed
+                      ? colors.primary
+                      : colors.surface
+                  }
+                  trackColor={{
+                    false: colors.surfaceBorder,
+                    true: colors.switchTrack,
+                  }}
                   ios_backgroundColor={colors.surface}
                 />
               </View>
               <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>{t('profile.notificationsAppointmentsCancelled')}</Text>
+                <Text style={styles.toggleLabel}>
+                  {t("profile.notificationsAppointmentsCancelled")}
+                </Text>
                 <Switch
-                  value={resolvedNotificationPreferences.push.appointments.cancelled}
-                  onValueChange={(value) => updatePreferences({ push: { appointments: { cancelled: value } } })}
+                  value={
+                    resolvedNotificationPreferences.push.appointments.cancelled
+                  }
+                  onValueChange={(value) =>
+                    updatePreferences({
+                      push: { appointments: { cancelled: value } },
+                    })
+                  }
                   disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={resolvedNotificationPreferences.push.appointments.cancelled ? colors.primary : colors.surface}
-                  trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
+                  thumbColor={
+                    resolvedNotificationPreferences.push.appointments.cancelled
+                      ? colors.primary
+                      : colors.surface
+                  }
+                  trackColor={{
+                    false: colors.surfaceBorder,
+                    true: colors.switchTrack,
+                  }}
                   ios_backgroundColor={colors.surface}
                 />
               </View>
               <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>{t('profile.notificationsAppointmentsReminder')}</Text>
+                <Text style={styles.toggleLabel}>
+                  {t("profile.notificationsAppointmentsReminder")}
+                </Text>
                 <Switch
-                  value={resolvedNotificationPreferences.push.appointments.reminder}
-                  onValueChange={(value) => updatePreferences({ push: { appointments: { reminder: value } } })}
+                  value={
+                    resolvedNotificationPreferences.push.appointments.reminder
+                  }
+                  onValueChange={(value) =>
+                    updatePreferences({
+                      push: { appointments: { reminder: value } },
+                    })
+                  }
                   disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={resolvedNotificationPreferences.push.appointments.reminder ? colors.primary : colors.surface}
-                  trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
+                  thumbColor={
+                    resolvedNotificationPreferences.push.appointments.reminder
+                      ? colors.primary
+                      : colors.surface
+                  }
+                  trackColor={{
+                    false: colors.surfaceBorder,
+                    true: colors.switchTrack,
+                  }}
                   ios_backgroundColor={colors.surface}
                 />
               </View>
               <View style={styles.reminderGroup}>
-                <Text style={styles.reminderTitle}>{t('profile.notificationsRemindersTitle')}</Text>
-                <Text style={styles.reminderHelper}>{t('profile.notificationsRemindersHelper')}</Text>
+                <Text style={styles.reminderTitle}>
+                  {t("profile.notificationsRemindersTitle")}
+                </Text>
+                <Text style={styles.reminderHelper}>
+                  {t("profile.notificationsRemindersHelper")}
+                </Text>
                 <View style={styles.reminderChipsRow}>
                   {reminderChipOptions.map((offset) => {
                     const isActive = reminderOffsets.includes(offset);
@@ -1439,7 +1764,8 @@ export default function ProfileScreen({ navigation }: Props) {
                           style={[
                             styles.reminderChipText,
                             isActive && styles.reminderChipTextActive,
-                            remindersDisabled && styles.reminderChipTextDisabled,
+                            remindersDisabled &&
+                              styles.reminderChipTextDisabled,
                           ]}
                         >
                           {formatReminderOffsetLabel(offset)}
@@ -1452,7 +1778,9 @@ export default function ProfileScreen({ navigation }: Props) {
                   <TextInput
                     value={customReminderInput}
                     onChangeText={setCustomReminderInput}
-                    placeholder={t('profile.notificationsRemindersCustomPlaceholder')}
+                    placeholder={t(
+                      "profile.notificationsRemindersCustomPlaceholder"
+                    )}
                     placeholderTextColor={colors.muted}
                     keyboardType="number-pad"
                     editable={!remindersDisabled}
@@ -1470,7 +1798,7 @@ export default function ProfileScreen({ navigation }: Props) {
                     disabled={remindersDisabled}
                   >
                     <Text style={styles.reminderAddButtonText}>
-                      {t('profile.notificationsRemindersAdd')}
+                      {t("profile.notificationsRemindersAdd")}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1478,45 +1806,90 @@ export default function ProfileScreen({ navigation }: Props) {
             </View>
 
             <View style={styles.toggleGroup}>
-              <Text style={styles.toggleGroupLabel}>{t('profile.notificationsMarketplace')}</Text>
+              <Text style={styles.toggleGroupLabel}>
+                {t("profile.notificationsMarketplace")}
+              </Text>
               <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>{t('profile.notificationsMarketplaceRequests')}</Text>
+                <Text style={styles.toggleLabel}>
+                  {t("profile.notificationsMarketplaceRequests")}
+                </Text>
                 <Switch
-                  value={resolvedNotificationPreferences.push.marketplace.request}
-                  onValueChange={(value) => updatePreferences({ push: { marketplace: { request: value } } })}
+                  value={
+                    resolvedNotificationPreferences.push.marketplace.request
+                  }
+                  onValueChange={(value) =>
+                    updatePreferences({
+                      push: { marketplace: { request: value } },
+                    })
+                  }
                   disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={resolvedNotificationPreferences.push.marketplace.request ? colors.primary : colors.surface}
-                  trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
+                  thumbColor={
+                    resolvedNotificationPreferences.push.marketplace.request
+                      ? colors.primary
+                      : colors.surface
+                  }
+                  trackColor={{
+                    false: colors.surfaceBorder,
+                    true: colors.switchTrack,
+                  }}
                   ios_backgroundColor={colors.surface}
                 />
               </View>
             </View>
 
             <View style={styles.toggleGroup}>
-              <Text style={styles.toggleGroupLabel}>{t('profile.notificationsPayments')}</Text>
+              <Text style={styles.toggleGroupLabel}>
+                {t("profile.notificationsPayments")}
+              </Text>
               <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>{t('profile.notificationsPaymentsUpdated')}</Text>
+                <Text style={styles.toggleLabel}>
+                  {t("profile.notificationsPaymentsUpdated")}
+                </Text>
                 <Switch
                   value={resolvedNotificationPreferences.push.payments.updated}
-                  onValueChange={(value) => updatePreferences({ push: { payments: { updated: value } } })}
+                  onValueChange={(value) =>
+                    updatePreferences({
+                      push: { payments: { updated: value } },
+                    })
+                  }
                   disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={resolvedNotificationPreferences.push.payments.updated ? colors.primary : colors.surface}
-                  trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
+                  thumbColor={
+                    resolvedNotificationPreferences.push.payments.updated
+                      ? colors.primary
+                      : colors.surface
+                  }
+                  trackColor={{
+                    false: colors.surfaceBorder,
+                    true: colors.switchTrack,
+                  }}
                   ios_backgroundColor={colors.surface}
                 />
               </View>
             </View>
 
             <View style={styles.toggleGroup}>
-              <Text style={styles.toggleGroupLabel}>{t('profile.notificationsMarketing')}</Text>
+              <Text style={styles.toggleGroupLabel}>
+                {t("profile.notificationsMarketing")}
+              </Text>
               <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>{t('profile.notificationsMarketing')}</Text>
+                <Text style={styles.toggleLabel}>
+                  {t("profile.notificationsMarketing")}
+                </Text>
                 <Switch
                   value={resolvedNotificationPreferences.push.marketing}
-                  onValueChange={(value) => updatePreferences({ push: { marketing: value } })}
+                  onValueChange={(value) =>
+                    updatePreferences({ push: { marketing: value } })
+                  }
                   disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={resolvedNotificationPreferences.push.marketing ? colors.primary : colors.surface}
-                  trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
+                  thumbColor={
+                    resolvedNotificationPreferences.push.marketing
+                      ? colors.primary
+                      : colors.surface
+                  }
+                  trackColor={{
+                    false: colors.surfaceBorder,
+                    true: colors.switchTrack,
+                  }}
                   ios_backgroundColor={colors.surface}
                 />
               </View>
@@ -1524,39 +1897,59 @@ export default function ProfileScreen({ navigation }: Props) {
           </View>
         ) : null}
 
-        {activeSection === 'security' ? (
+        {activeSection === "security" ? (
           <>
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t('profile.linkTitle')}</Text>
-              <Text style={styles.sectionText}>{t('profile.linkDescription')}</Text>
+              <Text style={styles.sectionTitle}>{t("profile.linkTitle")}</Text>
+              <Text style={styles.sectionText}>
+                {t("profile.linkDescription")}
+              </Text>
               <View style={styles.linkGroup}>
                 <TouchableOpacity
                   style={[
                     styles.linkButton,
-                    (linkingProvider || isGoogleLinked) && styles.buttonDisabled,
+                    (linkingProvider || isGoogleLinked) &&
+                      styles.buttonDisabled,
                   ]}
-                  onPress={() => handleLinkProvider('google')}
+                  onPress={() => handleLinkProvider("google")}
                   disabled={Boolean(linkingProvider) || isGoogleLinked}
                 >
                   <View style={styles.linkButtonContent}>
-                    <Ionicons name="logo-google" size={18} color={colors.text} />
-                    <Text style={styles.linkButtonText}>{googleButtonLabel}</Text>
-                    {linkingProvider === 'google' ? <ActivityIndicator color={colors.text} /> : null}
+                    <Ionicons
+                      name="logo-google"
+                      size={18}
+                      color={colors.text}
+                    />
+                    <Text style={styles.linkButtonText}>
+                      {googleButtonLabel}
+                    </Text>
+                    {linkingProvider === "google" ? (
+                      <ActivityIndicator color={colors.text} />
+                    ) : null}
                   </View>
                 </TouchableOpacity>
                 {showAppleLink ? (
                   <TouchableOpacity
                     style={[
                       styles.linkButton,
-                      (linkingProvider || isAppleLinked) && styles.buttonDisabled,
+                      (linkingProvider || isAppleLinked) &&
+                        styles.buttonDisabled,
                     ]}
-                    onPress={() => handleLinkProvider('apple')}
+                    onPress={() => handleLinkProvider("apple")}
                     disabled={Boolean(linkingProvider) || isAppleLinked}
                   >
                     <View style={styles.linkButtonContent}>
-                      <Ionicons name="logo-apple" size={18} color={colors.text} />
-                      <Text style={styles.linkButtonText}>{appleButtonLabel}</Text>
-                      {linkingProvider === 'apple' ? <ActivityIndicator color={colors.text} /> : null}
+                      <Ionicons
+                        name="logo-apple"
+                        size={18}
+                        color={colors.text}
+                      />
+                      <Text style={styles.linkButtonText}>
+                        {appleButtonLabel}
+                      </Text>
+                      {linkingProvider === "apple" ? (
+                        <ActivityIndicator color={colors.text} />
+                      ) : null}
                     </View>
                   </TouchableOpacity>
                 ) : null}
@@ -1564,15 +1957,17 @@ export default function ProfileScreen({ navigation }: Props) {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t('profile.security')}</Text>
-              <Text style={styles.sectionText}>{t('profile.changePasswordDescription')}</Text>
+              <Text style={styles.sectionTitle}>{t("profile.security")}</Text>
+              <Text style={styles.sectionText}>
+                {t("profile.changePasswordDescription")}
+              </Text>
               {showPasswordForm ? (
                 <>
                   <TextInput
                     style={styles.editInput}
                     value={newPassword}
                     onChangeText={handleNewPasswordChange}
-                    placeholder={t('profile.newPassword')}
+                    placeholder={t("profile.newPassword")}
                     placeholderTextColor={colors.muted}
                     autoCapitalize="none"
                     secureTextEntry
@@ -1581,12 +1976,16 @@ export default function ProfileScreen({ navigation }: Props) {
                     style={styles.editInput}
                     value={confirmPassword}
                     onChangeText={handleConfirmPasswordChange}
-                    placeholder={t('profile.confirmPassword')}
+                    placeholder={t("profile.confirmPassword")}
                     placeholderTextColor={colors.muted}
                     autoCapitalize="none"
                     secureTextEntry
                   />
-                  {passwordError ? <Text style={[styles.error, { marginTop: 6 }]}>{passwordError}</Text> : null}
+                  {passwordError ? (
+                    <Text style={[styles.error, { marginTop: 6 }]}>
+                      {passwordError}
+                    </Text>
+                  ) : null}
                   <TouchableOpacity
                     style={styles.button}
                     onPress={handlePasswordSave}
@@ -1595,7 +1994,7 @@ export default function ProfileScreen({ navigation }: Props) {
                     {resetPasswordMutation.isPending ? (
                       <ActivityIndicator color="#fff" />
                     ) : (
-                      <Text style={styles.buttonText}>{t('common.save')}</Text>
+                      <Text style={styles.buttonText}>{t("common.save")}</Text>
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -1603,40 +2002,57 @@ export default function ProfileScreen({ navigation }: Props) {
                     onPress={handlePasswordCancel}
                     disabled={resetPasswordMutation.isPending}
                   >
-                    <Text style={styles.buttonTextSecondary}>{t('common.cancel')}</Text>
+                    <Text style={styles.buttonTextSecondary}>
+                      {t("common.cancel")}
+                    </Text>
                   </TouchableOpacity>
                 </>
               ) : (
                 <TouchableOpacity
                   style={styles.button}
                   onPress={handleOpenPasswordForm}
-                  disabled={updateMutation.isPending || languageMutation.isPending}
+                  disabled={
+                    updateMutation.isPending || languageMutation.isPending
+                  }
                 >
-                  <Text style={styles.buttonText}>{t('profile.changePassword')}</Text>
+                  <Text style={styles.buttonText}>
+                    {t("profile.changePassword")}
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
           </>
         ) : null}
 
-        {activeSection === 'marketplace' ? (
+        {activeSection === "marketplace" ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('marketplaceProfile.title')}</Text>
-            <Text style={styles.sectionText}>{t('profile.marketplaceSectionDescription')}</Text>
+            <Text style={styles.sectionTitle}>
+              {t("marketplaceProfile.title")}
+            </Text>
+            <Text style={styles.sectionText}>
+              {t("profile.marketplaceSectionDescription")}
+            </Text>
 
             <View style={styles.marketplaceMediaGrid}>
               <View style={styles.marketplaceMediaCard}>
-                <Text style={styles.marketplaceMediaTitle}>{t('marketplaceProfile.logoTitle')}</Text>
+                <Text style={styles.marketplaceMediaTitle}>
+                  {t("marketplaceProfile.logoTitle")}
+                </Text>
                 <TouchableOpacity
                   style={styles.marketplaceLogo}
-                  onPress={() => pickMarketplaceImage(uploadMarketplaceLogoFromUri)}
+                  onPress={() =>
+                    pickMarketplaceImage(uploadMarketplaceLogoFromUri)
+                  }
                   disabled={uploadingMarketplaceLogo}
                 >
                   {marketplaceLogoUrl ? (
-                    <Image source={{ uri: marketplaceLogoUrl }} style={styles.marketplaceLogoImage} />
+                    <Image
+                      source={{ uri: marketplaceLogoUrl }}
+                      style={styles.marketplaceLogoImage}
+                    />
                   ) : (
                     <Text style={styles.marketplaceLogoFallback}>
-                      {(marketplaceName.trim().charAt(0) || 'P').toUpperCase()}
+                      {(marketplaceName.trim().charAt(0) || "P").toUpperCase()}
                     </Text>
                   )}
                   {uploadingMarketplaceLogo ? (
@@ -1647,26 +2063,37 @@ export default function ProfileScreen({ navigation }: Props) {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.marketplaceMediaButton}
-                  onPress={() => pickMarketplaceImage(uploadMarketplaceLogoFromUri)}
+                  onPress={() =>
+                    pickMarketplaceImage(uploadMarketplaceLogoFromUri)
+                  }
                   disabled={uploadingMarketplaceLogo}
                 >
-                  <Text style={styles.marketplaceMediaButtonText}>{t('marketplaceProfile.changeLogo')}</Text>
+                  <Text style={styles.marketplaceMediaButtonText}>
+                    {t("marketplaceProfile.changeLogo")}
+                  </Text>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.marketplaceMediaCard}>
-                <Text style={styles.marketplaceMediaTitle}>{t('marketplaceProfile.heroTitle')}</Text>
+                <Text style={styles.marketplaceMediaTitle}>
+                  {t("marketplaceProfile.heroTitle")}
+                </Text>
                 <TouchableOpacity
                   style={styles.marketplaceHero}
-                  onPress={() => pickMarketplaceImage(uploadMarketplaceHeroFromUri)}
+                  onPress={() =>
+                    pickMarketplaceImage(uploadMarketplaceHeroFromUri)
+                  }
                   disabled={uploadingMarketplaceHero}
                 >
                   {marketplaceHeroUrl ? (
-                    <Image source={{ uri: marketplaceHeroUrl }} style={styles.marketplaceHeroImage} />
+                    <Image
+                      source={{ uri: marketplaceHeroUrl }}
+                      style={styles.marketplaceHeroImage}
+                    />
                   ) : (
                     <View style={styles.marketplaceHeroPlaceholder}>
                       <Text style={styles.marketplaceHeroPlaceholderText}>
-                        {t('marketplaceProfile.heroPlaceholder')}
+                        {t("marketplaceProfile.heroPlaceholder")}
                       </Text>
                     </View>
                   )}
@@ -1678,80 +2105,95 @@ export default function ProfileScreen({ navigation }: Props) {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.marketplaceMediaButton}
-                  onPress={() => pickMarketplaceImage(uploadMarketplaceHeroFromUri)}
+                  onPress={() =>
+                    pickMarketplaceImage(uploadMarketplaceHeroFromUri)
+                  }
                   disabled={uploadingMarketplaceHero}
                 >
-                  <Text style={styles.marketplaceMediaButtonText}>{t('marketplaceProfile.changeHero')}</Text>
+                  <Text style={styles.marketplaceMediaButtonText}>
+                    {t("marketplaceProfile.changeHero")}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>{t('marketplaceProfile.nameLabel')}</Text>
+              <Text style={styles.inputLabel}>
+                {t("marketplaceProfile.nameLabel")}
+              </Text>
               <TextInput
                 style={styles.editInput}
                 value={marketplaceName}
                 onChangeText={setMarketplaceName}
-                placeholder={t('marketplaceProfile.namePlaceholder')}
+                placeholder={t("marketplaceProfile.namePlaceholder")}
                 placeholderTextColor={colors.muted}
               />
             </View>
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>{t('marketplaceProfile.regionLabel')}</Text>
+              <Text style={styles.inputLabel}>
+                {t("marketplaceProfile.regionLabel")}
+              </Text>
               <TextInput
                 style={styles.editInput}
                 value={marketplaceRegion}
                 onChangeText={setMarketplaceRegion}
-                placeholder={t('marketplaceProfile.regionPlaceholder')}
+                placeholder={t("marketplaceProfile.regionPlaceholder")}
                 placeholderTextColor={colors.muted}
               />
             </View>
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>{t('marketplaceProfile.descriptionLabel')}</Text>
+              <Text style={styles.inputLabel}>
+                {t("marketplaceProfile.descriptionLabel")}
+              </Text>
               <TextInput
-                style={[styles.editInput, { minHeight: 90, textAlignVertical: 'top' }]}
+                style={[
+                  styles.editInput,
+                  { minHeight: 90, textAlignVertical: "top" },
+                ]}
                 value={marketplaceDescription}
                 onChangeText={setMarketplaceDescription}
-                placeholder={t('marketplaceProfile.descriptionPlaceholder')}
+                placeholder={t("marketplaceProfile.descriptionPlaceholder")}
                 placeholderTextColor={colors.muted}
                 multiline
               />
             </View>
 
-            <Text style={styles.subsectionTitle}>{t('marketplaceProfile.socialTitle')}</Text>
+            <Text style={styles.subsectionTitle}>
+              {t("marketplaceProfile.socialTitle")}
+            </Text>
             <View style={styles.inputGroup}>
               <Input
-                label={t('marketplaceProfile.instagramLabel')}
+                label={t("marketplaceProfile.instagramLabel")}
                 value={marketplaceInstagram}
                 onChangeText={setMarketplaceInstagram}
-                placeholder={t('marketplaceProfile.instagramPlaceholder')}
+                placeholder={t("marketplaceProfile.instagramPlaceholder")}
                 autoCapitalize="none"
               />
             </View>
             <View style={styles.inputGroup}>
               <Input
-                label={t('marketplaceProfile.facebookLabel')}
+                label={t("marketplaceProfile.facebookLabel")}
                 value={marketplaceFacebook}
                 onChangeText={setMarketplaceFacebook}
-                placeholder={t('marketplaceProfile.facebookPlaceholder')}
+                placeholder={t("marketplaceProfile.facebookPlaceholder")}
                 autoCapitalize="none"
               />
             </View>
             <View style={styles.inputGroup}>
               <Input
-                label={t('marketplaceProfile.tiktokLabel')}
+                label={t("marketplaceProfile.tiktokLabel")}
                 value={marketplaceTiktok}
                 onChangeText={setMarketplaceTiktok}
-                placeholder={t('marketplaceProfile.tiktokPlaceholder')}
+                placeholder={t("marketplaceProfile.tiktokPlaceholder")}
                 autoCapitalize="none"
               />
             </View>
             <View style={styles.inputGroup}>
               <Input
-                label={t('marketplaceProfile.websiteLabel')}
+                label={t("marketplaceProfile.websiteLabel")}
                 value={marketplaceWebsite}
                 onChangeText={setMarketplaceWebsite}
-                placeholder={t('marketplaceProfile.websitePlaceholder')}
+                placeholder={t("marketplaceProfile.websitePlaceholder")}
                 autoCapitalize="none"
               />
             </View>
@@ -1766,7 +2208,9 @@ export default function ProfileScreen({ navigation }: Props) {
                   {marketplaceMutation.isPending ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.buttonText}>{t('profile.marketplaceSave')}</Text>
+                    <Text style={styles.buttonText}>
+                      {t("profile.marketplaceSave")}
+                    </Text>
                   )}
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -1774,7 +2218,9 @@ export default function ProfileScreen({ navigation }: Props) {
                   onPress={handleMarketplaceReset}
                   disabled={marketplaceMutation.isPending}
                 >
-                  <Text style={styles.buttonTextSecondary}>{t('common.cancel')}</Text>
+                  <Text style={styles.buttonTextSecondary}>
+                    {t("common.cancel")}
+                  </Text>
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -1786,19 +2232,21 @@ export default function ProfileScreen({ navigation }: Props) {
             onPress={async () => {
               hapticSelection();
               await useAuthStore.getState().clear();
-              navigation.replace('Login');
+              navigation.replace("Login");
             }}
           >
-            <Text style={styles.buttonText}>{t('profile.logout')}</Text>
+            <Text style={styles.buttonText}>{t("profile.logout")}</Text>
           </TouchableOpacity>
-          {versionLabel ? <Text style={styles.footerVersion}>{versionLabel}</Text> : null}
+          {versionLabel ? (
+            <Text style={styles.footerVersion}>{versionLabel}</Text>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -1818,8 +2266,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginBottom: 16,
     },
     headerRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
     },
     avatar: {
       height: 64,
@@ -1828,8 +2276,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       backgroundColor: colors.background,
       borderWidth: 1,
       borderColor: colors.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       marginRight: 14,
     },
     headerInfo: {
@@ -1837,19 +2285,19 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     avatarText: {
       color: colors.primary,
-      fontWeight: '800',
+      fontWeight: "800",
       fontSize: 24,
     },
     headerLabel: {
       color: colors.muted,
       fontSize: 12,
       letterSpacing: 1.2,
-      textTransform: 'uppercase',
+      textTransform: "uppercase",
     },
     headerTitle: {
       color: colors.text,
       fontSize: 22,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     headerSubtitle: {
       color: colors.muted,
@@ -1866,20 +2314,20 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginTop: 6,
     },
     avatarImage: {
-      width: '100%',
-      height: '100%',
+      width: "100%",
+      height: "100%",
       borderRadius: 10,
     },
     avatarBadge: {
-      position: 'absolute',
+      position: "absolute",
       bottom: -4,
       right: -4,
       backgroundColor: colors.primary,
       width: 24,
       height: 24,
       borderRadius: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       borderWidth: 2,
       borderColor: colors.surface,
     },
@@ -1887,15 +2335,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontSize: 12,
     },
     avatarLoading: {
-      position: 'absolute',
+      position: "absolute",
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
       borderRadius: 10,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     editInput: {
       backgroundColor: colors.surface,
@@ -1922,7 +2370,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     sectionTabs: {
       marginTop: 8,
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 8,
       backgroundColor: colors.surface,
       borderRadius: 999,
@@ -1934,27 +2382,27 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       paddingVertical: 8,
       paddingHorizontal: 12,
       borderRadius: 999,
-      alignItems: 'center',
+      alignItems: "center",
     },
     sectionTabActive: {
       backgroundColor: colors.primarySoft,
     },
     sectionTabText: {
       color: colors.muted,
-      fontWeight: '600',
+      fontWeight: "600",
       fontSize: 13,
     },
     sectionTabTextActive: {
       color: colors.primary,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     inputRow: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 12,
     },
     subsectionTitle: {
       color: colors.text,
-      fontWeight: '700',
+      fontWeight: "700",
       marginTop: 8,
       marginBottom: 12,
     },
@@ -1966,17 +2414,17 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.muted,
       fontSize: 11,
       letterSpacing: 0.6,
-      textTransform: 'uppercase',
+      textTransform: "uppercase",
       marginBottom: 6,
     },
     inputLabelRegular: {
-      fontWeight: '400',
+      fontWeight: "400",
     },
     phoneField: {
       marginBottom: 0,
     },
     languageOptions: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 12,
       marginTop: 8,
     },
@@ -1987,7 +2435,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       backgroundColor: colors.background,
       borderRadius: 10,
       paddingVertical: 10,
-      alignItems: 'center',
+      alignItems: "center",
     },
     languageOptionActive: {
       borderColor: colors.primary,
@@ -1995,15 +2443,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     languageOptionText: {
       color: colors.text,
-      fontWeight: '600',
+      fontWeight: "600",
       fontSize: 14,
     },
     languageOptionTextActive: {
       color: colors.primary,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     modeOptions: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 12,
       marginTop: 8,
     },
@@ -2014,7 +2462,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       backgroundColor: colors.background,
       borderRadius: 10,
       paddingVertical: 12,
-      alignItems: 'center',
+      alignItems: "center",
     },
     modeOptionActive: {
       borderColor: colors.primary,
@@ -2022,16 +2470,16 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     modeOptionText: {
       color: colors.text,
-      fontWeight: '600',
+      fontWeight: "600",
       fontSize: 14,
     },
     modeOptionTextActive: {
       color: colors.primary,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     sectionTitle: {
       color: colors.text,
-      fontWeight: '700',
+      fontWeight: "700",
       fontSize: 16,
     },
     sectionText: {
@@ -2039,8 +2487,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginBottom: 12,
     },
     marketplaceMediaGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
+      flexDirection: "row",
+      flexWrap: "wrap",
       gap: 12,
       marginBottom: 12,
     },
@@ -2055,7 +2503,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     marketplaceMediaTitle: {
       fontSize: 13,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
       marginBottom: 8,
     },
@@ -2063,32 +2511,32 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       height: 96,
       borderRadius: 12,
       backgroundColor: colors.background,
-      alignItems: 'center',
-      justifyContent: 'center',
-      overflow: 'hidden',
-      position: 'relative',
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+      position: "relative",
     },
     marketplaceLogoImage: {
-      width: '100%',
-      height: '100%',
+      width: "100%",
+      height: "100%",
     },
     marketplaceLogoFallback: {
       fontSize: 24,
-      fontWeight: '800',
+      fontWeight: "800",
       color: colors.primary,
     },
     marketplaceHero: {
       height: 96,
       borderRadius: 12,
       backgroundColor: colors.background,
-      alignItems: 'center',
-      justifyContent: 'center',
-      overflow: 'hidden',
-      position: 'relative',
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+      position: "relative",
     },
     marketplaceHeroImage: {
-      width: '100%',
-      height: '100%',
+      width: "100%",
+      height: "100%",
     },
     marketplaceHeroPlaceholder: {
       paddingHorizontal: 8,
@@ -2096,17 +2544,17 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     marketplaceHeroPlaceholderText: {
       color: colors.muted,
       fontSize: 12,
-      textAlign: 'center',
+      textAlign: "center",
     },
     marketplaceMediaOverlay: {
-      position: 'absolute',
+      position: "absolute",
       top: 0,
       right: 0,
       bottom: 0,
       left: 0,
-      backgroundColor: 'rgba(0,0,0,0.35)',
-      alignItems: 'center',
-      justifyContent: 'center',
+      backgroundColor: "rgba(0,0,0,0.35)",
+      alignItems: "center",
+      justifyContent: "center",
     },
     marketplaceMediaButton: {
       marginTop: 10,
@@ -2114,17 +2562,17 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderColor: colors.primary,
       borderRadius: 10,
       paddingVertical: 8,
-      alignItems: 'center',
+      alignItems: "center",
     },
     marketplaceMediaButtonText: {
       color: colors.primary,
-      fontWeight: '700',
+      fontWeight: "700",
       fontSize: 12,
     },
     toggleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
       paddingVertical: 6,
     },
     toggleTextGroup: {
@@ -2134,7 +2582,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     toggleLabel: {
       color: colors.text,
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     toggleHelper: {
       color: colors.muted,
@@ -2151,7 +2599,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.muted,
       fontSize: 11,
       letterSpacing: 0.6,
-      textTransform: 'uppercase',
+      textTransform: "uppercase",
       marginBottom: 6,
     },
     reminderGroup: {
@@ -2163,7 +2611,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     reminderTitle: {
       color: colors.text,
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     reminderHelper: {
       color: colors.muted,
@@ -2172,8 +2620,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginBottom: 8,
     },
     reminderChipsRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
+      flexDirection: "row",
+      flexWrap: "wrap",
       gap: 8,
       marginBottom: 10,
     },
@@ -2195,7 +2643,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     reminderChipText: {
       color: colors.text,
       fontSize: 12,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     reminderChipTextActive: {
       color: colors.primary,
@@ -2204,8 +2652,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.muted,
     },
     reminderCustomRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 8,
     },
     reminderInput: {
@@ -2233,7 +2681,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     reminderAddButtonText: {
       color: colors.onPrimary,
-      fontWeight: '700',
+      fontWeight: "700",
       fontSize: 12,
     },
     linkGroup: {
@@ -2245,24 +2693,24 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderColor: colors.surfaceBorder,
       borderRadius: 10,
       paddingVertical: 12,
-      alignItems: 'center',
+      alignItems: "center",
     },
     linkButtonContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
       gap: 10,
     },
     linkButtonText: {
       color: colors.text,
-      fontWeight: '700',
+      fontWeight: "700",
       fontSize: 15,
     },
     buttonDisabled: {
       opacity: 0.6,
     },
     actionRow: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 12,
       marginTop: 8,
     },
@@ -2270,7 +2718,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       backgroundColor: colors.primary,
       borderRadius: 10,
       paddingVertical: 12,
-      alignItems: 'center',
+      alignItems: "center",
       marginBottom: 10,
     },
     buttonInline: {
@@ -2279,7 +2727,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     buttonText: {
       color: colors.onPrimary,
-      fontWeight: '700',
+      fontWeight: "700",
       fontSize: 16,
     },
     secondary: {
@@ -2289,17 +2737,17 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     buttonTextSecondary: {
       color: colors.text,
-      fontWeight: '700',
+      fontWeight: "700",
       fontSize: 16,
     },
     danger: {
-      backgroundColor: '#ef4444',
+      backgroundColor: "#ef4444",
     },
     footerVersion: {
       marginTop: 6,
       color: colors.muted,
       fontSize: 11,
-      textAlign: 'center',
+      textAlign: "center",
     },
   });
 }

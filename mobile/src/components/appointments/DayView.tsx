@@ -1,16 +1,34 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Pressable, Linking, Platform, PanResponder } from 'react-native';
-import { FontAwesome, Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { useBrandingTheme } from '../../theme/useBrandingTheme';
-import { getDateLocale } from '../../i18n';
-import type { Appointment } from '../../api/appointments';
-import { getStatusColor } from '../../utils/appointmentStatus';
-import { formatCustomerAddress, formatCustomerName } from '../../utils/customer';
-import { formatPetLabel, getAppointmentPetNames, getAppointmentServiceEntries } from '../../utils/appointmentSummary';
-import { getCardStyle } from '../../theme/uiTokens';
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  Alert,
+  Pressable,
+  Linking,
+  Platform,
+  PanResponder,
+} from "react-native";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import { useBrandingTheme } from "../../theme/useBrandingTheme";
+import { getDateLocale } from "../../i18n";
+import type { Appointment } from "../../api/appointments";
+import { getStatusColor } from "../../utils/appointmentStatus";
+import {
+  formatCustomerAddress,
+  formatCustomerName,
+} from "../../utils/customer";
+import {
+  formatPetLabel,
+  getAppointmentPetNames,
+  getAppointmentServiceEntries,
+} from "../../utils/appointmentSummary";
+import { getCardStyle } from "../../theme/uiTokens";
 
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || "";
 
 type DayViewProps = {
   appointments: Appointment[];
@@ -23,11 +41,11 @@ type DayViewProps = {
 };
 
 function formatTime(value?: string | null) {
-  if (!value) return '—';
+  if (!value) return "—";
   const match = String(value).match(/(\d{1,2}):(\d{2})/);
   if (match) {
     const [, hh, mm] = match;
-    return `${hh.padStart(2, '0')}:${mm}`;
+    return `${hh.padStart(2, "0")}:${mm}`;
   }
   return value;
 }
@@ -35,15 +53,15 @@ function formatTime(value?: string | null) {
 function formatDateLabel(date: Date, locale: string) {
   try {
     const label = date.toLocaleDateString(locale, {
-      weekday: 'short',
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
     });
     // Capitaliza a primeira letra para melhor legibilidade
     return label.charAt(0).toUpperCase() + label.slice(1);
   } catch {
-    return date.toLocaleDateString('sv-SE');
+    return date.toLocaleDateString("sv-SE");
   }
 }
 
@@ -57,7 +75,9 @@ const TAP_NAV_DELAY_MS = 120;
 const SWIPE_THRESHOLD = 60;
 const SWIPE_VELOCITY = 0.3;
 
-function getTimeFromString(time?: string | null): { hour: number; minute: number } | null {
+function getTimeFromString(
+  time?: string | null
+): { hour: number; minute: number } | null {
   if (!time) return null;
   const match = String(time).match(/(\d{1,2}):(\d{2})/);
   if (match) {
@@ -80,7 +100,11 @@ function toMinutes(time?: string | null): number | null {
   return parsed.hour * 60 + parsed.minute;
 }
 
-function isSlotFree(dayAppointments: Appointment[], startMinutes: number, durationMinutes: number): boolean {
+function isSlotFree(
+  dayAppointments: Appointment[],
+  startMinutes: number,
+  durationMinutes: number
+): boolean {
   const slotStart = startMinutes;
   const slotEnd = startMinutes + durationMinutes;
   return dayAppointments.every((apt) => {
@@ -92,10 +116,10 @@ function isSlotFree(dayAppointments: Appointment[], startMinutes: number, durati
   });
 }
 
-export function DayView({ 
-  appointments, 
-  selectedDate, 
-  onDateChange, 
+export function DayView({
+  appointments,
+  selectedDate,
+  onDateChange,
   onAppointmentPress,
   onNewAppointment,
   onRefresh,
@@ -104,7 +128,10 @@ export function DayView({
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
   const dateLocale = getDateLocale();
-  const [tapHighlight, setTapHighlight] = useState<{ top: number; height: number } | null>(null);
+  const [tapHighlight, setTapHighlight] = useState<{
+    top: number;
+    height: number;
+  } | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -119,9 +146,9 @@ export function DayView({
     };
   }, []);
 
-  const navigateDay = (direction: 'prev' | 'next') => {
+  const navigateDay = (direction: "prev" | "next") => {
     const date = new Date(selectedDate);
-    date.setDate(date.getDate() + (direction === 'next' ? 1 : -1));
+    date.setDate(date.getDate() + (direction === "next" ? 1 : -1));
     onDateChange(date);
   };
 
@@ -145,22 +172,29 @@ export function DayView({
           }
         },
       }),
-    [selectedDate, onDateChange],
+    [selectedDate, onDateChange]
   );
 
-  const selectedDateStr = selectedDate.toLocaleDateString('sv-SE');
+  const selectedDateStr = selectedDate.toLocaleDateString("sv-SE");
 
   const dayAppointments = appointments
     .filter((apt) => apt.appointment_date === selectedDateStr)
-    .sort((a, b) => (a.appointment_time || '').localeCompare(b.appointment_time || ''));
+    .sort((a, b) =>
+      (a.appointment_time || "").localeCompare(b.appointment_time || "")
+    );
 
   const getAvailableSlotDuration = (startMinutes: number) => {
     const dayEndMinutes = END_HOUR * 60;
     const nextStart = dayAppointments
       .map((apt) => toMinutes(apt.appointment_time))
-      .filter((value): value is number => value !== null && value >= startMinutes)
+      .filter(
+        (value): value is number => value !== null && value >= startMinutes
+      )
       .sort((a, b) => a - b)[0];
-    const limit = typeof nextStart === 'number' ? Math.min(nextStart, dayEndMinutes) : dayEndMinutes;
+    const limit =
+      typeof nextStart === "number"
+        ? Math.min(nextStart, dayEndMinutes)
+        : dayEndMinutes;
     const availableMinutes = limit - startMinutes;
     if (availableMinutes >= MAX_SLOT_MINUTES) return MAX_SLOT_MINUTES;
     if (availableMinutes >= MIN_SLOT_MINUTES) return MIN_SLOT_MINUTES;
@@ -170,19 +204,28 @@ export function DayView({
   const getSlotFromOffset = (offsetY: number) => {
     const maxStartMinutes = END_HOUR * 60 - MIN_SLOT_MINUTES;
     const totalMinutes = Math.min(
-      Math.max(Math.floor((offsetY / HOUR_HEIGHT) * 60) + START_HOUR * 60, START_HOUR * 60),
-      maxStartMinutes,
+      Math.max(
+        Math.floor((offsetY / HOUR_HEIGHT) * 60) + START_HOUR * 60,
+        START_HOUR * 60
+      ),
+      maxStartMinutes
     );
     const minutesRounded = totalMinutes - (totalMinutes % 30);
     const durationMinutes = getAvailableSlotDuration(minutesRounded);
     if (!durationMinutes) return null;
-    const hh = `${Math.floor(minutesRounded / 60)}`.padStart(2, '0');
-    const mm = `${minutesRounded % 60}`.padStart(2, '0');
+    const hh = `${Math.floor(minutesRounded / 60)}`.padStart(2, "0");
+    const mm = `${minutesRounded % 60}`.padStart(2, "0");
     const timeStr = `${hh}:${mm}`;
     const minutesFromStart = minutesRounded - START_HOUR * 60;
     const highlightTop = (minutesFromStart / 60) * HOUR_HEIGHT;
     const highlightHeight = (durationMinutes / 60) * HOUR_HEIGHT;
-    return { minutesRounded, timeStr, highlightTop, highlightHeight, durationMinutes };
+    return {
+      minutesRounded,
+      timeStr,
+      highlightTop,
+      highlightHeight,
+      durationMinutes,
+    };
   };
 
   const cardBase = getCardStyle(colors);
@@ -192,8 +235,8 @@ export function DayView({
       backgroundColor: colors.background,
     },
     dateNav: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       paddingHorizontal: 16,
       paddingVertical: 12,
       backgroundColor: colors.surface,
@@ -203,8 +246,8 @@ export function DayView({
     navButtonWrap: {
       width: 40,
       height: 40,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     navButton: {
       width: 40,
@@ -213,30 +256,30 @@ export function DayView({
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     navButtonText: {
       fontSize: 18,
     },
     dateInfo: {
       flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       paddingHorizontal: 8,
-      pointerEvents: 'none',
+      pointerEvents: "none",
     },
     dateLabel: {
       fontSize: 16,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
-      textTransform: 'capitalize',
+      textTransform: "capitalize",
     },
     gridContainer: {
       flex: 1,
     },
     gridContent: {
-      flexDirection: 'row',
+      flexDirection: "row",
     },
     timeColumn: {
       width: 60,
@@ -244,30 +287,30 @@ export function DayView({
     },
     hourRow: {
       height: HOUR_HEIGHT,
-      justifyContent: 'flex-start',
+      justifyContent: "flex-start",
       paddingTop: 4,
       paddingRight: 4,
     },
     hourText: {
       fontSize: 10,
       color: colors.muted,
-      textAlign: 'right',
+      textAlign: "right",
     },
     dayColumn: {
       flex: 1,
       borderLeftWidth: 1,
       borderLeftColor: colors.surfaceBorder,
-      position: 'relative',
+      position: "relative",
     },
     hourLine: {
-      position: 'absolute',
+      position: "absolute",
       left: 0,
       right: 0,
       height: 1,
       backgroundColor: colors.surfaceBorder,
     },
     tapHighlight: {
-      position: 'absolute',
+      position: "absolute",
       left: 4,
       right: 4,
       backgroundColor: colors.primarySoft,
@@ -277,29 +320,38 @@ export function DayView({
       opacity: 0.45,
     },
     appointmentBlock: {
-      position: 'absolute',
+      position: "absolute",
       left: 4,
       right: 4,
       ...cardBase,
       borderRadius: 6,
       padding: 6,
       borderLeftWidth: 4,
-      overflow: 'hidden',
-      flexDirection: 'row',
+      overflow: "hidden",
+      flexDirection: "row",
       gap: 6,
+    },
+    appointmentPetsColumn: {
+      gap: 2,
+      marginBottom: 2,
+    },
+    appointmentPetLine: {
+      fontSize: 10,
+      fontWeight: "600",
+      color: colors.muted,
     },
     appointmentContent: {
       flex: 1,
-      justifyContent: 'center',
+      justifyContent: "center",
     },
     appointmentTime: {
       fontSize: 10,
-      fontWeight: '700',
-      color: colors.text,
+      fontWeight: "700",
+      color: colors.muted,
     },
     appointmentTitle: {
-      fontSize: 11,
-      fontWeight: '700',
+      fontSize: 12,
+      fontWeight: "700",
       color: colors.text,
     },
     appointmentService: {
@@ -308,7 +360,7 @@ export function DayView({
     },
     emptySlot: {
       paddingVertical: 20,
-      alignItems: 'center',
+      alignItems: "center",
     },
     emptyText: {
       fontSize: 14,
@@ -319,10 +371,10 @@ export function DayView({
       marginBottom: 12,
     },
     appointmentActions: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 6,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     actionButton: {
       width: 32,
@@ -331,18 +383,21 @@ export function DayView({
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     whatsappButton: {
-      borderColor: '#25D366',
-      backgroundColor: '#E7F8EE',
+      borderColor: "#25D366",
+      backgroundColor: "#E7F8EE",
     },
   });
 
   const handlePressInAtPosition = (offsetY: number) => {
     const slot = getSlotFromOffset(offsetY);
-    if (!slot || !isSlotFree(dayAppointments, slot.minutesRounded, slot.durationMinutes)) {
+    if (
+      !slot ||
+      !isSlotFree(dayAppointments, slot.minutesRounded, slot.durationMinutes)
+    ) {
       setTapHighlight(null);
       return;
     }
@@ -359,9 +414,15 @@ export function DayView({
 
   const handleCreateAtPosition = (offsetY: number) => {
     const slot = getSlotFromOffset(offsetY);
-    if (!slot || !isSlotFree(dayAppointments, slot.minutesRounded, slot.durationMinutes)) {
+    if (
+      !slot ||
+      !isSlotFree(dayAppointments, slot.minutesRounded, slot.durationMinutes)
+    ) {
       setTapHighlight(null);
-      Alert.alert(t('dayView.slotUnavailableTitle'), t('dayView.slotUnavailableMessage'));
+      Alert.alert(
+        t("dayView.slotUnavailableTitle"),
+        t("dayView.slotUnavailableMessage")
+      );
       return;
     }
 
@@ -373,23 +434,34 @@ export function DayView({
     }, TAP_NAV_DELAY_MS);
   };
 
-  const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
+  const hours = Array.from(
+    { length: END_HOUR - START_HOUR },
+    (_, i) => START_HOUR + i
+  );
 
   return (
     <View style={styles.container} {...panResponder.panHandlers}>
       <View style={styles.dateNav}>
         <View style={styles.navButtonWrap}>
-          <TouchableOpacity style={styles.navButton} onPress={() => navigateDay('prev')}>
+          <TouchableOpacity
+            style={styles.navButton}
+            onPress={() => navigateDay("prev")}
+          >
             <Text style={styles.navButtonText}>←</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.dateInfo}>
-          <Text style={styles.dateLabel}>{formatDateLabel(selectedDate, dateLocale)}</Text>
+          <Text style={styles.dateLabel}>
+            {formatDateLabel(selectedDate, dateLocale)}
+          </Text>
         </View>
 
         <View style={styles.navButtonWrap}>
-          <TouchableOpacity style={styles.navButton} onPress={() => navigateDay('next')}>
+          <TouchableOpacity
+            style={styles.navButton}
+            onPress={() => navigateDay("next")}
+          >
             <Text style={styles.navButtonText}>→</Text>
           </TouchableOpacity>
         </View>
@@ -413,7 +485,10 @@ export function DayView({
             onPress={(e) => handleCreateAtPosition(e.nativeEvent.locationY)}
           >
             {hours.map((hour, index) => (
-              <View key={hour} style={[styles.hourLine, { top: index * HOUR_HEIGHT }]} />
+              <View
+                key={hour}
+                style={[styles.hourLine, { top: index * HOUR_HEIGHT }]}
+              />
             ))}
             {tapHighlight ? (
               <View
@@ -426,17 +501,46 @@ export function DayView({
             ) : null}
 
             {dayAppointments.map((appointment) => {
-              const topPosition = calculatePosition(appointment.appointment_time);
+              const topPosition = calculatePosition(
+                appointment.appointment_time
+              );
               const duration = appointment.duration || 60;
               const height = (duration / 60) * HOUR_HEIGHT - 4;
               const customer = appointment.customers;
               const customerName = formatCustomerName(customer);
               const phone = customer?.phone;
               const address = formatCustomerAddress(customer);
-              const appointmentServices = getAppointmentServiceEntries(appointment);
-              const petNames = getAppointmentPetNames(appointment, appointmentServices);
+              const appointmentServices =
+                getAppointmentServiceEntries(appointment);
+              const petNames = getAppointmentPetNames(
+                appointment,
+                appointmentServices
+              );
               const petLabel = formatPetLabel(petNames);
-              const serviceLineMap = new Map<string, { count: number; price?: number | null }>();
+              const petServiceMap = new Map<
+                string,
+                { label: string; services: string[] }
+              >();
+              appointmentServices.forEach((entry, idx) => {
+                const petName =
+                  entry.pets?.name || t("listView.serviceFallback");
+                const key =
+                  entry.pet_id ||
+                  entry.pets?.id ||
+                  `${petName || "pet"}-${idx}`;
+                const serviceName =
+                  entry.services?.name || t("listView.serviceFallback");
+                const bucket = petServiceMap.get(key) || {
+                  label: petName,
+                  services: [],
+                };
+                bucket.services.push(serviceName);
+                petServiceMap.set(key, bucket);
+              });
+              const serviceLineMap = new Map<
+                string,
+                { count: number; price?: number | null }
+              >();
               appointmentServices.forEach((entry) => {
                 const name = entry.services?.name;
                 if (!name) return;
@@ -445,14 +549,34 @@ export function DayView({
                   current.count += 1;
                   return;
                 }
-                serviceLineMap.set(name, { count: 1, price: entry.services?.price ?? null });
+                serviceLineMap.set(name, {
+                  count: 1,
+                  price: entry.services?.price ?? null,
+                });
               });
-              const appointmentServiceLines = Array.from(serviceLineMap.entries()).map(([name, info]) => {
-                const countLabel = info.count > 1 ? ` x${info.count}` : '';
-                const priceLabel = info.price != null ? ` (${info.price.toFixed(2)}€)` : '';
+              const appointmentServiceLines = Array.from(
+                serviceLineMap.entries()
+              ).map(([name, info]) => {
+                const countLabel = info.count > 1 ? ` x${info.count}` : "";
+                const priceLabel =
+                  info.price != null ? ` (${info.price.toFixed(2)}€)` : "";
                 return `${name}${countLabel}${priceLabel}`;
               });
-              
+
+              const petServiceLines = Array.from(petServiceMap.values()).map(
+                (item) => {
+                  const servicesLabel = item.services.join(", ");
+                  return `${item.label} | ${servicesLabel}`;
+                }
+              );
+
+              if (petServiceLines.length === 0) {
+                const fallbackPet = petLabel || t("listView.serviceFallback");
+                const fallbackService =
+                  appointmentServiceLines[0] || t("listView.serviceFallback");
+                petServiceLines.push(`${fallbackPet} | ${fallbackService}`);
+              }
+
               return (
                 <TouchableOpacity
                   key={appointment.id}
@@ -470,23 +594,34 @@ export function DayView({
                     <Text style={styles.appointmentTime} numberOfLines={1}>
                       {formatTime(appointment.appointment_time)}
                     </Text>
-                    <Text style={styles.appointmentTitle} numberOfLines={1}>
-                      {petLabel || '—'}
-                      {customerName ? ` | ${customerName}` : ''}
-                    </Text>
-                    {appointmentServiceLines.length > 0 ? (
-                      appointmentServiceLines.map((label, idx) => (
-                        <Text key={idx} style={styles.appointmentService} numberOfLines={1}>
-                          {label}
-                        </Text>
-                      ))
+                    {petServiceLines.length > 0 ? (
+                      <View style={styles.appointmentPetsColumn}>
+                        {customerName ? (
+                          <Text
+                            style={styles.appointmentTitle}
+                            numberOfLines={1}
+                          >
+                            {customerName}
+                          </Text>
+                        ) : null}
+                        {petServiceLines.map((line, idx) => (
+                          <Text
+                            key={idx}
+                            style={styles.appointmentPetLine}
+                            numberOfLines={1}
+                          >
+                            {line}
+                          </Text>
+                        ))}
+                      </View>
                     ) : (
-                      <Text style={styles.appointmentService} numberOfLines={1}>
-                        —
+                      <Text style={styles.appointmentTitle} numberOfLines={1}>
+                        {petLabel || "—"}
+                        {customerName ? ` | ${customerName}` : ""}
                       </Text>
                     )}
                   </View>
-                  
+
                   {height >= 40 && (phone || address) && (
                     <View style={styles.appointmentActions}>
                       {address && (
@@ -496,12 +631,15 @@ export function DayView({
                             e.stopPropagation();
                             try {
                               const response = await fetch(
-                                `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`
+                                `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+                                  address
+                                )}&key=${GOOGLE_MAPS_API_KEY}`
                               );
                               const data = await response.json();
-                              
+
                               if (data.results && data.results.length > 0) {
-                                const location = data.results[0].geometry.location;
+                                const location =
+                                  data.results[0].geometry.location;
                                 const url = Platform.select({
                                   ios: `maps:0,0?q=${location.lat},${location.lng}`,
                                   android: `geo:0,0?q=${location.lat},${location.lng}`,
@@ -510,11 +648,15 @@ export function DayView({
                                 Linking.openURL(url).catch(() => null);
                               }
                             } catch (error) {
-                              console.error('Geocoding error:', error);
+                              console.error("Geocoding error:", error);
                             }
                           }}
                         >
-                          <Ionicons name="location" size={14} color={colors.primary} />
+                          <Ionicons
+                            name="location"
+                            size={14}
+                            color={colors.primary}
+                          />
                         </TouchableOpacity>
                       )}
                       {phone && (
@@ -525,7 +667,11 @@ export function DayView({
                             Linking.openURL(`tel:${phone}`).catch(() => null);
                           }}
                         >
-                          <Ionicons name="call" size={14} color={colors.primary} />
+                          <Ionicons
+                            name="call"
+                            size={14}
+                            color={colors.primary}
+                          />
                         </TouchableOpacity>
                       )}
                       {phone && (
@@ -533,15 +679,25 @@ export function DayView({
                           style={[styles.actionButton, styles.whatsappButton]}
                           onPress={(e) => {
                             e.stopPropagation();
-                            const formattedPhone = phone.startsWith('+') ? phone.replace(/\+/g, '') : '351' + phone;
-                            const message = t('dayView.whatsappMessage', {
+                            const formattedPhone = phone.startsWith("+")
+                              ? phone.replace(/\+/g, "")
+                              : "351" + phone;
+                            const message = t("dayView.whatsappMessage", {
                               time: formatTime(appointment.appointment_time),
                               date: appointment.appointment_date,
                             });
-                            Linking.openURL(`whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`).catch(() => null);
+                            Linking.openURL(
+                              `whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(
+                                message
+                              )}`
+                            ).catch(() => null);
                           }}
                         >
-                          <FontAwesome name="whatsapp" size={15} color="#25D366" />
+                          <FontAwesome
+                            name="whatsapp"
+                            size={15}
+                            color="#25D366"
+                          />
                         </TouchableOpacity>
                       )}
                     </View>
@@ -553,7 +709,9 @@ export function DayView({
             {dayAppointments.length === 0 ? (
               <View style={styles.emptySlot}>
                 <Text style={styles.emptyIcon}>☀️</Text>
-                <Text style={styles.emptyText}>{t('dayView.noAppointments')}</Text>
+                <Text style={styles.emptyText}>
+                  {t("dayView.noAppointments")}
+                </Text>
               </View>
             ) : null}
           </Pressable>

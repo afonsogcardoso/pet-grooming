@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,11 +13,11 @@ import {
   ActivityIndicator,
   ActionSheetIOS,
   PermissionsAndroid,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useBrandingTheme } from '../theme/useBrandingTheme';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useBrandingTheme } from "../theme/useBrandingTheme";
 import {
   getAllServices,
   createService,
@@ -33,108 +33,113 @@ import {
   Service,
   ServicePriceTier,
   ServiceAddon,
-} from '../api/services';
-import { ScreenHeader } from '../components/ScreenHeader';
-import { Input, Button } from '../components/common';
-import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { hapticError, hapticSuccess, hapticWarning } from '../utils/haptics';
-import { launchCamera, launchImageLibrary, CameraOptions, ImageLibraryOptions } from 'react-native-image-picker';
+} from "../api/services";
+import { ScreenHeader } from "../components/ScreenHeader";
+import { Input, Button } from "../components/common";
+import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import { hapticError, hapticSuccess, hapticWarning } from "../utils/haptics";
+import { launchCamera, launchImageLibrary } from "react-native-image-picker";
+import { cameraOptions, galleryOptions } from "../utils/imageOptions";
 
-type Props = NativeStackScreenProps<any, 'ServiceForm'>;
+type Props = NativeStackScreenProps<any, "ServiceForm">;
 
 export default function ServiceFormScreen({ route, navigation }: Props) {
-  const { mode, serviceId } = route.params as { mode: 'create' | 'edit'; serviceId?: string };
+  const { mode, serviceId } = route.params as {
+    mode: "create" | "edit";
+    serviceId?: string;
+  };
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [price, setPrice] = useState('');
-  const [duration, setDuration] = useState('');
-  const [displayOrder, setDisplayOrder] = useState('');
-  const [category, setCategory] = useState('');
-  const [subcategory, setSubcategory] = useState('');
-  const [petType, setPetType] = useState('');
-  const [pricingModel, setPricingModel] = useState('');
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [price, setPrice] = useState("");
+  const [duration, setDuration] = useState("");
+  const [displayOrder, setDisplayOrder] = useState("");
+  const [category, setCategory] = useState("");
+  const [subcategory, setSubcategory] = useState("");
+  const [petType, setPetType] = useState("");
+  const [pricingModel, setPricingModel] = useState("");
   const [active, setActive] = useState(true);
   const [serviceImageUrl, setServiceImageUrl] = useState<string | null>(null);
   const [uploadingServiceImage, setUploadingServiceImage] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [tierLabel, setTierLabel] = useState('');
-  const [tierMinWeight, setTierMinWeight] = useState('');
-  const [tierMaxWeight, setTierMaxWeight] = useState('');
-  const [tierPrice, setTierPrice] = useState('');
-  const [tierOrder, setTierOrder] = useState('');
-  const [addonName, setAddonName] = useState('');
-  const [addonDescription, setAddonDescription] = useState('');
-  const [addonPrice, setAddonPrice] = useState('');
-  const [addonOrder, setAddonOrder] = useState('');
+  const [tierLabel, setTierLabel] = useState("");
+  const [tierMinWeight, setTierMinWeight] = useState("");
+  const [tierMaxWeight, setTierMaxWeight] = useState("");
+  const [tierPrice, setTierPrice] = useState("");
+  const [tierOrder, setTierOrder] = useState("");
+  const [addonName, setAddonName] = useState("");
+  const [addonDescription, setAddonDescription] = useState("");
+  const [addonPrice, setAddonPrice] = useState("");
+  const [addonOrder, setAddonOrder] = useState("");
   const [addonActive, setAddonActive] = useState(true);
 
   const { data: services = [] } = useQuery({
-    queryKey: ['services', 'all'],
+    queryKey: ["services", "all"],
     queryFn: getAllServices,
-    enabled: mode === 'edit',
+    enabled: mode === "edit",
   });
 
   const service = services.find((s) => s.id === serviceId);
 
   useEffect(() => {
-    if (mode === 'edit' && service) {
-      setName(service.name || '');
-      setDescription(service.description || '');
-      setPrice(service.price?.toString() || '');
-      setDuration(service.default_duration?.toString() || '');
-      setDisplayOrder(service.display_order?.toString() || '0');
-      setCategory(service.category || '');
-      setSubcategory(service.subcategory || '');
-      setPetType(service.pet_type || '');
-      setPricingModel(service.pricing_model || '');
+    if (mode === "edit" && service) {
+      setName(service.name || "");
+      setDescription(service.description || "");
+      setPrice(service.price?.toString() || "");
+      setDuration(service.default_duration?.toString() || "");
+      setDisplayOrder(service.display_order?.toString() || "0");
+      setCategory(service.category || "");
+      setSubcategory(service.subcategory || "");
+      setPetType(service.pet_type || "");
+      setPricingModel(service.pricing_model || "");
       setActive(service.active !== false);
       setServiceImageUrl(service.image_url || null);
-    } else if (mode === 'create') {
+    } else if (mode === "create") {
       setServiceImageUrl(null);
     }
   }, [mode, service]);
 
   const { data: priceTiers = [] } = useQuery({
-    queryKey: ['services', serviceId, 'price-tiers'],
-    queryFn: () => getServicePriceTiers(serviceId || ''),
-    enabled: mode === 'edit' && !!serviceId,
+    queryKey: ["services", serviceId, "price-tiers"],
+    queryFn: () => getServicePriceTiers(serviceId || ""),
+    enabled: mode === "edit" && !!serviceId,
   });
 
   const { data: addons = [] } = useQuery({
-    queryKey: ['services', serviceId, 'addons'],
-    queryFn: () => getServiceAddons(serviceId || ''),
-    enabled: mode === 'edit' && !!serviceId,
+    queryKey: ["services", serviceId, "addons"],
+    queryFn: () => getServiceAddons(serviceId || ""),
+    enabled: mode === "edit" && !!serviceId,
   });
 
   const createMutation = useMutation({
     mutationFn: createService,
     onSuccess: () => {
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['services'] });
+      queryClient.invalidateQueries({ queryKey: ["services"] });
       navigation.goBack();
     },
     onError: () => {
       hapticError();
-      Alert.alert(t('common.error'), t('serviceForm.createError'));
+      Alert.alert(t("common.error"), t("serviceForm.createError"));
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Service> }) => updateService(id, data),
+    mutationFn: ({ id, data }: { id: string; data: Partial<Service> }) =>
+      updateService(id, data),
     onSuccess: () => {
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['services'] });
+      queryClient.invalidateQueries({ queryKey: ["services"] });
       navigation.goBack();
     },
     onError: () => {
       hapticError();
-      Alert.alert(t('common.error'), t('serviceForm.updateError'));
+      Alert.alert(t("common.error"), t("serviceForm.updateError"));
     },
   });
 
@@ -142,86 +147,98 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
     mutationFn: deleteService,
     onSuccess: () => {
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['services'] });
+      queryClient.invalidateQueries({ queryKey: ["services"] });
       navigation.goBack();
     },
     onError: () => {
       hapticError();
-      Alert.alert(t('common.error'), t('serviceForm.deleteError'));
+      Alert.alert(t("common.error"), t("serviceForm.deleteError"));
     },
   });
 
   const createTierMutation = useMutation({
-    mutationFn: (payload: Omit<ServicePriceTier, 'id' | 'service_id'>) =>
-      createServicePriceTier(serviceId || '', payload),
+    mutationFn: (payload: Omit<ServicePriceTier, "id" | "service_id">) =>
+      createServicePriceTier(serviceId || "", payload),
     onSuccess: () => {
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['services', serviceId, 'price-tiers'] });
-      setTierLabel('');
-      setTierMinWeight('');
-      setTierMaxWeight('');
-      setTierPrice('');
-      setTierOrder('');
+      queryClient.invalidateQueries({
+        queryKey: ["services", serviceId, "price-tiers"],
+      });
+      setTierLabel("");
+      setTierMinWeight("");
+      setTierMaxWeight("");
+      setTierPrice("");
+      setTierOrder("");
     },
     onError: () => {
       hapticError();
-      Alert.alert(t('common.error'), t('serviceForm.tierCreateError'));
+      Alert.alert(t("common.error"), t("serviceForm.tierCreateError"));
     },
   });
 
   const deleteTierMutation = useMutation({
-    mutationFn: (tierId: string) => deleteServicePriceTier(serviceId || '', tierId),
+    mutationFn: (tierId: string) =>
+      deleteServicePriceTier(serviceId || "", tierId),
     onSuccess: () => {
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['services', serviceId, 'price-tiers'] });
+      queryClient.invalidateQueries({
+        queryKey: ["services", serviceId, "price-tiers"],
+      });
     },
     onError: () => {
       hapticError();
-      Alert.alert(t('common.error'), t('serviceForm.tierDeleteError'));
+      Alert.alert(t("common.error"), t("serviceForm.tierDeleteError"));
     },
   });
 
   const createAddonMutation = useMutation({
-    mutationFn: (payload: Omit<ServiceAddon, 'id' | 'service_id'>) =>
-      createServiceAddon(serviceId || '', payload),
+    mutationFn: (payload: Omit<ServiceAddon, "id" | "service_id">) =>
+      createServiceAddon(serviceId || "", payload),
     onSuccess: () => {
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['services', serviceId, 'addons'] });
-      setAddonName('');
-      setAddonDescription('');
-      setAddonPrice('');
-      setAddonOrder('');
+      queryClient.invalidateQueries({
+        queryKey: ["services", serviceId, "addons"],
+      });
+      setAddonName("");
+      setAddonDescription("");
+      setAddonPrice("");
+      setAddonOrder("");
       setAddonActive(true);
     },
     onError: () => {
       hapticError();
-      Alert.alert(t('common.error'), t('serviceForm.addonCreateError'));
+      Alert.alert(t("common.error"), t("serviceForm.addonCreateError"));
     },
   });
 
   const deleteAddonMutation = useMutation({
-    mutationFn: (addonId: string) => deleteServiceAddon(serviceId || '', addonId),
+    mutationFn: (addonId: string) =>
+      deleteServiceAddon(serviceId || "", addonId),
     onSuccess: () => {
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['services', serviceId, 'addons'] });
+      queryClient.invalidateQueries({
+        queryKey: ["services", serviceId, "addons"],
+      });
     },
     onError: () => {
       hapticError();
-      Alert.alert(t('common.error'), t('serviceForm.addonDeleteError'));
+      Alert.alert(t("common.error"), t("serviceForm.addonDeleteError"));
     },
   });
 
   const requestAndroidPermissions = async () => {
-    if (Platform.OS === 'android') {
+    if (Platform.OS === "android") {
       try {
         const cameraGranted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.CAMERA,
+          PermissionsAndroid.PERMISSIONS.CAMERA
         );
         const storageGranted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE
         );
-        return cameraGranted === PermissionsAndroid.RESULTS.GRANTED &&
-          storageGranted === PermissionsAndroid.RESULTS.GRANTED;
+        return (
+          cameraGranted === PermissionsAndroid.RESULTS.GRANTED &&
+          storageGranted === PermissionsAndroid.RESULTS.GRANTED
+        );
       } catch (err) {
         console.warn(err);
         return false;
@@ -231,8 +248,8 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
   };
 
   const uploadImageFromUri = async (uri: string, fileName?: string | null) => {
-    if (mode === 'create' || !serviceId) {
-      Alert.alert(t('common.warning'), t('serviceForm.imageSaveFirst'));
+    if (mode === "create" || !serviceId) {
+      Alert.alert(t("common.warning"), t("serviceForm.imageSaveFirst"));
       return;
     }
 
@@ -240,12 +257,13 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
       setUploadingServiceImage(true);
       const formData = new FormData();
       const timestamp = Date.now();
-      const extension = fileName?.split('.').pop() || uri.split('.').pop() || 'jpg';
-      const safeExtension = extension === 'jpg' ? 'jpeg' : extension;
+      const extension =
+        fileName?.split(".").pop() || uri.split(".").pop() || "jpg";
+      const safeExtension = extension === "jpg" ? "jpeg" : extension;
       const filename = `service-${serviceId}-${timestamp}.${extension}`;
       const fileType = `image/${safeExtension}`;
 
-      formData.append('file', {
+      formData.append("file", {
         uri,
         name: filename,
         type: fileType,
@@ -253,12 +271,12 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
 
       const { url } = await uploadServiceImage(serviceId, formData);
       setServiceImageUrl(url || null);
-      queryClient.invalidateQueries({ queryKey: ['services'] });
-      queryClient.invalidateQueries({ queryKey: ['services', 'all'] });
-      queryClient.invalidateQueries({ queryKey: ['services', serviceId] });
+      queryClient.invalidateQueries({ queryKey: ["services"] });
+      queryClient.invalidateQueries({ queryKey: ["services", "all"] });
+      queryClient.invalidateQueries({ queryKey: ["services", serviceId] });
     } catch (error) {
-      console.error('Erro ao carregar imagem do serviço:', error);
-      Alert.alert(t('common.error'), t('serviceForm.imageUploadError'));
+      console.error("Erro ao carregar imagem do serviço:", error);
+      Alert.alert(t("common.error"), t("serviceForm.imageUploadError"));
     } finally {
       setUploadingServiceImage(false);
     }
@@ -267,65 +285,60 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
   const openCamera = async () => {
     const hasPermission = await requestAndroidPermissions();
     if (!hasPermission) {
-      Alert.alert(t('profile.cameraPermissionDeniedTitle'), t('profile.cameraPermissionDeniedMessage'));
+      Alert.alert(
+        t("profile.cameraPermissionDeniedTitle"),
+        t("profile.cameraPermissionDeniedMessage")
+      );
       return;
     }
 
-    const options: CameraOptions = {
-      mediaType: 'photo',
-      quality: 0.8,
-      maxWidth: 1200,
-      maxHeight: 1200,
-      includeBase64: false,
-      saveToPhotos: false,
-    };
-
-    launchCamera(options, async (response) => {
+    launchCamera(cameraOptions, async (response) => {
       if (response.didCancel) return;
       if (response.errorCode) {
-        console.error('Erro ao abrir câmara:', response.errorMessage);
-        Alert.alert(t('common.error'), t('profile.openCameraError'));
+        console.error("Erro ao abrir câmara:", response.errorMessage);
+        Alert.alert(t("common.error"), t("profile.openCameraError"));
         return;
       }
       if (response.assets && response.assets[0]) {
-        await uploadImageFromUri(response.assets[0].uri!, response.assets[0].fileName);
+        await uploadImageFromUri(
+          response.assets[0].uri!,
+          response.assets[0].fileName
+        );
       }
     });
   };
 
   const openGallery = async () => {
-    const options: ImageLibraryOptions = {
-      mediaType: 'photo',
-      quality: 0.8,
-      maxWidth: 1200,
-      maxHeight: 1200,
-      includeBase64: false,
-      selectionLimit: 1,
-    };
-
-    launchImageLibrary(options, async (response) => {
+    launchImageLibrary(galleryOptions, async (response) => {
       if (response.didCancel) return;
       if (response.errorCode) {
-        console.error('Erro ao abrir galeria:', response.errorMessage);
-        Alert.alert(t('common.error'), t('profile.openGalleryError'));
+        console.error("Erro ao abrir galeria:", response.errorMessage);
+        Alert.alert(t("common.error"), t("profile.openGalleryError"));
         return;
       }
       if (response.assets && response.assets[0]) {
-        await uploadImageFromUri(response.assets[0].uri!, response.assets[0].fileName);
+        await uploadImageFromUri(
+          response.assets[0].uri!,
+          response.assets[0].fileName
+        );
       }
     });
   };
 
   const pickServiceImage = () => {
-    if (mode === 'create' || !serviceId) {
-      Alert.alert(t('common.warning'), t('serviceForm.imageSaveFirst'));
+    if (mode === "create" || !serviceId) {
+      Alert.alert(t("common.warning"), t("serviceForm.imageSaveFirst"));
       return;
     }
 
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: [t('common.cancel'), t('profile.takePhoto'), t('profile.chooseFromGallery')],
+          options: [
+            t("common.cancel"),
+            t("profile.takePhoto"),
+            t("profile.chooseFromGallery"),
+          ],
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
@@ -338,12 +351,12 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
       );
     } else {
       Alert.alert(
-        t('profile.choosePhotoTitle'),
-        t('profile.choosePhotoMessage'),
+        t("profile.choosePhotoTitle"),
+        t("profile.choosePhotoMessage"),
         [
-          { text: t('common.cancel'), style: 'cancel' },
-          { text: t('profile.takePhoto'), onPress: openCamera },
-          { text: t('profile.chooseFromGallery'), onPress: openGallery },
+          { text: t("common.cancel"), style: "cancel" },
+          { text: t("profile.takePhoto"), onPress: openCamera },
+          { text: t("profile.chooseFromGallery"), onPress: openGallery },
         ]
       );
     }
@@ -353,25 +366,25 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
     const newErrors: Record<string, string> = {};
 
     if (!name.trim()) {
-      newErrors.name = t('serviceForm.validationNameRequired');
+      newErrors.name = t("serviceForm.validationNameRequired");
     }
 
     if (price) {
-      const parsedPrice = Number(String(price).replace(',', '.'));
+      const parsedPrice = Number(String(price).replace(",", "."));
       if (isNaN(parsedPrice)) {
-        newErrors.price = t('serviceForm.validationPriceInvalid');
+        newErrors.price = t("serviceForm.validationPriceInvalid");
       }
     }
 
     if (duration && isNaN(Number(duration))) {
-      newErrors.duration = t('serviceForm.validationDurationInvalid');
+      newErrors.duration = t("serviceForm.validationDurationInvalid");
     }
     if (duration) {
       const d = Number(duration);
       if (d < 5 || d > 600) {
-        newErrors.duration = t('serviceForm.validationDurationRange');
+        newErrors.duration = t("serviceForm.validationDurationRange");
       } else if (d % 5 !== 0) {
-        newErrors.duration = t('serviceForm.validationDurationStep');
+        newErrors.duration = t("serviceForm.validationDurationStep");
       }
     }
 
@@ -385,7 +398,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
     const serviceData = {
       name: name.trim(),
       description: description.trim() || null,
-      price: price ? Number(String(price).replace(',', '.')) : null,
+      price: price ? Number(String(price).replace(",", ".")) : null,
       default_duration: duration ? Number(duration) : null,
       display_order: displayOrder ? Number(displayOrder) : 0,
       category: category.trim() || null,
@@ -395,7 +408,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
       active,
     };
 
-    if (mode === 'create') {
+    if (mode === "create") {
       createMutation.mutate(serviceData);
     } else if (serviceId) {
       updateMutation.mutate({ id: serviceId, data: serviceData });
@@ -404,7 +417,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
 
   const parseNumber = (value: string) => {
     if (!value) return null;
-    const parsed = Number(String(value).replace(',', '.'));
+    const parsed = Number(String(value).replace(",", "."));
     return Number.isNaN(parsed) ? null : parsed;
   };
 
@@ -417,12 +430,12 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
     const orderValue = parseNumber(tierOrder) || 0;
 
     if (priceValue == null) {
-      Alert.alert(t('common.error'), t('serviceForm.tierPriceRequired'));
+      Alert.alert(t("common.error"), t("serviceForm.tierPriceRequired"));
       return;
     }
 
     if (minValue == null && maxValue == null) {
-      Alert.alert(t('common.error'), t('serviceForm.tierRangeRequired'));
+      Alert.alert(t("common.error"), t("serviceForm.tierRangeRequired"));
       return;
     }
 
@@ -442,12 +455,12 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
     const orderValue = parseNumber(addonOrder) || 0;
 
     if (!addonName.trim()) {
-      Alert.alert(t('common.error'), t('serviceForm.addonNameRequired'));
+      Alert.alert(t("common.error"), t("serviceForm.addonNameRequired"));
       return;
     }
 
     if (priceValue == null) {
-      Alert.alert(t('common.error'), t('serviceForm.addonPriceRequired'));
+      Alert.alert(t("common.error"), t("serviceForm.addonPriceRequired"));
       return;
     }
 
@@ -463,61 +476,71 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
   const handleDelete = () => {
     if (!serviceId) return;
 
-    Alert.alert(
-      t('serviceForm.deleteTitle'),
-      t('serviceForm.deleteMessage'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('serviceForm.deleteAction'),
-          style: 'destructive',
-          onPress: () => {
-            hapticWarning();
-            deleteMutation.mutate(serviceId);
-          },
+    Alert.alert(t("serviceForm.deleteTitle"), t("serviceForm.deleteMessage"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("serviceForm.deleteAction"),
+        style: "destructive",
+        onPress: () => {
+          hapticWarning();
+          deleteMutation.mutate(serviceId);
         },
-      ]
-    );
+      },
+    ]);
   };
 
-  const isLoading = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+  const isLoading =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    deleteMutation.isPending;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <ScreenHeader
-        title={mode === 'create' ? t('serviceForm.createTitle') : t('serviceForm.editTitle')}
+        title={
+          mode === "create"
+            ? t("serviceForm.createTitle")
+            : t("serviceForm.editTitle")
+        }
         showBackButton
       />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+        >
           <View style={styles.formCard}>
             <Input
-              label={t('serviceForm.nameLabel')}
-              placeholder={t('serviceForm.namePlaceholder')}
+              label={t("serviceForm.nameLabel")}
+              placeholder={t("serviceForm.namePlaceholder")}
               value={name}
               onChangeText={setName}
               error={errors.name}
             />
 
             <Input
-              label={t('serviceForm.descriptionLabel')}
-              placeholder={t('serviceForm.descriptionPlaceholder')}
+              label={t("serviceForm.descriptionLabel")}
+              placeholder={t("serviceForm.descriptionPlaceholder")}
               value={description}
               onChangeText={setDescription}
               multiline
               numberOfLines={3}
-              style={{ height: 80, textAlignVertical: 'top', paddingTop: 12 }}
+              style={{ height: 80, textAlignVertical: "top", paddingTop: 12 }}
             />
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('serviceForm.imageTitle')}</Text>
-            {mode === 'create' || !serviceId ? (
-              <Text style={styles.sectionHint}>{t('serviceForm.imageSaveFirst')}</Text>
+            <Text style={styles.sectionTitle}>
+              {t("serviceForm.imageTitle")}
+            </Text>
+            {mode === "create" || !serviceId ? (
+              <Text style={styles.sectionHint}>
+                {t("serviceForm.imageSaveFirst")}
+              </Text>
             ) : (
               <>
                 <TouchableOpacity
@@ -533,9 +556,13 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
                     />
                   ) : (
                     <View style={styles.imagePlaceholder}>
-                      <Ionicons name="image-outline" size={24} color={colors.muted} />
+                      <Ionicons
+                        name="image-outline"
+                        size={24}
+                        color={colors.muted}
+                      />
                       <Text style={styles.imagePlaceholderText}>
-                        {t('serviceForm.imagePlaceholder')}
+                        {t("serviceForm.imagePlaceholder")}
                       </Text>
                     </View>
                   )}
@@ -545,9 +572,11 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
                     </View>
                   ) : null}
                 </TouchableOpacity>
-                <Text style={styles.imageHelper}>{t('serviceForm.imageHelper')}</Text>
+                <Text style={styles.imageHelper}>
+                  {t("serviceForm.imageHelper")}
+                </Text>
                 <Button
-                  title={t('serviceForm.imageChangeAction')}
+                  title={t("serviceForm.imageChangeAction")}
                   onPress={pickServiceImage}
                   variant="outline"
                   size="small"
@@ -560,7 +589,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
 
           <View style={styles.formCard}>
             <Input
-              label={t('serviceForm.priceLabel')}
+              label={t("serviceForm.priceLabel")}
               placeholder="0.00"
               value={price}
               onChangeText={setPrice}
@@ -569,36 +598,38 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
             />
 
             <Input
-              label={t('serviceForm.categoryLabel')}
-              placeholder={t('serviceForm.categoryPlaceholder')}
+              label={t("serviceForm.categoryLabel")}
+              placeholder={t("serviceForm.categoryPlaceholder")}
               value={category}
               onChangeText={setCategory}
             />
 
             <Input
-              label={t('serviceForm.subcategoryLabel')}
-              placeholder={t('serviceForm.subcategoryPlaceholder')}
+              label={t("serviceForm.subcategoryLabel")}
+              placeholder={t("serviceForm.subcategoryPlaceholder")}
               value={subcategory}
               onChangeText={setSubcategory}
             />
 
             <Input
-              label={t('serviceForm.petTypeLabel')}
-              placeholder={t('serviceForm.petTypePlaceholder')}
+              label={t("serviceForm.petTypeLabel")}
+              placeholder={t("serviceForm.petTypePlaceholder")}
               value={petType}
               onChangeText={setPetType}
             />
 
             <Input
-              label={t('serviceForm.pricingModelLabel')}
-              placeholder={t('serviceForm.pricingModelPlaceholder')}
+              label={t("serviceForm.pricingModelLabel")}
+              placeholder={t("serviceForm.pricingModelPlaceholder")}
               value={pricingModel}
               onChangeText={setPricingModel}
             />
 
             <View style={{ marginBottom: 16 }}>
-              <Text style={[styles.label]}>{t('serviceForm.durationLabel')}</Text>
-              <View style={[styles.spinnerRow]}> 
+              <Text style={[styles.label]}>
+                {t("serviceForm.durationLabel")}
+              </Text>
+              <View style={[styles.spinnerRow]}>
                 <TouchableOpacity
                   style={styles.spinnerButton}
                   onPress={() => {
@@ -606,14 +637,18 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
                     const next = Math.max(5, cur - 5);
                     setDuration(String(next));
                   }}
-                  accessibilityLabel={t('serviceForm.durationDecrease')}
+                  accessibilityLabel={t("serviceForm.durationDecrease")}
                 >
                   <Ionicons name="remove" size={20} color={colors.text} />
                 </TouchableOpacity>
 
                 <View style={styles.spinnerValueContainer}>
-                  <Text style={styles.spinnerValue}>{duration ? String(Number(duration)) : '0'}</Text>
-                  <Text style={styles.spinnerUnit}>{t('common.minutesShort')}</Text>
+                  <Text style={styles.spinnerValue}>
+                    {duration ? String(Number(duration)) : "0"}
+                  </Text>
+                  <Text style={styles.spinnerUnit}>
+                    {t("common.minutesShort")}
+                  </Text>
                 </View>
 
                 <TouchableOpacity
@@ -623,16 +658,18 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
                     const next = Math.min(600, cur + 5);
                     setDuration(String(next));
                   }}
-                  accessibilityLabel={t('serviceForm.durationIncrease')}
+                  accessibilityLabel={t("serviceForm.durationIncrease")}
                 >
                   <Ionicons name="add" size={20} color={colors.text} />
                 </TouchableOpacity>
               </View>
-              {errors.duration && <Text style={styles.error}>{errors.duration}</Text>}
+              {errors.duration && (
+                <Text style={styles.error}>{errors.duration}</Text>
+              )}
             </View>
 
             <Input
-              label={t('serviceForm.displayOrderLabel')}
+              label={t("serviceForm.displayOrderLabel")}
               placeholder="0"
               value={displayOrder}
               onChangeText={setDisplayOrder}
@@ -641,19 +678,30 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
 
             <View style={styles.switchContainer}>
               <View>
-                <Text style={styles.switchLabel}>{t('serviceForm.activeLabel')}</Text>
-                <Text style={styles.switchSubtext}>{t('serviceForm.activeHint')}</Text>
+                <Text style={styles.switchLabel}>
+                  {t("serviceForm.activeLabel")}
+                </Text>
+                <Text style={styles.switchSubtext}>
+                  {t("serviceForm.activeHint")}
+                </Text>
               </View>
               <Switch
                 value={active}
                 onValueChange={setActive}
-                trackColor={{ false: colors.surfaceBorder, true: colors.primary + '40' }}
+                trackColor={{
+                  false: colors.surfaceBorder,
+                  true: colors.primary + "40",
+                }}
                 thumbColor={active ? colors.primary : colors.muted}
               />
             </View>
 
             <Button
-              title={mode === 'create' ? t('serviceForm.createAction') : t('serviceForm.saveAction')}
+              title={
+                mode === "create"
+                  ? t("serviceForm.createAction")
+                  : t("serviceForm.saveAction")
+              }
               onPress={handleSubmit}
               loading={isLoading}
               disabled={isLoading}
@@ -661,35 +709,47 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('serviceForm.tiersTitle')}</Text>
-            {mode !== 'edit' || !serviceId ? (
-              <Text style={styles.sectionHint}>{t('serviceForm.saveFirstHint')}</Text>
+            <Text style={styles.sectionTitle}>
+              {t("serviceForm.tiersTitle")}
+            </Text>
+            {mode !== "edit" || !serviceId ? (
+              <Text style={styles.sectionHint}>
+                {t("serviceForm.saveFirstHint")}
+              </Text>
             ) : (
               <>
                 {priceTiers.length === 0 ? (
-                  <Text style={styles.sectionHint}>{t('serviceForm.tiersEmpty')}</Text>
+                  <Text style={styles.sectionHint}>
+                    {t("serviceForm.tiersEmpty")}
+                  </Text>
                 ) : (
                   priceTiers.map((tier) => (
                     <View key={tier.id} style={styles.rowCard}>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.rowTitle}>
-                          {tier.label || t('serviceForm.tierDefaultLabel')}
+                          {tier.label || t("serviceForm.tierDefaultLabel")}
                         </Text>
                         <Text style={styles.rowMeta}>
-                          {t('serviceForm.tierRangeValue', {
-                            min: tier.min_weight_kg ?? '-',
-                            max: tier.max_weight_kg ?? '+',
+                          {t("serviceForm.tierRangeValue", {
+                            min: tier.min_weight_kg ?? "-",
+                            max: tier.max_weight_kg ?? "+",
                           })}
                         </Text>
                         <Text style={styles.rowMeta}>
-                          {t('serviceForm.tierPriceValue', { price: tier.price })}
+                          {t("serviceForm.tierPriceValue", {
+                            price: tier.price,
+                          })}
                         </Text>
                       </View>
                       <TouchableOpacity
                         onPress={() => deleteTierMutation.mutate(tier.id)}
                         style={styles.iconButton}
                       >
-                        <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                        <Ionicons
+                          name="trash-outline"
+                          size={18}
+                          color={colors.danger}
+                        />
                       </TouchableOpacity>
                     </View>
                   ))
@@ -697,14 +757,14 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
 
                 <View style={styles.inlineRow}>
                   <Input
-                    label={t('serviceForm.tierLabel')}
+                    label={t("serviceForm.tierLabel")}
                     placeholder="XS"
                     value={tierLabel}
                     onChangeText={setTierLabel}
                     style={styles.inlineInput}
                   />
                   <Input
-                    label={t('serviceForm.tierMinWeight')}
+                    label={t("serviceForm.tierMinWeight")}
                     placeholder="5"
                     value={tierMinWeight}
                     onChangeText={setTierMinWeight}
@@ -712,7 +772,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
                     style={styles.inlineInput}
                   />
                   <Input
-                    label={t('serviceForm.tierMaxWeight')}
+                    label={t("serviceForm.tierMaxWeight")}
                     placeholder="9"
                     value={tierMaxWeight}
                     onChangeText={setTierMaxWeight}
@@ -723,7 +783,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
 
                 <View style={styles.inlineRow}>
                   <Input
-                    label={t('serviceForm.tierPrice')}
+                    label={t("serviceForm.tierPrice")}
                     placeholder="40.00"
                     value={tierPrice}
                     onChangeText={setTierPrice}
@@ -731,7 +791,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
                     style={styles.inlineInput}
                   />
                   <Input
-                    label={t('serviceForm.tierOrder')}
+                    label={t("serviceForm.tierOrder")}
                     placeholder="0"
                     value={tierOrder}
                     onChangeText={setTierOrder}
@@ -741,7 +801,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
                 </View>
 
                 <Button
-                  title={t('serviceForm.addTierAction')}
+                  title={t("serviceForm.addTierAction")}
                   onPress={handleAddTier}
                   loading={createTierMutation.isPending}
                   disabled={createTierMutation.isPending}
@@ -754,52 +814,66 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('serviceForm.addonsTitle')}</Text>
-            {mode !== 'edit' || !serviceId ? (
-              <Text style={styles.sectionHint}>{t('serviceForm.saveFirstHint')}</Text>
+            <Text style={styles.sectionTitle}>
+              {t("serviceForm.addonsTitle")}
+            </Text>
+            {mode !== "edit" || !serviceId ? (
+              <Text style={styles.sectionHint}>
+                {t("serviceForm.saveFirstHint")}
+              </Text>
             ) : (
               <>
                 {addons.length === 0 ? (
-                  <Text style={styles.sectionHint}>{t('serviceForm.addonsEmpty')}</Text>
+                  <Text style={styles.sectionHint}>
+                    {t("serviceForm.addonsEmpty")}
+                  </Text>
                 ) : (
                   addons.map((addon) => (
                     <View key={addon.id} style={styles.rowCard}>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.rowTitle}>{addon.name}</Text>
                         {addon.description ? (
-                          <Text style={styles.rowMeta}>{addon.description}</Text>
+                          <Text style={styles.rowMeta}>
+                            {addon.description}
+                          </Text>
                         ) : null}
                         <Text style={styles.rowMeta}>
-                          {t('serviceForm.addonPriceValue', { price: addon.price })}
+                          {t("serviceForm.addonPriceValue", {
+                            price: addon.price,
+                          })}
                         </Text>
                       </View>
                       <TouchableOpacity
                         onPress={() => deleteAddonMutation.mutate(addon.id)}
                         style={styles.iconButton}
                       >
-                        <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                        <Ionicons
+                          name="trash-outline"
+                          size={18}
+                          color={colors.danger}
+                        />
                       </TouchableOpacity>
                     </View>
                   ))
                 )}
 
                 <Input
-                  label={t('serviceForm.addonNameLabel')}
-                  placeholder={t('serviceForm.addonNamePlaceholder')}
+                  label={t("serviceForm.addonNameLabel")}
+                  placeholder={t("serviceForm.addonNamePlaceholder")}
                   value={addonName}
                   onChangeText={setAddonName}
                 />
 
                 <Input
-                  label={t('serviceForm.addonDescriptionLabel')}
-                  placeholder={t('serviceForm.addonDescriptionPlaceholder')}
+                  label={t("serviceForm.addonDescriptionLabel")}
+                  placeholder={t("serviceForm.addonDescriptionPlaceholder")}
                   value={addonDescription}
                   onChangeText={setAddonDescription}
                 />
 
                 <View style={styles.inlineRow}>
                   <Input
-                    label={t('serviceForm.addonPriceLabel')}
+                    label={t("serviceForm.addonPriceLabel")}
                     placeholder="10.00"
                     value={addonPrice}
                     onChangeText={setAddonPrice}
@@ -807,7 +881,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
                     style={styles.inlineInput}
                   />
                   <Input
-                    label={t('serviceForm.addonOrderLabel')}
+                    label={t("serviceForm.addonOrderLabel")}
                     placeholder="0"
                     value={addonOrder}
                     onChangeText={setAddonOrder}
@@ -818,19 +892,26 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
 
                 <View style={styles.switchContainer}>
                   <View>
-                    <Text style={styles.switchLabel}>{t('serviceForm.addonActiveLabel')}</Text>
-                    <Text style={styles.switchSubtext}>{t('serviceForm.addonActiveHint')}</Text>
+                    <Text style={styles.switchLabel}>
+                      {t("serviceForm.addonActiveLabel")}
+                    </Text>
+                    <Text style={styles.switchSubtext}>
+                      {t("serviceForm.addonActiveHint")}
+                    </Text>
                   </View>
                   <Switch
                     value={addonActive}
                     onValueChange={setAddonActive}
-                    trackColor={{ false: colors.surfaceBorder, true: colors.primary + '40' }}
+                    trackColor={{
+                      false: colors.surfaceBorder,
+                      true: colors.primary + "40",
+                    }}
                     thumbColor={addonActive ? colors.primary : colors.muted}
                   />
                 </View>
 
                 <Button
-                  title={t('serviceForm.addAddonAction')}
+                  title={t("serviceForm.addAddonAction")}
                   onPress={handleAddAddon}
                   loading={createAddonMutation.isPending}
                   disabled={createAddonMutation.isPending}
@@ -842,9 +923,9 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
             )}
           </View>
 
-          {mode === 'edit' && (
+          {mode === "edit" && (
             <Button
-              title={t('serviceForm.deleteAction')}
+              title={t("serviceForm.deleteAction")}
               onPress={handleDelete}
               loading={deleteMutation.isPending}
               disabled={isLoading}
@@ -858,7 +939,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
   );
 }
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -890,7 +971,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     sectionTitle: {
       fontSize: 16,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
       marginBottom: 12,
     },
@@ -904,34 +985,34 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
       backgroundColor: colors.background,
-      overflow: 'hidden',
+      overflow: "hidden",
       marginBottom: 10,
     },
     imagePreviewImage: {
-      width: '100%',
-      height: '100%',
+      width: "100%",
+      height: "100%",
     },
     imagePlaceholder: {
       flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       gap: 6,
       paddingHorizontal: 16,
     },
     imagePlaceholderText: {
       fontSize: 13,
       color: colors.muted,
-      textAlign: 'center',
+      textAlign: "center",
     },
     imageLoading: {
-      position: 'absolute',
+      position: "absolute",
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.35)',
-      alignItems: 'center',
-      justifyContent: 'center',
+      backgroundColor: "rgba(0, 0, 0, 0.35)",
+      alignItems: "center",
+      justifyContent: "center",
     },
     imageHelper: {
       fontSize: 12,
@@ -939,11 +1020,11 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginBottom: 8,
     },
     imageButton: {
-      alignSelf: 'flex-start',
+      alignSelf: "flex-start",
     },
     rowCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 12,
       paddingVertical: 10,
       borderBottomWidth: 1,
@@ -951,7 +1032,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     rowTitle: {
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: "600",
       color: colors.text,
       marginBottom: 2,
     },
@@ -963,8 +1044,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       padding: 8,
     },
     inlineRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
+      flexDirection: "row",
+      flexWrap: "wrap",
       gap: 12,
       marginBottom: 8,
     },
@@ -972,9 +1053,9 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       minWidth: 120,
     },
     switchContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
       backgroundColor: colors.surface,
       borderRadius: 12,
       padding: 16,
@@ -984,7 +1065,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     switchLabel: {
       fontSize: 16,
-      fontWeight: '600',
+      fontWeight: "600",
       color: colors.text,
       marginBottom: 4,
     },
@@ -995,13 +1076,13 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     label: {
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: "600",
       color: colors.text,
       marginBottom: 8,
     },
     spinnerRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       backgroundColor: colors.surface,
       borderRadius: 12,
       borderWidth: 1.5,
@@ -1013,20 +1094,20 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       width: 44,
       height: 36,
       borderRadius: 10,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: 'transparent',
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "transparent",
     },
     spinnerValueContainer: {
       flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexDirection: 'row',
+      alignItems: "center",
+      justifyContent: "center",
+      flexDirection: "row",
       gap: 8,
     },
     spinnerValue: {
       fontSize: 18,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
     },
     spinnerUnit: {

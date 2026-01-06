@@ -1,97 +1,147 @@
-import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, Image, ActionSheetIOS, PermissionsAndroid, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
-import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { createPet, updatePet, uploadPetPhoto, deletePet, type Pet } from '../api/customers';
-import { ScreenHeader } from '../components/ScreenHeader';
-import { Input } from '../components/common/Input';
-import { Button } from '../components/common/Button';
-import { useTranslation } from 'react-i18next';
-import { hapticError, hapticSuccess, hapticWarning } from '../utils/haptics';
+import { useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  TouchableOpacity,
+  Image,
+  ActionSheetIOS,
+  PermissionsAndroid,
+  ActivityIndicator,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { launchCamera, launchImageLibrary } from "react-native-image-picker";
+import { useBrandingTheme } from "../theme/useBrandingTheme";
+import {
+  createPet,
+  updatePet,
+  uploadPetPhoto,
+  deletePet,
+  type Pet,
+} from "../api/customers";
+import { ScreenHeader } from "../components/ScreenHeader";
+import { Input } from "../components/common/Input";
+import { Button } from "../components/common/Button";
+import { useTranslation } from "react-i18next";
+import { hapticError, hapticSuccess, hapticWarning } from "../utils/haptics";
+import { cameraOptions, galleryOptions } from "../utils/imageOptions";
 
-type Props = NativeStackScreenProps<any, 'PetForm'>;
+type Props = NativeStackScreenProps<any, "PetForm">;
 
 export default function PetFormScreen({ navigation, route }: Props) {
-  const params = route.params as { mode: 'create' | 'edit'; customerId: string; petId?: string; pet?: Pet };
+  const params = route.params as {
+    mode: "create" | "edit";
+    customerId: string;
+    petId?: string;
+    pet?: Pet;
+  };
   const { mode, customerId, petId, pet } = params;
-  
+
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
-  const [name, setName] = useState(pet?.name || '');
-  const [breed, setBreed] = useState(pet?.breed || '');
-  const [weight, setWeight] = useState(pet?.weight?.toString() || '');
-  const [photoUri, setPhotoUri] = useState<string | null>(pet?.photo_url || null);
+  const [name, setName] = useState(pet?.name || "");
+  const [breed, setBreed] = useState(pet?.breed || "");
+  const [weight, setWeight] = useState(pet?.weight?.toString() || "");
+  const [photoUri, setPhotoUri] = useState<string | null>(
+    pet?.photo_url || null
+  );
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; breed?: string | null; weight?: number | null }) => createPet(customerId, data),
+    mutationFn: (data: {
+      name: string;
+      breed?: string | null;
+      weight?: number | null;
+    }) => createPet(customerId, data),
     onSuccess: async (createdPet) => {
       // Se há uma foto selecionada, faz upload após criar o pet
-      if (photoUri && !photoUri.startsWith('http')) {
+      if (photoUri && !photoUri.startsWith("http")) {
         try {
           setUploadingPhoto(true);
-          await uploadPetPhotoMutation.mutateAsync({ petId: createdPet.id, uri: photoUri });
+          await uploadPetPhotoMutation.mutateAsync({
+            petId: createdPet.id,
+            uri: photoUri,
+          });
         } catch (error) {
           hapticError();
-          console.error('Erro ao fazer upload da foto:', error);
+          console.error("Erro ao fazer upload da foto:", error);
         } finally {
           setUploadingPhoto(false);
         }
       }
-      
+
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
-      queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({
+        queryKey: ["customer-pets", customerId],
+      });
       navigation.goBack();
     },
     onError: (error: any) => {
       hapticError();
-      Alert.alert(t('common.error'), error?.response?.data?.message || t('petForm.createError'));
+      Alert.alert(
+        t("common.error"),
+        error?.response?.data?.message || t("petForm.createError")
+      );
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: { name: string; breed?: string | null; weight?: number | null }) => 
-      updatePet(customerId, petId!, data),
+    mutationFn: (data: {
+      name: string;
+      breed?: string | null;
+      weight?: number | null;
+    }) => updatePet(customerId, petId!, data),
     onSuccess: async () => {
       // Se há uma foto nova selecionada, faz upload
-      if (photoUri && !photoUri.startsWith('http')) {
+      if (photoUri && !photoUri.startsWith("http")) {
         try {
           setUploadingPhoto(true);
-          await uploadPetPhotoMutation.mutateAsync({ petId: petId!, uri: photoUri });
+          await uploadPetPhotoMutation.mutateAsync({
+            petId: petId!,
+            uri: photoUri,
+          });
         } catch (error) {
           hapticError();
-          console.error('Erro ao fazer upload da foto:', error);
+          console.error("Erro ao fazer upload da foto:", error);
         } finally {
           setUploadingPhoto(false);
         }
       }
-      
+
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
-      queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({
+        queryKey: ["customer-pets", customerId],
+      });
       navigation.goBack();
     },
     onError: (error: any) => {
       hapticError();
-      Alert.alert(t('common.error'), error?.response?.data?.message || t('petForm.updateError'));
+      Alert.alert(
+        t("common.error"),
+        error?.response?.data?.message || t("petForm.updateError")
+      );
     },
   });
 
   const uploadPetPhotoMutation = useMutation({
     mutationFn: async ({ petId, uri }: { petId: string; uri: string }) => {
       const timestamp = Date.now();
-      const extension = uri.split('.').pop() || 'jpg';
+      const extension = uri.split(".").pop() || "jpg";
       const filename = `pet-${petId}-${timestamp}.${extension}`;
-      const fileType = `image/${extension === 'jpg' ? 'jpeg' : extension}`;
+      const fileType = `image/${extension === "jpg" ? "jpeg" : extension}`;
 
       return uploadPetPhoto(petId, {
         uri,
@@ -100,8 +150,10 @@ export default function PetFormScreen({ navigation, route }: Props) {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
-      queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({
+        queryKey: ["customer-pets", customerId],
+      });
     },
     onError: () => {
       hapticError();
@@ -109,16 +161,16 @@ export default function PetFormScreen({ navigation, route }: Props) {
   });
 
   const requestAndroidPermissions = async () => {
-    if (Platform.OS === 'android') {
+    if (Platform.OS === "android") {
       try {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.CAMERA,
           {
-            title: t('profile.cameraPermissionTitle'),
-            message: t('profile.cameraPermissionMessage'),
-            buttonNeutral: t('common.later'),
-            buttonNegative: t('common.cancel'),
-            buttonPositive: t('common.ok'),
+            title: t("profile.cameraPermissionTitle"),
+            message: t("profile.cameraPermissionMessage"),
+            buttonNeutral: t("common.later"),
+            buttonNegative: t("common.cancel"),
+            buttonPositive: t("common.ok"),
           }
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
@@ -132,13 +184,13 @@ export default function PetFormScreen({ navigation, route }: Props) {
 
   const uploadPhoto = async (uri: string) => {
     // Se estamos editando, faz upload imediatamente
-    if (mode === 'edit' && petId) {
+    if (mode === "edit" && petId) {
       try {
         setUploadingPhoto(true);
         await uploadPetPhotoMutation.mutateAsync({ petId, uri });
       } catch (error) {
         hapticError();
-        Alert.alert(t('common.error'), t('petForm.photoUploadError'));
+        Alert.alert(t("common.error"), t("petForm.photoUploadError"));
       } finally {
         setUploadingPhoto(false);
       }
@@ -148,26 +200,20 @@ export default function PetFormScreen({ navigation, route }: Props) {
   const openCamera = async () => {
     const hasPermission = await requestAndroidPermissions();
     if (!hasPermission) {
-      Alert.alert(t('profile.cameraPermissionDeniedTitle'), t('profile.cameraPermissionDeniedMessage'));
+      Alert.alert(
+        t("profile.cameraPermissionDeniedTitle"),
+        t("profile.cameraPermissionDeniedMessage")
+      );
       return;
     }
 
-    const options: CameraOptions = {
-      mediaType: 'photo',
-      quality: 0.8,
-      maxWidth: 1200,
-      maxHeight: 1200,
-      includeBase64: false,
-      saveToPhotos: false,
-    };
-
-    launchCamera(options, async (response) => {
+    launchCamera(cameraOptions, async (response) => {
       if (response.didCancel) {
         return;
       }
       if (response.errorCode) {
-        console.error('Erro ao abrir câmara:', response.errorMessage);
-        Alert.alert(t('common.error'), t('profile.openCameraError'));
+        console.error("Erro ao abrir câmara:", response.errorMessage);
+        Alert.alert(t("common.error"), t("profile.openCameraError"));
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -178,22 +224,13 @@ export default function PetFormScreen({ navigation, route }: Props) {
   };
 
   const openGallery = async () => {
-    const options: ImageLibraryOptions = {
-      mediaType: 'photo',
-      quality: 0.8,
-      maxWidth: 1200,
-      maxHeight: 1200,
-      includeBase64: false,
-      selectionLimit: 1,
-    };
-
-    launchImageLibrary(options, async (response) => {
+    launchImageLibrary(galleryOptions, async (response) => {
       if (response.didCancel) {
         return;
       }
       if (response.errorCode) {
-        console.error('Erro ao abrir galeria:', response.errorMessage);
-        Alert.alert(t('common.error'), t('profile.openGalleryError'));
+        console.error("Erro ao abrir galeria:", response.errorMessage);
+        Alert.alert(t("common.error"), t("profile.openGalleryError"));
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -204,10 +241,14 @@ export default function PetFormScreen({ navigation, route }: Props) {
   };
 
   const selectImage = () => {
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: [t('common.cancel'), t('profile.takePhoto'), t('profile.chooseFromGallery')],
+          options: [
+            t("common.cancel"),
+            t("profile.takePhoto"),
+            t("profile.chooseFromGallery"),
+          ],
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
@@ -220,12 +261,12 @@ export default function PetFormScreen({ navigation, route }: Props) {
       );
     } else {
       Alert.alert(
-        t('profile.choosePhotoTitle'),
-        t('profile.choosePhotoMessage'),
+        t("profile.choosePhotoTitle"),
+        t("profile.choosePhotoMessage"),
         [
-          { text: t('common.cancel'), style: 'cancel' },
-          { text: t('profile.takePhoto'), onPress: openCamera },
-          { text: t('profile.chooseFromGallery'), onPress: openGallery },
+          { text: t("common.cancel"), style: "cancel" },
+          { text: t("profile.takePhoto"), onPress: openCamera },
+          { text: t("profile.chooseFromGallery"), onPress: openGallery },
         ]
       );
     }
@@ -235,26 +276,31 @@ export default function PetFormScreen({ navigation, route }: Props) {
     mutationFn: () => deletePet(petId!),
     onSuccess: () => {
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
-      queryClient.invalidateQueries({ queryKey: ['customer-pets', customerId] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({
+        queryKey: ["customer-pets", customerId],
+      });
       navigation.goBack();
     },
     onError: (error: any) => {
       hapticError();
-      const message = error?.response?.data?.error || error.message || t('petForm.deleteError');
-      Alert.alert(t('common.error'), message);
+      const message =
+        error?.response?.data?.error ||
+        error.message ||
+        t("petForm.deleteError");
+      Alert.alert(t("common.error"), message);
     },
   });
 
   const handleDeletePet = () => {
     Alert.alert(
-      t('petForm.deleteTitle'),
-      t('petForm.deleteMessage', { name }),
+      t("petForm.deleteTitle"),
+      t("petForm.deleteMessage", { name }),
       [
-        { text: t('common.cancel'), style: 'cancel' },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: t('petForm.deleteAction'),
-          style: 'destructive',
+          text: t("petForm.deleteAction"),
+          style: "destructive",
           onPress: () => {
             hapticWarning();
             deleteMutation.mutate();
@@ -268,11 +314,11 @@ export default function PetFormScreen({ navigation, route }: Props) {
     const newErrors: Record<string, string> = {};
 
     if (!name.trim()) {
-      newErrors.name = t('petForm.validationNameRequired');
+      newErrors.name = t("petForm.validationNameRequired");
     }
 
     if (weight && isNaN(Number(weight))) {
-      newErrors.weight = t('petForm.validationWeightInvalid');
+      newErrors.weight = t("petForm.validationWeightInvalid");
     }
 
     setErrors(newErrors);
@@ -288,7 +334,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
       weight: weight ? Number(weight) : null,
     };
 
-    if (mode === 'create') {
+    if (mode === "create") {
       createMutation.mutate(petData);
     } else {
       updateMutation.mutate(petData);
@@ -298,21 +344,26 @@ export default function PetFormScreen({ navigation, route }: Props) {
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <ScreenHeader title={mode === 'create' ? t('petForm.createTitle') : t('petForm.editTitle')} showBack={true} />
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <ScreenHeader
+        title={
+          mode === "create" ? t("petForm.createTitle") : t("petForm.editTitle")
+        }
+        showBack={true}
+      />
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
       >
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.form}>
             {/* Photo Picker */}
             <View style={styles.photoSection}>
-              <Text style={styles.photoLabel}>{t('petForm.photoLabel')}</Text>
-              <TouchableOpacity 
-                style={styles.photoContainer} 
-                onPress={selectImage} 
+              <Text style={styles.photoLabel}>{t("petForm.photoLabel")}</Text>
+              <TouchableOpacity
+                style={styles.photoContainer}
+                onPress={selectImage}
                 activeOpacity={0.7}
                 disabled={uploadingPhoto}
               >
@@ -322,7 +373,9 @@ export default function PetFormScreen({ navigation, route }: Props) {
                     {uploadingPhoto && (
                       <View style={styles.photoOverlay}>
                         <ActivityIndicator color="#fff" size="large" />
-                        <Text style={styles.photoOverlayText}>{t('common.loading')}</Text>
+                        <Text style={styles.photoOverlayText}>
+                          {t("common.loading")}
+                        </Text>
                       </View>
                     )}
                   </>
@@ -331,7 +384,9 @@ export default function PetFormScreen({ navigation, route }: Props) {
                     {uploadingPhoto ? (
                       <ActivityIndicator color={colors.primary} size="large" />
                     ) : (
-                      <Text style={styles.photoPlaceholderText}>{t('petForm.addPhoto')}</Text>
+                      <Text style={styles.photoPlaceholderText}>
+                        {t("petForm.addPhoto")}
+                      </Text>
                     )}
                   </View>
                 )}
@@ -340,24 +395,24 @@ export default function PetFormScreen({ navigation, route }: Props) {
 
             <View style={styles.formCard}>
               <Input
-                label={t('petForm.nameLabel')}
-                placeholder={t('petForm.namePlaceholder')}
+                label={t("petForm.nameLabel")}
+                placeholder={t("petForm.namePlaceholder")}
                 value={name}
                 onChangeText={setName}
                 error={errors.name}
               />
 
               <Input
-                label={t('petForm.breedLabel')}
-                placeholder={t('petForm.breedPlaceholder')}
+                label={t("petForm.breedLabel")}
+                placeholder={t("petForm.breedPlaceholder")}
                 value={breed}
                 onChangeText={setBreed}
                 error={errors.breed}
               />
 
               <Input
-                label={t('petForm.weightLabel')}
-                placeholder={t('petForm.weightPlaceholder')}
+                label={t("petForm.weightLabel")}
+                placeholder={t("petForm.weightPlaceholder")}
                 value={weight}
                 onChangeText={setWeight}
                 error={errors.weight}
@@ -365,7 +420,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
               />
 
               <View style={styles.hint}>
-                <Text style={styles.hintText}>{t('petForm.requiredHint')}</Text>
+                <Text style={styles.hintText}>{t("petForm.requiredHint")}</Text>
               </View>
             </View>
           </View>
@@ -373,7 +428,11 @@ export default function PetFormScreen({ navigation, route }: Props) {
 
         <View style={styles.footer}>
           <Button
-            title={mode === 'create' ? t('petForm.createAction') : t('petForm.saveAction')}
+            title={
+              mode === "create"
+                ? t("petForm.createAction")
+                : t("petForm.saveAction")
+            }
             onPress={handleSubmit}
             variant="primary"
             size="large"
@@ -381,9 +440,9 @@ export default function PetFormScreen({ navigation, route }: Props) {
             disabled={isLoading}
           />
 
-          {mode === 'edit' && (
+          {mode === "edit" && (
             <Button
-              title={t('petForm.deleteAction')}
+              title={t("petForm.deleteAction")}
               onPress={handleDeletePet}
               variant="ghost"
               size="large"
@@ -399,7 +458,7 @@ export default function PetFormScreen({ navigation, route }: Props) {
   );
 }
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -426,34 +485,34 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     photoSection: {
       marginBottom: 24,
-      alignItems: 'center',
+      alignItems: "center",
     },
     photoLabel: {
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: "600",
       color: colors.text,
       marginBottom: 12,
-      alignSelf: 'flex-start',
+      alignSelf: "flex-start",
     },
     photoContainer: {
       width: 140,
       height: 140,
       borderRadius: 70,
-      overflow: 'hidden',
+      overflow: "hidden",
       borderWidth: 2,
       borderColor: colors.surfaceBorder,
-      borderStyle: 'dashed',
+      borderStyle: "dashed",
     },
     photo: {
-      width: '100%',
-      height: '100%',
+      width: "100%",
+      height: "100%",
     },
     photoPlaceholder: {
-      width: '100%',
-      height: '100%',
+      width: "100%",
+      height: "100%",
       backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     photoPlaceholderIcon: {
       fontSize: 36,
@@ -462,22 +521,22 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     photoPlaceholderText: {
       fontSize: 13,
       color: colors.muted,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     photoOverlay: {
-      position: 'absolute',
+      position: "absolute",
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      alignItems: 'center',
-      justifyContent: 'center',
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
+      alignItems: "center",
+      justifyContent: "center",
     },
     photoOverlayText: {
-      color: '#fff',
+      color: "#fff",
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     hint: {
       marginTop: 8,
@@ -485,10 +544,10 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     hintText: {
       fontSize: 13,
       color: colors.muted,
-      fontStyle: 'italic',
+      fontStyle: "italic",
     },
     footer: {
-      position: 'absolute',
+      position: "absolute",
       bottom: 0,
       left: 0,
       right: 0,
@@ -499,12 +558,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       gap: 12,
     },
     deleteButton: {
-      borderColor: '#ef4444',
+      borderColor: "#ef4444",
       borderWidth: 1,
       marginTop: 8,
     },
     deleteButtonText: {
-      color: '#ef4444',
+      color: "#ef4444",
     },
   });
 }
