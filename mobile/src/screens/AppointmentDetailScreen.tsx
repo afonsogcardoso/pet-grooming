@@ -64,6 +64,27 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const mutation = useMutation({
     mutationFn: (payload: { status?: string | null; payment_status?: string | null }) =>
       updateAppointment(appointmentId, payload),
+    onMutate: async (payload) => {
+      const prevAppointment = queryClient.getQueryData(['appointment', appointmentId]);
+      const prevStatus = (prevAppointment as any)?.status ?? null;
+      const prevLists = queryClient.getQueriesData({ queryKey: ['appointments'] });
+
+      // Optimistically update detail cache
+      queryClient.setQueryData(['appointment', appointmentId], (old: any) =>
+        old ? { ...old, ...payload } : old,
+      );
+
+      // Optimistically update all appointment list queries
+      prevLists.forEach(([key, data]) => {
+        if (!data || !Array.isArray((data as any).items)) return;
+        const nextItems = (data as any).items.map((item: any) =>
+          item?.id === appointmentId ? { ...item, ...payload } : item,
+        );
+        queryClient.setQueryData(key, { ...(data as any), items: nextItems });
+      });
+
+      return { prevAppointment, prevLists, prevStatus };
+    },
     onSuccess: (updated) => {
       hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ['appointments'] }).catch(() => null);
@@ -72,8 +93,17 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         queryClient.setQueryData(['appointment', appointmentId], updated);
       }
     },
-    onError: (err: any) => {
+    onError: (err: any, _payload, context) => {
       hapticError();
+      if (context?.prevAppointment) {
+        queryClient.setQueryData(['appointment', appointmentId], context.prevAppointment);
+      }
+      if (context?.prevLists) {
+        context.prevLists.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      }
+      if (context?.prevStatus !== undefined && context.prevStatus !== null) {
+        setStatus(context.prevStatus);
+      }
       const message = err?.response?.data?.error || err.message || t('appointmentDetail.updateError');
       Alert.alert(t('common.error'), message);
     },

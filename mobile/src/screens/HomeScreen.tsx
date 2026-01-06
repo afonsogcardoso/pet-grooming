@@ -64,7 +64,7 @@ export default function HomeScreen({ navigation }: Props) {
       getAppointments({
         from: today,
         to: upcomingTo,
-        limit: 1000,
+        limit: 50,
         offset: 0,
       }),
   });

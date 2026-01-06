@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Image, TextInput, Alert, Platform, ActionSheetIOS, PermissionsAndroid, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { launchCamera, launchImageLibrary, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
@@ -289,13 +288,7 @@ export default function ProfileScreen({ navigation }: Props) {
     setEditAddress2(profileDefaults.address2);
   }, [profileDefaults, hasProfileEdits]);
 
-  // Ensure profile is refreshed every time the screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      // Force a refetch of the profile when the user opens the Profile screen
-      queryClient.refetchQueries({ queryKey: ['profile'] });
-    }, [queryClient])
-  );
+  // Do not refetch on every focus to avoid extra latency; rely on React Query cache and explicit invalidations
 
   const applyMarketplaceBranding = (data?: Branding | null) => {
     if (!data) return;

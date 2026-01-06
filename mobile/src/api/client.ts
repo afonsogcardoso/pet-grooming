@@ -36,10 +36,27 @@ const rawApi = axios.create({
   baseURL: baseWithVersion,
 });
 
+let cachedToken: string | null = null;
+
+async function resolveToken(): Promise<string | null> {
+  const memoryToken = useAuthStore.getState().token;
+  if (memoryToken) {
+    cachedToken = memoryToken;
+    return memoryToken;
+  }
+  if (cachedToken) return cachedToken;
+  const stored = await SecureStore.getItemAsync('authToken');
+  if (stored) cachedToken = stored;
+  return stored;
+}
+
 api.interceptors.request.use(async config => {
-  const token = await SecureStore.getItemAsync('authToken');
+  const token = await resolveToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  if (__DEV__) {
+    (config as any)._startedAt = Date.now();
   }
   return config;
 });
@@ -59,6 +76,7 @@ async function refreshToken() {
       const nextRefresh = data?.refreshToken || refreshToken;
       if (token) {
         await useAuthStore.getState().setTokens({ token, refreshToken: nextRefresh });
+        cachedToken = token;
         return token;
       }
       return null;
@@ -86,8 +104,18 @@ function shouldRefreshSession(error: any) {
 }
 
 api.interceptors.response.use(
-  response => response,
+  response => {
+    if (__DEV__ && (response.config as any)._startedAt) {
+      const duration = Date.now() - (response.config as any)._startedAt;
+      console.log('[api]', response.config.url, `${duration}ms`);
+    }
+    return response;
+  },
   async error => {
+    if (__DEV__ && (error?.config as any)?._startedAt) {
+      const duration = Date.now() - (error.config as any)._startedAt;
+      console.log('[api] error', error.config?.url, `${duration}ms`);
+    }
     const originalRequest = error?.config || {};
     if (shouldRefreshSession(error) && !originalRequest._retry) {
       originalRequest._retry = true;

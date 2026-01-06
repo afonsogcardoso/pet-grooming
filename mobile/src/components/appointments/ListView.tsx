@@ -13,6 +13,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { RectButton } from 'react-native-gesture-handler';
 import SwipeableRow from '../common/SwipeableRow';
@@ -47,6 +48,9 @@ type ListViewProps = {
   deletingId?: string | null;
   onScrollYChange?: (y: number) => void;
   scrollY?: any;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 };
 
 const SEARCH_HEADER_HEIGHT = 44;
@@ -422,6 +426,9 @@ export function ListView({
   deletingId,
   onScrollYChange,
   scrollY,
+  onLoadMore,
+  hasMore,
+  isLoadingMore,
 }: ListViewProps) {
   const listRef = React.useRef<SectionList<Appointment, Section>>(null);
   const searchInputRef = React.useRef<TextInput>(null);
@@ -712,6 +719,17 @@ export function ListView({
       }
       onRefresh={onRefresh}
       refreshing={isRefreshing}
+      onEndReached={() => {
+        if (hasMore && !isLoadingMore) {
+          onLoadMore?.();
+        }
+      }}
+      onEndReachedThreshold={0.4}
+      ListFooterComponent={hasMore ? (
+        <View style={{ paddingVertical: 12 }}>
+          {isLoadingMore ? <ActivityIndicator color={colors.primary} /> : null}
+        </View>
+      ) : null}
     />
   );
 }

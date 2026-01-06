@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Animated, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -90,25 +90,31 @@ export default function AppointmentsScreen({ navigation }: Props) {
     return {};
   }, [viewMode, filterMode, selectedDate, today]);
 
+  const PAGE_SIZE = 20;
+
   const {
     data: appointmentsData,
     isLoading,
     error,
     refetch,
     isRefetching,
-  } = useQuery({
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['appointments', viewMode, filterMode, dateRange.from, dateRange.to],
-    queryFn: () =>
+    queryFn: ({ pageParam = 0 }) =>
       getAppointments({
         from: dateRange.from,
         to: dateRange.to,
-        limit: 1000, // Fetch all for the period
-        offset: 0,
+        limit: PAGE_SIZE,
+        offset: pageParam,
       }),
+    getNextPageParam: (lastPage) => lastPage.nextOffset ?? null,
     retry: 1,
   });
 
-  const appointments = appointmentsData?.items || [];
+  const appointments = appointmentsData?.pages?.flatMap((page) => page.items) || [];
   const pendingAppointments = useMemo(
     () => appointments.filter((appointment) => appointment.status === 'pending'),
     [appointments],
@@ -279,6 +285,11 @@ export default function AppointmentsScreen({ navigation }: Props) {
     [navigation]
   );
 
+  const handleLoadMore = useCallback(() => {
+    if (!hasNextPage || isFetchingNextPage) return;
+    fetchNextPage();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+
   const handleNewAppointment = useCallback(
     (date?: string, time?: string) => {
       navigation.navigate('NewAppointment', { date, time });
@@ -438,6 +449,9 @@ export default function AppointmentsScreen({ navigation }: Props) {
               deletingId={deletingId}
               onScrollYChange={handleListScroll}
               scrollY={scrollY}
+              onLoadMore={handleLoadMore}
+              hasMore={Boolean(hasNextPage)}
+              isLoadingMore={isFetchingNextPage}
             />
           )}
 

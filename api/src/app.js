@@ -26,6 +26,30 @@ if (envResult.error) {
 
 const app = express()
 
+// Lightweight request timing to surface latency in Vercel logs and response headers
+app.use((req, res, next) => {
+  const start = process.hrtime.bigint()
+  let headersSent = false
+
+  const origWriteHead = res.writeHead
+  res.writeHead = function (...args) {
+    if (!headersSent) {
+      const durMs = Number(process.hrtime.bigint() - start) / 1e6
+      res.setHeader('Server-Timing', `total;dur=${durMs.toFixed(1)}`)
+      res.setHeader('X-Response-Time', `${durMs.toFixed(1)}ms`)
+      headersSent = true
+    }
+    return origWriteHead.apply(this, args)
+  }
+
+  res.on('finish', () => {
+    const durMs = Number(process.hrtime.bigint() - start) / 1e6
+    console.log('[perf]', JSON.stringify({ path: req.originalUrl, method: req.method, status: res.statusCode, durMs: Number(durMs.toFixed(1)) }))
+  })
+
+  next()
+})
+
 const allowedOrigins =
   process.env.ALLOWED_ORIGINS?.split(',').map((entry) => entry.trim()).filter(Boolean) || []
 const supabaseUrl = process.env.SUPABASE_URL
