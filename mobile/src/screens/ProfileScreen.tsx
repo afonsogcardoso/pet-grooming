@@ -1374,7 +1374,7 @@ export default function ProfileScreen({ navigation }: Props) {
                 onValueChange={handleTogglePushNotifications}
                 disabled={notificationsDisabled}
                 thumbColor={pushEnabled ? colors.primary : colors.surface}
-                trackColor={{ false: 'blue', true: 'green' }}
+                trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
                 ios_backgroundColor={colors.surface}
               />
             </View>
