@@ -7,12 +7,12 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
 import { AddressAutocomplete } from "./AddressAutocomplete";
 import { PhoneInput } from "../common/PhoneInput";
 import { Input } from "../common/Input";
+import { SearchField } from "../common/SearchField";
 import type { Customer, Pet } from "../../api/customers";
 import { useEffect, useState } from "react";
 import { formatCustomerName } from "../../utils/customer";
@@ -98,7 +98,7 @@ export function ExistingCustomerForm({
       borderRadius: 12,
       paddingHorizontal: 16,
       paddingVertical: 14,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.background,
       borderColor: colors.surfaceBorder,
     },
     selectText: {
@@ -114,25 +114,15 @@ export function ExistingCustomerForm({
       borderWidth: 1,
       borderRadius: 12,
       padding: 12,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.background,
       marginBottom: 12,
       borderColor: colors.primarySoft,
-    },
-    input: {
-      borderWidth: 1,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      color: colors.text,
-      backgroundColor: colors.surface,
-      borderColor: colors.surfaceBorder,
-      fontSize: 15,
-      fontWeight: "500",
     },
     option: {
       paddingVertical: 10,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.surfaceBorder,
+      backgroundColor: colors.background,
     },
     optionTitle: {
       color: colors.text,
@@ -146,7 +136,7 @@ export function ExistingCustomerForm({
       marginTop: 12,
       padding: 14,
       borderRadius: 12,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.background,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
     },
@@ -171,23 +161,6 @@ export function ExistingCustomerForm({
       color: colors.primary,
       fontWeight: "600",
       fontSize: 13,
-    },
-    searchBar: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      marginBottom: 10,
-      gap: 12,
-      borderWidth: 1,
-      borderColor: colors.primarySoft,
-    },
-    searchInput: {
-      flex: 1,
-      fontSize: 16,
-      color: colors.text,
     },
     customerHeader: {
       flexDirection: "row",
@@ -224,6 +197,12 @@ export function ExistingCustomerForm({
       fontWeight: "600",
       fontSize: 13,
     },
+    searchField: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 12,
+    },
   });
 
   return (
@@ -245,26 +224,13 @@ export function ExistingCustomerForm({
 
             {showCustomerList ? (
               <View style={[styles.dropdown, { borderColor: primarySoft }]}>
-                <View style={styles.searchBar}>
-                  <Ionicons name="search" size={20} color={colors.muted} />
-                  <TextInput
-                    value={customerSearch}
-                    onChangeText={setCustomerSearch}
-                    placeholder={t("existingCustomerForm.searchPlaceholder")}
-                    placeholderTextColor={colors.muted}
-                    style={styles.searchInput}
-                    autoFocus
-                  />
-                  {customerSearch.length > 0 && (
-                    <TouchableOpacity onPress={() => setCustomerSearch("")}>
-                      <Ionicons
-                        name="close-circle"
-                        size={20}
-                        color={colors.muted}
-                      />
-                    </TouchableOpacity>
-                  )}
-                </View>
+                <SearchField
+                  value={customerSearch}
+                  onChangeText={setCustomerSearch}
+                  placeholder={t("existingCustomerForm.searchPlaceholder")}
+                  autoFocus
+                  containerStyle={[{ marginBottom: 10 }, styles.searchField]}
+                />
                 <ScrollView
                   style={{ maxHeight: 200 }}
                   keyboardShouldPersistTaps="handled"
@@ -398,15 +364,11 @@ export function ExistingCustomerForm({
                   { borderColor: primarySoft, marginTop: 12 },
                 ]}
               >
-                <TextInput
+                <SearchField
                   value={customerSearch}
                   onChangeText={setCustomerSearch}
                   placeholder={t("existingCustomerForm.searchPlaceholder")}
-                  placeholderTextColor={colors.muted}
-                  style={[
-                    styles.input,
-                    { borderColor: primarySoft, marginBottom: 10 },
-                  ]}
+                  containerStyle={[{ marginBottom: 10 }, styles.searchField]}
                   autoFocus
                 />
                 <ScrollView

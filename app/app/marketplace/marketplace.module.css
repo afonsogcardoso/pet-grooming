@@ -1,26 +1,26 @@
 .pawmiTheme {
-  --brand-primary: #f47c1c;
-  --brand-primary-dark: #e16310;
-  --brand-primary-soft: #ffe7d0;
-  --brand-accent: #ffa85c;
-  --brand-accent-soft: #fff1e3;
-  --brand-secondary: #4a2c16;
-  --brand-secondary-soft: #ffe7d0;
-  --brand-surface: #fff8f1;
-  --brand-gradient: linear-gradient(140deg, rgba(244, 124, 28, 0.95), rgba(255, 168, 92, 0.9));
+  --brand-primary: #1f6feb;
+  --brand-primary-dark: #144fa1;
+  --brand-primary-soft: #dce8ff;
+  --brand-accent: #82b1ff;
+  --brand-accent-soft: #e8f1ff;
+  --brand-secondary: #0f172a;
+  --brand-secondary-soft: #dce8ff;
+  --brand-surface: #f6f9ff;
+  --brand-gradient: linear-gradient(135deg, rgba(31, 111, 235, 0.95), rgba(20, 79, 161, 0.9));
   --background: var(--brand-surface);
 }
 
 .pawmiTheme :global(.shadow-brand-glow) {
-  box-shadow: 0 8px 20px rgba(244, 124, 28, 0.25);
+  box-shadow: 0 8px 20px rgba(31, 111, 235, 0.25);
 }
 
 .page {
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(70% 50% at 10% 0%, rgba(244, 124, 28, 0.18), transparent 60%),
-    radial-gradient(55% 45% at 85% 5%, rgba(255, 168, 92, 0.2), transparent 55%),
+    radial-gradient(70% 50% at 10% 0%, rgba(31, 111, 235, 0.18), transparent 60%),
+    radial-gradient(55% 45% at 85% 5%, rgba(130, 177, 255, 0.2), transparent 55%),
     var(--brand-surface);
 }
 
@@ -31,7 +31,7 @@
   height: 45rem;
   background: radial-gradient(
     45% 45% at 50% 20%,
-    rgba(74, 44, 22, 0.2),
+    rgba(15, 23, 42, 0.18),
     transparent 70%
   );
   opacity: 0.7;
@@ -72,8 +72,8 @@
 .ctaPanel {
   background: linear-gradient(
     120deg,
-    rgba(244, 124, 28, 0.95),
-    rgba(255, 168, 92, 0.92)
+    rgba(31, 111, 235, 0.95),
+    rgba(20, 79, 161, 0.9)
   );
 }
 

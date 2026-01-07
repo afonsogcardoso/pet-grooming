@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -10,44 +10,44 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
-} from 'react-native';
-import * as AuthSession from 'expo-auth-session';
-import * as WebBrowser from 'expo-web-browser';
-import { Ionicons } from '@expo/vector-icons';
-import { useForm, Controller } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useTranslation } from 'react-i18next';
-import { oauthSignup, signup } from '../api/auth';
-import { getBranding } from '../api/branding';
-import { getProfile } from '../api/profile';
-import { useAuthStore } from '../state/authStore';
-import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { PhoneInput } from '../components/common/PhoneInput';
-import { resolveSupabaseUrl } from '../config/supabase';
-import { hapticError, hapticSuccess } from '../utils/haptics';
+} from "react-native";
+import * as AuthSession from "expo-auth-session";
+import * as WebBrowser from "expo-web-browser";
+import { Ionicons } from "@expo/vector-icons";
+import { useForm, Controller } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useTranslation } from "react-i18next";
+import { oauthSignup, signup } from "../api/auth";
+import { getBranding } from "../api/branding";
+import { getProfile } from "../api/profile";
+import { useAuthStore } from "../state/authStore";
+import { useBrandingTheme } from "../theme/useBrandingTheme";
+import { PhoneInput } from "../components/common/PhoneInput";
+import { resolveSupabaseUrl } from "../config/supabase";
+import { hapticError, hapticSuccess } from "../utils/haptics";
 
 WebBrowser.maybeCompleteAuthSession();
 
 const baseSchema = {
-  registerAs: z.enum(['consumer', 'provider']),
-  accountName: z.string().min(2).optional().or(z.literal('')),
-  phone: z.string().optional().or(z.literal('')),
+  registerAs: z.enum(["consumer", "provider"]),
+  accountName: z.string().min(2).optional().or(z.literal("")),
+  phone: z.string().optional().or(z.literal("")),
 };
 
-const schema = z.discriminatedUnion('signupMethod', [
+const schema = z.discriminatedUnion("signupMethod", [
   z.object({
-    signupMethod: z.literal('google'),
+    signupMethod: z.literal("google"),
     ...baseSchema,
-    firstName: z.string().optional().or(z.literal('')),
-    lastName: z.string().optional().or(z.literal('')),
-    email: z.string().optional().or(z.literal('')),
-    password: z.string().optional().or(z.literal('')),
+    firstName: z.string().optional().or(z.literal("")),
+    lastName: z.string().optional().or(z.literal("")),
+    email: z.string().optional().or(z.literal("")),
+    password: z.string().optional().or(z.literal("")),
   }),
   z.object({
-    signupMethod: z.literal('email'),
+    signupMethod: z.literal("email"),
     ...baseSchema,
     firstName: z.string().min(1),
     lastName: z.string().min(1),
@@ -59,14 +59,14 @@ const schema = z.discriminatedUnion('signupMethod', [
 type FormValues = z.infer<typeof schema>;
 type Props = NativeStackScreenProps<any>;
 
-const OAUTH_REDIRECT_PATH = 'auth/callback';
+const OAUTH_REDIRECT_PATH = "auth/callback";
 
 function parseAuthParams(url: string | undefined | null) {
   if (!url) return {};
-  const [base, fragment] = url.split('#');
-  const query = base?.split('?')[1];
-  const params = new URLSearchParams(query ?? '');
-  const fragmentParams = new URLSearchParams(fragment ?? '');
+  const [base, fragment] = url.split("#");
+  const query = base?.split("?")[1];
+  const params = new URLSearchParams(query ?? "");
+  const fragmentParams = new URLSearchParams(fragment ?? "");
   const values: Record<string, string> = {};
   params.forEach((value, key) => {
     values[key] = value;
@@ -78,13 +78,15 @@ function parseAuthParams(url: string | undefined | null) {
 }
 
 function isAccountExistsOAuthError(params: Record<string, string>) {
-  const haystack = `${params.error ?? ''} ${params.error_code ?? ''} ${params.error_description ?? ''}`.toLowerCase();
+  const haystack = `${params.error ?? ""} ${params.error_code ?? ""} ${
+    params.error_description ?? ""
+  }`.toLowerCase();
   if (!haystack.trim()) return false;
   if (
-    haystack.includes('user_already_registered') ||
-    haystack.includes('email_already_registered') ||
-    haystack.includes('email_exists') ||
-    haystack.includes('user_already_exists')
+    haystack.includes("user_already_registered") ||
+    haystack.includes("email_already_registered") ||
+    haystack.includes("email_exists") ||
+    haystack.includes("user_already_exists")
   ) {
     return true;
   }
@@ -96,7 +98,7 @@ function isAccountExistsOAuthError(params: Record<string, string>) {
 export default function RegisterScreen({ navigation }: Props) {
   const [apiError, setApiError] = useState<string | null>(null);
   const [brandingLogoFailed, setBrandingLogoFailed] = useState(false);
-  const [oauthLoading, setOauthLoading] = useState<'google' | null>(null);
+  const [oauthLoading, setOauthLoading] = useState<"google" | null>(null);
   const setTokens = useAuthStore((s) => s.setTokens);
   const setUser = useAuthStore((s) => s.setUser);
   const queryClient = useQueryClient();
@@ -105,31 +107,40 @@ export default function RegisterScreen({ navigation }: Props) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const logoSource = useMemo(() => {
     if (!branding?.logo_url || brandingLogoFailed) {
-      return require('../../assets/logo_180x180.png');
+      return require("../../assets/logo_180x180.png");
     }
     return { uri: branding.logo_url };
   }, [branding?.logo_url, brandingLogoFailed]);
 
-  const { control, handleSubmit, watch, setValue, clearErrors, setError, getValues, formState } = useForm<FormValues>({
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    clearErrors,
+    setError,
+    getValues,
+    formState,
+  } = useForm<FormValues>({
     defaultValues: {
-      signupMethod: 'google',
-      registerAs: 'consumer',
-      accountName: '',
-      firstName: '',
-      lastName: '',
-      phone: '',
-      email: '',
-      password: '',
+      signupMethod: "google",
+      registerAs: "consumer",
+      accountName: "",
+      firstName: "",
+      lastName: "",
+      phone: "",
+      email: "",
+      password: "",
     },
     resolver: zodResolver(schema),
-    mode: 'onChange',
+    mode: "onChange",
   });
-  const signupMethod = watch('signupMethod');
-  const registerAs = watch('registerAs');
-  const accountName = watch('accountName');
-  const isProvider = registerAs === 'provider';
-  const trimmedAccountName = accountName?.trim() || '';
-  const isEmailSignup = signupMethod === 'email';
+  const signupMethod = watch("signupMethod");
+  const registerAs = watch("registerAs");
+  const accountName = watch("accountName");
+  const isProvider = registerAs === "provider";
+  const trimmedAccountName = accountName?.trim() || "";
+  const isEmailSignup = signupMethod === "email";
 
   const completeLogin = async ({
     token,
@@ -146,14 +157,17 @@ export default function RegisterScreen({ navigation }: Props) {
       lastName?: string | null;
       address?: string | null;
       address2?: string | null;
-      activeRole?: 'consumer' | 'provider' | null;
+      activeRole?: "consumer" | "provider" | null;
     };
   }) => {
     setApiError(null);
     await setTokens({ token, refreshToken });
 
     try {
-      const profile = await queryClient.fetchQuery({ queryKey: ['profile'], queryFn: getProfile });
+      const profile = await queryClient.fetchQuery({
+        queryKey: ["profile"],
+        queryFn: getProfile,
+      });
       setUser({
         email: profile.email,
         displayName: profile.displayName,
@@ -170,7 +184,9 @@ export default function RegisterScreen({ navigation }: Props) {
       }
     }
 
-    await queryClient.fetchQuery({ queryKey: ['branding'], queryFn: getBranding }).catch(() => null);
+    await queryClient
+      .fetchQuery({ queryKey: ["branding"], queryFn: getBranding })
+      .catch(() => null);
   };
 
   const { mutateAsync, isPending } = useMutation({
@@ -178,7 +194,7 @@ export default function RegisterScreen({ navigation }: Props) {
     onSuccess: async (data) => {
       if (!data.token) {
         hapticSuccess();
-        setApiError(data.message || t('register.createdMessage'));
+        setApiError(data.message || t("register.createdMessage"));
         return;
       }
       await completeLogin({
@@ -198,39 +214,39 @@ export default function RegisterScreen({ navigation }: Props) {
       const message =
         err?.response?.data?.error ??
         err?.response?.data?.message ??
-        t('register.errorFallback');
+        t("register.errorFallback");
       setApiError(message);
     },
   });
   const isSubmitting = isPending || oauthLoading !== null;
-  const canOauthSubmit =
-    signupMethod === 'google' &&
-    !isSubmitting;
+  const canOauthSubmit = signupMethod === "google" && !isSubmitting;
   const canEmailSubmit =
-    signupMethod === 'email' &&
-    !isSubmitting &&
-    formState.isValid;
-  const handleSignupMethodChange = (method: 'google' | 'email') => {
-    setValue('signupMethod', method, { shouldValidate: true });
+    signupMethod === "email" && !isSubmitting && formState.isValid;
+  const handleSignupMethodChange = (method: "google" | "email") => {
+    setValue("signupMethod", method, { shouldValidate: true });
     setApiError(null);
-    if (method === 'google') {
-      clearErrors(['firstName', 'lastName', 'email', 'password', 'phone']);
+    if (method === "google") {
+      clearErrors(["firstName", "lastName", "email", "password", "phone"]);
     }
   };
 
   const onSubmit = handleSubmit(async (values) => {
-    if (values.signupMethod !== 'email') {
+    if (values.signupMethod !== "email") {
       return;
     }
-    if (values.registerAs === 'provider' && trimmedAccountName.length < 2) {
+    if (values.registerAs === "provider" && trimmedAccountName.length < 2) {
       hapticError();
-      setError('accountName', { type: 'manual', message: t('register.accountRequired') });
+      setError("accountName", {
+        type: "manual",
+        message: t("register.accountRequired"),
+      });
       return;
     }
     await mutateAsync({
       email: values.email.trim(),
       password: values.password,
-      accountName: values.registerAs === 'provider' ? trimmedAccountName : undefined,
+      accountName:
+        values.registerAs === "provider" ? trimmedAccountName : undefined,
       firstName: values.firstName.trim(),
       lastName: values.lastName.trim(),
       phone: values.phone?.trim() || undefined,
@@ -243,26 +259,29 @@ export default function RegisterScreen({ navigation }: Props) {
     setApiError(null);
 
     const values = getValues();
-    if (values.signupMethod !== 'google') {
+    if (values.signupMethod !== "google") {
       return;
     }
-    if (values.registerAs === 'provider' && trimmedAccountName.length < 2) {
-      setError('accountName', { type: 'manual', message: t('register.accountRequired') });
+    if (values.registerAs === "provider" && trimmedAccountName.length < 2) {
+      setError("accountName", {
+        type: "manual",
+        message: t("register.accountRequired"),
+      });
       return;
     }
 
     const supabaseUrl = resolveSupabaseUrl();
     if (!supabaseUrl) {
       hapticError();
-      setApiError(t('login.errors.oauthConfig'));
+      setApiError(t("login.errors.oauthConfig"));
       return;
     }
 
-    setOauthLoading('google');
+    setOauthLoading("google");
 
-    const providerLabel = t('login.providers.google');
+    const providerLabel = t("login.providers.google");
     const redirectUri = AuthSession.makeRedirectUri({
-      scheme: 'pawmi',
+      scheme: "pawmi",
       path: OAUTH_REDIRECT_PATH,
     });
     const authUrl = `${supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(
@@ -270,11 +289,14 @@ export default function RegisterScreen({ navigation }: Props) {
     )}`;
 
     try {
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-      if (result.type !== 'success') {
-        if (result.type !== 'cancel' && result.type !== 'dismiss') {
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        redirectUri
+      );
+      if (result.type !== "success") {
+        if (result.type !== "cancel" && result.type !== "dismiss") {
           hapticError();
-          setApiError(t('login.errors.oauth', { provider: providerLabel }));
+          setApiError(t("login.errors.oauth", { provider: providerLabel }));
         }
         return;
       }
@@ -284,8 +306,8 @@ export default function RegisterScreen({ navigation }: Props) {
         hapticError();
         setApiError(
           isAccountExistsOAuthError(params)
-            ? t('login.errors.oauthAccountExists')
-            : t('login.errors.oauth', { provider: providerLabel })
+            ? t("login.errors.oauthAccountExists")
+            : t("login.errors.oauth", { provider: providerLabel })
         );
         return;
       }
@@ -294,7 +316,7 @@ export default function RegisterScreen({ navigation }: Props) {
       const refreshToken = params.refresh_token;
       if (!accessToken) {
         hapticError();
-        setApiError(t('login.errors.oauth', { provider: providerLabel }));
+        setApiError(t("login.errors.oauth", { provider: providerLabel }));
         return;
       }
 
@@ -304,7 +326,8 @@ export default function RegisterScreen({ navigation }: Props) {
       const response = await oauthSignup({
         accessToken,
         refreshToken,
-        accountName: values.registerAs === 'provider' ? trimmedAccountName : undefined,
+        accountName:
+          values.registerAs === "provider" ? trimmedAccountName : undefined,
         firstName: trimmedFirstName || undefined,
         lastName: trimmedLastName || undefined,
         phone: trimmedPhone || undefined,
@@ -327,7 +350,7 @@ export default function RegisterScreen({ navigation }: Props) {
       const message =
         err?.response?.data?.error ??
         err?.response?.data?.message ??
-        t('login.errors.oauth', { provider: providerLabel });
+        t("login.errors.oauth", { provider: providerLabel });
       setApiError(message);
     } finally {
       setOauthLoading(null);
@@ -335,267 +358,333 @@ export default function RegisterScreen({ navigation }: Props) {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.headerSection}>
-        <View style={styles.iconCircle}>
-          <Image
-            source={logoSource}
-            style={styles.iconImage}
-            onError={() => setBrandingLogoFailed(true)}
-          />
-        </View>
-        <Text style={styles.welcomeText}>{t('register.title')}</Text>
-        <Text style={styles.subtitle}>
-          {isProvider ? t('register.subtitleProvider') : t('register.subtitleConsumer')}
-        </Text>
+          <View style={styles.iconCircle}>
+            <Image
+              source={logoSource}
+              style={styles.iconImage}
+              onError={() => setBrandingLogoFailed(true)}
+            />
+          </View>
+          <Text style={styles.welcomeText}>{t("register.title")}</Text>
+          <Text style={styles.subtitle}>
+            {isProvider
+              ? t("register.subtitleProvider")
+              : t("register.subtitleConsumer")}
+          </Text>
         </View>
 
         <View style={styles.formCard}>
-        <View style={styles.roleSection}>
-          <Text style={styles.roleLabel}>{t('register.roleTitle')}</Text>
-          <View style={styles.roleGrid}>
-            <TouchableOpacity
-              style={[
-                styles.roleCard,
-                registerAs === 'consumer' && { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-              ]}
-              onPress={() => {
-                setValue('registerAs', 'consumer');
-                clearErrors('accountName');
-              }}
-            >
-              <Text style={[styles.roleTitle, registerAs === 'consumer' && { color: colors.primary }]}>
-                {t('register.roleConsumerTitle')}
-              </Text>
-              <Text style={styles.roleHint}>{t('register.roleConsumerHint')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.roleCard,
-                registerAs === 'provider' && { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-              ]}
-              onPress={() => setValue('registerAs', 'provider')}
-            >
-              <Text style={[styles.roleTitle, registerAs === 'provider' && { color: colors.primary }]}>
-                {t('register.roleProviderTitle')}
-              </Text>
-              <Text style={styles.roleHint}>{t('register.roleProviderHint')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.methodSection}>
-          <Text style={styles.methodLabel}>{t('register.methodTitle')}</Text>
-          <View style={styles.methodToggle}>
-            <TouchableOpacity
-              style={[
-                styles.methodButton,
-                signupMethod === 'google' && styles.methodButtonActive,
-              ]}
-              onPress={() => handleSignupMethodChange('google')}
-            >
-              <Ionicons
-                name="logo-google"
-                size={18}
-                color={signupMethod === 'google' ? colors.primary : colors.text}
-              />
-              <Text
+          <View style={styles.roleSection}>
+            <Text style={styles.roleLabel}>{t("register.roleTitle")}</Text>
+            <View style={styles.roleGrid}>
+              <TouchableOpacity
                 style={[
-                  styles.methodButtonText,
-                  signupMethod === 'google' && styles.methodButtonTextActive,
+                  styles.roleCard,
+                  registerAs === "consumer" && {
+                    borderColor: colors.primary,
+                    backgroundColor: colors.primarySoft,
+                  },
                 ]}
+                onPress={() => {
+                  setValue("registerAs", "consumer");
+                  clearErrors("accountName");
+                }}
               >
-                {t('login.providers.google')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.methodButton,
-                signupMethod === 'email' && styles.methodButtonActive,
-              ]}
-              onPress={() => handleSignupMethodChange('email')}
-            >
-              <Ionicons
-                name="mail-outline"
-                size={18}
-                color={signupMethod === 'email' ? colors.primary : colors.text}
-              />
-              <Text
+                <Text
+                  style={[
+                    styles.roleTitle,
+                    registerAs === "consumer" && { color: colors.primary },
+                  ]}
+                >
+                  {t("register.roleConsumerTitle")}
+                </Text>
+                <Text style={styles.roleHint}>
+                  {t("register.roleConsumerHint")}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
                 style={[
-                  styles.methodButtonText,
-                  signupMethod === 'email' && styles.methodButtonTextActive,
+                  styles.roleCard,
+                  registerAs === "provider" && {
+                    borderColor: colors.primary,
+                    backgroundColor: colors.primarySoft,
+                  },
                 ]}
+                onPress={() => setValue("registerAs", "provider")}
               >
-                {t('common.email')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {isProvider ? (
-          <Controller
-            control={control}
-            name="accountName"
-            render={({ field: { onChange, value }, fieldState: { error } }) => (
-              <View style={styles.field}>
-                <View style={styles.inputWrapper}>
-                  <Text style={styles.inputIcon}>🏷️</Text>
-                  <TextInput
-                    style={[styles.input, error ? styles.inputError : null]}
-                    value={value}
-                    onChangeText={onChange}
-                    placeholder={t('register.accountPlaceholder')}
-                    placeholderTextColor={colors.muted}
-                  />
-                </View>
-                {error && <Text style={styles.error}>{error.message}</Text>}
-              </View>
-            )}
-          />
-        ) : null}
-
-        {isEmailSignup ? (
-          <>
-            <Controller
-              control={control}
-              name="firstName"
-              render={({ field: { onChange, value }, fieldState: { error } }) => (
-                <View style={styles.field}>
-                  <View style={styles.inputWrapper}>
-                    <Text style={styles.inputIcon}>👤</Text>
-                    <TextInput
-                      style={[styles.input, error ? styles.inputError : null]}
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder={t('register.firstNamePlaceholder')}
-                      placeholderTextColor={colors.muted}
-                    />
-                  </View>
-                  {error && <Text style={styles.error}>{error.message}</Text>}
-                </View>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="lastName"
-              render={({ field: { onChange, value }, fieldState: { error } }) => (
-                <View style={styles.field}>
-                  <View style={styles.inputWrapper}>
-                    <Text style={styles.inputIcon}>🪪</Text>
-                    <TextInput
-                      style={[styles.input, error ? styles.inputError : null]}
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder={t('register.lastNamePlaceholder')}
-                      placeholderTextColor={colors.muted}
-                    />
-                  </View>
-                  {error && <Text style={styles.error}>{error.message}</Text>}
-                </View>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="phone"
-              render={({ field: { onChange, value }, fieldState: { error } }) => (
-                <View style={styles.field}>
-                  <PhoneInput
-                    label={t('common.phone')}
-                    value={value}
-                    onChange={onChange}
-                    placeholder={t('common.phone')}
-                    disabled={isSubmitting}
-                  />
-                  {error && <Text style={styles.error}>{error.message}</Text>}
-                </View>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="email"
-              render={({ field: { onChange, value }, fieldState: { error } }) => (
-                <View style={styles.field}>
-                  <View style={styles.inputWrapper}>
-                    <Text style={styles.inputIcon}>📧</Text>
-                    <TextInput
-                      style={[styles.input, error ? styles.inputError : null]}
-                      autoCapitalize="none"
-                      keyboardType="email-address"
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder={t('common.email')}
-                      placeholderTextColor={colors.muted}
-                    />
-                  </View>
-                  {error && <Text style={styles.error}>{error.message}</Text>}
-                </View>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="password"
-              render={({ field: { onChange, value }, fieldState: { error } }) => (
-                <View style={styles.field}>
-                  <View style={styles.inputWrapper}>
-                    <Text style={styles.inputIcon}>🔒</Text>
-                    <TextInput
-                      style={[styles.input, error ? styles.inputError : null]}
-                      secureTextEntry
-                      value={value}
-                      onChangeText={onChange}
-                      placeholder={t('register.passwordPlaceholder')}
-                      placeholderTextColor={colors.muted}
-                    />
-                  </View>
-                  {error && <Text style={styles.error}>{error.message}</Text>}
-                </View>
-              )}
-            />
-          </>
-        ) : null}
-
-        {apiError && (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{apiError}</Text>
-          </View>
-        )}
-
-        {signupMethod === 'google' ? (
-          <TouchableOpacity
-            style={[styles.oauthButton, !canOauthSubmit && styles.buttonDisabled]}
-            onPress={handleOAuthSignup}
-            disabled={!canOauthSubmit}
-          >
-            <View style={styles.oauthButtonContent}>
-              <Ionicons name="logo-google" size={18} color={colors.text} />
-              <Text style={styles.oauthButtonText}>{t('login.actions.google')}</Text>
-              {oauthLoading === 'google' ? <ActivityIndicator color={colors.text} size="small" /> : null}
+                <Text
+                  style={[
+                    styles.roleTitle,
+                    registerAs === "provider" && { color: colors.primary },
+                  ]}
+                >
+                  {t("register.roleProviderTitle")}
+                </Text>
+                <Text style={styles.roleHint}>
+                  {t("register.roleProviderHint")}
+                </Text>
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.button, !canEmailSubmit && styles.buttonDisabled]}
-            onPress={onSubmit}
-            disabled={!canEmailSubmit}
-          >
-            {isPending ? (
-              <View style={styles.buttonContent}>
-                <ActivityIndicator color="#fff" size="small" />
-                <Text style={styles.buttonText}>{t('common.loading')}</Text>
-              </View>
-            ) : (
-              <Text style={styles.buttonText}>{t('register.createAccount')}</Text>
-            )}
-          </TouchableOpacity>
-        )}
+          </View>
 
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.replace('Login')}>
-            <Text style={styles.secondaryText}>{t('register.backToLogin')}</Text>
+          <View style={styles.methodSection}>
+            <Text style={styles.methodLabel}>{t("register.methodTitle")}</Text>
+            <View style={styles.methodToggle}>
+              <TouchableOpacity
+                style={[
+                  styles.methodButton,
+                  signupMethod === "google" && styles.methodButtonActive,
+                ]}
+                onPress={() => handleSignupMethodChange("google")}
+              >
+                <Ionicons
+                  name="logo-google"
+                  size={18}
+                  color={
+                    signupMethod === "google" ? colors.primary : colors.text
+                  }
+                />
+                <Text
+                  style={[
+                    styles.methodButtonText,
+                    signupMethod === "google" && styles.methodButtonTextActive,
+                  ]}
+                >
+                  {t("login.providers.google")}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.methodButton,
+                  signupMethod === "email" && styles.methodButtonActive,
+                ]}
+                onPress={() => handleSignupMethodChange("email")}
+              >
+                <Ionicons
+                  name="mail-outline"
+                  size={18}
+                  color={
+                    signupMethod === "email" ? colors.primary : colors.text
+                  }
+                />
+                <Text
+                  style={[
+                    styles.methodButtonText,
+                    signupMethod === "email" && styles.methodButtonTextActive,
+                  ]}
+                >
+                  {t("common.email")}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {isProvider ? (
+            <Controller
+              control={control}
+              name="accountName"
+              render={({
+                field: { onChange, value },
+                fieldState: { error },
+              }) => (
+                <View style={styles.field}>
+                  <View style={styles.inputWrapper}>
+                    <Text style={styles.inputIcon}>🏷️</Text>
+                    <TextInput
+                      style={[styles.input, error ? styles.inputError : null]}
+                      value={value}
+                      onChangeText={onChange}
+                      placeholder={t("register.accountPlaceholder")}
+                      placeholderTextColor={colors.muted}
+                    />
+                  </View>
+                  {error && <Text style={styles.error}>{error.message}</Text>}
+                </View>
+              )}
+            />
+          ) : null}
+
+          {isEmailSignup ? (
+            <>
+              <Controller
+                control={control}
+                name="firstName"
+                render={({
+                  field: { onChange, value },
+                  fieldState: { error },
+                }) => (
+                  <View style={styles.field}>
+                    <View style={styles.inputWrapper}>
+                      <Text style={styles.inputIcon}>👤</Text>
+                      <TextInput
+                        style={[styles.input, error ? styles.inputError : null]}
+                        value={value}
+                        onChangeText={onChange}
+                        placeholder={t("register.firstNamePlaceholder")}
+                        placeholderTextColor={colors.muted}
+                        autoCapitalize="words"
+                      />
+                    </View>
+                    {error && <Text style={styles.error}>{error.message}</Text>}
+                  </View>
+                )}
+              />
+
+              <Controller
+                control={control}
+                name="lastName"
+                render={({
+                  field: { onChange, value },
+                  fieldState: { error },
+                }) => (
+                  <View style={styles.field}>
+                    <View style={styles.inputWrapper}>
+                      <Text style={styles.inputIcon}>🪪</Text>
+                      <TextInput
+                        style={[styles.input, error ? styles.inputError : null]}
+                        value={value}
+                        onChangeText={onChange}
+                        placeholder={t("register.lastNamePlaceholder")}
+                        placeholderTextColor={colors.muted}
+                        autoCapitalize="words"
+                      />
+                    </View>
+                    {error && <Text style={styles.error}>{error.message}</Text>}
+                  </View>
+                )}
+              />
+
+              <Controller
+                control={control}
+                name="phone"
+                render={({
+                  field: { onChange, value },
+                  fieldState: { error },
+                }) => (
+                  <View style={styles.field}>
+                    <PhoneInput
+                      label={t("common.phone")}
+                      value={value}
+                      onChange={onChange}
+                      placeholder={t("common.phone")}
+                      disabled={isSubmitting}
+                    />
+                    {error && <Text style={styles.error}>{error.message}</Text>}
+                  </View>
+                )}
+              />
+
+              <Controller
+                control={control}
+                name="email"
+                render={({
+                  field: { onChange, value },
+                  fieldState: { error },
+                }) => (
+                  <View style={styles.field}>
+                    <View style={styles.inputWrapper}>
+                      <Text style={styles.inputIcon}>📧</Text>
+                      <TextInput
+                        style={[styles.input, error ? styles.inputError : null]}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        value={value}
+                        onChangeText={onChange}
+                        placeholder={t("common.email")}
+                        placeholderTextColor={colors.muted}
+                      />
+                    </View>
+                    {error && <Text style={styles.error}>{error.message}</Text>}
+                  </View>
+                )}
+              />
+
+              <Controller
+                control={control}
+                name="password"
+                render={({
+                  field: { onChange, value },
+                  fieldState: { error },
+                }) => (
+                  <View style={styles.field}>
+                    <View style={styles.inputWrapper}>
+                      <Text style={styles.inputIcon}>🔒</Text>
+                      <TextInput
+                        style={[styles.input, error ? styles.inputError : null]}
+                        secureTextEntry
+                        value={value}
+                        onChangeText={onChange}
+                        placeholder={t("register.passwordPlaceholder")}
+                        placeholderTextColor={colors.muted}
+                      />
+                    </View>
+                    {error && <Text style={styles.error}>{error.message}</Text>}
+                  </View>
+                )}
+              />
+            </>
+          ) : null}
+
+          {apiError && (
+            <View style={styles.errorCard}>
+              <Text style={styles.errorText}>{apiError}</Text>
+            </View>
+          )}
+
+          {signupMethod === "google" ? (
+            <TouchableOpacity
+              style={[
+                styles.oauthButton,
+                !canOauthSubmit && styles.buttonDisabled,
+              ]}
+              onPress={handleOAuthSignup}
+              disabled={!canOauthSubmit}
+            >
+              <View style={styles.oauthButtonContent}>
+                <Ionicons name="logo-google" size={18} color={colors.text} />
+                <Text style={styles.oauthButtonText}>
+                  {t("login.actions.google")}
+                </Text>
+                {oauthLoading === "google" ? (
+                  <ActivityIndicator color={colors.text} size="small" />
+                ) : null}
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.button, !canEmailSubmit && styles.buttonDisabled]}
+              onPress={onSubmit}
+              disabled={!canEmailSubmit}
+            >
+              {isPending ? (
+                <View style={styles.buttonContent}>
+                  <ActivityIndicator color="#fff" size="small" />
+                  <Text style={styles.buttonText}>{t("common.loading")}</Text>
+                </View>
+              ) : (
+                <Text style={styles.buttonText}>
+                  {t("register.createAccount")}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => navigation.replace("Login")}
+          >
+            <Text style={styles.secondaryText}>
+              {t("register.backToLogin")}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -603,7 +692,7 @@ export default function RegisterScreen({ navigation }: Props) {
   );
 }
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -612,11 +701,11 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     scrollContent: {
       flexGrow: 1,
-      justifyContent: 'space-between',
+      justifyContent: "space-between",
       paddingBottom: 24,
     },
     headerSection: {
-      alignItems: 'center',
+      alignItems: "center",
       paddingTop: 50,
       paddingHorizontal: 24,
     },
@@ -625,28 +714,28 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       height: 80,
       borderRadius: 40,
       backgroundColor: colors.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       marginBottom: 20,
     },
     iconImage: {
-      width: '100%',
-      height: '100%',
+      width: "100%",
+      height: "100%",
       borderRadius: 40,
-      resizeMode: 'cover',
+      resizeMode: "cover",
     },
     welcomeText: {
       fontSize: 28,
-      fontWeight: '800',
+      fontWeight: "800",
       color: colors.text,
       marginBottom: 6,
-      textAlign: 'center',
+      textAlign: "center",
     },
     subtitle: {
       fontSize: 15,
       color: colors.muted,
-      textAlign: 'center',
-      fontWeight: '500',
+      textAlign: "center",
+      fontWeight: "500",
     },
     formCard: {
       paddingHorizontal: 24,
@@ -657,7 +746,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     roleLabel: {
       fontSize: 14,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
       marginBottom: 10,
     },
@@ -673,7 +762,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     roleTitle: {
       fontSize: 15,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
       marginBottom: 4,
     },
@@ -687,19 +776,19 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     methodLabel: {
       fontSize: 14,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
       marginBottom: 10,
     },
     methodToggle: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 12,
     },
     methodButton: {
       flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
       gap: 8,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
@@ -713,7 +802,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     methodButtonText: {
       fontSize: 14,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
     },
     methodButtonTextActive: {
@@ -723,8 +812,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginBottom: 16,
     },
     inputWrapper: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       backgroundColor: colors.surface,
       borderRadius: 16,
       borderWidth: 1,
@@ -742,52 +831,52 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.text,
     },
     inputError: {
-      borderColor: '#F87171',
+      borderColor: "#F87171",
     },
     error: {
-      color: '#F87171',
+      color: "#F87171",
       marginTop: 6,
       fontSize: 12,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     errorCard: {
-      backgroundColor: '#FEE2E2',
+      backgroundColor: "#FEE2E2",
       borderRadius: 12,
       padding: 12,
       marginBottom: 12,
     },
     errorText: {
-      color: '#B91C1C',
-      fontWeight: '600',
+      color: "#B91C1C",
+      fontWeight: "600",
       fontSize: 13,
     },
     button: {
       backgroundColor: colors.primary,
       borderRadius: 16,
       paddingVertical: 14,
-      alignItems: 'center',
+      alignItems: "center",
       marginTop: 6,
     },
     buttonDisabled: {
       opacity: 0.6,
     },
     buttonContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 8,
     },
     buttonText: {
       color: colors.onPrimary,
-      fontWeight: '700',
+      fontWeight: "700",
       fontSize: 16,
     },
     secondaryButton: {
       marginTop: 12,
-      alignItems: 'center',
+      alignItems: "center",
     },
     secondaryText: {
       color: colors.primary,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     oauthButton: {
       backgroundColor: colors.background,
@@ -795,17 +884,17 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderColor: colors.surfaceBorder,
       borderRadius: 16,
       paddingVertical: 12,
-      alignItems: 'center',
+      alignItems: "center",
       marginBottom: 12,
     },
     oauthButtonContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 10,
     },
     oauthButtonText: {
       color: colors.text,
-      fontWeight: '700',
+      fontWeight: "700",
       fontSize: 15,
     },
   });

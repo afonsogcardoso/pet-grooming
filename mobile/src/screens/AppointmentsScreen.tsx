@@ -41,6 +41,7 @@ import {
   hapticWarning,
 } from "../utils/haptics";
 import { useSwipeDeleteIndicator } from "../hooks/useSwipeDeleteIndicator";
+import { getSegmentStyles } from "../theme/uiTokens";
 
 type Props = NativeStackScreenProps<any>;
 type ViewMode = "list" | "day" | "week" | "month";
@@ -532,8 +533,6 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
           <Animated.View
             style={{
               transform: [{ scale: isCompactHeader ? 0.9 : 1 }],
-              marginTop: isCompactHeader ? -6 : -5,
-              marginBottom: isCompactHeader ? -10 : 0,
             }}
           >
             <View style={styles.segment}>
@@ -712,6 +711,8 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
 }
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
+  const segment = getSegmentStyles(colors);
+
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -736,47 +737,32 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       paddingBottom: 4,
     },
     segment: {
-      flexDirection: "row",
-      gap: 10,
+      ...segment.container,
       marginBottom: 10,
-      paddingHorizontal: 16,
-      paddingVertical: 2,
-      borderRadius: 16,
-      backgroundColor: `${colors.primary}10`,
       marginHorizontal: 16,
-      alignItems: "center",
+      paddingVertical: 2,
     },
     segmentButton: {
-      flex: 1,
-      backgroundColor: "transparent",
-      borderWidth: 0,
-      borderColor: "transparent",
+      ...segment.button,
       paddingVertical: 12,
-      paddingHorizontal: 10,
-      borderRadius: 14,
-      alignItems: "center",
-      justifyContent: "center",
     },
     segmentButtonCompact: {
       paddingVertical: 7,
       borderRadius: 11,
     },
     segmentButtonActive: {
-      backgroundColor: colors.surface,
-      borderColor: colors.primarySoft || colors.primary,
+      ...segment.buttonActive,
     },
     segmentText: {
+      ...segment.text,
       fontWeight: "500",
-      color: colors.muted,
-      fontSize: 12,
     },
     segmentTextCompact: {
       fontSize: 12,
       fontWeight: "600",
     },
     segmentTextActive: {
-      color: colors.primary,
-      fontWeight: "700",
+      ...segment.textActive,
     },
     error: {
       color: colors.danger,

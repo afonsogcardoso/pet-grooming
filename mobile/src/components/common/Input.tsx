@@ -1,6 +1,13 @@
-import { useMemo, useState, useRef } from 'react';
-import { View, Text, TextInput, StyleSheet, TextInputProps, TouchableWithoutFeedback } from 'react-native';
-import { useBrandingTheme } from '../../theme/useBrandingTheme';
+import { useMemo, useState, useRef } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TextInputProps,
+  TouchableWithoutFeedback,
+} from "react-native";
+import { useBrandingTheme } from "../../theme/useBrandingTheme";
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -10,21 +17,42 @@ interface InputProps extends TextInputProps {
   showEmailSuggestions?: boolean;
 }
 
-const EMAIL_DOMAINS = ['@gmail.com', '@hotmail.com', '@outlook.com', '@icloud.com', '@yahoo.com'];
+const EMAIL_DOMAINS = [
+  "@gmail.com",
+  "@hotmail.com",
+  "@outlook.com",
+  "@icloud.com",
+  "@yahoo.com",
+];
 
-export function Input({ label, error, leftIcon, rightIcon, style, showEmailSuggestions, value, onChangeText, ...props }: InputProps) {
+export function Input({
+  label,
+  error,
+  leftIcon,
+  rightIcon,
+  style,
+  showEmailSuggestions,
+  value,
+  onChangeText,
+  ...props
+}: InputProps) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const inputRef = useRef<TextInput | null>(null);
+
+  const resolvedAutoCapitalize = useMemo(() => {
+    if (showEmailSuggestions) return "none";
+    return props.autoCapitalize ?? "sentences";
+  }, [props.autoCapitalize, showEmailSuggestions]);
 
   const handleEmailChange = (text: string) => {
     if (onChangeText) {
       onChangeText(text);
     }
 
-    if (showEmailSuggestions && text && !text.includes('@')) {
-      setSuggestions(EMAIL_DOMAINS.map(domain => text + domain));
+    if (showEmailSuggestions && text && !text.includes("@")) {
+      setSuggestions(EMAIL_DOMAINS.map((domain) => text + domain));
     } else {
       setSuggestions([]);
     }
@@ -45,17 +73,35 @@ export function Input({ label, error, leftIcon, rightIcon, style, showEmailSugge
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
       <TouchableWithoutFeedback onPress={focusInput} accessible={false}>
-        <View style={[styles.inputWrapper, props.multiline && styles.inputWrapperMultiline, error && styles.inputWrapperError]}>
-          {leftIcon && <Text style={[styles.leftIcon, props.multiline && styles.leftIconMultiline]}>{leftIcon}</Text>}
+        <View
+          style={[
+            styles.inputWrapper,
+            props.multiline && styles.inputWrapperMultiline,
+            error && styles.inputWrapperError,
+          ]}
+        >
+          {leftIcon && (
+            <Text
+              style={[
+                styles.leftIcon,
+                props.multiline && styles.leftIconMultiline,
+              ]}
+            >
+              {leftIcon}
+            </Text>
+          )}
           <TextInput
             ref={(r) => (inputRef.current = r)}
             style={[styles.input, leftIcon && styles.inputWithLeftIcon, style]}
             placeholderTextColor={colors.muted}
             value={value}
-            onChangeText={showEmailSuggestions ? handleEmailChange : onChangeText}
-            autoCorrect={showEmailSuggestions ? false : props.autoCorrect}
-            autoComplete={showEmailSuggestions ? 'off' : props.autoComplete}
+            onChangeText={
+              showEmailSuggestions ? handleEmailChange : onChangeText
+            }
             {...props}
+            autoCorrect={showEmailSuggestions ? false : props.autoCorrect}
+            autoComplete={showEmailSuggestions ? "off" : props.autoComplete}
+            autoCapitalize={resolvedAutoCapitalize}
           />
           {rightIcon && <View style={styles.rightIcon}>{rightIcon}</View>}
         </View>
@@ -64,7 +110,10 @@ export function Input({ label, error, leftIcon, rightIcon, style, showEmailSugge
       {suggestions.length > 0 && (
         <View style={styles.suggestionsContainer}>
           {suggestions.map((suggestion, index) => (
-            <TouchableWithoutFeedback key={index} onPress={() => selectSuggestion(suggestion)}>
+            <TouchableWithoutFeedback
+              key={index}
+              onPress={() => selectSuggestion(suggestion)}
+            >
               <View style={styles.suggestionItem}>
                 <Text style={styles.suggestionText}>{suggestion}</Text>
               </View>
@@ -76,21 +125,21 @@ export function Input({ label, error, leftIcon, rightIcon, style, showEmailSugge
   );
 }
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
   return StyleSheet.create({
     container: {
       marginBottom: 16,
     },
     label: {
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: "600",
       color: colors.text,
       marginBottom: 8,
     },
     inputWrapper: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.surface,
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.background,
       borderRadius: 12,
       borderWidth: 1.5,
       borderColor: colors.surfaceBorder,
@@ -98,9 +147,9 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       height: 52,
     },
     inputWrapperMultiline: {
-      height: 'auto',
+      height: "auto",
       minHeight: 52,
-      alignItems: 'flex-start',
+      alignItems: "flex-start",
       paddingVertical: 12,
     },
     inputWrapperError: {
@@ -131,24 +180,24 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginLeft: 4,
     },
     suggestionsContainer: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor: "#FFFFFF",
       borderRadius: 12,
       borderWidth: 1.5,
       borderColor: colors.primary,
       marginTop: 4,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     suggestionItem: {
       paddingVertical: 12,
       paddingHorizontal: 16,
       borderBottomWidth: 1,
       borderBottomColor: colors.surfaceBorder,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: "#FFFFFF",
     },
     suggestionText: {
       fontSize: 15,
       color: colors.text,
-      fontWeight: '500',
+      fontWeight: "500",
     },
   });
 }

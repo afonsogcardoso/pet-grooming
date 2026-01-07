@@ -89,22 +89,22 @@ export function useBrandingTheme() {
           ? 'provider'
           : activeRole;
     const paletteBranding = roleForTheme === 'consumer' ? undefined : branding;
-    const background = normalizeHexColor(paletteBranding?.brand_background, '#FFF7EE');
+    const background = normalizeHexColor(paletteBranding?.brand_background, '#F6F9FF');
     const backgroundIsLight = isLightColor(background);
 
-    const primary = normalizeHexColor(paletteBranding?.brand_primary, '#F47C1C');
+    const primary = normalizeHexColor(paletteBranding?.brand_primary, '#1F6FEB');
     const primarySoftCandidate = normalizeHexColor(paletteBranding?.brand_primary_soft, '');
-    const primarySoft = primarySoftCandidate || '#FFA85C';
-    const accent = normalizeHexColor(paletteBranding?.brand_accent, '#D65A00');
+    const primarySoft = primarySoftCandidate || '#82B1FF';
+    const accent = normalizeHexColor(paletteBranding?.brand_accent, '#144FA1');
 
     const surface = primarySoftCandidate
       ? primarySoftCandidate
       : backgroundIsLight
-        ? '#FFF7EE'
-        : '#1E1E1E';
+        ? '#F6F9FF'
+        : '#0F172A';
 
-    const text = backgroundIsLight ? '#1E1E1E' : '#FFF7EE';
-    const muted = backgroundIsLight ? '#6F6F6F' : '#FFA85C';
+    const text = backgroundIsLight ? '#1E1E1E' : '#F6F9FF';
+    const muted = backgroundIsLight ? '#6F6F6F' : '#82B1FF';
     const surfaceBorder = withAlpha(text, backgroundIsLight ? 0.12 : 0.2);
     const onPrimary = isLightColor(primary) ? '#111827' : '#ffffff';
     // Make active switch track more visible across light backgrounds — increase alpha

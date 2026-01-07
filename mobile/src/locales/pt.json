@@ -238,7 +238,6 @@
     "marketplaceProfileSubtitle": "Atualize nome, logótipo e redes sociais"
   },
   "marketplaceProfile": {
-    "title": "Perfil do marketplace",
     "logoTitle": "Logótipo",
     "logoHelper": "O logótipo aparece nas listagens.",
     "changeLogo": "Alterar logótipo",
@@ -298,8 +297,8 @@
     "noSearchResults": "Sem resultados",
     "noSearchResultsSubtitle": "Tente outra pesquisa",
     "serviceFallback": "Serviço",
-    "paid": "✓ Pago",
-    "unpaid": "⏱ Por pagar",
+    "paid": "Pago",
+    "unpaid": "Por pagar",
     "whatsappMessage": "Olá {{name}}! Em relação ao agendamento..."
   },
   "dayView": {
@@ -339,7 +338,6 @@
     "lastLogin": "Último login: {{date}}",
     "createdAt": "Criado em",
     "sectionInfo": "Info",
-    "infoDescription": "Dados pessoais editáveis.",
     "sectionMarketplace": "Marketplace",
     "firstNamePlaceholder": "Primeiro nome",
     "lastNamePlaceholder": "Último nome",
@@ -351,7 +349,6 @@
     "roleTitle": "Perfil ativo",
     "roleDescription": "Alterna entre prestador e consumidor.",
     "roleProvider": "Prestador",
-    "marketplaceSectionDescription": "Mantém o teu perfil no marketplace atualizado.",
     "marketplaceSave": "Guardar marketplace",
     "marketplaceUpdateError": "Não foi possível atualizar o marketplace.",
     "roleConsumer": "Consumidor",
@@ -361,7 +358,6 @@
     "viewModePrivate": "Privado",
     "language": "Idioma",
     "notificationsTitle": "Notificações",
-    "notificationsDescription": "Escolhe o que queres receber.",
     "notificationsPush": "Notificações push",
     "notificationsPushHelper": "Alertas no telemóvel.",
     "notificationsAppointments": "Marcações",

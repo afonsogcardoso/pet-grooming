@@ -30,7 +30,7 @@
       "name": "Pacote Mensal",
       "description": "Bundle com 4 sessões PT + 4 aulas de grupo.",
       "price": 140,
-      "duration": 240,
+      "duration": 120,
       "type": "package"
     }
   ],

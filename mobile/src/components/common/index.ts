@@ -5,3 +5,4 @@ export { EmptyState } from './EmptyState';
 export { MiniMap } from './MiniMap';
 export { PhoneInput } from './PhoneInput';
 export { UndoToast } from './UndoToast';
+export { SearchField } from './SearchField';

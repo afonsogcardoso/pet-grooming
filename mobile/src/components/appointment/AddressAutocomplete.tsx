@@ -1,13 +1,13 @@
-import { useRef, useEffect, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Keyboard } from 'react-native';
-import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-import Constants from 'expo-constants';
-import { useTranslation } from 'react-i18next';
-import { useBrandingTheme } from '../../theme/useBrandingTheme';
-import MapView, { Marker } from 'react-native-maps';
-import { normalizeLanguage } from '../../i18n';
+import { useRef, useEffect, useState } from "react";
+import { View, Text, TextInput, StyleSheet, Keyboard } from "react-native";
+import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
+import Constants from "expo-constants";
+import { useTranslation } from "react-i18next";
+import { useBrandingTheme } from "../../theme/useBrandingTheme";
+import MapView, { Marker } from "react-native-maps";
+import { normalizeLanguage } from "../../i18n";
 
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || "";
 
 type AddressAutocompleteProps = {
   value: string;
@@ -15,13 +15,20 @@ type AddressAutocompleteProps = {
   placeholder: string;
 };
 
-export function AddressAutocomplete({ value, onSelect, placeholder }: AddressAutocompleteProps) {
+export function AddressAutocomplete({
+  value,
+  onSelect,
+  placeholder,
+}: AddressAutocompleteProps) {
   const { colors } = useBrandingTheme();
   const { i18n } = useTranslation();
   const autocompleteRef = useRef<any>(null);
   const placesKey = Constants.expoConfig?.extra?.googlePlacesKey;
-  const [listVisible, setListVisible] = useState<boolean | 'auto'>('auto');
-  const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [listVisible, setListVisible] = useState<boolean | "auto">("auto");
+  const [coordinates, setCoordinates] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   useEffect(() => {
     if (autocompleteRef.current && value) {
@@ -42,10 +49,12 @@ export function AddressAutocomplete({ value, onSelect, placeholder }: AddressAut
       setCoordinates(null);
       return;
     }
-    
+
     try {
       const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+          address
+        )}&key=${GOOGLE_MAPS_API_KEY}`
       );
       const data = await response.json();
       if (data.results?.[0]?.geometry?.location) {
@@ -53,7 +62,7 @@ export function AddressAutocomplete({ value, onSelect, placeholder }: AddressAut
         setCoordinates({ latitude: lat, longitude: lng });
       }
     } catch (error) {
-      console.error('Geocoding error:', error);
+      console.error("Geocoding error:", error);
       setCoordinates(null);
     }
   };
@@ -65,11 +74,14 @@ export function AddressAutocomplete({ value, onSelect, placeholder }: AddressAut
         onChangeText={onSelect}
         placeholder={placeholder}
         placeholderTextColor={colors.muted}
-        style={[styles.input, { 
-          borderColor: colors.surfaceBorder,
-          backgroundColor: colors.surface,
-          color: colors.text 
-        }]}
+        style={[
+          styles.input,
+          {
+            borderColor: colors.surfaceBorder,
+            backgroundColor: colors.background,
+            color: colors.text,
+          },
+        ]}
       />
     );
   }
@@ -95,24 +107,24 @@ export function AddressAutocomplete({ value, onSelect, placeholder }: AddressAut
         textInputProps={{
           placeholderTextColor: colors.muted,
           autoCorrect: false,
-          autoComplete: 'off',
-          textContentType: 'none',
+          autoComplete: "off",
+          textContentType: "none",
           spellCheck: false,
-          returnKeyType: 'done',
-          onFocus: () => setListVisible('auto'),
-          onChangeText: () => setListVisible('auto'),
+          returnKeyType: "done",
+          onFocus: () => setListVisible("auto"),
+          onChangeText: () => setListVisible("auto"),
         }}
         query={{
           key: placesKey,
           language: normalizeLanguage(i18n.language),
-          components: 'country:pt',
+          components: "country:pt",
         }}
         onPress={(data, details = null) => {
-          const address = details?.formatted_address || data.description || '';
+          const address = details?.formatted_address || data.description || "";
           onSelect(address);
           setListVisible(false);
           Keyboard.dismiss();
-          
+
           // Usar coordenadas dos details se disponíveis
           if (details?.geometry?.location) {
             setCoordinates({
@@ -127,26 +139,26 @@ export function AddressAutocomplete({ value, onSelect, placeholder }: AddressAut
         styles={{
           container: {
             flex: 0,
-            width: '100%',
+            width: "100%",
           },
           textInputContainer: {
             paddingHorizontal: 0,
-            backgroundColor: 'transparent',
+            backgroundColor: "transparent",
           },
           textInput: {
-            backgroundColor: colors.surface,
+            backgroundColor: colors.background,
             borderRadius: 10,
             paddingHorizontal: 12,
             paddingVertical: 10,
             borderWidth: 1,
             borderColor: colors.surfaceBorder,
             color: colors.text,
-            fontWeight: '600',
+            fontWeight: "600",
             fontSize: 14,
             height: 44,
           },
           listView: {
-            backgroundColor: '#FFFFFF',
+            backgroundColor: "#FFFFFF",
             borderWidth: 1.5,
             borderColor: colors.primary,
             borderRadius: 12,
@@ -158,7 +170,7 @@ export function AddressAutocomplete({ value, onSelect, placeholder }: AddressAut
             minHeight: 44,
             borderBottomWidth: 1,
             borderBottomColor: colors.surfaceBorder,
-            backgroundColor: '#FFFFFF',
+            backgroundColor: "#FFFFFF",
           },
           description: {
             color: colors.text,
@@ -169,15 +181,24 @@ export function AddressAutocomplete({ value, onSelect, placeholder }: AddressAut
             backgroundColor: colors.surfaceBorder,
           },
           poweredContainer: {
-            display: 'none',
+            display: "none",
           },
           powered: {
-            display: 'none',
+            display: "none",
           },
         }}
       />
       {coordinates && (
-        <View style={{ marginTop: 12, height: 200, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: colors.surfaceBorder }}>
+        <View
+          style={{
+            marginTop: 12,
+            height: 200,
+            borderRadius: 12,
+            overflow: "hidden",
+            borderWidth: 1,
+            borderColor: colors.surfaceBorder,
+          }}
+        >
           <MapView
             style={{ flex: 1 }}
             region={{
@@ -206,6 +227,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });

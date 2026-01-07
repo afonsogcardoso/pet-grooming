@@ -146,7 +146,19 @@ router.patch('/accounts', async (req, res) => {
   const { accountId, updates } = req.body || {}
   if (!accountId || !updates) return res.status(400).json({ error: 'Missing accountId or updates' })
 
-  const allowedFields = ['name', 'plan', 'is_active']
+  const allowedFields = [
+    'name',
+    'plan',
+    'is_active',
+    'brand_primary',
+    'brand_primary_soft',
+    'brand_accent',
+    'brand_accent_soft',
+    'brand_background',
+    'brand_gradient',
+    'logo_url',
+    'portal_image_url'
+  ]
   const sanitizedUpdates = Object.entries(updates).reduce((acc, [key, value]) => {
     if (!allowedFields.includes(key)) return acc
     acc[key] = typeof value === 'string' ? value.trim() : value
@@ -251,6 +263,9 @@ router.patch('/accounts/:id/members', async (req, res) => {
   if (!role && !profile) return res.status(400).json({ error: 'Missing role/profile' })
 
   const supabaseAdmin = getSupabaseServiceRoleClient()
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY is not configured' })
+  }
   let query = supabaseAdmin.from('account_members').eq('id', memberId).eq('account_id', accountId)
 
   if (role) {

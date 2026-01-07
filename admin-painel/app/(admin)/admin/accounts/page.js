@@ -429,7 +429,7 @@ function AccountsTable({
                   >
                     Abrir gestão →
                   </Link>
-                  <span className="text-xs text-slate-500">Equipa, chaves, manutenção, ambiente</span>
+                  <span className="text-xs text-slate-500">Equipa, chaves, manutenção, branding</span>
                 </div>
               </td>
             </tr>
@@ -566,9 +566,9 @@ function NewAccountModal({ open, onClose, onCreated }) {
           <div>
             <h2 className="text-2xl font-semibold text-slate-900">New account</h2>
             <p className="text-sm text-slate-500">
-            Preenche os dados base e um owner opcional para concluir a criação.
-          </p>
-        </div>
+              Preenche os dados base e um owner opcional para concluir a criação.
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -661,9 +661,8 @@ function NewAccountModal({ open, onClose, onCreated }) {
 
           {message && (
             <p
-              className={`rounded-lg px-3 py-2 text-sm ${
-                message.type === 'success' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'
-              }`}
+              className={`rounded-lg px-3 py-2 text-sm ${message.type === 'success' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'
+                }`}
             >
               {message.text}
             </p>

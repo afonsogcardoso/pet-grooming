@@ -21,12 +21,12 @@ const ROLE_OPTIONS = [
 
 const BRANDING_BUCKET = 'account-branding'
 const DEFAULT_BRANDING = {
-  brand_primary: '#4fafa9',
-  brand_primary_soft: '#e7f8f7',
-  brand_accent: '#f4d58d',
-  brand_accent_soft: '#fdf6de',
-  brand_background: '#fdfcf9',
-  brand_gradient: 'linear-gradient(140deg, rgba(79,175,169,0.95), rgba(118,98,78,0.85))'
+  brand_primary: '#1F6FEB',
+  brand_primary_soft: '#82B1FF',
+  brand_accent: '#144FA1',
+  brand_accent_soft: '#DCE8FF',
+  brand_background: '#F6F9FF',
+  brand_gradient: 'linear-gradient(135deg, #1F6FEB, #144FA1)'
 }
 
 const normalizeBrandingData = (data = {}) => ({

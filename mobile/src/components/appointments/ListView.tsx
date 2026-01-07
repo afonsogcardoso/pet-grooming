@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   View,
   Text,
@@ -14,33 +14,37 @@ import {
   NativeScrollEvent,
   Animated,
   ActivityIndicator,
-} from 'react-native';
-import { RectButton } from 'react-native-gesture-handler';
-import SwipeableRow from '../common/SwipeableRow';
-import { FontAwesome, Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { useBrandingTheme } from '../../theme/useBrandingTheme';
-import { getCardStyle } from '../../theme/uiTokens';
-import { getDateLocale } from '../../i18n';
-import { matchesSearchQuery } from '../../utils/textHelpers';
-import { formatCustomerAddress, formatCustomerName, getCustomerFirstName } from '../../utils/customer';
-import type { Appointment } from '../../api/appointments';
-import { getStatusColor, getStatusLabel } from '../../utils/appointmentStatus';
+} from "react-native";
+import { RectButton } from "react-native-gesture-handler";
+import SwipeableRow from "../common/SwipeableRow";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import { useBrandingTheme } from "../../theme/useBrandingTheme";
+import { getCardVariants } from "../../theme/uiTokens";
+import { getDateLocale } from "../../i18n";
+import { matchesSearchQuery } from "../../utils/textHelpers";
+import {
+  formatCustomerAddress,
+  formatCustomerName,
+  getCustomerFirstName,
+} from "../../utils/customer";
+import type { Appointment } from "../../api/appointments";
+import { getStatusColor, getStatusLabel } from "../../utils/appointmentStatus";
 import {
   formatPetLabel,
   formatServiceLabels,
   getAppointmentPetNames,
   getAppointmentServiceEntries,
-} from '../../utils/appointmentSummary';
-import AppointmentCard from './AppointmentCard';
-import { Button } from '../common';
-import { meta } from 'zod/v4/core';
+} from "../../utils/appointmentSummary";
+import AppointmentCard from "./AppointmentCard";
+import { Button } from "../common";
+import { meta } from "zod/v4/core";
 
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || "";
 
 type ListViewProps = {
   appointments: Appointment[];
-  filterMode: 'upcoming' | 'past' | 'unpaid';
+  filterMode: "upcoming" | "past" | "unpaid";
   onAppointmentPress: (appointment: Appointment) => void;
   onNewAppointment: (date?: string, time?: string) => void;
   onRefresh: () => void;
@@ -57,22 +61,26 @@ const SEARCH_HEADER_HEIGHT = 44;
 type Section = { dayKey: string; title: string; data: Appointment[] };
 
 function formatTime(value?: string | null) {
-  if (!value) return '—';
+  if (!value) return "—";
   const match = String(value).match(/(\d{1,2}):(\d{2})/);
   if (match) {
     const [, hh, mm] = match;
-    return `${hh.padStart(2, '0')}:${mm}`;
+    return `${hh.padStart(2, "0")}:${mm}`;
   }
   return value;
 }
 
-function formatDateLabel(value: string | null | undefined, locale: string, fallback: string) {
+function formatDateLabel(
+  value: string | null | undefined,
+  locale: string,
+  fallback: string
+) {
   if (!value) return fallback;
   try {
-    return new Date(value + 'T00:00:00').toLocaleDateString(locale, {
-      weekday: 'short',
-      day: '2-digit',
-      month: 'short',
+    return new Date(value + "T00:00:00").toLocaleDateString(locale, {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
     });
   } catch {
     return value;
@@ -82,13 +90,13 @@ function formatDateLabel(value: string | null | undefined, locale: string, fallb
 function toDayKey(value?: string | null) {
   if (!value) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-  const date = new Date(value + 'T00:00:00');
+  const date = new Date(value + "T00:00:00");
   if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString('sv-SE');
+  return date.toLocaleDateString("sv-SE");
 }
 
 function todayLocalISO() {
-  return new Date().toLocaleDateString('sv-SE');
+  return new Date().toLocaleDateString("sv-SE");
 }
 
 function getAppointmentDateTime(appointment: Appointment, dayKey: string) {
@@ -97,28 +105,20 @@ function getAppointmentDateTime(appointment: Appointment, dayKey: string) {
   const match = String(timeValue).match(/(\d{1,2}):(\d{2})/);
   if (!match) return null;
   const [, hh, mm] = match;
-  return new Date(`${dayKey}T${hh.padStart(2, '0')}:${mm}:00`);
+  return new Date(`${dayKey}T${hh.padStart(2, "0")}:${mm}:00`);
 }
 
-type ThemeColors = ReturnType<typeof useBrandingTheme>['colors'];
+type ThemeColors = ReturnType<typeof useBrandingTheme>["colors"];
 
 function createStyles(colors: ThemeColors) {
-  const cardBase = getCardStyle(colors);
-  const listCardBase = {
-    ...cardBase,
-    backgroundColor: colors.surface,
-    shadowOffset: { width: 0, height: 14 },
-    shadowRadius: 24,
-    shadowOpacity: 0.05,
-    elevation: 8,
-  };
+  const { listItem } = getCardVariants(colors);
   return StyleSheet.create({
     list: {
       flex: 1,
     },
     card: {
-      ...listCardBase,
-      flexDirection: 'row',
+      ...listItem,
+      flexDirection: "row",
       gap: 14,
       paddingHorizontal: 16,
       paddingVertical: 14,
@@ -130,17 +130,17 @@ function createStyles(colors: ThemeColors) {
       borderRadius: 18,
       backgroundColor: `${colors.primary}12`,
       borderWidth: 0,
-      justifyContent: 'center',
-      alignItems: 'center',
-      overflow: 'hidden',
+      justifyContent: "center",
+      alignItems: "center",
+      overflow: "hidden",
     },
     petImage: {
-      width: '100%',
-      height: '100%',
+      width: "100%",
+      height: "100%",
     },
     petInitial: {
       fontSize: 24,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.primary,
     },
     content: {
@@ -149,69 +149,68 @@ function createStyles(colors: ThemeColors) {
     },
     time: {
       fontSize: 18,
-      fontWeight: '800',
+      fontWeight: "800",
       color: colors.text,
     },
     service: {
       fontSize: 15,
       color: colors.text,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     meta: {
       fontSize: 13,
       color: colors.muted,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     badges: {
       gap: 8,
-      alignItems: 'flex-end',
+      alignItems: "flex-end",
     },
     pill: {
       paddingHorizontal: 10,
       paddingVertical: 6,
       borderRadius: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-
+      flexDirection: "row",
+      alignItems: "center",
     },
     pillText: {
       fontSize: 12,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
     },
     paymentAmount: {
       fontSize: 12,
-      fontWeight: '600',
+      fontWeight: "600",
       marginTop: 4,
       marginRight: 4,
-      alignSelf: 'flex-end',
+      alignSelf: "flex-end",
       color: colors.muted,
     },
     actions: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 6,
       marginTop: 4,
     },
     actionContainerLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       paddingLeft: 12,
-      justifyContent: 'center',
-      height: '100%',
+      justifyContent: "center",
+      height: "100%",
     },
     iconButton: {
       width: 44,
       height: 36,
       borderRadius: 12,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
       marginHorizontal: 6,
-      alignSelf: 'center',
+      alignSelf: "center",
     },
     emptyContainer: {
       flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
       paddingVertical: 60,
     },
     emptyIcon: {
@@ -220,23 +219,23 @@ function createStyles(colors: ThemeColors) {
     },
     emptyText: {
       fontSize: 17,
-      fontWeight: '600',
+      fontWeight: "600",
       color: colors.text,
       marginBottom: 8,
     },
     emptySubtext: {
       fontSize: 14,
       color: colors.muted,
-      textAlign: 'center',
+      textAlign: "center",
     },
     emptyAction: {
       marginTop: 16,
       minWidth: 180,
     },
     sectionHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      alignSelf: 'flex-start',
+      flexDirection: "row",
+      alignItems: "center",
+      alignSelf: "flex-start",
       paddingHorizontal: 14,
       paddingVertical: 8,
       borderRadius: 999,
@@ -247,7 +246,7 @@ function createStyles(colors: ThemeColors) {
     },
     sectionHeaderText: {
       color: colors.primary,
-      fontWeight: '600',
+      fontWeight: "600",
       fontSize: 13,
     },
     addButton: {
@@ -256,23 +255,23 @@ function createStyles(colors: ThemeColors) {
       borderRadius: 10,
       borderWidth: 1,
       borderColor: colors.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       backgroundColor: colors.surface,
     },
     addButtonText: {
       color: colors.primary,
-      fontWeight: '700',
+      fontWeight: "700",
       fontSize: 12,
-      lineHeight: 12
+      lineHeight: 12,
     },
     searchContainer: {
       height: SEARCH_HEADER_HEIGHT,
-      justifyContent: 'center',
+      justifyContent: "center",
     },
     searchBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       backgroundColor: `${colors.primary}08`,
       borderRadius: 16,
       paddingHorizontal: 14,
@@ -291,7 +290,9 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-const AnimatedSectionList = Animated.createAnimatedComponent(SectionList as any);
+const AnimatedSectionList = Animated.createAnimatedComponent(
+  SectionList as any
+);
 
 type AppointmentRowProps = {
   item: Appointment;
@@ -317,14 +318,20 @@ const AppointmentRow = React.memo(function AppointmentRow({
   const appointmentServices = getAppointmentServiceEntries(item);
   const petNames = getAppointmentPetNames(item, appointmentServices);
   const petLabel = formatPetLabel(petNames);
-  const primaryPetName = petNames[0] || '';
-  const petInitial = primaryPetName ? primaryPetName.charAt(0).toUpperCase() : '🐾';
+  const primaryPetName = petNames[0] || "";
+  const petInitial = primaryPetName
+    ? primaryPetName.charAt(0).toUpperCase()
+    : "🐾";
   const servicesTotal =
     appointmentServices.length > 0
       ? appointmentServices.reduce((sum, entry) => {
-          const basePrice = entry.price_tier_price ?? entry.services?.price ?? 0;
+          const basePrice =
+            entry.price_tier_price ?? entry.services?.price ?? 0;
           const addonsTotal = Array.isArray(entry.appointment_service_addons)
-            ? entry.appointment_service_addons.reduce((addonSum, addon) => addonSum + (addon.price || 0), 0)
+            ? entry.appointment_service_addons.reduce(
+                (addonSum, addon) => addonSum + (addon.price || 0),
+                0
+              )
             : 0;
           return sum + basePrice + addonsTotal;
         }, 0)
@@ -336,18 +343,25 @@ const AppointmentRow = React.memo(function AppointmentRow({
   const statusColor = getStatusColor(item.status);
   const statusLabel = getStatusLabel(item.status);
   const paymentStatus = item.payment_status ?? null;
-  const paymentColor = paymentStatus === 'paid' ? colors.success : colors.warning;
-  const paymentLabel = paymentStatus === 'paid' ? t('listView.paid') : t('listView.unpaid');
+  const paymentColor =
+    paymentStatus === "paid" ? colors.success : colors.warning;
+  const paymentLabel =
+    paymentStatus === "paid" ? t("listView.paid") : t("listView.unpaid");
 
   const renderLeftActions = (_progress?: any, _dragX?: any) => (
     <View style={styles.actionContainerLeft}>
       {address ? (
         <RectButton
-          style={[styles.iconButton, { backgroundColor: colors.primarySoft || `${colors.primary}22` }]}
+          style={[
+            styles.iconButton,
+            { backgroundColor: colors.primarySoft || `${colors.primary}22` },
+          ]}
           onPress={async () => {
             try {
               const response = await fetch(
-                `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`
+                `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+                  address
+                )}&key=${GOOGLE_MAPS_API_KEY}`
               );
               const data = await response.json();
 
@@ -361,7 +375,7 @@ const AppointmentRow = React.memo(function AppointmentRow({
                 Linking.openURL(url).catch(() => null);
               }
             } catch (error) {
-              console.error('Geocoding error:', error);
+              console.error("Geocoding error:", error);
             }
           }}
         >
@@ -380,13 +394,24 @@ const AppointmentRow = React.memo(function AppointmentRow({
 
       {phone ? (
         <RectButton
-          style={[styles.iconButton, { backgroundColor: `${colors.success}22` }]}
+          style={[
+            styles.iconButton,
+            { backgroundColor: `${colors.success}22` },
+          ]}
           onPress={() => {
-            const cleanPhone = phone.replace(/[^0-9]/g, '');
-            const formattedPhone = cleanPhone.startsWith('9') ? `351${cleanPhone}` : cleanPhone;
+            const cleanPhone = phone.replace(/[^0-9]/g, "");
+            const formattedPhone = cleanPhone.startsWith("9")
+              ? `351${cleanPhone}`
+              : cleanPhone;
             const customerFirstName = getCustomerFirstName(item.customers);
-            const message = t('listView.whatsappMessage', { name: customerFirstName });
-            Linking.openURL(`whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`).catch(() => null);
+            const message = t("listView.whatsappMessage", {
+              name: customerFirstName,
+            });
+            Linking.openURL(
+              `whatsapp://send?phone=${formattedPhone}&text=${encodeURIComponent(
+                message
+              )}`
+            ).catch(() => null);
           }}
         >
           <FontAwesome name="whatsapp" size={18} color={colors.success} />
@@ -411,13 +436,16 @@ const AppointmentRow = React.memo(function AppointmentRow({
       onClose={onSwipeClose}
       renderLeftActions={renderLeftActions}
     >
-      <AppointmentCard appointment={item} onPress={() => onAppointmentPress(item)} />
+      <AppointmentCard
+        appointment={item}
+        onPress={() => onAppointmentPress(item)}
+      />
     </SwipeableRow>
   );
 });
 
-export function ListView({ 
-  appointments, 
+export function ListView({
+  appointments,
   filterMode,
   onAppointmentPress,
   onNewAppointment,
@@ -439,7 +467,7 @@ export function ListView({
   const { t } = useTranslation();
   const dateLocale = getDateLocale();
   const today = todayLocalISO();
-  const [searchQuery, setSearchQuery] = React.useState('');
+  const [searchQuery, setSearchQuery] = React.useState("");
   const searchTerm = searchQuery.trim();
 
   const filteredAppointments = React.useMemo(() => {
@@ -474,29 +502,30 @@ export function ListView({
     const now = new Date();
     const todayKey = today;
     const source = filteredAppointments.filter((item) => {
-      if (filterMode === 'unpaid') {
-        return (item.payment_status || 'unpaid') !== 'paid';
+      if (filterMode === "unpaid") {
+        return (item.payment_status || "unpaid") !== "paid";
       }
 
       const dayKey = toDayKey(item.appointment_date);
       if (!dayKey) return false;
 
-      if (filterMode === 'upcoming') {
+      if (filterMode === "upcoming") {
         // Exclude completed or cancelled
-        if (item.status === 'completed' || item.status === 'cancelled') return false;
+        if (item.status === "completed" || item.status === "cancelled")
+          return false;
         // Future days are upcoming
         if (dayKey > todayKey) return true;
         // Past days: include only if appointment is still active (in_progress) or was confirmed (overdue)
         if (dayKey < todayKey) {
-          return item.status === 'in_progress' || item.status === 'confirmed';
+          return item.status === "in_progress" || item.status === "confirmed";
         }
         // For today, if time missing treat as upcoming; otherwise compare time to now
         const dateTime = getAppointmentDateTime(item, dayKey);
         if (!dateTime) return true;
-        return dateTime >= now || item.status === 'in_progress';
+        return dateTime >= now || item.status === "in_progress";
       }
 
-      if (filterMode === 'past') {
+      if (filterMode === "past") {
         if (dayKey < todayKey) return true;
         if (dayKey > todayKey) return false;
         const dateTime = getAppointmentDateTime(item, dayKey);
@@ -516,22 +545,28 @@ export function ListView({
       }
     }
 
-    const entries: Section[] = Object.entries(grouped).map(([dayKey, items]) => {
-      const titleLabel = dayKey === todayKey ? t('common.today') : formatDateLabel(dayKey, dateLocale, t('common.noDate'));
-      return {
-        dayKey,
-        title: titleLabel,
-        data: items.sort((x, y) => (x.appointment_time || '').localeCompare(y.appointment_time || '')),
-      };
-    });
+    const entries: Section[] = Object.entries(grouped).map(
+      ([dayKey, items]) => {
+        const titleLabel =
+          dayKey === todayKey
+            ? t("common.today")
+            : formatDateLabel(dayKey, dateLocale, t("common.noDate"));
+        return {
+          dayKey,
+          title: titleLabel,
+          data: items.sort((x, y) =>
+            (x.appointment_time || "").localeCompare(y.appointment_time || "")
+          ),
+        };
+      }
+    );
 
-    if (filterMode === 'past') {
+    if (filterMode === "past") {
       return entries.sort((a, b) => b.dayKey.localeCompare(a.dayKey));
     }
 
     return entries.sort((a, b) => a.dayKey.localeCompare(b.dayKey));
   }, [filteredAppointments, filterMode, t, dateLocale, today]);
-
 
   const renderAppointmentItem = React.useCallback(
     ({ item }: { item: Appointment }) => (
@@ -579,7 +614,7 @@ export function ListView({
 
   const renderSectionHeader = React.useCallback(
     ({ section }: { section: SectionListData<Appointment, Section> }) => {
-      const isPast = filterMode === 'past';
+      const isPast = filterMode === "past";
       const sectionIsPast = section.dayKey && section.dayKey < today;
       const canCreate = !isPast && !sectionIsPast;
 
@@ -606,7 +641,7 @@ export function ListView({
         <Ionicons name="search" size={16} color={colors.muted} />
         <TextInput
           ref={searchInputRef}
-          placeholder={t('listView.searchPlaceholder')}
+          placeholder={t("listView.searchPlaceholder")}
           placeholderTextColor={colors.muted}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -614,7 +649,10 @@ export function ListView({
           style={styles.searchInput}
         />
         {searchQuery.length > 0 ? (
-          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+          <TouchableOpacity
+            onPress={() => setSearchQuery("")}
+            style={styles.clearButton}
+          >
             <Ionicons name="close-circle" size={18} color={colors.muted} />
           </TouchableOpacity>
         ) : null}
@@ -622,24 +660,26 @@ export function ListView({
     </View>
   );
 
-  const listEmptyTitle = searchTerm ? t('listView.noSearchResults') : t('listView.noAppointments');
+  const listEmptyTitle = searchTerm
+    ? t("listView.noSearchResults")
+    : t("listView.noAppointments");
   const listEmptySubtitle = searchTerm
-    ? t('listView.noSearchResultsSubtitle')
-    : t('listView.noAppointmentsSubtitle');
-  const canCreateOnEmpty = !searchTerm && filterMode !== 'past';
+    ? t("listView.noSearchResultsSubtitle")
+    : t("listView.noAppointmentsSubtitle");
+  const canCreateOnEmpty = !searchTerm && filterMode !== "past";
 
   const applyInitialOffset = React.useCallback(() => {
-    if (Platform.OS !== 'ios' || hasSetInitialOffset.current) return;
+    if (Platform.OS !== "ios" || hasSetInitialOffset.current) return;
     const list = listRef.current as any;
     if (!list) return;
 
-    if (typeof list.scrollToOffset === 'function') {
+    if (typeof list.scrollToOffset === "function") {
       list.scrollToOffset({ offset: SEARCH_HEADER_HEIGHT, animated: false });
       hasSetInitialOffset.current = true;
       return;
     }
 
-    if (typeof list.scrollToLocation === 'function') {
+    if (typeof list.scrollToLocation === "function") {
       if (sections.length > 0 && sections[0].data.length > 0) {
         list.scrollToLocation({
           sectionIndex: 0,
@@ -652,17 +692,21 @@ export function ListView({
       return;
     }
 
-    const responder = typeof list.getScrollResponder === 'function'
-      ? list.getScrollResponder()
-      : null;
-    if (responder && typeof responder.scrollResponderScrollTo === 'function') {
-      responder.scrollResponderScrollTo({ y: SEARCH_HEADER_HEIGHT, animated: false });
+    const responder =
+      typeof list.getScrollResponder === "function"
+        ? list.getScrollResponder()
+        : null;
+    if (responder && typeof responder.scrollResponderScrollTo === "function") {
+      responder.scrollResponderScrollTo({
+        y: SEARCH_HEADER_HEIGHT,
+        animated: false,
+      });
       hasSetInitialOffset.current = true;
     }
   }, [sections]);
 
   React.useEffect(() => {
-    if (Platform.OS !== 'ios') return;
+    if (Platform.OS !== "ios") return;
     searchInputRef.current?.blur();
     hasSetInitialOffset.current = false;
     requestAnimationFrame(applyInitialOffset);
@@ -677,21 +721,26 @@ export function ListView({
       renderItem={renderAppointmentItem}
       renderSectionHeader={renderSectionHeader}
       ListHeaderComponent={listHeader}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 20 }}
-        onScroll={
-          scrollY
-            ? Animated.event(
-                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-                {
-                  useNativeDriver: true,
-                  listener: (event: any) => {
-                    handleScrollCloseSwipe();
-                    if (onScrollYChange) onScrollYChange(event.nativeEvent.contentOffset.y);
-                  },
-                }
-              )
-            : handleScroll
-        }
+      contentContainerStyle={{
+        paddingHorizontal: 16,
+        paddingTop: 8,
+        paddingBottom: 20,
+      }}
+      onScroll={
+        scrollY
+          ? Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              {
+                useNativeDriver: true,
+                listener: (event: any) => {
+                  handleScrollCloseSwipe();
+                  if (onScrollYChange)
+                    onScrollYChange(event.nativeEvent.contentOffset.y);
+                },
+              }
+            )
+          : handleScroll
+      }
       SectionSeparatorComponent={() => <View style={{ height: 8 }} />}
       ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
       onContentSizeChange={applyInitialOffset}
@@ -702,15 +751,25 @@ export function ListView({
       ListEmptyComponent={
         <View style={styles.emptyContainer}>
           {searchTerm ? (
-            <Ionicons name="search" size={64} color={colors.muted} style={{ marginBottom: 16 }} />
+            <Ionicons
+              name="search"
+              size={64}
+              color={colors.muted}
+              style={{ marginBottom: 16 }}
+            />
           ) : (
-            <Ionicons name="mail-open" size={64} color={colors.muted} style={{ marginBottom: 16 }} />
+            <Ionicons
+              name="mail-open"
+              size={64}
+              color={colors.muted}
+              style={{ marginBottom: 16 }}
+            />
           )}
           <Text style={styles.emptyText}>{listEmptyTitle}</Text>
           <Text style={styles.emptySubtext}>{listEmptySubtitle}</Text>
           {canCreateOnEmpty ? (
             <Button
-              title={t('appointments.newAppointment')}
+              title={t("appointments.newAppointment")}
               onPress={() => onNewAppointment()}
               style={styles.emptyAction}
             />
@@ -725,11 +784,15 @@ export function ListView({
         }
       }}
       onEndReachedThreshold={0.4}
-      ListFooterComponent={hasMore ? (
-        <View style={{ paddingVertical: 12 }}>
-          {isLoadingMore ? <ActivityIndicator color={colors.primary} /> : null}
-        </View>
-      ) : null}
+      ListFooterComponent={
+        hasMore ? (
+          <View style={{ paddingVertical: 12 }}>
+            {isLoadingMore ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : null}
+          </View>
+        ) : null
+      }
     />
   );
 }

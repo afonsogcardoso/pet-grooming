@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, TextInput } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
+import { SearchField } from '../common/SearchField';
 
 type Service = {
   id: string;
@@ -93,23 +93,6 @@ export function ServiceSelector({
     },
     label: {
       color: colors.text,
-      marginBottom: 8,
-      fontWeight: '600',
-      fontSize: 15,
-    },
-    select: {
-      borderWidth: 1,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      backgroundColor: colors.surface,
-      borderColor: colors.surfaceBorder,
-    },
-    selectText: {
-      color: colors.text,
-      fontWeight: '600',
-      fontSize: 15,
-    },
     placeholder: {
       color: colors.muted,
       fontWeight: '500',
@@ -139,23 +122,6 @@ export function ServiceSelector({
       color: colors.primary,
       fontWeight: '700',
       fontSize: 15,
-    },
-    searchBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      marginBottom: 10,
-      gap: 12,
-      borderWidth: 1,
-      borderColor: colors.primarySoft,
-    },
-    searchInput: {
-      flex: 1,
-      fontSize: 16,
-      color: colors.text,
     },
     filterGroup: {
       marginBottom: 12,
@@ -219,23 +185,14 @@ export function ServiceSelector({
             <ActivityIndicator color={colors.primary} />
           ) : (
             <>
-              <View style={styles.searchBar}>
-                <Ionicons name="search" size={20} color={colors.muted} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={t('serviceSelector.searchPlaceholder')}
-                  placeholderTextColor={colors.muted}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <Ionicons name="close-circle" size={20} color={colors.muted} />
-                  </TouchableOpacity>
-                )}
-              </View>
+              <SearchField
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={t('serviceSelector.searchPlaceholder')}
+                containerStyle={{ marginBottom: 10 }}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
               {categories.length > 0 && (
                 <View style={styles.filterGroup}>
                   <Text style={styles.filterLabel}>{t('serviceSelector.categoryLabel')}</Text>

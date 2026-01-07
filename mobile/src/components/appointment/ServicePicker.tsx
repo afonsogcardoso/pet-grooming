@@ -1,8 +1,15 @@
-import { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, TextInput } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { useBrandingTheme } from '../../theme/useBrandingTheme';
+import { useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  StyleSheet,
+} from "react-native";
+import { useTranslation } from "react-i18next";
+import { useBrandingTheme } from "../../theme/useBrandingTheme";
+import { SearchField } from "../common/SearchField";
 
 type Service = {
   id: string;
@@ -36,11 +43,11 @@ export function ServicePicker({
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
 
   const selectedService = useMemo(
     () => services.find((service) => service.id === selectedServiceId) || null,
-    [services, selectedServiceId],
+    [services, selectedServiceId]
   );
 
   const filteredServices = useMemo(() => {
@@ -61,42 +68,50 @@ export function ServicePicker({
     label: {
       color: colors.text,
       marginBottom: 8,
-      fontWeight: '600',
+      fontWeight: "600",
       fontSize: 15,
     },
     select: {
       borderWidth: 1,
+      borderColor: colors.surfaceBorder,
       borderRadius: 12,
       paddingHorizontal: 16,
       paddingVertical: 14,
-      backgroundColor: colors.surface,
-      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.background,
     },
     selectText: {
       color: colors.text,
-      fontWeight: '600',
+      fontWeight: "600",
       fontSize: 15,
     },
     placeholder: {
       color: colors.muted,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     dropdown: {
       borderWidth: 1,
       borderRadius: 12,
       padding: 12,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.background,
       marginTop: 8,
       borderColor: colors.primarySoft,
+      width: "96%",
+      alignSelf: "center",
     },
     option: {
       paddingVertical: 10,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.surfaceBorder,
+      padding: 10,
+    },
+    optionActive: {
+      backgroundColor: colors.primarySoft,
+      borderRadius: 12,
+      padding: 10,
     },
     optionTitle: {
       color: colors.text,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     optionSubtitle: {
       color: colors.muted,
@@ -114,31 +129,16 @@ export function ServicePicker({
     },
     priceText: {
       color: colors.primary,
-      fontWeight: '700',
+      fontWeight: "700",
       fontSize: 15,
-    },
-    searchBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      marginBottom: 10,
-      gap: 12,
-      borderWidth: 1,
-      borderColor: colors.primarySoft,
-    },
-    searchInput: {
-      flex: 1,
-      fontSize: 16,
-      color: colors.text,
     },
   });
 
   const displayText = selectedService
     ? selectedService.name
-    : (loading ? t('common.loading') : (placeholder || t('serviceSelector.placeholder')));
+    : loading
+    ? t("common.loading")
+    : placeholder || t("serviceSelector.placeholder");
 
   return (
     <View style={styles.field}>
@@ -147,7 +147,9 @@ export function ServicePicker({
         style={styles.select}
         onPress={() => setOpen((prev) => !prev)}
       >
-        <Text style={[styles.selectText, !selectedService && styles.placeholder]}>
+        <Text
+          style={[styles.selectText, !selectedService && styles.placeholder]}
+        >
           {displayText}
         </Text>
       </TouchableOpacity>
@@ -158,27 +160,27 @@ export function ServicePicker({
             <ActivityIndicator color={colors.primary} />
           ) : (
             <>
-              <View style={styles.searchBar}>
-                <Ionicons name="search" size={20} color={colors.muted} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={t('serviceSelector.searchPlaceholder')}
-                  placeholderTextColor={colors.muted}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <Ionicons name="close-circle" size={20} color={colors.muted} />
-                  </TouchableOpacity>
-                )}
-              </View>
-              <ScrollView style={{ maxHeight: 240 }} keyboardShouldPersistTaps="handled">
+              <SearchField
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={t("serviceSelector.searchPlaceholder")}
+                containerStyle={{ marginBottom: 10 }}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <ScrollView
+                style={{ maxHeight: 240 }}
+                keyboardShouldPersistTaps="handled"
+              >
                 {filteredServices.length === 0 ? (
-                  <Text style={{ color: colors.muted, textAlign: 'center', paddingVertical: 20 }}>
-                    {t('serviceSelector.empty')}
+                  <Text
+                    style={{
+                      color: colors.muted,
+                      textAlign: "center",
+                      paddingVertical: 20,
+                    }}
+                  >
+                    {t("serviceSelector.empty")}
                   </Text>
                 ) : (
                   filteredServices.map((service) => {
@@ -186,24 +188,37 @@ export function ServicePicker({
                     return (
                       <TouchableOpacity
                         key={service.id}
-                        style={[styles.option, isSelected && { backgroundColor: colors.primarySoft }]}
+                        style={[
+                          styles.option,
+                          isSelected && styles.optionActive,
+                        ]}
                         onPress={() => {
                           if (isSelected && allowClear) {
-                            onSelect('');
+                            onSelect("");
                           } else {
                             onSelect(service.id);
                           }
                           setOpen(false);
                         }}
                       >
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
                           <Text style={styles.optionTitle}>{service.name}</Text>
                           {service.price != null && (
-                            <Text style={styles.priceText}>{service.price.toFixed(2)}€</Text>
+                            <Text style={styles.priceText}>
+                              {service.price.toFixed(2)}€
+                            </Text>
                           )}
                         </View>
                         {service.description ? (
-                          <Text style={styles.optionDescription}>{service.description}</Text>
+                          <Text style={styles.optionDescription}>
+                            {service.description}
+                          </Text>
                         ) : null}
                       </TouchableOpacity>
                     );

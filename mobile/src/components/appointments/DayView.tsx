@@ -65,7 +65,7 @@ function formatDateLabel(date: Date, locale: string) {
   }
 }
 
-const HOUR_HEIGHT = 60; // height per hour slot
+const HOUR_HEIGHT = 56; // slightly tighter grid
 const START_HOUR = 7;
 const END_HOUR = 21;
 const MIN_SLOT_MINUTES = 30;
@@ -266,11 +266,12 @@ export function DayView({
     dateNav: {
       flexDirection: "row",
       alignItems: "center",
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      backgroundColor: colors.surface,
+      paddingHorizontal: 18,
+      paddingVertical: 14,
+      backgroundColor: colors.background,
       borderBottomWidth: 1,
       borderBottomColor: colors.surfaceBorder,
+      gap: 8,
     },
     navButtonWrap: {
       width: 40,
@@ -279,17 +280,19 @@ export function DayView({
       alignItems: "center",
     },
     navButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: colors.surface,
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      backgroundColor: colors.background,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
       justifyContent: "center",
       alignItems: "center",
     },
     navButtonText: {
-      fontSize: 18,
+      fontSize: 16,
+      fontWeight: "700",
+      color: colors.text,
     },
     dateInfo: {
       flex: 1,
@@ -299,10 +302,11 @@ export function DayView({
       pointerEvents: "none",
     },
     dateLabel: {
-      fontSize: 16,
-      fontWeight: "700",
+      fontSize: 18,
+      fontWeight: "800",
       color: colors.text,
       textTransform: "capitalize",
+      letterSpacing: 0.2,
     },
     gridContainer: {
       flex: 1,
@@ -317,11 +321,12 @@ export function DayView({
     hourRow: {
       height: HOUR_HEIGHT,
       justifyContent: "flex-start",
-      paddingTop: 4,
-      paddingRight: 4,
+      paddingTop: 6,
+      paddingRight: 6,
     },
     hourText: {
-      fontSize: 10,
+      fontSize: 11,
+      fontWeight: "600",
       color: colors.muted,
       textAlign: "right",
     },
@@ -330,23 +335,24 @@ export function DayView({
       borderLeftWidth: 1,
       borderLeftColor: colors.surfaceBorder,
       position: "relative",
+      backgroundColor: `${colors.primary}05`,
     },
     hourLine: {
       position: "absolute",
       left: 0,
       right: 0,
       height: 1,
-      backgroundColor: colors.surfaceBorder,
+      backgroundColor: `${colors.text}10`,
     },
     tapHighlight: {
       position: "absolute",
-      left: 4,
-      right: 4,
+      left: 10,
+      right: 10,
       backgroundColor: colors.primarySoft,
-      borderRadius: 6,
+      borderRadius: 10,
       borderWidth: 1,
       borderColor: colors.primary,
-      opacity: 0.45,
+      opacity: 0.35,
     },
     currentTimeLine: {
       position: "absolute",
@@ -368,15 +374,20 @@ export function DayView({
     },
     appointmentBlock: {
       position: "absolute",
-      left: 4,
-      right: 4,
+      left: 10,
+      right: 10,
       ...cardBase,
-      borderRadius: 6,
-      padding: 6,
+      borderRadius: 14,
+      padding: 10,
       borderLeftWidth: 4,
       overflow: "hidden",
       flexDirection: "row",
-      gap: 6,
+      gap: 10,
+      shadowColor: "#000",
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 3,
     },
     appointmentPetsColumn: {
       gap: 2,
@@ -392,17 +403,18 @@ export function DayView({
       justifyContent: "center",
     },
     appointmentTime: {
-      fontSize: 10,
+      fontSize: 11,
       fontWeight: "700",
-      color: colors.muted,
+      color: colors.primary,
+      letterSpacing: 0.2,
     },
     appointmentTitle: {
-      fontSize: 12,
-      fontWeight: "700",
+      fontSize: 13,
+      fontWeight: "800",
       color: colors.text,
     },
     appointmentService: {
-      fontSize: 10,
+      fontSize: 11,
       color: colors.muted,
     },
     emptySlot: {
@@ -412,6 +424,7 @@ export function DayView({
     emptyText: {
       fontSize: 14,
       color: colors.muted,
+      fontWeight: "600",
     },
     emptyIcon: {
       fontSize: 48,

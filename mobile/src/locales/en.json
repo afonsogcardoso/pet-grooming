@@ -232,7 +232,6 @@
     "marketplaceProfileSubtitle": "Update name, logo, and socials"
   },
   "marketplaceProfile": {
-    "title": "Marketplace profile",
     "logoTitle": "Logo",
     "logoHelper": "This logo appears in listings.",
     "changeLogo": "Change logo",
@@ -292,8 +291,8 @@
     "noSearchResults": "No results",
     "noSearchResultsSubtitle": "Try a different search",
     "serviceFallback": "Service",
-    "paid": "✓ Paid",
-    "unpaid": "⏱ Unpaid",
+    "paid": "Paid",
+    "unpaid": "Unpaid",
     "whatsappMessage": "Hi {{name}}! About your appointment..."
   },
   "dayView": {
@@ -333,7 +332,6 @@
     "lastLogin": "Last login: {{date}}",
     "createdAt": "Created",
     "sectionInfo": "Info",
-    "infoDescription": "Editable personal details.",
     "sectionMarketplace": "Marketplace",
     "firstNamePlaceholder": "First name",
     "lastNamePlaceholder": "Last name",
@@ -345,7 +343,6 @@
     "roleTitle": "Active profile",
     "roleDescription": "Switch between provider and consumer views.",
     "roleProvider": "Provider",
-    "marketplaceSectionDescription": "Keep your marketplace listing up to date.",
     "marketplaceSave": "Save marketplace",
     "marketplaceUpdateError": "Could not update marketplace settings.",
     "roleConsumer": "Consumer",
@@ -355,7 +352,6 @@
     "viewModePrivate": "Private",
     "language": "Language",
     "notificationsTitle": "Notifications",
-    "notificationsDescription": "Choose what you want to receive.",
     "notificationsPush": "Push notifications",
     "notificationsPushHelper": "Alerts on your phone.",
     "notificationsAppointments": "Appointments",
@@ -769,7 +765,7 @@
     "remindersTitle": "Appointment reminders",
     "remindersHelper": "Use your profile defaults or set reminders just for this appointment.",
     "remindersUseDefault": "Use profile reminders",
-    "remindersDefaultLabel": "Default: {{value}}",
+    "remindersDefaultLabel": "Default {{value}}",
     "remindersCustomPlaceholder": "Minutes (e.g. 45)",
     "remindersAdd": "Add",
     "remindersLimit": "You can select up to 2 reminders.",

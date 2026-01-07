@@ -1967,9 +1967,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       marginBottom: 0,
     },
     notesInput: {
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder || "#e5e7eb",
-      backgroundColor: colors.surface,
       borderRadius: 12,
       padding: 12,
       minHeight: 120,

@@ -1,9 +1,9 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { useBrandingTheme } from '../../theme/useBrandingTheme';
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import { useBrandingTheme } from "../../theme/useBrandingTheme";
 
-type ViewMode = 'list' | 'day' | 'week' | 'month';
+type ViewMode = "list" | "day" | "week" | "month";
 
 type ViewSelectorProps = {
   currentView: ViewMode;
@@ -11,37 +11,44 @@ type ViewSelectorProps = {
   compact?: boolean;
 };
 
-export function ViewSelector({ currentView, onViewChange, compact = false }: ViewSelectorProps) {
+export function ViewSelector({
+  currentView,
+  onViewChange,
+  compact = false,
+}: ViewSelectorProps) {
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
 
-  const views: Array<{ mode: ViewMode; icon: keyof typeof Ionicons.glyphMap; label: string }> = [
-    { mode: 'list', icon: 'list', label: t('viewSelector.list') },
-    { mode: 'day', icon: 'calendar', label: t('viewSelector.day') },
-    { mode: 'week', icon: 'calendar-outline', label: t('viewSelector.week') },
-    { mode: 'month', icon: 'calendar-number', label: t('viewSelector.month') },
+  const views: Array<{
+    mode: ViewMode;
+    icon: keyof typeof Ionicons.glyphMap;
+    label: string;
+  }> = [
+    { mode: "list", icon: "list", label: t("viewSelector.list") },
+    { mode: "day", icon: "calendar", label: t("viewSelector.day") },
+    { mode: "week", icon: "calendar-outline", label: t("viewSelector.week") },
+    { mode: "month", icon: "calendar-number", label: t("viewSelector.month") },
   ];
 
   const styles = StyleSheet.create({
     container: {
-      flexDirection: 'row',
+      flexDirection: "row",
       backgroundColor: `${colors.primary}10`,
       borderRadius: 16,
       paddingHorizontal: compact ? 6 : 10,
-      paddingVertical: compact ? 5 : 8,
       gap: compact ? 6 : 8,
       marginHorizontal: 16,
-      marginBottom: 12,
-      alignSelf: 'stretch',
-      alignItems: 'center',
+
+      alignSelf: "stretch",
+      alignItems: "center",
     },
     button: {
       flex: 1,
       paddingVertical: compact ? 7 : 12,
       paddingHorizontal: compact ? 7 : 10,
       borderRadius: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     activeButton: {
       backgroundColor: colors.surface,
@@ -52,12 +59,12 @@ export function ViewSelector({ currentView, onViewChange, compact = false }: Vie
     },
     label: {
       fontSize: 12,
-      fontWeight: '400',
+      fontWeight: "400",
       color: colors.muted,
     },
     activeLabel: {
       color: colors.primary,
-      fontWeight: '600',
+      fontWeight: "600",
     },
   });
 
@@ -78,7 +85,9 @@ export function ViewSelector({ currentView, onViewChange, compact = false }: Vie
               style={styles.buttonText}
             />
             {compact ? null : (
-              <Text style={[styles.label, isActive && styles.activeLabel]}>{view.label}</Text>
+              <Text style={[styles.label, isActive && styles.activeLabel]}>
+                {view.label}
+              </Text>
             )}
           </TouchableOpacity>
         );

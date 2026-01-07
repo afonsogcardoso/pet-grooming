@@ -1,17 +1,27 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Alert, Pressable, PanResponder } from 'react-native';
-import { useTranslation } from 'react-i18next';
-import { useBrandingTheme } from '../../theme/useBrandingTheme';
-import { getDateLocale } from '../../i18n';
-import type { Appointment } from '../../api/appointments';
-import { getStatusColor } from '../../utils/appointmentStatus';
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  Dimensions,
+  Alert,
+  Pressable,
+  PanResponder,
+} from "react-native";
+import { useTranslation } from "react-i18next";
+import { useBrandingTheme } from "../../theme/useBrandingTheme";
+import { getDateLocale } from "../../i18n";
+import type { Appointment } from "../../api/appointments";
+import { getStatusColor } from "../../utils/appointmentStatus";
 import {
   formatPetLabel,
   formatServiceLabels,
   getAppointmentPetNames,
   getAppointmentServiceEntries,
-} from '../../utils/appointmentSummary';
-import { getCardStyle } from '../../theme/uiTokens';
+} from "../../utils/appointmentSummary";
+import { getCardStyle } from "../../theme/uiTokens";
 
 type WeekViewProps = {
   appointments: Appointment[];
@@ -23,8 +33,8 @@ type WeekViewProps = {
   isRefreshing: boolean;
 };
 
-const HOUR_HEIGHT = 60; // Height of each hour slot
-const TIME_COLUMN_WIDTH = 50; // Width of the time column on the left
+const HOUR_HEIGHT = 56; // Height of each hour slot
+const TIME_COLUMN_WIDTH = 54; // Width of the time column on the left
 const START_HOUR = 7; // Start at 7 AM
 const END_HOUR = 21; // End at 9 PM
 const MIN_SLOT_MINUTES = 30;
@@ -38,7 +48,7 @@ function getWeekDays(date: Date): Date[] {
   const day = date.getDay();
   const sunday = new Date(date);
   sunday.setDate(date.getDate() - day);
-  
+
   const days: Date[] = [];
   for (let i = 0; i < 7; i++) {
     const current = new Date(sunday);
@@ -48,7 +58,9 @@ function getWeekDays(date: Date): Date[] {
   return days;
 }
 
-function getTimeFromString(time?: string | null): { hour: number; minute: number } | null {
+function getTimeFromString(
+  time?: string | null
+): { hour: number; minute: number } | null {
   if (!time) return null;
   const match = String(time).match(/(\d{1,2}):(\d{2})/);
   if (match) {
@@ -60,7 +72,7 @@ function getTimeFromString(time?: string | null): { hour: number; minute: number
 function calculatePosition(appointmentTime?: string | null): number {
   const time = getTimeFromString(appointmentTime);
   if (!time) return 0;
-  
+
   const hourOffset = time.hour - START_HOUR;
   const minuteOffset = time.minute / 60;
   return (hourOffset + minuteOffset) * HOUR_HEIGHT;
@@ -72,7 +84,11 @@ function toMinutes(time?: string | null): number | null {
   return parsed.hour * 60 + parsed.minute;
 }
 
-function isSlotFree(dayAppointments: Appointment[], startMinutes: number, durationMinutes: number): boolean {
+function isSlotFree(
+  dayAppointments: Appointment[],
+  startMinutes: number,
+  durationMinutes: number
+): boolean {
   const slotStart = startMinutes;
   const slotEnd = startMinutes + durationMinutes;
   return dayAppointments.every((apt) => {
@@ -84,10 +100,10 @@ function isSlotFree(dayAppointments: Appointment[], startMinutes: number, durati
   });
 }
 
-export function WeekView({ 
-  appointments, 
-  selectedDate, 
-  onDateChange, 
+export function WeekView({
+  appointments,
+  selectedDate,
+  onDateChange,
   onAppointmentPress,
   onNewAppointment,
   onRefresh,
@@ -96,7 +112,11 @@ export function WeekView({
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
   const dateLocale = getDateLocale();
-  const [tapHighlight, setTapHighlight] = useState<{ day: string; top: number; height: number } | null>(null);
+  const [tapHighlight, setTapHighlight] = useState<{
+    day: string;
+    top: number;
+    height: number;
+  } | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -110,46 +130,69 @@ export function WeekView({
       }
     };
   }, []);
-  const screenWidth = Dimensions.get('window').width;
-  const dayColumnWidth = (screenWidth - TIME_COLUMN_WIDTH - 32) / 7; // 32 for padding
-  
-  const weekDays = getWeekDays(selectedDate);
-  const today = new Date().toLocaleDateString('sv-SE');
+  const screenWidth = Dimensions.get("window").width;
+  const dayColumnWidth = (screenWidth - TIME_COLUMN_WIDTH - 20) / 7; // tighter padding to widen columns
 
-  const getAvailableSlotDuration = (dayAppointments: Appointment[], startMinutes: number) => {
+  const weekDays = getWeekDays(selectedDate);
+  const today = new Date().toLocaleDateString("sv-SE");
+
+  const getAvailableSlotDuration = (
+    dayAppointments: Appointment[],
+    startMinutes: number
+  ) => {
     const dayEndMinutes = END_HOUR * 60;
     const nextStart = dayAppointments
       .map((apt) => toMinutes(apt.appointment_time))
-      .filter((value): value is number => value !== null && value >= startMinutes)
+      .filter(
+        (value): value is number => value !== null && value >= startMinutes
+      )
       .sort((a, b) => a - b)[0];
-    const limit = typeof nextStart === 'number' ? Math.min(nextStart, dayEndMinutes) : dayEndMinutes;
+    const limit =
+      typeof nextStart === "number"
+        ? Math.min(nextStart, dayEndMinutes)
+        : dayEndMinutes;
     const availableMinutes = limit - startMinutes;
     if (availableMinutes >= MAX_SLOT_MINUTES) return MAX_SLOT_MINUTES;
     if (availableMinutes >= MIN_SLOT_MINUTES) return MIN_SLOT_MINUTES;
     return 0;
   };
 
-  const getSlotFromOffset = (offsetY: number, dayAppointments: Appointment[]) => {
+  const getSlotFromOffset = (
+    offsetY: number,
+    dayAppointments: Appointment[]
+  ) => {
     const maxStartMinutes = END_HOUR * 60 - MIN_SLOT_MINUTES;
     const totalMinutes = Math.min(
-      Math.max(Math.floor(offsetY / HOUR_HEIGHT * 60) + START_HOUR * 60, START_HOUR * 60),
-      maxStartMinutes,
+      Math.max(
+        Math.floor((offsetY / HOUR_HEIGHT) * 60) + START_HOUR * 60,
+        START_HOUR * 60
+      ),
+      maxStartMinutes
     );
     const minutesRounded = totalMinutes - (totalMinutes % 30);
-    const durationMinutes = getAvailableSlotDuration(dayAppointments, minutesRounded);
+    const durationMinutes = getAvailableSlotDuration(
+      dayAppointments,
+      minutesRounded
+    );
     if (!durationMinutes) return null;
-    const hh = `${Math.floor(minutesRounded / 60)}`.padStart(2, '0');
-    const mm = `${minutesRounded % 60}`.padStart(2, '0');
+    const hh = `${Math.floor(minutesRounded / 60)}`.padStart(2, "0");
+    const mm = `${minutesRounded % 60}`.padStart(2, "0");
     const timeStr = `${hh}:${mm}`;
     const minutesFromStart = minutesRounded - START_HOUR * 60;
     const highlightTop = (minutesFromStart / 60) * HOUR_HEIGHT;
     const highlightHeight = (durationMinutes / 60) * HOUR_HEIGHT;
-    return { minutesRounded, timeStr, highlightTop, highlightHeight, durationMinutes };
+    return {
+      minutesRounded,
+      timeStr,
+      highlightTop,
+      highlightHeight,
+      durationMinutes,
+    };
   };
 
-  const navigateWeek = (direction: 'prev' | 'next') => {
+  const navigateWeek = (direction: "prev" | "next") => {
     const date = new Date(selectedDate);
-    date.setDate(date.getDate() + (direction === 'next' ? 7 : -7));
+    date.setDate(date.getDate() + (direction === "next" ? 7 : -7));
     onDateChange(date);
   };
 
@@ -173,22 +216,35 @@ export function WeekView({
           }
         },
       }),
-    [selectedDate, onDateChange],
+    [selectedDate, onDateChange]
   );
 
   // Group appointments by day
   const appointmentsByDay = weekDays.reduce((acc, day) => {
-    const dayStr = day.toLocaleDateString('sv-SE');
-    acc[dayStr] = appointments.filter(apt => apt.appointment_date === dayStr)
-      .sort((a, b) => (a.appointment_time || '').localeCompare(b.appointment_time || ''));
+    const dayStr = day.toLocaleDateString("sv-SE");
+    acc[dayStr] = appointments
+      .filter((apt) => apt.appointment_date === dayStr)
+      .sort((a, b) =>
+        (a.appointment_time || "").localeCompare(b.appointment_time || "")
+      );
     return acc;
   }, {} as Record<string, Appointment[]>);
 
-  const handleCreateAtPosition = (dayStr: string, dayAppointments: Appointment[], offsetY: number) => {
+  const handleCreateAtPosition = (
+    dayStr: string,
+    dayAppointments: Appointment[],
+    offsetY: number
+  ) => {
     const slot = getSlotFromOffset(offsetY, dayAppointments);
-    if (!slot || !isSlotFree(dayAppointments, slot.minutesRounded, slot.durationMinutes)) {
+    if (
+      !slot ||
+      !isSlotFree(dayAppointments, slot.minutesRounded, slot.durationMinutes)
+    ) {
       setTapHighlight(null);
-      Alert.alert(t('dayView.slotUnavailableTitle'), t('dayView.slotUnavailableMessage'));
+      Alert.alert(
+        t("dayView.slotUnavailableTitle"),
+        t("dayView.slotUnavailableMessage")
+      );
       return;
     }
 
@@ -200,14 +256,25 @@ export function WeekView({
     }, TAP_NAV_DELAY_MS);
   };
 
-  const handlePressInAtPosition = (dayStr: string, dayAppointments: Appointment[], offsetY: number) => {
+  const handlePressInAtPosition = (
+    dayStr: string,
+    dayAppointments: Appointment[],
+    offsetY: number
+  ) => {
     const slot = getSlotFromOffset(offsetY, dayAppointments);
-    if (!slot || !isSlotFree(dayAppointments, slot.minutesRounded, slot.durationMinutes)) {
+    if (
+      !slot ||
+      !isSlotFree(dayAppointments, slot.minutesRounded, slot.durationMinutes)
+    ) {
       setTapHighlight(null);
       return;
     }
 
-    setTapHighlight({ day: dayStr, top: slot.highlightTop, height: slot.highlightHeight });
+    setTapHighlight({
+      day: dayStr,
+      top: slot.highlightTop,
+      height: slot.highlightHeight,
+    });
 
     if (highlightTimerRef.current) {
       clearTimeout(highlightTimerRef.current);
@@ -217,7 +284,10 @@ export function WeekView({
     }, TAP_HIGHLIGHT_DURATION_MS);
   };
 
-  const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
+  const hours = Array.from(
+    { length: END_HOUR - START_HOUR },
+    (_, i) => START_HOUR + i
+  );
 
   const cardBase = getCardStyle(colors);
   const styles = StyleSheet.create({
@@ -226,48 +296,52 @@ export function WeekView({
       backgroundColor: colors.background,
     },
     weekNav: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 12,
-      paddingVertical: 12,
-      backgroundColor: colors.surface,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 18,
+      paddingVertical: 14,
+      backgroundColor: colors.background,
       borderBottomWidth: 1,
       borderBottomColor: colors.surfaceBorder,
+      gap: 8,
     },
     navButtonWrap: {
       width: 40,
       height: 40,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     navButton: {
       width: 36,
       height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.surface,
+      borderRadius: 12,
+      backgroundColor: colors.background,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     navButtonText: {
       fontSize: 16,
+      fontWeight: "700",
+      color: colors.text,
     },
     weekInfo: {
       flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       paddingHorizontal: 8,
-      pointerEvents: 'none',
+      pointerEvents: "none",
     },
     weekLabel: {
-      fontSize: 14,
-      fontWeight: '700',
+      fontSize: 18,
+      fontWeight: "800",
       color: colors.text,
+      letterSpacing: 0.2,
     },
     weekHeader: {
-      flexDirection: 'row',
-      backgroundColor: colors.surface,
+      flexDirection: "row",
+      backgroundColor: colors.background,
       borderBottomWidth: 1,
       borderBottomColor: colors.surfaceBorder,
     },
@@ -277,26 +351,28 @@ export function WeekView({
     },
     dayHeaderCell: {
       width: dayColumnWidth,
-      paddingVertical: 8,
-      alignItems: 'center',
+      paddingVertical: 10,
+      alignItems: "center",
       borderLeftWidth: 1,
       borderLeftColor: colors.surfaceBorder,
     },
     todayHeaderCell: {
       backgroundColor: colors.primarySoft,
+      borderRadius: 12,
     },
     dayHeaderDay: {
-      fontSize: 10,
-      fontWeight: '600',
+      fontSize: 11,
+      fontWeight: "700",
       color: colors.muted,
-      textTransform: 'uppercase',
+      textTransform: "uppercase",
+      letterSpacing: 0.3,
     },
     todayHeaderDay: {
       color: colors.primary,
     },
     dayHeaderDate: {
       fontSize: 16,
-      fontWeight: '700',
+      fontWeight: "800",
       color: colors.text,
       marginTop: 2,
     },
@@ -307,7 +383,7 @@ export function WeekView({
       flex: 1,
     },
     gridContent: {
-      flexDirection: 'row',
+      flexDirection: "row",
     },
     timeColumn: {
       width: TIME_COLUMN_WIDTH,
@@ -315,65 +391,75 @@ export function WeekView({
     },
     hourRow: {
       height: HOUR_HEIGHT,
-      justifyContent: 'flex-start',
-      paddingTop: 4,
-      paddingRight: 4,
+      justifyContent: "flex-start",
+      paddingTop: 6,
+      paddingRight: 6,
     },
     hourText: {
-      fontSize: 10,
+      fontSize: 11,
+      fontWeight: "600",
       color: colors.muted,
-      textAlign: 'right',
+      textAlign: "right",
     },
     daysContainer: {
       flex: 1,
-      flexDirection: 'row',
+      flexDirection: "row",
     },
     dayColumn: {
       width: dayColumnWidth,
       borderLeftWidth: 1,
       borderLeftColor: colors.surfaceBorder,
-      position: 'relative',
+      position: "relative",
+      backgroundColor: `${colors.primary}05`,
     },
     hourLine: {
-      position: 'absolute',
+      position: "absolute",
       left: 0,
       right: 0,
       height: 1,
-      backgroundColor: colors.surfaceBorder,
+      backgroundColor: `${colors.text}10`,
     },
     tapHighlight: {
-      position: 'absolute',
-      left: 2,
-      right: 2,
+      position: "absolute",
+      left: 8,
+      right: 8,
       backgroundColor: colors.primarySoft,
-      borderRadius: 4,
+      borderRadius: 10,
       borderWidth: 1,
       borderColor: colors.primary,
-      opacity: 0.45,
+      opacity: 0.35,
     },
     appointmentBlock: {
-      position: 'absolute',
-      left: 2,
-      right: 2,
+      position: "absolute",
       ...cardBase,
-      borderRadius: 6,
-      padding: 4,
+      borderRadius: 8,
+      paddingHorizontal: 2,
+      paddingVertical: 4,
       borderLeftWidth: 3,
-      overflow: 'hidden',
+      overflow: "hidden",
+      shadowColor: "#000",
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 4,
     },
     appointmentTime: {
-      fontSize: 9,
-      fontWeight: '700',
-      color: colors.text,
+      fontSize: 11,
+      fontWeight: "700",
+      color: colors.primary,
+      letterSpacing: 0.2,
+      lineHeight: 13,
     },
     appointmentTitle: {
-      fontSize: 10,
-      fontWeight: '600',
+      fontSize: 12,
+      fontWeight: "600",
       color: colors.text,
+      lineHeight: 15,
     },
     appointmentService: {
-      fontSize: 9,
+      fontSize: 10,
       color: colors.muted,
+      lineHeight: 13,
     },
   });
 
@@ -382,9 +468,9 @@ export function WeekView({
   const sameYear = weekStart.getFullYear() === weekEnd.getFullYear();
   const formatDayLabel = (d: Date, withYear: boolean) =>
     d.toLocaleDateString(dateLocale, {
-      day: '2-digit',
-      month: 'short',
-      year: withYear ? 'numeric' : undefined,
+      day: "2-digit",
+      month: "short",
+      year: withYear ? "numeric" : undefined,
     });
   const weekLabel = sameYear
     ? `${formatDayLabel(weekStart, false)} - ${formatDayLabel(weekEnd, true)}`
@@ -395,17 +481,23 @@ export function WeekView({
       {/* Navigation Header */}
       <View style={styles.weekNav}>
         <View style={styles.navButtonWrap}>
-          <TouchableOpacity style={styles.navButton} onPress={() => navigateWeek('prev')}>
+          <TouchableOpacity
+            style={styles.navButton}
+            onPress={() => navigateWeek("prev")}
+          >
             <Text style={styles.navButtonText}>←</Text>
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.weekInfo}>
           <Text style={styles.weekLabel}>{weekLabel}</Text>
         </View>
 
         <View style={styles.navButtonWrap}>
-          <TouchableOpacity style={styles.navButton} onPress={() => navigateWeek('next')}>
+          <TouchableOpacity
+            style={styles.navButton}
+            onPress={() => navigateWeek("next")}
+          >
             <Text style={styles.navButtonText}>→</Text>
           </TouchableOpacity>
         </View>
@@ -415,20 +507,29 @@ export function WeekView({
       <View style={styles.weekHeader}>
         <View style={styles.timeColumnHeader} />
         {weekDays.map((day) => {
-          const dayStr = day.toLocaleDateString('sv-SE');
+          const dayStr = day.toLocaleDateString("sv-SE");
           const isToday = dayStr === today;
-          const dayName = day.toLocaleDateString(dateLocale, { weekday: 'short' });
+          const dayName = day.toLocaleDateString(dateLocale, {
+            weekday: "short",
+          });
           const dayNumber = day.getDate();
-          
+
           return (
-            <View 
-              key={dayStr} 
+            <View
+              key={dayStr}
               style={[styles.dayHeaderCell, isToday && styles.todayHeaderCell]}
             >
-              <Text style={[styles.dayHeaderDay, isToday && styles.todayHeaderDay]}>
+              <Text
+                style={[styles.dayHeaderDay, isToday && styles.todayHeaderDay]}
+              >
                 {dayName}
               </Text>
-              <Text style={[styles.dayHeaderDate, isToday && styles.todayHeaderDate]}>
+              <Text
+                style={[
+                  styles.dayHeaderDate,
+                  isToday && styles.todayHeaderDate,
+                ]}
+              >
                 {dayNumber}
               </Text>
             </View>
@@ -451,24 +552,33 @@ export function WeekView({
           {/* Days Columns */}
           <View style={styles.daysContainer}>
             {weekDays.map((day) => {
-              const dayStr = day.toLocaleDateString('sv-SE');
+              const dayStr = day.toLocaleDateString("sv-SE");
               const dayAppointments = appointmentsByDay[dayStr] || [];
 
               return (
                 <Pressable
                   key={dayStr}
                   style={styles.dayColumn}
-                  onPressIn={(e) => handlePressInAtPosition(dayStr, dayAppointments, e.nativeEvent.locationY)}
-                  onPress={(e) => handleCreateAtPosition(dayStr, dayAppointments, e.nativeEvent.locationY)}
+                  onPressIn={(e) =>
+                    handlePressInAtPosition(
+                      dayStr,
+                      dayAppointments,
+                      e.nativeEvent.locationY
+                    )
+                  }
+                  onPress={(e) =>
+                    handleCreateAtPosition(
+                      dayStr,
+                      dayAppointments,
+                      e.nativeEvent.locationY
+                    )
+                  }
                 >
                   {/* Hour Lines */}
                   {hours.map((hour, index) => (
-                    <View 
-                      key={hour} 
-                      style={[
-                        styles.hourLine, 
-                        { top: index * HOUR_HEIGHT }
-                      ]} 
+                    <View
+                      key={hour}
+                      style={[styles.hourLine, { top: index * HOUR_HEIGHT }]}
                     />
                   ))}
                   {tapHighlight && tapHighlight.day === dayStr ? (
@@ -483,13 +593,23 @@ export function WeekView({
 
                   {/* Appointments */}
                   {dayAppointments.map((appointment) => {
-                    const topPosition = calculatePosition(appointment.appointment_time);
+                    const topPosition = calculatePosition(
+                      appointment.appointment_time
+                    );
                     const duration = appointment.duration || 60;
-                    const height = (duration / 60) * HOUR_HEIGHT - 4; // -4 for spacing
-                    const appointmentServices = getAppointmentServiceEntries(appointment);
-                    const petNames = getAppointmentPetNames(appointment, appointmentServices);
+                    const height = Math.max(
+                      (duration / 60) * HOUR_HEIGHT - 2,
+                      30
+                    ); // keep slight spacing but ensure short slots stay readable
+                    const appointmentServices =
+                      getAppointmentServiceEntries(appointment);
+                    const petNames = getAppointmentPetNames(
+                      appointment,
+                      appointmentServices
+                    );
                     const petLabel = formatPetLabel(petNames);
-                    const appointmentServiceLines = formatServiceLabels(appointmentServices);
+                    const appointmentServiceLines =
+                      formatServiceLabels(appointmentServices);
 
                     return (
                       <TouchableOpacity
@@ -500,7 +620,7 @@ export function WeekView({
                             top: topPosition,
                             height: Math.max(height, 30),
                             borderLeftColor: getStatusColor(appointment.status),
-                          }
+                          },
                         ]}
                         onPress={() => onAppointmentPress(appointment)}
                       >
@@ -509,23 +629,37 @@ export function WeekView({
                         </Text>
                         {petNames.length > 0 ? (
                           petNames.map((name, idx) => (
-                            <Text key={`${appointment.id}-pet-${idx}`} style={styles.appointmentTitle} numberOfLines={1}>
+                            <Text
+                              key={`${appointment.id}-pet-${idx}`}
+                              style={styles.appointmentTitle}
+                              numberOfLines={1}
+                            >
                               {name}
                             </Text>
                           ))
                         ) : (
-                          <Text style={styles.appointmentTitle} numberOfLines={1}>
-                            {petLabel || '—'}
+                          <Text
+                            style={styles.appointmentTitle}
+                            numberOfLines={1}
+                          >
+                            {petLabel || "—"}
                           </Text>
                         )}
                         {appointmentServiceLines.length > 0 ? (
                           appointmentServiceLines.map((label, idx) => (
-                            <Text key={`${appointment.id}-service-${idx}`} style={styles.appointmentService} numberOfLines={1}>
+                            <Text
+                              key={`${appointment.id}-service-${idx}`}
+                              style={styles.appointmentService}
+                              numberOfLines={1}
+                            >
                               {label}
                             </Text>
                           ))
                         ) : (
-                          <Text style={styles.appointmentService} numberOfLines={1}>
+                          <Text
+                            style={styles.appointmentService}
+                            numberOfLines={1}
+                          >
                             —
                           </Text>
                         )}

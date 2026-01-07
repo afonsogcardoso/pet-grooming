@@ -8,8 +8,18 @@ const TABS = [
   { key: 'team', label: 'Team' },
   { key: 'keys', label: 'API Keys' },
   { key: 'maintenance', label: 'Maintenance' },
-  { key: 'env', label: 'Environment' }
+  { key: 'branding', label: 'Branding' }
 ]
+
+const DEFAULT_BRANDING = {
+  brand_primary: '#1F6FEB',
+  brand_primary_soft: '#82B1FF',
+  brand_accent: '#144FA1',
+  brand_accent_soft: '#DCE8FF',
+  brand_background: '#F6F9FF',
+  brand_gradient: 'linear-gradient(135deg, #1F6FEB, #144FA1)',
+  logo_url: ''
+}
 
 export default function AccountManageClient({ account }) {
   const [activeTab, setActiveTab] = useState('team')
@@ -41,11 +51,10 @@ export default function AccountManageClient({ account }) {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-              activeTab === tab.key
-                ? 'border-slate-900 bg-slate-900 text-white'
-                : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400'
-            }`}
+            className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${activeTab === tab.key
+              ? 'border-slate-900 bg-slate-900 text-white'
+              : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400'
+              }`}
           >
             {tab.label}
           </button>
@@ -55,7 +64,7 @@ export default function AccountManageClient({ account }) {
       {activeTab === 'team' && <TeamPanel accountId={account.id} />}
       {activeTab === 'keys' && <ApiKeysPanel accountId={account.id} accountName={account.name} />}
       {activeTab === 'maintenance' && <MaintenancePanel accountId={account.id} accountName={account.name} />}
-      {activeTab === 'env' && <EnvironmentPanel accountId={account.id} />}
+      {activeTab === 'branding' && <BrandingPanel account={account} />}
     </div>
   )
 }
@@ -442,30 +451,186 @@ function RevealableKey({ value }) {
   )
 }
 
-function EnvironmentPanel({ accountId }) {
+function BrandingPanel({ account }) {
+  const [form, setForm] = useState(() => ({
+    brand_primary: account.brand_primary || DEFAULT_BRANDING.brand_primary,
+    brand_primary_soft: account.brand_primary_soft || DEFAULT_BRANDING.brand_primary_soft,
+    brand_accent: account.brand_accent || DEFAULT_BRANDING.brand_accent,
+    brand_accent_soft: account.brand_accent_soft || DEFAULT_BRANDING.brand_accent_soft,
+    brand_background: account.brand_background || DEFAULT_BRANDING.brand_background,
+    brand_gradient: account.brand_gradient || DEFAULT_BRANDING.brand_gradient,
+    logo_url: account.logo_url || DEFAULT_BRANDING.logo_url
+  }))
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState(null)
+
+  const resetDefaults = () => {
+    setForm(DEFAULT_BRANDING)
+  }
+
+  const handleChange = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    setSaving(true)
+    setMessage(null)
+    const token = getStoredAccessToken()
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
+    const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+    const payload = {
+      accountId: account.id,
+      updates: {
+        brand_primary: form.brand_primary || null,
+        brand_primary_soft: form.brand_primary_soft || null,
+        brand_accent: form.brand_accent || null,
+        brand_accent_soft: form.brand_accent_soft || null,
+        brand_background: form.brand_background || null,
+        brand_gradient: form.brand_gradient || null,
+        logo_url: form.logo_url || null
+      }
+    }
+
+    try {
+      const res = await fetch(`${base}/api/v1/admin/accounts`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify(payload)
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(body.error || 'Falha ao atualizar branding')
+      }
+      setMessage({ type: 'success', text: 'Branding atualizado para a conta.' })
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
-      <div>
-        <h2 className="text-lg font-semibold text-slate-900">Environment</h2>
-        <p className="text-sm text-slate-500">Configure per-tenant secrets/URLs. (Placeholder – hook up your env store.)</p>
+    <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Branding</h2>
+          <p className="text-sm text-slate-500">Cores e logo aplicadas neste tenant.</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={resetDefaults}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-400"
+            disabled={saving}
+          >
+            Usar defaults
+          </button>
+        </div>
       </div>
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-        <p>
-          This section is a placeholder. Wire it to your per-tenant settings (e.g., webhooks, calendar tokens, external API
-          URLs) once you decide where to store them (Supabase table, KV store, etc.).
-        </p>
-        <p className="mt-2 text-xs text-slate-500">Account ID: {accountId}</p>
-      </div>
+
+      <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
+        <ColorInput
+          label="Primária"
+          value={form.brand_primary}
+          onChange={(v) => handleChange('brand_primary', v)}
+        />
+        <ColorInput
+          label="Primária soft"
+          value={form.brand_primary_soft}
+          onChange={(v) => handleChange('brand_primary_soft', v)}
+        />
+        <ColorInput
+          label="Acento"
+          value={form.brand_accent}
+          onChange={(v) => handleChange('brand_accent', v)}
+        />
+        <ColorInput
+          label="Acento soft"
+          value={form.brand_accent_soft}
+          onChange={(v) => handleChange('brand_accent_soft', v)}
+        />
+        <ColorInput
+          label="Background"
+          value={form.brand_background}
+          onChange={(v) => handleChange('brand_background', v)}
+        />
+
+        <label className="md:col-span-2 text-sm font-semibold text-slate-600">
+          Gradiente
+          <input
+            type="text"
+            value={form.brand_gradient}
+            onChange={(e) => handleChange('brand_gradient', e.target.value)}
+            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none"
+            placeholder="linear-gradient(140deg, ... )"
+          />
+        </label>
+
+        <label className="md:col-span-2 text-sm font-semibold text-slate-600">
+          Logo URL
+          <input
+            type="url"
+            value={form.logo_url}
+            onChange={(e) => handleChange('logo_url', e.target.value)}
+            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none"
+            placeholder="https://..."
+          />
+        </label>
+
+        {message && (
+          <div
+            className={`md:col-span-2 rounded-lg px-3 py-2 text-sm font-semibold ${message.type === 'success'
+              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+              : 'bg-rose-50 text-rose-700 border border-rose-200'
+              }`}
+          >
+            {message.text}
+          </div>
+        )}
+
+        <div className="md:col-span-2 flex gap-2 justify-end">
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-70"
+          >
+            {saving ? 'A atualizar...' : 'Guardar branding'}
+          </button>
+        </div>
+      </form>
     </section>
+  )
+}
+
+function ColorInput({ label, value, onChange }) {
+  return (
+    <label className="text-sm font-semibold text-slate-600">
+      {label}
+      <div className="mt-2 flex items-center gap-3 rounded-lg border border-slate-300 px-3 py-2">
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-10 w-12 rounded border border-slate-200"
+          aria-label={label}
+        />
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 rounded border border-slate-200 px-2 py-1 text-sm text-slate-900 focus:border-slate-500 focus:outline-none"
+        />
+      </div>
+    </label>
   )
 }
 
 function StatusBadge({ active }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
-        active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
-      }`}
+      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+        }`}
     >
       <span className="text-base">{active ? '●' : '○'}</span> {active ? 'Active' : 'Inactive'}
     </span>

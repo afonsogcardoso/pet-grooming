@@ -1,11 +1,10 @@
-import { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { useTranslation } from 'react-i18next';
-import { useBrandingTheme } from '../../theme/useBrandingTheme';
-import { getCardStyle } from '../../theme/uiTokens';
-import { Avatar } from '../common/Avatar';
-import type { Customer } from '../../api/customers';
-import { formatCustomerName } from '../../utils/customer';
+import { useMemo } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
+import { useTranslation } from "react-i18next";
+import { useBrandingTheme } from "../../theme/useBrandingTheme";
+import { getCardVariants } from "../../theme/uiTokens";
+import type { Customer } from "../../api/customers";
+import { formatCustomerName } from "../../utils/customer";
 
 interface CustomerCardProps {
   customer: Customer;
@@ -21,87 +20,96 @@ export function CustomerCard({ customer, onPress }: CustomerCardProps) {
   const appointmentCount = customer.appointment_count ?? 0;
   const displayName = formatCustomerName(customer);
 
+  const initial = displayName?.charAt(0)?.toUpperCase() || "?";
+
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <Avatar name={displayName} imageUrl={customer.photo_url} size="medium" />
-      
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+      <View style={styles.thumb}>
+        {customer.photo_url ? (
+          <Image
+            source={{ uri: customer.photo_url }}
+            style={styles.thumbImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={styles.thumbInitial}>{initial}</Text>
+        )}
+      </View>
+
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>
           {displayName}
         </Text>
         <View style={styles.details}>
-          {customer.phone && (
-            <View style={styles.detailItem}>
-              <Text style={styles.detailIcon}>📱</Text>
-              <Text style={styles.detailText} numberOfLines={1}>
-                {customer.phone}
-              </Text>
-            </View>
-          )}
-          <View style={styles.detailItem}>
-            <Text style={styles.detailIcon}>🐾</Text>
-            <Text style={styles.detailText}>
-              {t('customerCard.petCount', { count: petCount })} •{' '}
-              {t('customerCard.appointmentCount', { count: appointmentCount })}
+          {customer.phone ? (
+            <Text style={styles.detailText} numberOfLines={1}>
+              {customer.phone}
             </Text>
-          </View>
+          ) : null}
+          <Text style={styles.detailText}>
+            {t("customerCard.petCount", { count: petCount })} •{" "}
+            {t("customerCard.appointmentCount", { count: appointmentCount })}
+          </Text>
         </View>
       </View>
-
-      <Text style={styles.arrow}>→</Text>
     </TouchableOpacity>
   );
 }
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
-  const cardBase = getCardStyle(colors);
-  const listCardBase = {
-    ...cardBase,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 12,
-    shadowOpacity: 0.05,
-    elevation: 3,
-  };
+function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
+  const { listItem } = getCardVariants(colors);
+  const placeholderBg =
+    colors.primarySoft && colors.primarySoft !== colors.surface
+      ? colors.primarySoft
+      : colors.primary
+      ? `${colors.primary}12`
+      : colors.surfaceBorder;
   return StyleSheet.create({
     card: {
-      ...listCardBase,
-      flexDirection: 'row',
-      alignItems: 'center',
+      ...listItem,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderRadius: 18,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 14,
+    },
+    thumb: {
+      width: 54,
+      height: 54,
+      borderRadius: 27,
+      backgroundColor: placeholderBg,
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+    },
+    thumbImage: {
+      width: "100%",
+      height: "100%",
+      borderRadius: 27,
+    },
+    thumbInitial: {
+      fontSize: 22,
+      fontWeight: "700",
+      color: colors.primary,
     },
     info: {
       flex: 1,
-      marginLeft: 12,
+      gap: 6,
     },
     name: {
       fontSize: 17,
-      fontWeight: '600',
+      fontWeight: "600",
       color: colors.text,
       marginBottom: 6,
     },
     details: {
-      flexDirection: 'column',
+      flexDirection: "column",
       gap: 4,
-    },
-    detailItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    detailIcon: {
-      fontSize: 12,
-      marginRight: 6,
     },
     detailText: {
       fontSize: 13,
       color: colors.muted,
-    },
-    arrow: {
-      fontSize: 20,
-      color: colors.muted,
-      marginLeft: 8,
     },
   });
 }

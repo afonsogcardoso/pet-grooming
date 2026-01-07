@@ -48,6 +48,7 @@ import {
 import { useAuthStore } from "../state/authStore";
 import { useViewModeStore, ViewMode } from "../state/viewModeStore";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
+import { getCardStyle, getSegmentStyles } from "../theme/uiTokens";
 import { ScreenHeader } from "../components/ScreenHeader";
 import { getDateLocale, normalizeLanguage, setAppLanguage } from "../i18n";
 import { PhoneInput } from "../components/common/PhoneInput";
@@ -1413,12 +1414,6 @@ export default function ProfileScreen({ navigation }: Props) {
         {activeSection === "info" ? (
           <>
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                {t("profile.sectionInfo")}
-              </Text>
-              <Text style={styles.sectionText}>
-                {t("profile.infoDescription")}
-              </Text>
               <View style={styles.inputRow}>
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>
@@ -1430,6 +1425,7 @@ export default function ProfileScreen({ navigation }: Props) {
                     onChangeText={handleFirstNameChange}
                     placeholder={t("profile.firstNamePlaceholder")}
                     placeholderTextColor={colors.muted}
+                    autoCapitalize="words"
                   />
                 </View>
                 <View style={styles.inputGroup}>
@@ -1442,6 +1438,7 @@ export default function ProfileScreen({ navigation }: Props) {
                     onChangeText={handleLastNameChange}
                     placeholder={t("profile.lastNamePlaceholder")}
                     placeholderTextColor={colors.muted}
+                    autoCapitalize="words"
                   />
                 </View>
               </View>
@@ -1476,6 +1473,7 @@ export default function ProfileScreen({ navigation }: Props) {
                   onChangeText={handleAddress2Change}
                   placeholder={t("profile.address2Placeholder")}
                   placeholderTextColor={colors.muted}
+                  autoCapitalize="sentences"
                 />
               </View>
               {isProfileDirty ? (
@@ -1599,9 +1597,6 @@ export default function ProfileScreen({ navigation }: Props) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               {t("profile.notificationsTitle")}
-            </Text>
-            <Text style={styles.sectionText}>
-              {t("profile.notificationsDescription")}
             </Text>
             {loadingNotifications ? (
               <ActivityIndicator
@@ -2026,97 +2021,6 @@ export default function ProfileScreen({ navigation }: Props) {
 
         {activeSection === "marketplace" ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {t("marketplaceProfile.title")}
-            </Text>
-            <Text style={styles.sectionText}>
-              {t("profile.marketplaceSectionDescription")}
-            </Text>
-
-            <View style={styles.marketplaceMediaGrid}>
-              <View style={styles.marketplaceMediaCard}>
-                <Text style={styles.marketplaceMediaTitle}>
-                  {t("marketplaceProfile.logoTitle")}
-                </Text>
-                <TouchableOpacity
-                  style={styles.marketplaceLogo}
-                  onPress={() =>
-                    pickMarketplaceImage(uploadMarketplaceLogoFromUri)
-                  }
-                  disabled={uploadingMarketplaceLogo}
-                >
-                  {marketplaceLogoUrl ? (
-                    <Image
-                      source={{ uri: marketplaceLogoUrl }}
-                      style={styles.marketplaceLogoImage}
-                    />
-                  ) : (
-                    <Text style={styles.marketplaceLogoFallback}>
-                      {(marketplaceName.trim().charAt(0) || "P").toUpperCase()}
-                    </Text>
-                  )}
-                  {uploadingMarketplaceLogo ? (
-                    <View style={styles.marketplaceMediaOverlay}>
-                      <ActivityIndicator color={colors.onPrimary} />
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.marketplaceMediaButton}
-                  onPress={() =>
-                    pickMarketplaceImage(uploadMarketplaceLogoFromUri)
-                  }
-                  disabled={uploadingMarketplaceLogo}
-                >
-                  <Text style={styles.marketplaceMediaButtonText}>
-                    {t("marketplaceProfile.changeLogo")}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.marketplaceMediaCard}>
-                <Text style={styles.marketplaceMediaTitle}>
-                  {t("marketplaceProfile.heroTitle")}
-                </Text>
-                <TouchableOpacity
-                  style={styles.marketplaceHero}
-                  onPress={() =>
-                    pickMarketplaceImage(uploadMarketplaceHeroFromUri)
-                  }
-                  disabled={uploadingMarketplaceHero}
-                >
-                  {marketplaceHeroUrl ? (
-                    <Image
-                      source={{ uri: marketplaceHeroUrl }}
-                      style={styles.marketplaceHeroImage}
-                    />
-                  ) : (
-                    <View style={styles.marketplaceHeroPlaceholder}>
-                      <Text style={styles.marketplaceHeroPlaceholderText}>
-                        {t("marketplaceProfile.heroPlaceholder")}
-                      </Text>
-                    </View>
-                  )}
-                  {uploadingMarketplaceHero ? (
-                    <View style={styles.marketplaceMediaOverlay}>
-                      <ActivityIndicator color={colors.onPrimary} />
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.marketplaceMediaButton}
-                  onPress={() =>
-                    pickMarketplaceImage(uploadMarketplaceHeroFromUri)
-                  }
-                  disabled={uploadingMarketplaceHero}
-                >
-                  <Text style={styles.marketplaceMediaButtonText}>
-                    {t("marketplaceProfile.changeHero")}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>
                 {t("marketplaceProfile.nameLabel")}
@@ -2157,7 +2061,67 @@ export default function ProfileScreen({ navigation }: Props) {
                 multiline
               />
             </View>
+            <View style={styles.marketplaceMediaGrid}>
+              <View style={styles.marketplaceMediaCard}>
+                <Text style={styles.marketplaceMediaTitle}>
+                  {t("marketplaceProfile.logoTitle")}
+                </Text>
+                <TouchableOpacity
+                  style={styles.marketplaceLogo}
+                  onPress={() =>
+                    pickMarketplaceImage(uploadMarketplaceLogoFromUri)
+                  }
+                  disabled={uploadingMarketplaceLogo}
+                >
+                  {marketplaceLogoUrl ? (
+                    <Image
+                      source={{ uri: marketplaceLogoUrl }}
+                      style={styles.marketplaceLogoImage}
+                    />
+                  ) : (
+                    <Text style={styles.marketplaceLogoFallback}>
+                      {(marketplaceName.trim().charAt(0) || "P").toUpperCase()}
+                    </Text>
+                  )}
+                  {uploadingMarketplaceLogo ? (
+                    <View style={styles.marketplaceMediaOverlay}>
+                      <ActivityIndicator color={colors.onPrimary} />
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              </View>
 
+              <View style={styles.marketplaceMediaCard}>
+                <Text style={styles.marketplaceMediaTitle}>
+                  {t("marketplaceProfile.heroTitle")}
+                </Text>
+                <TouchableOpacity
+                  style={styles.marketplaceHero}
+                  onPress={() =>
+                    pickMarketplaceImage(uploadMarketplaceHeroFromUri)
+                  }
+                  disabled={uploadingMarketplaceHero}
+                >
+                  {marketplaceHeroUrl ? (
+                    <Image
+                      source={{ uri: marketplaceHeroUrl }}
+                      style={styles.marketplaceHeroImage}
+                    />
+                  ) : (
+                    <View style={styles.marketplaceHeroPlaceholder}>
+                      <Text style={styles.marketplaceHeroPlaceholderText}>
+                        {t("marketplaceProfile.heroPlaceholder")}
+                      </Text>
+                    </View>
+                  )}
+                  {uploadingMarketplaceHero ? (
+                    <View style={styles.marketplaceMediaOverlay}>
+                      <ActivityIndicator color={colors.onPrimary} />
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              </View>
+            </View>
             <Text style={styles.subsectionTitle}>
               {t("marketplaceProfile.socialTitle")}
             </Text>
@@ -2247,6 +2211,8 @@ export default function ProfileScreen({ navigation }: Props) {
 }
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
+  const cardBase = getCardStyle(colors);
+  const segment = getSegmentStyles(colors);
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -2254,16 +2220,13 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     },
     scrollContent: {
       padding: 24,
-      paddingTop: 32,
-      paddingBottom: 40,
+      paddingTop: 12,
+      paddingBottom: 20,
     },
     headerCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 16,
+      ...cardBase,
       padding: 18,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      marginBottom: 16,
+      marginBottom: 5,
     },
     headerRow: {
       flexDirection: "row",
@@ -2273,12 +2236,17 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       height: 64,
       width: 64,
       borderRadius: 12,
-      backgroundColor: colors.background,
-      borderWidth: 1,
-      borderColor: colors.primary,
+      backgroundColor: colors.surface,
+      borderWidth: 0,
+      borderColor: colors.surface,
       alignItems: "center",
       justifyContent: "center",
       marginRight: 14,
+      shadowColor: "#000",
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 4,
     },
     headerInfo: {
       flex: 1,
@@ -2347,54 +2315,47 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     },
     editInput: {
       backgroundColor: colors.surface,
-      borderColor: colors.surfaceBorder,
-      borderWidth: 1,
+      borderColor: "transparent",
+      borderWidth: 0,
       borderRadius: 12,
       paddingHorizontal: 16,
       paddingVertical: 12,
       color: colors.text,
       marginTop: 4,
       fontSize: 14,
+      shadowColor: "#000",
+      shadowOpacity: 0.04,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 2,
     },
     error: {
       color: colors.danger,
       marginBottom: 8,
     },
     section: {
-      marginTop: 10,
-      backgroundColor: colors.surface,
-      borderRadius: 16,
-      padding: 16,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
+      ...cardBase,
+      marginTop: 12,
+      padding: 18,
     },
     sectionTabs: {
-      marginTop: 8,
-      flexDirection: "row",
-      gap: 8,
-      backgroundColor: colors.surface,
-      borderRadius: 999,
-      padding: 6,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
+      ...segment.container,
+      marginTop: 12,
+      width: "100%",
+      paddingHorizontal: 12,
     },
     sectionTab: {
-      paddingVertical: 8,
-      paddingHorizontal: 12,
-      borderRadius: 999,
-      alignItems: "center",
+      ...segment.button,
+      paddingVertical: 10,
     },
     sectionTabActive: {
-      backgroundColor: colors.primarySoft,
+      ...segment.buttonActive,
     },
     sectionTabText: {
-      color: colors.muted,
-      fontWeight: "600",
-      fontSize: 13,
+      ...segment.text,
     },
     sectionTabTextActive: {
-      color: colors.primary,
-      fontWeight: "700",
+      ...segment.textActive,
     },
     inputRow: {
       flexDirection: "row",
@@ -2430,15 +2391,17 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     },
     languageOption: {
       flex: 1,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      backgroundColor: colors.background,
-      borderRadius: 10,
-      paddingVertical: 10,
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      paddingVertical: 12,
       alignItems: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 3,
     },
     languageOptionActive: {
-      borderColor: colors.primary,
       backgroundColor: colors.primarySoft,
     },
     languageOptionText: {
@@ -2457,15 +2420,17 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     },
     modeOption: {
       flex: 1,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      backgroundColor: colors.background,
-      borderRadius: 10,
+      backgroundColor: colors.surface,
+      borderRadius: 12,
       paddingVertical: 12,
       alignItems: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 3,
     },
     modeOptionActive: {
-      borderColor: colors.primary,
       backgroundColor: colors.primarySoft,
     },
     modeOptionText: {
@@ -2481,6 +2446,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       color: colors.text,
       fontWeight: "700",
       fontSize: 16,
+      marginBottom: 8,
     },
     sectionText: {
       color: colors.muted,
@@ -2493,13 +2459,10 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       marginBottom: 12,
     },
     marketplaceMediaCard: {
+      ...cardBase,
       flex: 1,
       minWidth: 150,
-      backgroundColor: colors.surface,
-      borderRadius: 16,
       padding: 12,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
     },
     marketplaceMediaTitle: {
       fontSize: 13,
@@ -2558,11 +2521,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     },
     marketplaceMediaButton: {
       marginTop: 10,
-      borderWidth: 1,
-      borderColor: colors.primary,
       borderRadius: 10,
-      paddingVertical: 8,
+      paddingVertical: 10,
       alignItems: "center",
+      backgroundColor: colors.primarySoft,
+      shadowColor: "#000",
+      shadowOpacity: 0.04,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 2,
     },
     marketplaceMediaButtonText: {
       color: colors.primary,
@@ -2626,16 +2593,20 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       marginBottom: 10,
     },
     reminderChip: {
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
+      borderWidth: 0,
+      borderColor: "transparent",
       borderRadius: 16,
       paddingHorizontal: 12,
       paddingVertical: 6,
-      backgroundColor: colors.background,
+      backgroundColor: colors.surface,
+      shadowColor: "#000",
+      shadowOpacity: 0.04,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 2,
     },
     reminderChipActive: {
       backgroundColor: colors.primarySoft,
-      borderColor: colors.primary,
     },
     reminderChipDisabled: {
       opacity: 0.5,
@@ -2658,13 +2629,18 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     },
     reminderInput: {
       flex: 1,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
+      borderWidth: 0,
+      borderColor: "transparent",
       borderRadius: 10,
       paddingHorizontal: 12,
       paddingVertical: 8,
       color: colors.text,
-      backgroundColor: colors.background,
+      backgroundColor: colors.surface,
+      shadowColor: "#000",
+      shadowOpacity: 0.04,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 2,
     },
     reminderInputDisabled: {
       backgroundColor: colors.surface,
@@ -2688,12 +2664,17 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       gap: 12,
     },
     linkButton: {
-      backgroundColor: colors.background,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      borderRadius: 10,
+      backgroundColor: colors.surface,
+      borderWidth: 0,
+      borderColor: colors.surface,
+      borderRadius: 12,
       paddingVertical: 12,
       alignItems: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 3,
     },
     linkButtonContent: {
       flexDirection: "row",
@@ -2731,8 +2712,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       fontSize: 16,
     },
     secondary: {
-      backgroundColor: colors.surface,
-      borderWidth: 1,
+      backgroundColor: colors.primarySoft,
+      borderWidth: 0,
       borderColor: colors.primary,
     },
     buttonTextSecondary: {

@@ -633,8 +633,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       marginTop: 20,
       marginBottom: 24,
       alignItems: "center",
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
     },
     avatarContainer: {
       position: "relative",

@@ -7,9 +7,10 @@ import {
   StyleSheet,
   Dimensions,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
-import { getCardStyle } from "../../theme/uiTokens";
+import { getCardVariants } from "../../theme/uiTokens";
 import {
   formatCustomerAddress,
   formatCustomerName,
@@ -223,7 +224,16 @@ export default function AppointmentCard({ appointment, onPress }: Props) {
               <View
                 style={[styles.pill, { backgroundColor: `${paymentColor}14` }]}
               >
-                <View style={[{ backgroundColor: paymentColor }]} />
+                <Ionicons
+                  name={
+                    paymentStatus === "paid"
+                      ? "checkmark-circle"
+                      : "time-outline"
+                  }
+                  size={14}
+                  color={paymentColor}
+                  style={styles.pillIcon}
+                />
                 <Text style={[styles.pillText, { color: paymentColor }]}>
                   {paymentLabel}
                 </Text>
@@ -242,15 +252,7 @@ export default function AppointmentCard({ appointment, onPress }: Props) {
 }
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
-  const cardBase = getCardStyle(colors);
-  const listCardBase = {
-    ...cardBase,
-    backgroundColor: colors.surface,
-    shadowOffset: { width: 0, height: 14 },
-    shadowRadius: 24,
-    shadowOpacity: 0.05,
-    elevation: 8,
-  };
+  const { listItem } = getCardVariants(colors);
 
   const screenWidth = Dimensions.get("window").width;
 
@@ -268,7 +270,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
 
   return StyleSheet.create({
     card: {
-      ...listCardBase,
+      ...listItem,
       width: screenWidth - 32,
       alignSelf: "center",
       flexDirection: "row",
@@ -367,6 +369,9 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       borderRadius: 14,
       flexDirection: "row",
       alignItems: "center",
+    },
+    pillIcon: {
+      marginRight: 6,
     },
     pillText: {
       fontSize: 12,
