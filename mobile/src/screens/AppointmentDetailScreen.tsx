@@ -348,10 +348,19 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     if (!appointment) return [];
     const collected: Array<any> = [];
     appointmentServiceEntries.forEach((entry: any) => {
+      const petId = entry?.pet_id || entry?.pets?.id;
+      const mappedPet = petId ? customerPetsById.get(petId) : null;
+
+      if (mappedPet) {
+        collected.push(mappedPet);
+        return;
+      }
+
       if (entry?.pets) {
         collected.push(entry.pets);
         return;
       }
+
       if (entry?.pet_id) {
         const match = customerPetsById.get(entry.pet_id);
         if (match) collected.push(match);
