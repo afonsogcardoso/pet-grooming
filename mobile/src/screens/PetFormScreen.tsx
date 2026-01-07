@@ -103,7 +103,16 @@ export default function PetFormScreen({ navigation, route }: Props) {
       breed?: string | null;
       weight?: number | null;
     }) => updatePet(customerId, petId!, data),
-    onSuccess: async () => {
+    onSuccess: async (updatedPet) => {
+      // Refresh cached list immediately to avoid stale UI until invalidate refetches
+      queryClient.setQueryData<Pet[] | undefined>(
+        ["customer-pets", customerId],
+        (old) =>
+          old?.map((item) =>
+            item.id === updatedPet.id ? { ...item, ...updatedPet } : item
+          ) || old
+      );
+
       // Se há uma foto nova selecionada, faz upload
       if (photoUri && !photoUri.startsWith("http")) {
         try {
@@ -121,10 +130,10 @@ export default function PetFormScreen({ navigation, route }: Props) {
       }
 
       hapticSuccess();
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
-      queryClient.invalidateQueries({
-        queryKey: ["customer-pets", customerId],
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["customers"] }),
+        queryClient.invalidateQueries({ queryKey: ["customer-pets", customerId] }),
+      ]);
       navigation.goBack();
     },
     onError: (error: any) => {
