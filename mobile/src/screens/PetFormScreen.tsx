@@ -132,7 +132,9 @@ export default function PetFormScreen({ navigation, route }: Props) {
       hapticSuccess();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["customers"] }),
-        queryClient.invalidateQueries({ queryKey: ["customer-pets", customerId] }),
+        queryClient.invalidateQueries({
+          queryKey: ["customer-pets", customerId],
+        }),
       ]);
       navigation.goBack();
     },
