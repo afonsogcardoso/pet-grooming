@@ -1,23 +1,29 @@
-import { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { useBrandingTheme } from '../../theme/useBrandingTheme';
-import { Button } from './Button';
+import { useMemo } from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { useBrandingTheme } from "../../theme/useBrandingTheme";
+import { Button } from "./Button";
 
 interface EmptyStateProps {
-  icon: string;
+  icon?: string;
   title: string;
   description: string;
   actionLabel?: string;
   onAction?: () => void;
 }
 
-export function EmptyState({ icon, title, description, actionLabel, onAction }: EmptyStateProps) {
+export function EmptyState({
+  icon,
+  title,
+  description,
+  actionLabel,
+  onAction,
+}: EmptyStateProps) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.icon}>{icon}</Text>
+      {icon ? <Text style={styles.icon}>{icon}</Text> : null}
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.description}>{description}</Text>
       {actionLabel && onAction && (
@@ -32,12 +38,12 @@ export function EmptyState({ icon, title, description, actionLabel, onAction }: 
   );
 }
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
   return StyleSheet.create({
     container: {
       flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       paddingHorizontal: 40,
       paddingVertical: 60,
     },
@@ -47,15 +53,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     title: {
       fontSize: 20,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
       marginBottom: 8,
-      textAlign: 'center',
+      textAlign: "center",
     },
     description: {
       fontSize: 15,
       color: colors.muted,
-      textAlign: 'center',
+      textAlign: "center",
       lineHeight: 22,
       marginBottom: 24,
     },

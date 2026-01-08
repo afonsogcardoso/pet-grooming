@@ -185,7 +185,7 @@ export default function RegisterScreen({ navigation }: Props) {
     }
 
     await queryClient
-      .fetchQuery({ queryKey: ["branding"], queryFn: getBranding })
+      .fetchQuery({ queryKey: ["branding"], queryFn: () => getBranding() })
       .catch(() => null);
   };
 
@@ -573,7 +573,7 @@ export default function RegisterScreen({ navigation }: Props) {
                   <View style={styles.field}>
                     <PhoneInput
                       label={t("common.phone")}
-                      value={value}
+                      value={value ?? ""}
                       onChange={onChange}
                       placeholder={t("common.phone")}
                       disabled={isSubmitting}

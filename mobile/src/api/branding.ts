@@ -1,6 +1,8 @@
 import api from './client';
 
 export type Branding = {
+  id?: string;
+  account_id?: string;
   account_name?: string | null;
   brand_primary?: string | null;
   brand_primary_soft?: string | null;
@@ -18,6 +20,7 @@ export type Branding = {
   marketplace_facebook_url?: string | null;
   marketplace_tiktok_url?: string | null;
   marketplace_website_url?: string | null;
+  marketplace_enabled?: boolean;
 };
 
 type BrandingResponse = {
@@ -42,29 +45,52 @@ export type BrandingUpdatePayload = {
   marketplace_facebook_url?: string | null;
   marketplace_tiktok_url?: string | null;
   marketplace_website_url?: string | null;
+  marketplace_enabled?: boolean;
 };
 
+function buildAccountQuery(accountId?: string | null) {
+  return accountId ? `?accountId=${encodeURIComponent(accountId)}` : '';
+}
+
 export async function getBranding(accountId?: string): Promise<Branding> {
-  const query = accountId ? `?accountId=${encodeURIComponent(accountId)}` : '';
+  const query = buildAccountQuery(accountId);
   const { data } = await api.get<BrandingResponse>(`/branding${query}`);
   return data.data;
 }
 
-export async function updateBranding(payload: BrandingUpdatePayload): Promise<Branding> {
-  const { data } = await api.patch<BrandingResponse>('/branding', payload);
+export async function updateBranding(
+  payload: BrandingUpdatePayload,
+  accountId?: string | null,
+): Promise<Branding> {
+  const query = buildAccountQuery(accountId);
+  const { data } = await api.patch<BrandingResponse>(`/branding${query}`, payload);
   return data.data;
 }
 
-export async function uploadBrandLogo(formData: FormData): Promise<{ url: string }> {
-  const { data } = await api.post<{ url: string }>('/branding/logo', formData, {
+type BrandingUploadResponse = { url: string; data?: Branding };
+
+export async function uploadBrandLogo(
+  formData: FormData,
+  accountId?: string | null,
+): Promise<BrandingUploadResponse> {
+  const query = buildAccountQuery(accountId);
+  const { data } = await api.post<BrandingUploadResponse>(`/branding/logo${query}`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return data;
 }
 
-export async function uploadPortalImage(formData: FormData): Promise<{ url: string }> {
-  const { data } = await api.post<{ url: string }>('/branding/portal-image', formData, {
+export async function uploadPortalImage(
+  formData: FormData,
+  accountId?: string | null,
+): Promise<BrandingUploadResponse> {
+  const query = buildAccountQuery(accountId);
+  const { data } = await api.post<BrandingUploadResponse>(
+    `/branding/portal-image${query}`,
+    formData,
+    {
     headers: { 'Content-Type': 'multipart/form-data' },
-  });
+    },
+  );
   return data;
 }

@@ -244,6 +244,8 @@
     "marketplaceProfileSubtitle": "Atualize nome, logótipo e redes sociais"
   },
   "marketplaceProfile": {
+    "activeLabel": "Marketplace",
+    "brandingTitle": "Branding",
     "logoTitle": "Logótipo",
     "logoHelper": "O logótipo aparece nas listagens.",
     "changeLogo": "Alterar logótipo",
@@ -252,7 +254,7 @@
     "heroPlaceholder": "Adicionar imagem de capa",
     "changeHero": "Alterar imagem",
     "businessSection": "Informação do negócio",
-    "nameLabel": "Nome no marketplace",
+    "nameLabel": "Nome",
     "namePlaceholder": "Nome do negócio",
     "regionLabel": "Região / cidade",
     "regionPlaceholder": "Lisboa, Porto, Algarve",
@@ -345,6 +347,7 @@
     "createdAt": "Criado em",
     "sectionInfo": "Info",
     "sectionMarketplace": "Marketplace",
+    "sectionAccount": "Conta",
     "firstNamePlaceholder": "Primeiro nome",
     "lastNamePlaceholder": "Último nome",
     "addressLabel": "Morada",
@@ -362,6 +365,14 @@
     "viewModeDescription": "Alterna entre o modo cliente e o modo gestor.",
     "viewModeConsumer": "Cliente",
     "viewModePrivate": "Gestor",
+    "accountRoleTitle": "Papel na conta",
+    "accountRoleHelper": "Determina se pode gerir branding, serviços e uploads.",
+    "accountRole": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member",
+      "unknown": "Sem papel definido"
+    },
     "language": "Idioma",
     "notificationsTitle": "Notificações",
     "notificationsPush": "Notificações push",

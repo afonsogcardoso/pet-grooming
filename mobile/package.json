@@ -27,6 +27,7 @@
     "expo-file-system": "~19.0.21",
     "expo-font": "~14.0.10",
     "expo-haptics": "~14.1.4",
+    "expo-image-manipulator": "~12.0.3",
     "expo-localization": "^17.0.8",
     "expo-notifications": "~0.31.4",
     "expo-media-library": "~18.2.1",

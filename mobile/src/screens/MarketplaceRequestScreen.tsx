@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,41 +7,51 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
-  Switch,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
-import { ScreenHeader } from '../components/ScreenHeader';
-import { Button, Input, PhoneInput } from '../components/common';
-import { AddressAutocomplete } from '../components/appointment/AddressAutocomplete';
-import { DateTimePickerModal } from '../components/appointment/DateTimePickerModal';
-import { createMarketplaceBooking, MarketplaceBookingPayload } from '../api/marketplace';
-import { getConsumerPets } from '../api/consumerPets';
-import { getProfile } from '../api/profile';
-import { useAuthStore } from '../state/authStore';
-import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { buildPhone } from '../utils/phone';
-import { hapticError, hapticSuccess } from '../utils/haptics';
+} from "react-native";
+import Switch from "../components/StyledSwitch";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { ScreenHeader } from "../components/ScreenHeader";
+import { Button, Input, PhoneInput } from "../components/common";
+import { AddressAutocomplete } from "../components/appointment/AddressAutocomplete";
+import { DateTimePickerModal } from "../components/appointment/DateTimePickerModal";
+import {
+  createMarketplaceBooking,
+  MarketplaceBookingPayload,
+} from "../api/marketplace";
+import { getConsumerPets } from "../api/consumerPets";
+import { getProfile } from "../api/profile";
+import { useAuthStore } from "../state/authStore";
+import { useBrandingTheme } from "../theme/useBrandingTheme";
+import { buildPhone } from "../utils/phone";
+import { hapticError, hapticSuccess } from "../utils/haptics";
 
 type Props = NativeStackScreenProps<any>;
 
 function todayLocalISO() {
-  return new Date().toLocaleDateString('sv-SE');
+  return new Date().toLocaleDateString("sv-SE");
 }
 
 function currentLocalTime() {
   const now = new Date();
-  const hh = `${now.getHours()}`.padStart(2, '0');
-  const mm = `${now.getMinutes()}`.padStart(2, '0');
+  const hh = `${now.getHours()}`.padStart(2, "0");
+  const mm = `${now.getMinutes()}`.padStart(2, "0");
   return `${hh}:${mm}`;
 }
 
 function isHexLight(color?: string) {
-  if (!color || typeof color !== 'string' || !color.startsWith('#')) return false;
-  const hex = color.replace('#', '');
-  const expanded = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
+  if (!color || typeof color !== "string" || !color.startsWith("#"))
+    return false;
+  const hex = color.replace("#", "");
+  const expanded =
+    hex.length === 3
+      ? hex
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : hex;
   if (expanded.length !== 6) return false;
   const r = parseInt(expanded.slice(0, 2), 16);
   const g = parseInt(expanded.slice(2, 4), 16);
@@ -57,12 +67,7 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const user = useAuthStore((s) => s.user);
 
-  const {
-    accountSlug,
-    accountName,
-    serviceId,
-    serviceName,
-  } = route.params as {
+  const { accountSlug, accountName, serviceId, serviceName } = route.params as {
     accountSlug: string;
     accountName: string;
     serviceId: string;
@@ -74,25 +79,27 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
   const [showPicker, setShowPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [contactFirstName, setContactFirstName] = useState(user?.firstName || '');
-  const [contactLastName, setContactLastName] = useState(user?.lastName || '');
-  const [contactEmail, setContactEmail] = useState(user?.email || '');
-  const [contactPhone, setContactPhone] = useState('');
-  const [contactAddress, setContactAddress] = useState('');
-  const [petName, setPetName] = useState('');
-  const [petBreed, setPetBreed] = useState('');
-  const [petWeight, setPetWeight] = useState('');
-  const [notes, setNotes] = useState('');
+  const [contactFirstName, setContactFirstName] = useState(
+    user?.firstName || ""
+  );
+  const [contactLastName, setContactLastName] = useState(user?.lastName || "");
+  const [contactEmail, setContactEmail] = useState(user?.email || "");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactAddress, setContactAddress] = useState("");
+  const [petName, setPetName] = useState("");
+  const [petBreed, setPetBreed] = useState("");
+  const [petWeight, setPetWeight] = useState("");
+  const [notes, setNotes] = useState("");
   const [useProfilePet, setUseProfilePet] = useState(true);
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
   const [savePetProfile, setSavePetProfile] = useState(true);
 
   const { data: profilePets = [], isLoading: loadingProfilePets } = useQuery({
-    queryKey: ['consumerPets'],
+    queryKey: ["consumerPets"],
     queryFn: getConsumerPets,
   });
   const { data: profile } = useQuery({
-    queryKey: ['profile'],
+    queryKey: ["profile"],
     queryFn: getProfile,
     staleTime: 1000 * 60 * 2,
   });
@@ -109,17 +116,28 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
     if (useProfilePet && !selectedPetId) {
       setSelectedPetId(profilePets[0]?.id || null);
     }
-  }, [hasProfilePets, loadingProfilePets, profilePets, selectedPetId, useProfilePet]);
+  }, [
+    hasProfilePets,
+    loadingProfilePets,
+    profilePets,
+    selectedPetId,
+    useProfilePet,
+  ]);
 
   useEffect(() => {
     if (!profile) return;
-    setContactFirstName((prev) => (prev.trim() ? prev : profile.firstName || prev));
-    setContactLastName((prev) => (prev.trim() ? prev : profile.lastName || prev));
+    setContactFirstName((prev) =>
+      prev.trim() ? prev : profile.firstName || prev
+    );
+    setContactLastName((prev) =>
+      prev.trim() ? prev : profile.lastName || prev
+    );
     setContactEmail((prev) => (prev.trim() ? prev : profile.email || prev));
     setContactPhone((prev) => {
       if (prev.trim()) return prev;
       const resolvedPhone =
-        profile.phone || buildPhone(profile.phoneCountryCode, profile.phoneNumber);
+        profile.phone ||
+        buildPhone(profile.phoneCountryCode, profile.phoneNumber);
       return resolvedPhone || prev;
     });
     setContactAddress((prev) => (prev.trim() ? prev : profile.address || prev));
@@ -127,25 +145,28 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
 
   const parsedDate = useMemo(() => new Date(`${date}T00:00:00`), [date]);
   const parsedTime = useMemo(() => new Date(`1970-01-01T${time}:00`), [time]);
-  const pickerTheme = isHexLight(colors.background) ? 'light' : 'dark';
+  const pickerTheme = isHexLight(colors.background) ? "light" : "dark";
 
   const mutation = useMutation({
     mutationFn: createMarketplaceBooking,
     onSuccess: () => {
       hapticSuccess();
-      Alert.alert(t('marketplaceRequest.successTitle'), t('marketplaceRequest.successMessage'));
+      Alert.alert(
+        t("marketplaceRequest.successTitle"),
+        t("marketplaceRequest.successMessage")
+      );
       navigation.goBack();
     },
     onError: (err: any) => {
       hapticError();
       const code = err?.response?.data?.error || err?.message;
-      let message = t('marketplaceRequest.errorMessage');
-      if (code === 'phone_verification_required') {
-        message = t('marketplaceRequest.phoneRequired');
-      } else if (code === 'email_verification_required') {
-        message = t('marketplaceRequest.emailRequired');
+      let message = t("marketplaceRequest.errorMessage");
+      if (code === "phone_verification_required") {
+        message = t("marketplaceRequest.phoneRequired");
+      } else if (code === "email_verification_required") {
+        message = t("marketplaceRequest.emailRequired");
       }
-      Alert.alert(t('marketplaceRequest.errorTitle'), message);
+      Alert.alert(t("marketplaceRequest.errorTitle"), message);
     },
   });
 
@@ -163,14 +184,14 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
 
   const handleDateChange = (_event: any, nextDate?: Date) => {
     if (nextDate) {
-      setDate(nextDate.toLocaleDateString('sv-SE'));
+      setDate(nextDate.toLocaleDateString("sv-SE"));
     }
   };
 
   const handleTimeChange = (_event: any, nextTime?: Date) => {
     if (nextTime) {
-      const hh = `${nextTime.getHours()}`.padStart(2, '0');
-      const mm = `${nextTime.getMinutes()}`.padStart(2, '0');
+      const hh = `${nextTime.getHours()}`.padStart(2, "0");
+      const mm = `${nextTime.getMinutes()}`.padStart(2, "0");
       setTime(`${hh}:${mm}`);
     }
   };
@@ -185,25 +206,39 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
     const trimmedBreed = petBreed.trim();
     const trimmedNotes = notes.trim();
 
-    if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !trimmedPhone) {
+    if (
+      !trimmedFirstName ||
+      !trimmedLastName ||
+      !trimmedEmail ||
+      !trimmedPhone
+    ) {
       hapticError();
-      Alert.alert(t('marketplaceRequest.errorTitle'), t('marketplaceRequest.missingFields'));
+      Alert.alert(
+        t("marketplaceRequest.errorTitle"),
+        t("marketplaceRequest.missingFields")
+      );
       return;
     }
 
     if (useProfilePet && !selectedPetId) {
       hapticError();
-      Alert.alert(t('marketplaceRequest.errorTitle'), t('marketplaceRequest.selectPet'));
+      Alert.alert(
+        t("marketplaceRequest.errorTitle"),
+        t("marketplaceRequest.selectPet")
+      );
       return;
     }
 
     if (!useProfilePet && !trimmedPetName) {
       hapticError();
-      Alert.alert(t('marketplaceRequest.errorTitle'), t('marketplaceRequest.missingFields'));
+      Alert.alert(
+        t("marketplaceRequest.errorTitle"),
+        t("marketplaceRequest.missingFields")
+      );
       return;
     }
 
-    const weightValue = petWeight ? Number(petWeight.replace(',', '.')) : null;
+    const weightValue = petWeight ? Number(petWeight.replace(",", ".")) : null;
 
     const payload: MarketplaceBookingPayload = {
       account_slug: accountSlug,
@@ -221,7 +256,7 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
     };
 
     if (useProfilePet) {
-      payload.pet_id = selectedPetId;
+      payload.pet_id = selectedPetId ?? undefined;
     } else {
       payload.pet = {
         name: trimmedPetName,
@@ -237,9 +272,9 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['top', 'left', 'right']}
+      edges={["top", "left", "right"]}
     >
-      <ScreenHeader title={t('marketplaceRequest.title')} />
+      <ScreenHeader title={t("marketplaceRequest.title")} />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -251,65 +286,83 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>{t('marketplaceRequest.scheduleTitle')}</Text>
+          <Text style={styles.sectionTitle}>
+            {t("marketplaceRequest.scheduleTitle")}
+          </Text>
           <View style={styles.dateRow}>
-            <TouchableOpacity style={styles.dateButton} onPress={openDatePicker}>
-              <Text style={styles.dateButtonLabel}>{t('marketplaceRequest.date')}</Text>
+            <TouchableOpacity
+              style={styles.dateButton}
+              onPress={openDatePicker}
+            >
+              <Text style={styles.dateButtonLabel}>
+                {t("marketplaceRequest.date")}
+              </Text>
               <Text style={styles.dateButtonValue}>{date}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.dateButton} onPress={openTimePicker}>
-              <Text style={styles.dateButtonLabel}>{t('marketplaceRequest.time')}</Text>
+            <TouchableOpacity
+              style={styles.dateButton}
+              onPress={openTimePicker}
+            >
+              <Text style={styles.dateButtonLabel}>
+                {t("marketplaceRequest.time")}
+              </Text>
               <Text style={styles.dateButtonValue}>{time}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>{t('marketplaceRequest.contactTitle')}</Text>
+          <Text style={styles.sectionTitle}>
+            {t("marketplaceRequest.contactTitle")}
+          </Text>
           <View style={styles.nameRow}>
             <View style={styles.nameColumn}>
               <Input
-                label={t('marketplaceRequest.firstNameLabel')}
+                label={t("marketplaceRequest.firstNameLabel")}
                 value={contactFirstName}
                 onChangeText={setContactFirstName}
-                placeholder={t('marketplaceRequest.firstNamePlaceholder')}
+                placeholder={t("marketplaceRequest.firstNamePlaceholder")}
               />
             </View>
             <View style={styles.nameColumn}>
               <Input
-                label={t('marketplaceRequest.lastNameLabel')}
+                label={t("marketplaceRequest.lastNameLabel")}
                 value={contactLastName}
                 onChangeText={setContactLastName}
-                placeholder={t('marketplaceRequest.lastNamePlaceholder')}
+                placeholder={t("marketplaceRequest.lastNamePlaceholder")}
               />
             </View>
           </View>
           <Input
-            label={t('common.email')}
+            label={t("common.email")}
             value={contactEmail}
             onChangeText={setContactEmail}
-            placeholder={t('common.email')}
+            placeholder={t("common.email")}
             keyboardType="email-address"
             autoCapitalize="none"
           />
           <PhoneInput
-            label={t('common.phone')}
+            label={t("common.phone")}
             value={contactPhone}
             onChange={setContactPhone}
-            placeholder={t('common.phone')}
+            placeholder={t("common.phone")}
           />
           <View style={styles.addressField}>
-            <Text style={styles.inputLabel}>{t('marketplaceRequest.addressLabel')}</Text>
+            <Text style={styles.inputLabel}>
+              {t("marketplaceRequest.addressLabel")}
+            </Text>
             <AddressAutocomplete
               value={contactAddress}
               onSelect={setContactAddress}
-              placeholder={t('marketplaceRequest.addressPlaceholder')}
+              placeholder={t("marketplaceRequest.addressPlaceholder")}
             />
           </View>
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>{t('marketplaceRequest.petTitle')}</Text>
+          <Text style={styles.sectionTitle}>
+            {t("marketplaceRequest.petTitle")}
+          </Text>
           {hasProfilePets ? (
             <View style={styles.petToggleRow}>
               <TouchableOpacity
@@ -325,7 +378,7 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
                     useProfilePet && styles.petToggleTextActive,
                   ]}
                 >
-                  {t('marketplaceRequest.useProfilePet')}
+                  {t("marketplaceRequest.useProfilePet")}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -341,7 +394,7 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
                     !useProfilePet && styles.petToggleTextActive,
                   ]}
                 >
-                  {t('marketplaceRequest.addNewPet')}
+                  {t("marketplaceRequest.addNewPet")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -366,7 +419,7 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
                     ) : null}
                     {pet.weight !== undefined && pet.weight !== null ? (
                       <Text style={styles.petOptionMeta}>
-                        {pet.weight} {t('marketplaceRequest.weightUnit')}
+                        {pet.weight} {t("marketplaceRequest.weightUnit")}
                       </Text>
                     ) : null}
                   </TouchableOpacity>
@@ -376,49 +429,56 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
           ) : (
             <>
               <Input
-                label={t('marketplaceRequest.petName')}
+                label={t("marketplaceRequest.petName")}
                 value={petName}
                 onChangeText={setPetName}
-                placeholder={t('marketplaceRequest.petName')}
+                placeholder={t("marketplaceRequest.petName")}
               />
               <Input
-                label={t('marketplaceRequest.petBreed')}
+                label={t("marketplaceRequest.petBreed")}
                 value={petBreed}
                 onChangeText={setPetBreed}
-                placeholder={t('marketplaceRequest.petBreed')}
+                placeholder={t("marketplaceRequest.petBreed")}
               />
               <Input
-                label={t('marketplaceRequest.petWeight')}
+                label={t("marketplaceRequest.petWeight")}
                 value={petWeight}
                 onChangeText={setPetWeight}
-                placeholder={t('marketplaceRequest.petWeight')}
-                keyboardType={Platform.OS === 'ios' ? 'decimal-pad' : 'numeric'}
+                placeholder={t("marketplaceRequest.petWeight")}
+                keyboardType={Platform.OS === "ios" ? "decimal-pad" : "numeric"}
               />
               <View style={styles.savePetRow}>
-                <Text style={styles.savePetLabel}>{t('marketplaceRequest.savePet')}</Text>
+                <Text style={styles.savePetLabel}>
+                  {t("marketplaceRequest.savePet")}
+                </Text>
                 <Switch
                   value={savePetProfile}
                   onValueChange={setSavePetProfile}
-                  trackColor={{ false: colors.surfaceBorder, true: colors.switchTrack }}
+                  trackColor={{
+                    false: colors.surfaceBorder,
+                    true: colors.switchTrack,
+                  }}
                   thumbColor={savePetProfile ? colors.primary : colors.surface}
                   ios_backgroundColor={colors.surface}
                 />
               </View>
-              <Text style={styles.savePetHint}>{t('marketplaceRequest.savePetHint')}</Text>
+              <Text style={styles.savePetHint}>
+                {t("marketplaceRequest.savePetHint")}
+              </Text>
             </>
           )}
           <Input
-            label={t('marketplaceRequest.notes')}
+            label={t("marketplaceRequest.notes")}
             value={notes}
             onChangeText={setNotes}
-            placeholder={t('marketplaceRequest.notes')}
+            placeholder={t("marketplaceRequest.notes")}
             multiline
             style={styles.notesInput}
           />
         </View>
 
         <Button
-          title={t('marketplaceRequest.submit')}
+          title={t("marketplaceRequest.submit")}
           onPress={handleSubmit}
           loading={mutation.isPending}
           size="large"
@@ -441,7 +501,7 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
   );
 }
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -460,7 +520,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     summaryTitle: {
       fontSize: 18,
-      fontWeight: '800',
+      fontWeight: "800",
       color: colors.onPrimary,
     },
     summarySubtitle: {
@@ -478,15 +538,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     sectionTitle: {
       fontSize: 13,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.muted,
       marginBottom: 12,
-      textTransform: 'uppercase',
+      textTransform: "uppercase",
       letterSpacing: 0.6,
     },
     inputLabel: {
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: "600",
       color: colors.text,
       marginBottom: 8,
     },
@@ -494,14 +554,14 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginBottom: 16,
     },
     nameRow: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 12,
     },
     nameColumn: {
       flex: 1,
     },
     dateRow: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 12,
     },
     dateButton: {
@@ -516,20 +576,20 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       fontSize: 11,
       color: colors.muted,
       marginBottom: 6,
-      textTransform: 'uppercase',
+      textTransform: "uppercase",
       letterSpacing: 0.5,
     },
     dateButtonValue: {
       fontSize: 15,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
     },
     notesInput: {
       minHeight: 80,
-      textAlignVertical: 'top',
+      textAlignVertical: "top",
     },
     petToggleRow: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 10,
       marginBottom: 12,
     },
@@ -539,7 +599,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       borderRadius: 12,
       borderWidth: 1.5,
       borderColor: colors.surfaceBorder,
-      alignItems: 'center',
+      alignItems: "center",
       backgroundColor: colors.surface,
     },
     petToggleButtonActive: {
@@ -548,7 +608,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     petToggleText: {
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: "600",
       color: colors.text,
     },
     petToggleTextActive: {
@@ -571,7 +631,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     petOptionName: {
       fontSize: 14,
-      fontWeight: '700',
+      fontWeight: "700",
       color: colors.text,
       marginBottom: 4,
     },
@@ -580,15 +640,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       color: colors.muted,
     },
     savePetRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
       marginTop: 6,
       marginBottom: 4,
     },
     savePetLabel: {
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: "600",
       color: colors.text,
     },
     savePetHint: {

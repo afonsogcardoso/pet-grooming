@@ -204,7 +204,7 @@ app.use(async (req, _res, next) => {
 const swaggerDefinition = {
   openapi: '3.0.0',
   info: {
-    title: 'Pet Grooming API',
+    title: 'Pawmi API',
     version: '1.0.0',
     description: 'Endpoints for appointments, customers and services'
   },

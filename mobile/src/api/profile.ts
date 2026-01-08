@@ -23,7 +23,7 @@ export type Profile = {
 };
 
 export async function getProfile(): Promise<Profile> {
-  const { data } = await api.get<Profile>('/profile?includeMemberships=false');
+  const { data } = await api.get<Profile>('/profile?includeMemberships=true');
   return data;
 }
 

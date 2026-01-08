@@ -33,6 +33,7 @@ import { buildPhone, splitPhone } from "../utils/phone";
 import { formatCustomerName } from "../utils/customer";
 import { hapticError, hapticSuccess } from "../utils/haptics";
 import { cameraOptions, galleryOptions } from "../utils/imageOptions";
+import { compressImage } from "../utils/imageCompression";
 
 type Props = NativeStackScreenProps<any, "CustomerForm">;
 
@@ -188,20 +189,16 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
 
     try {
       setUploadingPhoto(true);
-      const formData = new FormData();
+      const compressedUri = await compressImage(uri);
       const timestamp = Date.now();
-      const extension =
-        fileName?.split(".").pop() || uri.split(".").pop() || "jpg";
-      const filename = `customer-${customerId}-${timestamp}.${extension}`;
-      const fileType = `image/${extension === "jpg" ? "jpeg" : extension}`;
+      const filename = `customer-${customerId}-${timestamp}.jpg`;
+      const fileType = "image/jpeg";
 
-      formData.append("photo", {
-        uri,
+      const result = await uploadCustomerPhoto(customerId, {
+        uri: compressedUri,
         name: filename,
         type: fileType,
-      } as any);
-
-      const result = await uploadCustomerPhoto(customerId, formData);
+      });
       setPhotoUrl(result.url);
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       queryClient.invalidateQueries({

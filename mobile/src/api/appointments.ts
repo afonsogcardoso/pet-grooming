@@ -94,7 +94,7 @@ export type CreateAppointmentPayload = {
 };
 
 type CreateAppointmentResponse = {
-  data: Appointment[];
+  data: Appointment;
 };
 
 function normalizeDate(value?: string | Date | null): string | undefined {
@@ -147,16 +147,16 @@ export async function createAppointment(payload: CreateAppointmentPayload): Prom
 }
 
 export async function getAppointment(id: string): Promise<Appointment> {
-  const { data } = await api.get<{ data: Appointment[] }>(`/appointments/${id}`);
-  return data.data?.[0] || (data as any).data || ({} as Appointment);
+  const { data } = await api.get<{ data: Appointment }>(`/appointments/${id}`);
+  return data.data || ({} as Appointment);
 }
 
 export async function updateAppointment(
   id: string,
   payload: Partial<CreateAppointmentPayload & { amount?: number | null }>,
 ): Promise<Appointment> {
-  const { data } = await api.patch<{ data: Appointment[] }>(`/appointments/${id}`, payload);
-  return data.data?.[0] || (data as any).data || ({} as Appointment);
+  const { data } = await api.patch<{ data: Appointment }>(`/appointments/${id}`, payload);
+  return data.data || ({} as Appointment);
 }
 
 export async function uploadAppointmentPhoto(

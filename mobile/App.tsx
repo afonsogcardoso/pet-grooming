@@ -24,7 +24,7 @@ import { useTranslation } from "react-i18next";
 import LoginScreen from "./src/screens/LoginScreen";
 import RegisterScreen from "./src/screens/RegisterScreen";
 import HomeScreen from "./src/screens/HomeScreen";
-import ProfileScreen from "./src/screens/ProfileScreen";
+import ProfileScreen from "./src/screens/profile";
 import AppointmentsScreen from "./src/screens/AppointmentsScreen";
 import NewAppointmentScreen from "./src/screens/NewAppointmentScreen";
 import AppointmentDetailScreen from "./src/screens/AppointmentDetailScreen";

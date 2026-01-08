@@ -717,7 +717,7 @@ export function ListView({
       ref={listRef}
       style={styles.list}
       sections={sections}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item: { id: string }) => item.id}
       renderItem={renderAppointmentItem}
       renderSectionHeader={renderSectionHeader}
       ListHeaderComponent={listHeader}

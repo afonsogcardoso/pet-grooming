@@ -183,7 +183,7 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInfiniteQuery({
+  } = useInfiniteQuery<any, Error, any, any>({
     queryKey: [
       "appointments",
       viewMode,
@@ -191,19 +191,24 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
       dateRange.from,
       dateRange.to,
     ],
-    queryFn: ({ pageParam = 0 }) =>
-      getAppointments({
+    queryFn: (context: any) => {
+      const pageParam = context?.pageParam ?? 0;
+      return getAppointments({
         from: dateRange.from,
         to: dateRange.to,
         limit: PAGE_SIZE,
         offset: pageParam,
-      }),
-    getNextPageParam: (lastPage) => lastPage.nextOffset ?? null,
+      });
+    },
+    getNextPageParam: (lastPage: any) => lastPage.nextOffset ?? null,
+    initialPageParam: 0,
     retry: 1,
   });
 
-  const appointments =
-    appointmentsData?.pages?.flatMap((page) => page.items) || [];
+  const appointments: Appointment[] =
+    (appointmentsData?.pages?.flatMap(
+      (page: any) => page.items
+    ) as Appointment[]) || [];
   const pendingAppointments = useMemo(
     () =>
       appointments.filter((appointment) => appointment.status === "pending"),

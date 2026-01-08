@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, forwardRef } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ interface InputProps extends TextInputProps {
   leftIcon?: string;
   rightIcon?: React.ReactNode;
   showEmailSuggestions?: boolean;
+  labelStyle?: any;
 }
 
 const EMAIL_DOMAINS = [
@@ -25,21 +26,31 @@ const EMAIL_DOMAINS = [
   "@yahoo.com",
 ];
 
-export function Input({
-  label,
-  error,
-  leftIcon,
-  rightIcon,
-  style,
-  showEmailSuggestions,
-  value,
-  onChangeText,
-  ...props
-}: InputProps) {
+export const Input = forwardRef<TextInput | null, InputProps>(function Input(
+  {
+    label,
+    error,
+    leftIcon,
+    rightIcon,
+    style,
+    labelStyle,
+    showEmailSuggestions,
+    value,
+    onChangeText,
+    ...props
+  }: InputProps,
+  ref
+) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const inputRef = useRef<TextInput | null>(null);
+
+  const setRef = (r: TextInput | null) => {
+    inputRef.current = r;
+    if (typeof ref === "function") ref(r);
+    else if (ref && typeof ref === "object") (ref as any).current = r;
+  };
 
   const resolvedAutoCapitalize = useMemo(() => {
     if (showEmailSuggestions) return "none";
@@ -71,7 +82,7 @@ export function Input({
 
   return (
     <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={[styles.label, labelStyle]}>{label}</Text>}
       <TouchableWithoutFeedback onPress={focusInput} accessible={false}>
         <View
           style={[
@@ -91,7 +102,7 @@ export function Input({
             </Text>
           )}
           <TextInput
-            ref={(r) => (inputRef.current = r)}
+            ref={setRef}
             style={[styles.input, leftIcon && styles.inputWithLeftIcon, style]}
             placeholderTextColor={colors.muted}
             value={value}
@@ -123,7 +134,7 @@ export function Input({
       )}
     </View>
   );
-}
+});
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
   return StyleSheet.create({
@@ -132,7 +143,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     },
     label: {
       fontSize: 14,
-      fontWeight: "600",
+      fontWeight: "400",
       color: colors.text,
       marginBottom: 8,
     },
@@ -141,7 +152,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       alignItems: "center",
       backgroundColor: colors.background,
       borderRadius: 12,
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderColor: colors.surfaceBorder,
       paddingHorizontal: 16,
       height: 52,

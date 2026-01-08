@@ -7,13 +7,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Switch,
   TouchableOpacity,
   Image,
   ActivityIndicator,
   ActionSheetIOS,
   PermissionsAndroid,
 } from "react-native";
+import Switch from "../components/StyledSwitch";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -502,7 +502,7 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
             ? t("serviceForm.createTitle")
             : t("serviceForm.editTitle")
         }
-        showBackButton
+        showBack
       />
 
       <KeyboardAvoidingView

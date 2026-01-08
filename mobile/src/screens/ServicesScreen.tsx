@@ -263,7 +263,7 @@ export default function ServicesScreen({ navigation }: Props) {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <ScreenHeader title={t("services.title")} showBackButton />
+        <ScreenHeader title={t("services.title")} showBack />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -285,7 +285,7 @@ export default function ServicesScreen({ navigation }: Props) {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScreenHeader
         title={t("services.title")}
-        showBackButton
+        showBack
         rightElement={
           <TouchableOpacity
             onPress={handleNewService}

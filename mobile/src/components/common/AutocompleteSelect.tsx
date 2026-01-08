@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, forwardRef } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -37,26 +37,37 @@ export type AutocompleteSelectProps = {
   inputStyle?: StyleProp<TextStyle>;
 };
 
-export function AutocompleteSelect({
-  label,
-  value,
-  onChangeText,
-  onSelectOption,
-  options,
-  selectedId,
-  placeholder,
-  error,
-  disabled,
-  loading,
-  emptyLabel,
-  loadingLabel,
-  maxOptions = 8,
-  containerStyle,
-  inputStyle,
-}: AutocompleteSelectProps) {
+export const AutocompleteSelect = forwardRef<
+  TextInput | null,
+  AutocompleteSelectProps
+>(function AutocompleteSelect(
+  {
+    label,
+    value,
+    onChangeText,
+    onSelectOption,
+    options,
+    selectedId,
+    placeholder,
+    error,
+    disabled,
+    loading,
+    emptyLabel,
+    loadingLabel,
+    maxOptions = 8,
+    containerStyle,
+    inputStyle,
+  }: AutocompleteSelectProps,
+  ref
+) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const inputRef = useRef<TextInput | null>(null);
+  const setRef = (r: TextInput | null) => {
+    inputRef.current = r;
+    if (typeof ref === "function") ref(r);
+    else if (ref && typeof ref === "object") (ref as any).current = r;
+  };
   const [open, setOpen] = useState(false);
 
   const filteredOptions = useMemo(() => {
@@ -154,7 +165,7 @@ export function AutocompleteSelect({
           ]}
         >
           <TextInput
-            ref={(r) => (inputRef.current = r)}
+            ref={setRef}
             value={value}
             onChangeText={(text) => {
               onChangeText(text);
@@ -173,7 +184,7 @@ export function AutocompleteSelect({
       {renderSuggestions()}
     </View>
   );
-}
+});
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
   return StyleSheet.create({

@@ -9,12 +9,10 @@ function normalizeVersionInput(value?: string | number | null) {
 export function resolveAppVersion() {
   return (
     normalizeVersionInput(Constants.nativeAppVersion) ||
-    normalizeVersionInput(Constants.expoConfig?.version) ||
-    normalizeVersionInput(Constants.manifest?.version) ||
-    // @ts-expect-error manifest2 is undocumented but present on some builds
-    normalizeVersionInput(Constants.manifest2?.version) ||
-    // @ts-expect-error manifestExtra is new on SDK 54+
-    normalizeVersionInput(Constants.manifestExtra?.version) ||
+    normalizeVersionInput((Constants as any).expoConfig?.version) ||
+    normalizeVersionInput((Constants as any).manifest?.version) ||
+    normalizeVersionInput((Constants as any).manifest2?.version) ||
+    normalizeVersionInput((Constants as any).manifestExtra?.version) ||
     null
   );
 }

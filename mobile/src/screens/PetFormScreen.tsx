@@ -31,6 +31,7 @@ import { Button } from "../components/common/Button";
 import { useTranslation } from "react-i18next";
 import { hapticError, hapticSuccess, hapticWarning } from "../utils/haptics";
 import { cameraOptions, galleryOptions } from "../utils/imageOptions";
+import { compressImage } from "../utils/imageCompression";
 import { getPetBreeds, getPetSpecies } from "../api/petAttributes";
 
 type Props = NativeStackScreenProps<any, "PetForm">;
@@ -195,13 +196,13 @@ export default function PetFormScreen({ navigation, route }: Props) {
 
   const uploadPetPhotoMutation = useMutation({
     mutationFn: async ({ petId, uri }: { petId: string; uri: string }) => {
+      const compressedUri = await compressImage(uri);
       const timestamp = Date.now();
-      const extension = uri.split(".").pop() || "jpg";
-      const filename = `pet-${petId}-${timestamp}.${extension}`;
-      const fileType = `image/${extension === "jpg" ? "jpeg" : extension}`;
+      const filename = `pet-${petId}-${timestamp}.jpg`;
+      const fileType = "image/jpeg";
 
       return uploadPetPhoto(petId, {
-        uri,
+        uri: compressedUri,
         name: filename,
         type: fileType,
       });

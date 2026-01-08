@@ -1,8 +1,15 @@
-import { useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
-import { useTranslation } from 'react-i18next';
-import { useBrandingTheme } from '../../theme/useBrandingTheme';
-import { SearchField } from '../common/SearchField';
+import { useState, useMemo } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  StyleSheet,
+} from "react-native";
+import { useTranslation } from "react-i18next";
+import { useBrandingTheme } from "../../theme/useBrandingTheme";
+import { SearchField } from "../common/SearchField";
 
 type Service = {
   id: string;
@@ -37,13 +44,13 @@ export function ServiceSelector({
 }: ServiceSelectorProps) {
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedSubcategory, setSelectedSubcategory] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedSubcategory, setSelectedSubcategory] = useState("");
 
   const toggleService = (serviceId: string) => {
     if (selectedServices.includes(serviceId)) {
-      setSelectedServices(selectedServices.filter(id => id !== serviceId));
+      setSelectedServices(selectedServices.filter((id) => id !== serviceId));
     } else {
       setSelectedServices([...selectedServices, serviceId]);
     }
@@ -53,7 +60,7 @@ export function ServiceSelector({
     const category = selectedCategory.trim();
     const subcategory = selectedSubcategory.trim();
     const query = searchQuery.trim().toLowerCase();
-    return services.filter(service => {
+    return services.filter((service) => {
       if (category && service.category !== category) return false;
       if (subcategory && service.subcategory !== subcategory) return false;
       if (!query) return true;
@@ -69,9 +76,11 @@ export function ServiceSelector({
       new Set(
         services
           .map((service) => service.category)
-          .filter((value) => typeof value === 'string' && value.trim().length > 0)
+          .filter(
+            (value) => typeof value === "string" && value.trim().length > 0
+          )
       )
-    ).sort((a, b) => String(a).localeCompare(String(b)));
+    ).sort((a, b) => String(a).localeCompare(String(b))) as string[];
   }, [services]);
 
   const subcategories = useMemo(() => {
@@ -82,9 +91,11 @@ export function ServiceSelector({
       new Set(
         source
           .map((service) => service.subcategory)
-          .filter((value) => typeof value === 'string' && value.trim().length > 0)
+          .filter(
+            (value) => typeof value === "string" && value.trim().length > 0
+          )
       )
-    ).sort((a, b) => String(a).localeCompare(String(b)));
+    ).sort((a, b) => String(a).localeCompare(String(b))) as string[];
   }, [services, selectedCategory]);
 
   const styles = StyleSheet.create({
@@ -93,9 +104,10 @@ export function ServiceSelector({
     },
     label: {
       color: colors.text,
+    },
     placeholder: {
       color: colors.muted,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     dropdown: {
       borderWidth: 1,
@@ -112,7 +124,7 @@ export function ServiceSelector({
     },
     optionTitle: {
       color: colors.text,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     optionSubtitle: {
       color: colors.muted,
@@ -120,7 +132,7 @@ export function ServiceSelector({
     },
     priceText: {
       color: colors.primary,
-      fontWeight: '700',
+      fontWeight: "700",
       fontSize: 15,
     },
     filterGroup: {
@@ -129,11 +141,11 @@ export function ServiceSelector({
     filterLabel: {
       color: colors.text,
       fontSize: 12,
-      fontWeight: '700',
+      fontWeight: "700",
       marginBottom: 6,
     },
     chipRow: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 8,
     },
     chip: {
@@ -150,7 +162,7 @@ export function ServiceSelector({
     },
     chipText: {
       fontSize: 12,
-      fontWeight: '600',
+      fontWeight: "600",
       color: colors.text,
     },
     chipTextActive: {
@@ -161,20 +173,41 @@ export function ServiceSelector({
       marginTop: 2,
       fontSize: 12,
     },
+    select: {
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      padding: 12,
+      borderRadius: 12,
+      marginTop: 8,
+      backgroundColor: colors.surface,
+    },
+    selectText: {
+      color: colors.text,
+    },
   });
 
-  const displayText = selectedServicesData.length > 0
-    ? selectedServicesData.map(s => s.name).join(', ')
-    : (loadingServices ? t('common.loading') : t('serviceSelector.placeholder'));
+  const displayText =
+    selectedServicesData.length > 0
+      ? selectedServicesData.map((s) => s.name).join(", ")
+      : loadingServices
+      ? t("common.loading")
+      : t("serviceSelector.placeholder");
 
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{t('serviceSelector.title', { count: selectedServices.length })}</Text>
-      <TouchableOpacity 
-        style={styles.select} 
+      <Text style={styles.label}>
+        {t("serviceSelector.title", { count: selectedServices.length })}
+      </Text>
+      <TouchableOpacity
+        style={styles.select}
         onPress={() => setShowServiceList(!showServiceList)}
       >
-        <Text style={[styles.selectText, selectedServices.length === 0 && styles.placeholder]}>
+        <Text
+          style={[
+            styles.selectText,
+            selectedServices.length === 0 && styles.placeholder,
+          ]}
+        >
           {displayText}
         </Text>
       </TouchableOpacity>
@@ -188,24 +221,38 @@ export function ServiceSelector({
               <SearchField
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder={t('serviceSelector.searchPlaceholder')}
+                placeholder={t("serviceSelector.searchPlaceholder")}
                 containerStyle={{ marginBottom: 10 }}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
               {categories.length > 0 && (
                 <View style={styles.filterGroup}>
-                  <Text style={styles.filterLabel}>{t('serviceSelector.categoryLabel')}</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                  <Text style={styles.filterLabel}>
+                    {t("serviceSelector.categoryLabel")}
+                  </Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chipRow}
+                  >
                     <TouchableOpacity
-                      style={[styles.chip, !selectedCategory && styles.chipActive]}
+                      style={[
+                        styles.chip,
+                        !selectedCategory && styles.chipActive,
+                      ]}
                       onPress={() => {
-                        setSelectedCategory('');
-                        setSelectedSubcategory('');
+                        setSelectedCategory("");
+                        setSelectedSubcategory("");
                       }}
                     >
-                      <Text style={[styles.chipText, !selectedCategory && styles.chipTextActive]}>
-                        {t('serviceSelector.filterAll')}
+                      <Text
+                        style={[
+                          styles.chipText,
+                          !selectedCategory && styles.chipTextActive,
+                        ]}
+                      >
+                        {t("serviceSelector.filterAll")}
                       </Text>
                     </TouchableOpacity>
                     {categories.map((category) => {
@@ -215,11 +262,18 @@ export function ServiceSelector({
                           key={category}
                           style={[styles.chip, active && styles.chipActive]}
                           onPress={() => {
-                            setSelectedCategory(active ? '' : category);
-                            setSelectedSubcategory('');
+                            setSelectedCategory(active ? "" : category);
+                            setSelectedSubcategory("");
                           }}
                         >
-                          <Text style={[styles.chipText, active && styles.chipTextActive]}>{category}</Text>
+                          <Text
+                            style={[
+                              styles.chipText,
+                              active && styles.chipTextActive,
+                            ]}
+                          >
+                            {category}
+                          </Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -228,14 +282,28 @@ export function ServiceSelector({
               )}
               {subcategories.length > 0 && (
                 <View style={styles.filterGroup}>
-                  <Text style={styles.filterLabel}>{t('serviceSelector.subcategoryLabel')}</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                  <Text style={styles.filterLabel}>
+                    {t("serviceSelector.subcategoryLabel")}
+                  </Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chipRow}
+                  >
                     <TouchableOpacity
-                      style={[styles.chip, !selectedSubcategory && styles.chipActive]}
-                      onPress={() => setSelectedSubcategory('')}
+                      style={[
+                        styles.chip,
+                        !selectedSubcategory && styles.chipActive,
+                      ]}
+                      onPress={() => setSelectedSubcategory("")}
                     >
-                      <Text style={[styles.chipText, !selectedSubcategory && styles.chipTextActive]}>
-                        {t('serviceSelector.filterAll')}
+                      <Text
+                        style={[
+                          styles.chipText,
+                          !selectedSubcategory && styles.chipTextActive,
+                        ]}
+                      >
+                        {t("serviceSelector.filterAll")}
                       </Text>
                     </TouchableOpacity>
                     {subcategories.map((subcategory) => {
@@ -244,9 +312,16 @@ export function ServiceSelector({
                         <TouchableOpacity
                           key={subcategory}
                           style={[styles.chip, active && styles.chipActive]}
-                          onPress={() => setSelectedSubcategory(active ? '' : subcategory)}
+                          onPress={() =>
+                            setSelectedSubcategory(active ? "" : subcategory)
+                          }
                         >
-                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                          <Text
+                            style={[
+                              styles.chipText,
+                              active && styles.chipTextActive,
+                            ]}
+                          >
                             {subcategory}
                           </Text>
                         </TouchableOpacity>
@@ -255,53 +330,101 @@ export function ServiceSelector({
                   </ScrollView>
                 </View>
               )}
-              <ScrollView style={{ maxHeight: 250 }} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                style={{ maxHeight: 250 }}
+                keyboardShouldPersistTaps="handled"
+              >
                 {filteredServices.length === 0 ? (
-                  <Text style={{ color: colors.muted, textAlign: 'center', paddingVertical: 20 }}>
-                    {t('serviceSelector.empty')}
+                  <Text
+                    style={{
+                      color: colors.muted,
+                      textAlign: "center",
+                      paddingVertical: 20,
+                    }}
+                  >
+                    {t("serviceSelector.empty")}
                   </Text>
                 ) : (
                   filteredServices.map((service) => {
-                const isSelected = selectedServices.includes(service.id);
-                return (
-                  <TouchableOpacity
-                    key={service.id}
-                    style={[styles.option, isSelected && { backgroundColor: colors.primarySoft }]}
-                    onPress={() => toggleService(service.id)}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <View style={{
-                        width: 24,
-                        height: 24,
-                        borderRadius: 6,
-                        borderWidth: 2,
-                        borderColor: isSelected ? colors.primary : colors.surfaceBorder,
-                        backgroundColor: isSelected ? colors.primary : 'transparent',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                      }}>
-                        {isSelected && <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>✓</Text>}
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Text style={styles.optionTitle}>{service.name}</Text>
-                          {service.price && (
-                            <Text style={styles.priceText}>{service.price.toFixed(2)}€</Text>
-                          )}
+                    const isSelected = selectedServices.includes(service.id);
+                    return (
+                      <TouchableOpacity
+                        key={service.id}
+                        style={[
+                          styles.option,
+                          isSelected && { backgroundColor: colors.primarySoft },
+                        ]}
+                        onPress={() => toggleService(service.id)}
+                      >
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 12,
+                          }}
+                        >
+                          <View
+                            style={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: 6,
+                              borderWidth: 2,
+                              borderColor: isSelected
+                                ? colors.primary
+                                : colors.surfaceBorder,
+                              backgroundColor: isSelected
+                                ? colors.primary
+                                : "transparent",
+                              justifyContent: "center",
+                              alignItems: "center",
+                            }}
+                          >
+                            {isSelected && (
+                              <Text
+                                style={{
+                                  color: "#fff",
+                                  fontSize: 16,
+                                  fontWeight: "bold",
+                                }}
+                              >
+                                ✓
+                              </Text>
+                            )}
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                              }}
+                            >
+                              <Text style={styles.optionTitle}>
+                                {service.name}
+                              </Text>
+                              {service.price && (
+                                <Text style={styles.priceText}>
+                                  {service.price.toFixed(2)}€
+                                </Text>
+                              )}
+                            </View>
+                            {service.description ? (
+                              <Text style={styles.optionSubtitle}>
+                                {service.description}
+                              </Text>
+                            ) : null}
+                            {service.category || service.subcategory ? (
+                              <Text style={styles.optionMeta}>
+                                {[service.category, service.subcategory]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </Text>
+                            ) : null}
+                          </View>
                         </View>
-                        {service.description ? (
-                          <Text style={styles.optionSubtitle}>{service.description}</Text>
-                        ) : null}
-                        {service.category || service.subcategory ? (
-                          <Text style={styles.optionMeta}>
-                            {[service.category, service.subcategory].filter(Boolean).join(' · ')}
-                          </Text>
-                        ) : null}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                  );
-                })
+                      </TouchableOpacity>
+                    );
+                  })
                 )}
               </ScrollView>
             </>

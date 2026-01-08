@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+// ...existing code...
+import { debounce } from "../utils/debounce";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   View,
@@ -13,10 +15,10 @@ import {
   Platform,
   ActionSheetIOS,
   PermissionsAndroid,
-  Switch,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useCallback } from "react";
+import Switch from "../components/StyledSwitch";
+// SafeAreaView is provided by ProfileLayout
+// import { useCallback } from "react"; // duplicado
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { launchCamera, launchImageLibrary } from "react-native-image-picker";
 import * as AuthSession from "expo-auth-session";
@@ -32,6 +34,7 @@ import {
 } from "../api/profile";
 import {
   Branding,
+  BrandingUpdatePayload,
   getBranding,
   updateBranding,
   uploadBrandLogo,
@@ -51,8 +54,6 @@ import { useBrandingTheme } from "../theme/useBrandingTheme";
 import { getCardStyle, getSegmentStyles } from "../theme/uiTokens";
 import { ScreenHeader } from "../components/ScreenHeader";
 import { getDateLocale, normalizeLanguage, setAppLanguage } from "../i18n";
-import { PhoneInput } from "../components/common/PhoneInput";
-import { AddressAutocomplete } from "../components/appointment/AddressAutocomplete";
 import { Input } from "../components/common";
 import { buildPhone, splitPhone } from "../utils/phone";
 import { resolveSupabaseAnonKey, resolveSupabaseUrl } from "../config/supabase";
@@ -61,11 +62,19 @@ import { hapticError, hapticSelection, hapticSuccess } from "../utils/haptics";
 import { registerForPushNotifications } from "../utils/pushNotifications";
 import * as Notifications from "expo-notifications";
 import { cameraOptions, galleryOptions } from "../utils/imageOptions";
+import { compressImage } from "../utils/imageCompression";
+import createStyles from "./profileStyles";
+import ProfileLayout from "./profile/ProfileLayout";
+import ProfileHeader from "../components/profile/ProfileHeader";
+import ProfileInfo from "../components/profile/ProfileInfo";
+import ProfileNotifications from "../components/profile/ProfileNotifications";
+import ProfileSecurity from "../components/profile/ProfileSecurity";
+import ProfileMarketplace from "../components/profile/ProfileMarketplace";
 
 WebBrowser.maybeCompleteAuthSession();
 
 type Props = NativeStackScreenProps<any>;
-type ProfileSection = "info" | "marketplace" | "security" | "notifications";
+type ProfileSection = "info" | "account" | "security" | "notifications";
 const REMINDER_PRESETS = [15, 30, 60, 120, 1440];
 const MAX_REMINDER_OFFSETS = 2;
 
@@ -177,44 +186,186 @@ function mergeNotificationPreferences(
 }
 
 export default function ProfileScreen({ navigation }: Props) {
-  const setUser = useAuthStore((s) => s.setUser);
-  const user = useAuthStore((s) => s.user);
-  const token = useAuthStore((s) => s.token);
-  const viewMode = useViewModeStore((s) => s.viewMode);
-  const setViewMode = useViewModeStore((s) => s.setViewMode);
-  const { colors } = useBrandingTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-  const queryClient = useQueryClient();
+  // Controla se houve alteração manual nos campos do account
+  const [accountDirty, setAccountDirty] = useState(false);
+  // Estados para campos do marketplace
+  // Fetch branding and profile data
+  const { branding, colors } = useBrandingTheme();
+  const { data } = useQuery({
+    queryKey: ["profile"],
+    queryFn: getProfile,
+    staleTime: 1000 * 60 * 5,
+  });
+  // i18n/translation
   const { t, i18n } = useTranslation();
-  const dateLocale = getDateLocale();
-  const versionLabel = useMemo(() => formatVersionLabel(), []);
-  const scrollRef = useRef<ScrollView>(null);
-  const [activeSection, setActiveSection] = useState<ProfileSection>("info");
-  const [hasProfileEdits, setHasProfileEdits] = useState(false);
+  // Profile edit state
   const [editFirstName, setEditFirstName] = useState("");
   const [editLastName, setEditLastName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editAddress, setEditAddress] = useState("");
   const [editAddress2, setEditAddress2] = useState("");
+  const [hasProfileEdits, setHasProfileEdits] = useState(false);
+  const [accountName, setAccountNameState] = useState("");
+  const [accountRegion, setAccountRegionState] = useState("");
+  const [accountDescription, setAccountDescriptionState] = useState("");
+  const [accountInstagram, setAccountInstagramState] = useState("");
+  const [accountFacebook, setAccountFacebookState] = useState("");
+  const [accountTiktok, setAccountTiktokState] = useState("");
+  const [accountWebsite, setAccountWebsiteState] = useState("");
+  const [brandPrimary, setBrandPrimaryState] = useState("");
+  const [brandPrimarySoft, setBrandPrimarySoftState] = useState("");
+  const [brandAccent, setBrandAccentState] = useState("");
+  const [brandAccentSoft, setBrandAccentSoftState] = useState("");
+  const [brandBackground, setBrandBackgroundState] = useState("");
+  // Query e dados principais
+  const queryClient = useQueryClient();
+  const primedBranding = queryClient.getQueryData<Branding>(["branding"]);
+  const primedAccountId =
+    primedBranding?.account_id || primedBranding?.id || null;
+  const brandingAccountId = branding?.id || branding?.account_id || null;
+  const membershipRole = useMemo(() => {
+    const memberships = Array.isArray(data?.memberships)
+      ? data?.memberships
+      : [];
+    if (!memberships.length) return null;
+    const byAccount = brandingAccountId
+      ? memberships.find(
+          (member: any) =>
+            member?.account_id === brandingAccountId ||
+            member?.account?.id === brandingAccountId
+        )
+      : null;
+    const selected = byAccount || memberships[0];
+    return selected?.role || null;
+  }, [data?.memberships, brandingAccountId]);
+  const isOwner = membershipRole === "owner";
+  const setUser = useAuthStore((s) => s.setUser);
+  const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
+  const viewMode = useViewModeStore((s) => s.viewMode);
+  const setViewMode = useViewModeStore((s) => s.setViewMode);
+  // Remove duplicate colors declaration
+  // Section state
+  const [activeSection, setActiveSection] = useState<ProfileSection>("info");
+  // Avatar upload state
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [marketplaceName, setMarketplaceName] = useState("");
-  const [marketplaceDescription, setMarketplaceDescription] = useState("");
-  const [marketplaceRegion, setMarketplaceRegion] = useState("");
-  const [marketplaceInstagram, setMarketplaceInstagram] = useState("");
-  const [marketplaceFacebook, setMarketplaceFacebook] = useState("");
-  const [marketplaceTiktok, setMarketplaceTiktok] = useState("");
-  const [marketplaceWebsite, setMarketplaceWebsite] = useState("");
-  const [marketplaceLogoUrl, setMarketplaceLogoUrl] = useState<string | null>(
-    null
+  // Scroll ref
+  const scrollRef = useRef<ScrollView | null>(null);
+  // Date locale
+  const dateLocale = getDateLocale(i18n.language);
+  // Version label
+  const versionLabel = formatVersionLabel();
+  // Loading and error state for profile query
+  const { isLoading, isRefetching, error } = useQuery({
+    queryKey: ["profile"],
+    queryFn: getProfile,
+    staleTime: 1000 * 60 * 5,
+  });
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  // ...existing code (outros hooks e lógica do componente)...
+
+  // Manual save flow: we no longer autosave marketplace fields on change.
+  // Changes mark `marketplaceDirty` and are persisted when the user taps Save.
+
+  // Generic setter factory for marketplace fields
+  const createMarketplaceSetter = <T extends keyof BrandingUpdatePayload>(
+    stateSetter: (v: string) => void,
+    brandingKey: keyof Branding,
+    payloadKey: T
+  ) => {
+    return (value: string, fromBranding = false) => {
+      stateSetter(value);
+      if (!fromBranding && value !== (branding?.[brandingKey] || "")) {
+        setAccountDirty(true);
+      }
+    };
+  };
+
+  const setAccountName = createMarketplaceSetter(
+    setAccountNameState,
+    "account_name",
+    "name"
   );
-  const [marketplaceHeroUrl, setMarketplaceHeroUrl] = useState<string | null>(
-    null
+  const setAccountDescription = createMarketplaceSetter(
+    setAccountDescriptionState,
+    "marketplace_description",
+    "marketplace_description"
   );
-  const [uploadingMarketplaceLogo, setUploadingMarketplaceLogo] =
-    useState(false);
-  const [uploadingMarketplaceHero, setUploadingMarketplaceHero] =
-    useState(false);
-  const [marketplaceInitialized, setMarketplaceInitialized] = useState(false);
+  const setAccountRegion = createMarketplaceSetter(
+    setAccountRegionState,
+    "marketplace_region",
+    "marketplace_region"
+  );
+  const setAccountInstagram = createMarketplaceSetter(
+    setAccountInstagramState,
+    "marketplace_instagram_url",
+    "marketplace_instagram_url"
+  );
+  const setAccountFacebook = createMarketplaceSetter(
+    setAccountFacebookState,
+    "marketplace_facebook_url",
+    "marketplace_facebook_url"
+  );
+  const setAccountTiktok = createMarketplaceSetter(
+    setAccountTiktokState,
+    "marketplace_tiktok_url",
+    "marketplace_tiktok_url"
+  );
+  const setAccountWebsite = createMarketplaceSetter(
+    setAccountWebsiteState,
+    "marketplace_website_url",
+    "marketplace_website_url"
+  );
+  const setBrandPrimary = createMarketplaceSetter(
+    setBrandPrimaryState,
+    "brand_primary",
+    "brand_primary"
+  );
+  const setBrandPrimarySoft = createMarketplaceSetter(
+    setBrandPrimarySoftState,
+    "brand_primary_soft",
+    "brand_primary_soft"
+  );
+  const setBrandAccent = createMarketplaceSetter(
+    setBrandAccentState,
+    "brand_accent",
+    "brand_accent"
+  );
+  const setBrandAccentSoft = createMarketplaceSetter(
+    setBrandAccentSoftState,
+    "brand_accent_soft",
+    "brand_accent_soft"
+  );
+  const setBrandBackground = createMarketplaceSetter(
+    setBrandBackgroundState,
+    "brand_background",
+    "brand_background"
+  );
+  const [accountLogoUrl, setAccountLogoUrl] = useState<string | null>(null);
+
+  const [accountActive, setAccountActive] = useState<boolean>(true);
+  useEffect(() => {
+    if (typeof branding?.marketplace_enabled === "boolean") {
+      setAccountActive(branding.marketplace_enabled);
+    }
+  }, [branding?.marketplace_enabled]);
+
+  const debouncedSaveAccountActive = useMemo(
+    () =>
+      debounce((value: boolean) => {
+        updateBranding({ marketplace_enabled: value });
+      }, 600),
+    []
+  );
+
+  const handleToggleAccountActive = (value: boolean) => {
+    setAccountActive(value);
+    debouncedSaveAccountActive(value);
+  };
+  const [accountHeroUrl, setAccountHeroUrl] = useState<string | null>(null);
+  const [uploadingAccountLogo, setUploadingAccountLogo] = useState(false);
+  const [uploadingAccountHero, setUploadingAccountHero] = useState(false);
+  const [accountInitialized, setAccountInitialized] = useState(false);
   const [customReminderInput, setCustomReminderInput] = useState("");
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -225,21 +376,6 @@ export default function ProfileScreen({ navigation }: Props) {
   >(null);
   const showAppleLink = false;
 
-  const { data, isLoading, error, isRefetching } = useQuery({
-    queryKey: ["profile"],
-    queryFn: getProfile,
-    retry: 1,
-    staleTime: 1000 * 60 * 2,
-    refetchOnMount: false,
-    placeholderData: () => queryClient.getQueryData(["profile"]),
-  });
-  const { data: branding } = useQuery({
-    queryKey: ["branding"],
-    queryFn: () => getBranding(),
-    staleTime: 1000 * 60 * 2,
-    initialData: () => queryClient.getQueryData<Branding>(["branding"]),
-    placeholderData: () => queryClient.getQueryData<Branding>(["branding"]),
-  });
   const { data: notificationPreferences, isLoading: loadingNotifications } =
     useQuery({
       queryKey: ["notificationPreferences"],
@@ -390,22 +526,33 @@ export default function ProfileScreen({ navigation }: Props) {
     setEditAddress2(profileDefaults.address2);
   }, [profileDefaults, hasProfileEdits]);
 
+  useEffect(() => {
+    if (!isOwner && activeSection === "account") {
+      setActiveSection("info");
+    }
+  }, [isOwner, activeSection]);
+
   // Do not refetch on every focus to avoid extra latency; rely on React Query cache and explicit invalidations
 
-  const applyMarketplaceBranding = (data?: Branding | null) => {
+  const applyAccountBranding = (data?: Branding | null) => {
     if (!data) return;
-    setMarketplaceName(data.account_name || "");
-    setMarketplaceDescription(data.marketplace_description || "");
-    setMarketplaceRegion(data.marketplace_region || "");
-    setMarketplaceInstagram(data.marketplace_instagram_url || "");
-    setMarketplaceFacebook(data.marketplace_facebook_url || "");
-    setMarketplaceTiktok(data.marketplace_tiktok_url || "");
-    setMarketplaceWebsite(data.marketplace_website_url || "");
-    setMarketplaceLogoUrl(data.logo_url || null);
-    setMarketplaceHeroUrl(data.portal_image_url || null);
+    setAccountName(data.account_name || "", true);
+    setAccountDescription(data.marketplace_description || "", true);
+    setAccountRegion(data.marketplace_region || "", true);
+    setAccountInstagram(data.marketplace_instagram_url || "", true);
+    setAccountFacebook(data.marketplace_facebook_url || "", true);
+    setAccountTiktok(data.marketplace_tiktok_url || "", true);
+    setAccountWebsite(data.marketplace_website_url || "", true);
+    setBrandPrimary(data.brand_primary || "", true);
+    setBrandPrimarySoft(data.brand_primary_soft || "", true);
+    setBrandAccent(data.brand_accent || "", true);
+    setBrandAccentSoft(data.brand_accent_soft || "", true);
+    setBrandBackground(data.brand_background || "", true);
+    setAccountLogoUrl(data.logo_url || null);
+    setAccountHeroUrl(data.portal_image_url || null);
   };
 
-  const isMarketplaceDirty = useMemo(() => {
+  const isAccountDirty = useMemo(() => {
     const defaults = {
       name: branding?.account_name || "",
       description: branding?.marketplace_description || "",
@@ -414,15 +561,25 @@ export default function ProfileScreen({ navigation }: Props) {
       facebook: branding?.marketplace_facebook_url || "",
       tiktok: branding?.marketplace_tiktok_url || "",
       website: branding?.marketplace_website_url || "",
+      primary: branding?.brand_primary || "",
+      primarySoft: branding?.brand_primary_soft || "",
+      accent: branding?.brand_accent || "",
+      accentSoft: branding?.brand_accent_soft || "",
+      background: branding?.brand_background || "",
     };
     return (
-      marketplaceName.trim() !== defaults.name.trim() ||
-      marketplaceDescription.trim() !== defaults.description.trim() ||
-      marketplaceRegion.trim() !== defaults.region.trim() ||
-      marketplaceInstagram.trim() !== defaults.instagram.trim() ||
-      marketplaceFacebook.trim() !== defaults.facebook.trim() ||
-      marketplaceTiktok.trim() !== defaults.tiktok.trim() ||
-      marketplaceWebsite.trim() !== defaults.website.trim()
+      accountName.trim() !== defaults.name.trim() ||
+      accountDescription.trim() !== defaults.description.trim() ||
+      accountRegion.trim() !== defaults.region.trim() ||
+      accountInstagram.trim() !== defaults.instagram.trim() ||
+      accountFacebook.trim() !== defaults.facebook.trim() ||
+      accountTiktok.trim() !== defaults.tiktok.trim() ||
+      accountWebsite.trim() !== defaults.website.trim() ||
+      brandPrimary.trim() !== defaults.primary.trim() ||
+      brandPrimarySoft.trim() !== defaults.primarySoft.trim() ||
+      brandAccent.trim() !== defaults.accent.trim() ||
+      brandAccentSoft.trim() !== defaults.accentSoft.trim() ||
+      brandBackground.trim() !== defaults.background.trim()
     );
   }, [
     branding?.account_name,
@@ -432,21 +589,32 @@ export default function ProfileScreen({ navigation }: Props) {
     branding?.marketplace_facebook_url,
     branding?.marketplace_tiktok_url,
     branding?.marketplace_website_url,
-    marketplaceName,
-    marketplaceDescription,
-    marketplaceRegion,
-    marketplaceInstagram,
-    marketplaceFacebook,
-    marketplaceTiktok,
-    marketplaceWebsite,
+    branding?.brand_primary,
+    branding?.brand_primary_soft,
+    branding?.brand_accent,
+    branding?.brand_accent_soft,
+    branding?.brand_background,
+    accountName,
+    accountDescription,
+    accountRegion,
+    accountInstagram,
+    accountFacebook,
+    accountTiktok,
+    accountWebsite,
+    brandPrimary,
+    brandPrimarySoft,
+    brandAccent,
+    brandAccentSoft,
+    brandBackground,
   ]);
 
   useEffect(() => {
-    if (!marketplaceInitialized && branding) {
-      applyMarketplaceBranding(branding);
-      setMarketplaceInitialized(true);
+    if (!accountInitialized && branding) {
+      applyAccountBranding(branding);
+      setAccountInitialized(true);
+      setAccountDirty(false); // Reset dirty flag ao inicializar branding
     }
-  }, [branding, marketplaceInitialized]);
+  }, [branding, accountInitialized]);
 
   const mergeProfileUpdate = (
     current: Profile | undefined,
@@ -562,12 +730,13 @@ export default function ProfileScreen({ navigation }: Props) {
     },
   });
 
-  const marketplaceMutation = useMutation({
-    mutationFn: updateBranding,
+  const accountMutation = useMutation({
+    mutationFn: (payload: Parameters<typeof updateBranding>[0]) =>
+      updateBranding(payload, brandingAccountId),
     onSuccess: (updated) => {
       hapticSuccess();
       queryClient.setQueryData(["branding"], updated);
-      applyMarketplaceBranding(updated);
+      applyAccountBranding(updated);
     },
     onError: () => {
       hapticError();
@@ -824,15 +993,14 @@ export default function ProfileScreen({ navigation }: Props) {
   const uploadAvatarFromUri = async (uri: string, fileName?: string | null) => {
     try {
       setUploadingAvatar(true);
+      const compressedUri = await compressImage(uri);
       const formData = new FormData();
       const timestamp = Date.now();
-      const extension =
-        fileName?.split(".").pop() || uri.split(".").pop() || "jpg";
-      const filename = `profile-${timestamp}.${extension}`;
-      const fileType = `image/${extension === "jpg" ? "jpeg" : extension}`;
+      const filename = `profile-${timestamp}.jpg`;
+      const fileType = "image/jpeg";
 
       formData.append("file", {
-        uri,
+        uri: compressedUri,
         type: fileType,
         name: filename,
       } as any);
@@ -847,73 +1015,83 @@ export default function ProfileScreen({ navigation }: Props) {
     }
   };
 
-  const uploadMarketplaceLogoFromUri = async (
+  const accountUploadLogoFromUri = async (
     uri: string,
     fileName?: string | null
   ) => {
     try {
-      setUploadingMarketplaceLogo(true);
+      setUploadingAccountLogo(true);
+      const compressedUri = await compressImage(uri);
       const formData = new FormData();
       const timestamp = Date.now();
-      const extension =
-        fileName?.split(".").pop() || uri.split(".").pop() || "jpg";
-      const safeExtension = extension === "jpg" ? "jpeg" : extension;
-      const filename = `logo-${timestamp}.${extension}`;
-      const fileType = `image/${safeExtension}`;
+      const filename = `logo-${timestamp}.jpg`;
+      const fileType = "image/jpeg";
 
       formData.append("file", {
-        uri,
+        uri: compressedUri,
         type: fileType,
         name: filename,
       } as any);
 
-      const { url } = await uploadBrandLogo(formData);
-      const updated = await updateBranding({ logo_url: url });
-      queryClient.setQueryData(["branding"], updated);
-      applyMarketplaceBranding(updated);
+      const { url, data: brandingResponse } = await uploadBrandLogo(
+        formData,
+        brandingAccountId
+      );
+      const updated =
+        brandingResponse ||
+        (branding ? { ...branding, logo_url: url } : undefined);
+      if (updated) {
+        queryClient.setQueryData(["branding"], updated);
+        applyAccountBranding(updated);
+      }
     } catch (err) {
       hapticError();
       console.error("Erro ao carregar logotipo:", err);
       Alert.alert(t("common.error"), t("marketplaceProfile.logoUploadError"));
     } finally {
-      setUploadingMarketplaceLogo(false);
+      setUploadingAccountLogo(false);
     }
   };
 
-  const uploadMarketplaceHeroFromUri = async (
+  const accountUploadHeroFromUri = async (
     uri: string,
     fileName?: string | null
   ) => {
     try {
-      setUploadingMarketplaceHero(true);
+      setUploadingAccountHero(true);
+      const compressedUri = await compressImage(uri);
       const formData = new FormData();
       const timestamp = Date.now();
-      const extension =
-        fileName?.split(".").pop() || uri.split(".").pop() || "jpg";
-      const safeExtension = extension === "jpg" ? "jpeg" : extension;
-      const filename = `portal-${timestamp}.${extension}`;
-      const fileType = `image/${safeExtension}`;
+      const filename = `portal-${timestamp}.jpg`;
+      const fileType = "image/jpeg";
 
       formData.append("file", {
-        uri,
+        uri: compressedUri,
         type: fileType,
         name: filename,
       } as any);
 
-      const { url } = await uploadPortalImage(formData);
-      const updated = await updateBranding({ portal_image_url: url });
-      queryClient.setQueryData(["branding"], updated);
-      applyMarketplaceBranding(updated);
+      const { url, data: brandingResponse } = await uploadPortalImage(
+        formData,
+        brandingAccountId
+      );
+      const updated =
+        brandingResponse ||
+        (branding ? { ...branding, portal_image_url: url } : undefined);
+      if (updated) {
+        queryClient.setQueryData(["branding"], updated);
+        applyAccountBranding(updated);
+      }
     } catch (err) {
       hapticError();
       console.error("Erro ao carregar imagem de capa:", err);
       Alert.alert(t("common.error"), t("marketplaceProfile.heroUploadError"));
     } finally {
-      setUploadingMarketplaceHero(false);
+      setUploadingAccountHero(false);
     }
   };
 
-  const openMarketplaceCamera = async (
+  const openAccountCamera = async (
     onSelected: (uri: string, fileName?: string | null) => Promise<void>
   ) => {
     const hasPermission = await requestAndroidPermissions();
@@ -938,7 +1116,7 @@ export default function ProfileScreen({ navigation }: Props) {
     });
   };
 
-  const openMarketplaceGallery = async (
+  const openAccountGallery = async (
     onSelected: (uri: string, fileName?: string | null) => Promise<void>
   ) => {
     launchImageLibrary(galleryOptions, async (response) => {
@@ -954,7 +1132,7 @@ export default function ProfileScreen({ navigation }: Props) {
     });
   };
 
-  const pickMarketplaceImage = (
+  const pickAccountImage = (
     onSelected: (uri: string, fileName?: string | null) => Promise<void>
   ) => {
     if (Platform.OS === "ios") {
@@ -969,9 +1147,9 @@ export default function ProfileScreen({ navigation }: Props) {
         },
         (buttonIndex) => {
           if (buttonIndex === 1) {
-            openMarketplaceCamera(onSelected);
+            openAccountCamera(onSelected);
           } else if (buttonIndex === 2) {
-            openMarketplaceGallery(onSelected);
+            openAccountGallery(onSelected);
           }
         }
       );
@@ -983,11 +1161,11 @@ export default function ProfileScreen({ navigation }: Props) {
           { text: t("common.cancel"), style: "cancel" },
           {
             text: t("profile.takePhoto"),
-            onPress: () => openMarketplaceCamera(onSelected),
+            onPress: () => openAccountCamera(onSelected),
           },
           {
             text: t("profile.chooseFromGallery"),
-            onPress: () => openMarketplaceGallery(onSelected),
+            onPress: () => openAccountGallery(onSelected),
           },
         ]
       );
@@ -1050,26 +1228,33 @@ export default function ProfileScreen({ navigation }: Props) {
     setHasProfileEdits(false);
   };
 
-  const handleMarketplaceSave = () => {
-    const trimmedName = marketplaceName.trim();
+  const handleAccountSave = () => {
+    if (!isOwner) return;
+    const trimmedName = accountName.trim();
     if (!trimmedName) {
       Alert.alert(t("common.warning"), t("marketplaceProfile.nameRequired"));
       return;
     }
-    marketplaceMutation.mutate({
+    accountMutation.mutate({
       name: trimmedName,
-      marketplace_region: marketplaceRegion.trim() || null,
-      marketplace_description: marketplaceDescription.trim() || null,
-      marketplace_instagram_url: marketplaceInstagram.trim() || null,
-      marketplace_facebook_url: marketplaceFacebook.trim() || null,
-      marketplace_tiktok_url: marketplaceTiktok.trim() || null,
-      marketplace_website_url: marketplaceWebsite.trim() || null,
+      marketplace_region: accountRegion.trim() || null,
+      marketplace_description: accountDescription.trim() || null,
+      marketplace_instagram_url: accountInstagram.trim() || null,
+      marketplace_facebook_url: accountFacebook.trim() || null,
+      marketplace_tiktok_url: accountTiktok.trim() || null,
+      marketplace_website_url: accountWebsite.trim() || null,
+      brand_primary: brandPrimary.trim() || null,
+      brand_primary_soft: brandPrimarySoft.trim() || null,
+      brand_accent: brandAccent.trim() || null,
+      brand_accent_soft: brandAccentSoft.trim() || null,
+      brand_background: brandBackground.trim() || null,
     });
   };
 
-  const handleMarketplaceReset = () => {
-    applyMarketplaceBranding(branding);
-    setMarketplaceInitialized(true);
+  const handleAccountReset = () => {
+    if (!isOwner) return;
+    applyAccountBranding(branding);
+    setAccountInitialized(true);
   };
 
   const handleFirstNameChange = (value: string) => {
@@ -1098,6 +1283,7 @@ export default function ProfileScreen({ navigation }: Props) {
   };
 
   const handleSectionChange = (section: ProfileSection) => {
+    if (section === "account" && !isOwner) return;
     setActiveSection(section);
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
@@ -1295,71 +1481,126 @@ export default function ProfileScreen({ navigation }: Props) {
     data?.phoneCountryCode || phoneParts.phoneCountryCode,
     data?.phoneNumber || phoneParts.phoneNumber
   );
+  const avatarUrl = data?.avatarUrl || user?.avatarUrl || null;
   const avatarFallback = displayName.charAt(0).toUpperCase() || "?";
 
-  return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      <ScreenHeader title={t("profile.title")} />
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.headerCard}>
-          <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.avatar}
-              onPress={pickImage}
-              disabled={uploadingAvatar || updateMutation.isPending}
-            >
-              {data?.avatarUrl ? (
-                <Image
-                  source={{ uri: data.avatarUrl }}
-                  style={styles.avatarImage}
-                />
-              ) : (
-                <Text style={styles.avatarText}>{avatarFallback}</Text>
-              )}
-              {uploadingAvatar ? (
-                <View style={styles.avatarLoading}>
-                  <ActivityIndicator color="#fff" />
-                </View>
-              ) : null}
-            </TouchableOpacity>
-            <View style={styles.headerInfo}>
-              <Text style={styles.headerLabel}>{t("profile.header")}</Text>
-              <Text style={styles.headerTitle}>{displayName}</Text>
-              <Text style={styles.headerSubtitle}>{emailValue}</Text>
-              <Text style={styles.headerMeta}>
-                {t("profile.createdAt")}: {createdAtValue}
-              </Text>
-            </View>
-          </View>
+  const rightHeaderElement = (() => {
+    if (activeSection === "account" && isAccountDirty && isOwner) {
+      return (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <TouchableOpacity
+            onPress={handleAccountReset}
+            disabled={accountMutation.isPending}
+            style={{
+              marginRight: 12,
+              width: 40,
+              height: 40,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="close-outline" size={22} color={colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleAccountSave}
+            disabled={accountMutation.isPending}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: colors.primary,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="save-outline" size={20} color={colors.onPrimary} />
+          </TouchableOpacity>
         </View>
+      );
+    }
 
-        {isLoading || isRefetching ? (
-          <ActivityIndicator
-            color={colors.primary}
-            style={{ marginVertical: 12 }}
-          />
-        ) : null}
-        {error ? (
-          <Text style={styles.error}>{t("profile.loadError")}</Text>
-        ) : null}
+    if (activeSection === "info" && isProfileDirty) {
+      return (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <TouchableOpacity
+            onPress={handleProfileReset}
+            disabled={updateMutation.isPending}
+            style={{
+              marginRight: 12,
+              width: 40,
+              height: 40,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="close-outline" size={22} color={colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={updateMutation.isPending}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: colors.primary,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="save-outline" size={20} color={colors.onPrimary} />
+          </TouchableOpacity>
+        </View>
+      );
+    }
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.sectionTabs}
-        >
-          {(
-            [
-              { key: "info", label: t("profile.sectionInfo") },
-              { key: "marketplace", label: t("profile.sectionMarketplace") },
-              { key: "security", label: t("profile.security") },
-              { key: "notifications", label: t("profile.notificationsTitle") },
-            ] as const
-          ).map((section) => {
+    return undefined;
+  })();
+
+  return (
+    <ProfileLayout
+      title={t("profile.title")}
+      rightElement={rightHeaderElement}
+      scrollRef={scrollRef}
+    >
+      <ProfileHeader
+        styles={styles}
+        colors={colors}
+        pickImage={pickImage}
+        uploadingAvatar={uploadingAvatar}
+        avatarUrl={avatarUrl}
+        avatarFallback={avatarFallback}
+        displayName={displayName}
+        membershipRole={membershipRole}
+        t={t}
+        emailValue={emailValue}
+        createdAtValue={createdAtValue}
+      />
+
+      {isLoading || isRefetching ? (
+        <ActivityIndicator
+          color={colors.primary}
+          style={{ marginVertical: 12 }}
+        />
+      ) : null}
+      {error ? (
+        <Text style={styles.error}>{t("profile.loadError")}</Text>
+      ) : null}
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.sectionTabs}
+      >
+        {(
+          [
+            { key: "info", label: t("profile.sectionInfo") },
+            { key: "security", label: t("profile.security") },
+            { key: "notifications", label: t("profile.notificationsTitle") },
+            { key: "account", label: t("profile.sectionAccount") },
+          ] as const
+        )
+          .filter((section) => section.key !== "account" || isOwner)
+          .map((section) => {
             const isActive = activeSection === section.key;
             return (
               <TouchableOpacity
@@ -1378,1314 +1619,225 @@ export default function ProfileScreen({ navigation }: Props) {
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
+      </ScrollView>
 
-        {activeSection === "info" ? (
-          <>
-            <View style={styles.section}>
-              <View style={styles.inputRow}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>
-                    {t("profile.firstNamePlaceholder")}
-                  </Text>
-                  <TextInput
-                    style={styles.inputField}
-                    value={editFirstName}
-                    onChangeText={handleFirstNameChange}
-                    placeholder={t("profile.firstNamePlaceholder")}
-                    placeholderTextColor={colors.muted}
-                    autoCapitalize="words"
-                  />
-                </View>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>
-                    {t("profile.lastNamePlaceholder")}
-                  </Text>
-                  <TextInput
-                    style={styles.inputField}
-                    value={editLastName}
-                    onChangeText={handleLastNameChange}
-                    placeholder={t("profile.lastNamePlaceholder")}
-                    placeholderTextColor={colors.muted}
-                    autoCapitalize="words"
-                  />
-                </View>
-              </View>
-              <View style={styles.inputGroup}>
-                <PhoneInput
-                  label={t("common.phone")}
-                  labelStyle={[styles.inputLabel, styles.inputLabelRegular]}
-                  containerStyle={styles.phoneField}
-                  value={editPhone}
-                  onChange={handlePhoneChange}
-                  placeholder={t("common.phone")}
-                  disabled={updateMutation.isPending}
-                />
-              </View>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  {t("profile.addressLabel")}
-                </Text>
-                <AddressAutocomplete
-                  value={editAddress}
-                  onSelect={handleAddressChange}
-                  placeholder={t("profile.addressPlaceholder")}
-                />
-              </View>
-              <View style={styles.inputGroup}>
-                <TextInput
-                  style={styles.inputField}
-                  value={editAddress2}
-                  onChangeText={handleAddress2Change}
-                  placeholder={t("profile.address2Placeholder")}
-                  placeholderTextColor={colors.muted}
-                  autoCapitalize="sentences"
-                />
-              </View>
-              {isProfileDirty ? (
-                <View style={styles.actionRow}>
-                  <TouchableOpacity
-                    style={[styles.button, styles.buttonInline]}
-                    onPress={handleSave}
-                    disabled={updateMutation.isPending}
-                  >
-                    {updateMutation.isPending ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <Text style={styles.buttonText}>{t("common.save")}</Text>
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.button,
-                      styles.secondary,
-                      styles.buttonInline,
-                    ]}
-                    onPress={handleProfileReset}
-                    disabled={updateMutation.isPending}
-                  >
-                    <Text style={styles.buttonTextSecondary}>
-                      {t("common.cancel")}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ) : null}
-            </View>
+      {activeSection === "info" ? (
+        <ProfileInfo
+          styles={styles}
+          colors={colors}
+          t={t}
+          editFirstName={editFirstName}
+          editLastName={editLastName}
+          editPhone={editPhone}
+          editAddress={editAddress}
+          editAddress2={editAddress2}
+          handleFirstNameChange={handleFirstNameChange}
+          handleLastNameChange={handleLastNameChange}
+          handlePhoneChange={handlePhoneChange}
+          handleAddressChange={handleAddressChange}
+          handleAddress2Change={handleAddress2Change}
+          updatePending={updateMutation.isPending}
+          canSwitchViewMode={canSwitchViewMode}
+          resolvedViewMode={resolvedViewMode}
+          handleViewModeChange={handleViewModeChange}
+          currentLanguage={currentLanguage}
+          handleLanguageChange={handleLanguageChange}
+          languagePending={languageMutation.isPending}
+        />
+      ) : null}
 
-            {canSwitchViewMode ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  {t("profile.viewModeTitle")}
-                </Text>
-                <Text style={styles.sectionText}>
-                  {t("profile.viewModeDescription")}
-                </Text>
-                <View style={styles.modeOptions}>
-                  <TouchableOpacity
-                    style={[
-                      styles.modeOption,
-                      resolvedViewMode === "consumer" &&
-                        styles.modeOptionActive,
-                    ]}
-                    onPress={() => handleViewModeChange("consumer")}
-                    disabled={
-                      updateMutation.isPending || languageMutation.isPending
-                    }
-                  >
-                    <Text
-                      style={[
-                        styles.modeOptionText,
-                        resolvedViewMode === "consumer" &&
-                          styles.modeOptionTextActive,
-                      ]}
-                    >
-                      {t("profile.viewModeConsumer")}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.modeOption,
-                      resolvedViewMode === "private" && styles.modeOptionActive,
-                    ]}
-                    onPress={() => handleViewModeChange("private")}
-                    disabled={
-                      updateMutation.isPending || languageMutation.isPending
-                    }
-                  >
-                    <Text
-                      style={[
-                        styles.modeOptionText,
-                        resolvedViewMode === "private" &&
-                          styles.modeOptionTextActive,
-                      ]}
-                    >
-                      {t("profile.viewModePrivate")}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : null}
+      {activeSection === "notifications" ? (
+        <ProfileNotifications
+          styles={styles}
+          colors={colors}
+          t={t}
+          loadingNotifications={loadingNotifications}
+          pushEnabled={pushEnabled}
+          notificationsDisabled={notificationsDisabled}
+          resolvedNotificationPreferences={resolvedNotificationPreferences}
+          reminderChipOptions={reminderChipOptions}
+          reminderOffsets={reminderOffsets}
+          remindersDisabled={remindersDisabled}
+          updatePreferences={updatePreferences}
+          handleToggleReminderOffset={handleToggleReminderOffset}
+          customReminderInput={customReminderInput}
+          setCustomReminderInput={setCustomReminderInput}
+          handleAddCustomReminder={handleAddCustomReminder}
+          formatReminderOffsetLabel={formatReminderOffsetLabel}
+        />
+      ) : null}
 
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t("profile.language")}</Text>
-              <View style={styles.modeOptions}>
-                {(["pt", "en"] as const).map((lang) => {
-                  const isActive = currentLanguage === lang;
-                  return (
-                    <TouchableOpacity
-                      key={lang}
-                      style={[
-                        styles.modeOption,
-                        isActive && styles.modeOptionActive,
-                      ]}
-                      onPress={() => handleLanguageChange(lang)}
-                      disabled={
-                        updateMutation.isPending || languageMutation.isPending
-                      }
-                    >
-                      <Text
-                        style={[
-                          styles.modeOptionText,
-                          isActive && styles.modeOptionTextActive,
-                        ]}
-                      >
-                        {t(`language.${lang}`)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          </>
-        ) : null}
-
-        {activeSection === "notifications" ? (
+      {activeSection === "security" ? (
+        <>
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {t("profile.notificationsTitle")}
+            <Text style={styles.sectionTitle}>{t("profile.linkTitle")}</Text>
+            <Text style={styles.sectionText}>
+              {t("profile.linkDescription")}
             </Text>
-            {loadingNotifications ? (
-              <ActivityIndicator
-                color={colors.primary}
-                style={{ marginBottom: 12 }}
-              />
-            ) : null}
-            <View style={styles.toggleRow}>
-              <View style={styles.toggleTextGroup}>
-                <Text style={styles.toggleLabel}>
-                  {t("profile.notificationsPush")}
-                </Text>
-                <Text style={styles.toggleHelper}>
-                  {t("profile.notificationsPushHelper")}
-                </Text>
-              </View>
-              <Switch
-                value={pushEnabled}
-                onValueChange={handleTogglePushNotifications}
-                disabled={notificationsDisabled}
-                thumbColor={pushEnabled ? colors.primary : colors.surface}
-                trackColor={{
-                  false: colors.surfaceBorder,
-                  true: colors.switchTrack,
-                }}
-                ios_backgroundColor={colors.surface}
-              />
-            </View>
-
-            <View style={styles.toggleGroup}>
-              <Text style={styles.toggleGroupLabel}>
-                {t("profile.notificationsAppointments")}
-              </Text>
-              <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>
-                  {t("profile.notificationsAppointmentsCreated")}
-                </Text>
-                <Switch
-                  value={
-                    resolvedNotificationPreferences.push.appointments.created
-                  }
-                  onValueChange={(value) =>
-                    updatePreferences({
-                      push: { appointments: { created: value } },
-                    })
-                  }
-                  disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={
-                    resolvedNotificationPreferences.push.appointments.created
-                      ? colors.primary
-                      : colors.surface
-                  }
-                  trackColor={{
-                    false: colors.surfaceBorder,
-                    true: colors.switchTrack,
-                  }}
-                  ios_backgroundColor={colors.surface}
-                />
-              </View>
-              <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>
-                  {t("profile.notificationsAppointmentsConfirmed")}
-                </Text>
-                <Switch
-                  value={
-                    resolvedNotificationPreferences.push.appointments.confirmed
-                  }
-                  onValueChange={(value) =>
-                    updatePreferences({
-                      push: { appointments: { confirmed: value } },
-                    })
-                  }
-                  disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={
-                    resolvedNotificationPreferences.push.appointments.confirmed
-                      ? colors.primary
-                      : colors.surface
-                  }
-                  trackColor={{
-                    false: colors.surfaceBorder,
-                    true: colors.switchTrack,
-                  }}
-                  ios_backgroundColor={colors.surface}
-                />
-              </View>
-              <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>
-                  {t("profile.notificationsAppointmentsCancelled")}
-                </Text>
-                <Switch
-                  value={
-                    resolvedNotificationPreferences.push.appointments.cancelled
-                  }
-                  onValueChange={(value) =>
-                    updatePreferences({
-                      push: { appointments: { cancelled: value } },
-                    })
-                  }
-                  disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={
-                    resolvedNotificationPreferences.push.appointments.cancelled
-                      ? colors.primary
-                      : colors.surface
-                  }
-                  trackColor={{
-                    false: colors.surfaceBorder,
-                    true: colors.switchTrack,
-                  }}
-                  ios_backgroundColor={colors.surface}
-                />
-              </View>
-              <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>
-                  {t("profile.notificationsAppointmentsReminder")}
-                </Text>
-                <Switch
-                  value={
-                    resolvedNotificationPreferences.push.appointments.reminder
-                  }
-                  onValueChange={(value) =>
-                    updatePreferences({
-                      push: { appointments: { reminder: value } },
-                    })
-                  }
-                  disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={
-                    resolvedNotificationPreferences.push.appointments.reminder
-                      ? colors.primary
-                      : colors.surface
-                  }
-                  trackColor={{
-                    false: colors.surfaceBorder,
-                    true: colors.switchTrack,
-                  }}
-                  ios_backgroundColor={colors.surface}
-                />
-              </View>
-              <View style={styles.reminderGroup}>
-                <Text style={styles.reminderTitle}>
-                  {t("profile.notificationsRemindersTitle")}
-                </Text>
-                <Text style={styles.reminderHelper}>
-                  {t("profile.notificationsRemindersHelper")}
-                </Text>
-                <View style={styles.reminderChipsRow}>
-                  {reminderChipOptions.map((offset) => {
-                    const isActive = reminderOffsets.includes(offset);
-                    return (
-                      <TouchableOpacity
-                        key={`preset-${offset}`}
-                        style={[
-                          styles.reminderChip,
-                          isActive && styles.reminderChipActive,
-                          remindersDisabled && styles.reminderChipDisabled,
-                        ]}
-                        onPress={() => handleToggleReminderOffset(offset)}
-                        disabled={remindersDisabled}
-                      >
-                        <Text
-                          style={[
-                            styles.reminderChipText,
-                            isActive && styles.reminderChipTextActive,
-                            remindersDisabled &&
-                              styles.reminderChipTextDisabled,
-                          ]}
-                        >
-                          {formatReminderOffsetLabel(offset)}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+            <View style={styles.linkGroup}>
+              <TouchableOpacity
+                style={[
+                  styles.linkButton,
+                  (linkingProvider || isGoogleLinked) && styles.buttonDisabled,
+                ]}
+                onPress={() => handleLinkProvider("google")}
+                disabled={Boolean(linkingProvider) || isGoogleLinked}
+              >
+                <View style={styles.linkButtonContent}>
+                  <Ionicons name="logo-google" size={18} color={colors.text} />
+                  <Text style={styles.linkButtonText}>{googleButtonLabel}</Text>
+                  {linkingProvider === "google" ? (
+                    <ActivityIndicator color={colors.text} />
+                  ) : null}
                 </View>
-                <View style={styles.reminderCustomRow}>
-                  <TextInput
-                    value={customReminderInput}
-                    onChangeText={setCustomReminderInput}
-                    placeholder={t(
-                      "profile.notificationsRemindersCustomPlaceholder"
-                    )}
-                    placeholderTextColor={colors.muted}
-                    keyboardType="number-pad"
-                    editable={!remindersDisabled}
-                    style={[
-                      styles.reminderInput,
-                      remindersDisabled && styles.reminderInputDisabled,
-                    ]}
-                  />
-                  <TouchableOpacity
-                    style={[
-                      styles.reminderAddButton,
-                      remindersDisabled && styles.reminderAddButtonDisabled,
-                    ]}
-                    onPress={handleAddCustomReminder}
-                    disabled={remindersDisabled}
-                  >
-                    <Text style={styles.reminderAddButtonText}>
-                      {t("profile.notificationsRemindersAdd")}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.toggleGroup}>
-              <Text style={styles.toggleGroupLabel}>
-                {t("profile.notificationsMarketplace")}
-              </Text>
-              <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>
-                  {t("profile.notificationsMarketplaceRequests")}
-                </Text>
-                <Switch
-                  value={
-                    resolvedNotificationPreferences.push.marketplace.request
-                  }
-                  onValueChange={(value) =>
-                    updatePreferences({
-                      push: { marketplace: { request: value } },
-                    })
-                  }
-                  disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={
-                    resolvedNotificationPreferences.push.marketplace.request
-                      ? colors.primary
-                      : colors.surface
-                  }
-                  trackColor={{
-                    false: colors.surfaceBorder,
-                    true: colors.switchTrack,
-                  }}
-                  ios_backgroundColor={colors.surface}
-                />
-              </View>
-            </View>
-
-            <View style={styles.toggleGroup}>
-              <Text style={styles.toggleGroupLabel}>
-                {t("profile.notificationsPayments")}
-              </Text>
-              <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>
-                  {t("profile.notificationsPaymentsUpdated")}
-                </Text>
-                <Switch
-                  value={resolvedNotificationPreferences.push.payments.updated}
-                  onValueChange={(value) =>
-                    updatePreferences({
-                      push: { payments: { updated: value } },
-                    })
-                  }
-                  disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={
-                    resolvedNotificationPreferences.push.payments.updated
-                      ? colors.primary
-                      : colors.surface
-                  }
-                  trackColor={{
-                    false: colors.surfaceBorder,
-                    true: colors.switchTrack,
-                  }}
-                  ios_backgroundColor={colors.surface}
-                />
-              </View>
-            </View>
-
-            <View style={styles.toggleGroup}>
-              <Text style={styles.toggleGroupLabel}>
-                {t("profile.notificationsMarketing")}
-              </Text>
-              <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>
-                  {t("profile.notificationsMarketing")}
-                </Text>
-                <Switch
-                  value={resolvedNotificationPreferences.push.marketing}
-                  onValueChange={(value) =>
-                    updatePreferences({ push: { marketing: value } })
-                  }
-                  disabled={!pushEnabled || notificationsDisabled}
-                  thumbColor={
-                    resolvedNotificationPreferences.push.marketing
-                      ? colors.primary
-                      : colors.surface
-                  }
-                  trackColor={{
-                    false: colors.surfaceBorder,
-                    true: colors.switchTrack,
-                  }}
-                  ios_backgroundColor={colors.surface}
-                />
-              </View>
-            </View>
-          </View>
-        ) : null}
-
-        {activeSection === "security" ? (
-          <>
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t("profile.linkTitle")}</Text>
-              <Text style={styles.sectionText}>
-                {t("profile.linkDescription")}
-              </Text>
-              <View style={styles.linkGroup}>
+              </TouchableOpacity>
+              {showAppleLink ? (
                 <TouchableOpacity
                   style={[
                     styles.linkButton,
-                    (linkingProvider || isGoogleLinked) &&
-                      styles.buttonDisabled,
+                    (linkingProvider || isAppleLinked) && styles.buttonDisabled,
                   ]}
-                  onPress={() => handleLinkProvider("google")}
-                  disabled={Boolean(linkingProvider) || isGoogleLinked}
+                  onPress={() => handleLinkProvider("apple")}
+                  disabled={Boolean(linkingProvider) || isAppleLinked}
                 >
                   <View style={styles.linkButtonContent}>
-                    <Ionicons
-                      name="logo-google"
-                      size={18}
-                      color={colors.text}
-                    />
+                    <Ionicons name="logo-apple" size={18} color={colors.text} />
                     <Text style={styles.linkButtonText}>
-                      {googleButtonLabel}
+                      {appleButtonLabel}
                     </Text>
-                    {linkingProvider === "google" ? (
+                    {linkingProvider === "apple" ? (
                       <ActivityIndicator color={colors.text} />
                     ) : null}
                   </View>
                 </TouchableOpacity>
-                {showAppleLink ? (
-                  <TouchableOpacity
-                    style={[
-                      styles.linkButton,
-                      (linkingProvider || isAppleLinked) &&
-                        styles.buttonDisabled,
-                    ]}
-                    onPress={() => handleLinkProvider("apple")}
-                    disabled={Boolean(linkingProvider) || isAppleLinked}
-                  >
-                    <View style={styles.linkButtonContent}>
-                      <Ionicons
-                        name="logo-apple"
-                        size={18}
-                        color={colors.text}
-                      />
-                      <Text style={styles.linkButtonText}>
-                        {appleButtonLabel}
-                      </Text>
-                      {linkingProvider === "apple" ? (
-                        <ActivityIndicator color={colors.text} />
-                      ) : null}
-                    </View>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
+              ) : null}
             </View>
+          </View>
 
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t("profile.security")}</Text>
-              <Text style={styles.sectionText}>
-                {t("profile.changePasswordDescription")}
-              </Text>
-              {showPasswordForm ? (
-                <>
-                  <TextInput
-                    style={styles.inputField}
-                    value={newPassword}
-                    onChangeText={handleNewPasswordChange}
-                    placeholder={t("profile.newPassword")}
-                    placeholderTextColor={colors.muted}
-                    autoCapitalize="none"
-                    secureTextEntry
-                  />
-                  <TextInput
-                    style={styles.inputField}
-                    value={confirmPassword}
-                    onChangeText={handleConfirmPasswordChange}
-                    placeholder={t("profile.confirmPassword")}
-                    placeholderTextColor={colors.muted}
-                    autoCapitalize="none"
-                    secureTextEntry
-                  />
-                  {passwordError ? (
-                    <Text style={[styles.error, { marginTop: 6 }]}>
-                      {passwordError}
-                    </Text>
-                  ) : null}
-                  <TouchableOpacity
-                    style={styles.button}
-                    onPress={handlePasswordSave}
-                    disabled={resetPasswordMutation.isPending}
-                  >
-                    {resetPasswordMutation.isPending ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <Text style={styles.buttonText}>{t("common.save")}</Text>
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.button, styles.secondary]}
-                    onPress={handlePasswordCancel}
-                    disabled={resetPasswordMutation.isPending}
-                  >
-                    <Text style={styles.buttonTextSecondary}>
-                      {t("common.cancel")}
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t("profile.security")}</Text>
+            <Text style={styles.sectionText}>
+              {t("profile.changePasswordDescription")}
+            </Text>
+            {showPasswordForm ? (
+              <>
+                <TextInput
+                  style={styles.inputField}
+                  value={newPassword}
+                  onChangeText={handleNewPasswordChange}
+                  placeholder={t("profile.newPassword")}
+                  placeholderTextColor={colors.muted}
+                  autoCapitalize="none"
+                  secureTextEntry
+                />
+                <TextInput
+                  style={styles.inputField}
+                  value={confirmPassword}
+                  onChangeText={handleConfirmPasswordChange}
+                  placeholder={t("profile.confirmPassword")}
+                  placeholderTextColor={colors.muted}
+                  autoCapitalize="none"
+                  secureTextEntry
+                />
+                {passwordError ? (
+                  <Text style={[styles.error, { marginTop: 6 }]}>
+                    {passwordError}
+                  </Text>
+                ) : null}
                 <TouchableOpacity
                   style={styles.button}
-                  onPress={handleOpenPasswordForm}
-                  disabled={
-                    updateMutation.isPending || languageMutation.isPending
-                  }
+                  onPress={handlePasswordSave}
+                  disabled={resetPasswordMutation.isPending}
                 >
-                  <Text style={styles.buttonText}>
-                    {t("profile.changePassword")}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </>
-        ) : null}
-
-        {activeSection === "marketplace" ? (
-          <View style={styles.section}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
-                {t("marketplaceProfile.nameLabel")}
-              </Text>
-              <TextInput
-                style={styles.inputField}
-                value={marketplaceName}
-                onChangeText={setMarketplaceName}
-                placeholder={t("marketplaceProfile.namePlaceholder")}
-                placeholderTextColor={colors.muted}
-              />
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
-                {t("marketplaceProfile.regionLabel")}
-              </Text>
-              <TextInput
-                style={styles.inputField}
-                value={marketplaceRegion}
-                onChangeText={setMarketplaceRegion}
-                placeholder={t("marketplaceProfile.regionPlaceholder")}
-                placeholderTextColor={colors.muted}
-              />
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
-                {t("marketplaceProfile.descriptionLabel")}
-              </Text>
-              <TextInput
-                style={[
-                  styles.inputField,
-                  { minHeight: 90, textAlignVertical: "top" },
-                ]}
-                value={marketplaceDescription}
-                onChangeText={setMarketplaceDescription}
-                placeholder={t("marketplaceProfile.descriptionPlaceholder")}
-                placeholderTextColor={colors.muted}
-                multiline
-              />
-            </View>
-            <View style={styles.marketplaceMediaGrid}>
-              <View style={styles.marketplaceMediaCard}>
-                <Text style={styles.marketplaceMediaTitle}>
-                  {t("marketplaceProfile.logoTitle")}
-                </Text>
-                <TouchableOpacity
-                  style={styles.marketplaceLogo}
-                  onPress={() =>
-                    pickMarketplaceImage(uploadMarketplaceLogoFromUri)
-                  }
-                  disabled={uploadingMarketplaceLogo}
-                >
-                  {marketplaceLogoUrl ? (
-                    <Image
-                      source={{ uri: marketplaceLogoUrl }}
-                      style={styles.marketplaceLogoImage}
-                    />
-                  ) : (
-                    <Text style={styles.marketplaceLogoFallback}>
-                      {(marketplaceName.trim().charAt(0) || "P").toUpperCase()}
-                    </Text>
-                  )}
-                  {uploadingMarketplaceLogo ? (
-                    <View style={styles.marketplaceMediaOverlay}>
-                      <ActivityIndicator color={colors.onPrimary} />
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.marketplaceMediaCard}>
-                <Text style={styles.marketplaceMediaTitle}>
-                  {t("marketplaceProfile.heroTitle")}
-                </Text>
-                <TouchableOpacity
-                  style={styles.marketplaceHero}
-                  onPress={() =>
-                    pickMarketplaceImage(uploadMarketplaceHeroFromUri)
-                  }
-                  disabled={uploadingMarketplaceHero}
-                >
-                  {marketplaceHeroUrl ? (
-                    <Image
-                      source={{ uri: marketplaceHeroUrl }}
-                      style={styles.marketplaceHeroImage}
-                    />
-                  ) : (
-                    <View style={styles.marketplaceHeroPlaceholder}>
-                      <Text style={styles.marketplaceHeroPlaceholderText}>
-                        {t("marketplaceProfile.heroPlaceholder")}
-                      </Text>
-                    </View>
-                  )}
-                  {uploadingMarketplaceHero ? (
-                    <View style={styles.marketplaceMediaOverlay}>
-                      <ActivityIndicator color={colors.onPrimary} />
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-              </View>
-            </View>
-            <Text style={styles.subsectionTitle}>
-              {t("marketplaceProfile.socialTitle")}
-            </Text>
-            <View style={styles.inputGroup}>
-              <Input
-                label={t("marketplaceProfile.instagramLabel")}
-                value={marketplaceInstagram}
-                onChangeText={setMarketplaceInstagram}
-                placeholder={t("marketplaceProfile.instagramPlaceholder")}
-                autoCapitalize="none"
-              />
-            </View>
-            <View style={styles.inputGroup}>
-              <Input
-                label={t("marketplaceProfile.facebookLabel")}
-                value={marketplaceFacebook}
-                onChangeText={setMarketplaceFacebook}
-                placeholder={t("marketplaceProfile.facebookPlaceholder")}
-                autoCapitalize="none"
-              />
-            </View>
-            <View style={styles.inputGroup}>
-              <Input
-                label={t("marketplaceProfile.tiktokLabel")}
-                value={marketplaceTiktok}
-                onChangeText={setMarketplaceTiktok}
-                placeholder={t("marketplaceProfile.tiktokPlaceholder")}
-                autoCapitalize="none"
-              />
-            </View>
-            <View style={styles.inputGroup}>
-              <Input
-                label={t("marketplaceProfile.websiteLabel")}
-                value={marketplaceWebsite}
-                onChangeText={setMarketplaceWebsite}
-                placeholder={t("marketplaceProfile.websitePlaceholder")}
-                autoCapitalize="none"
-              />
-            </View>
-
-            {isMarketplaceDirty ? (
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  style={[styles.button, styles.buttonInline]}
-                  onPress={handleMarketplaceSave}
-                  disabled={marketplaceMutation.isPending}
-                >
-                  {marketplaceMutation.isPending ? (
+                  {resetPasswordMutation.isPending ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.buttonText}>
-                      {t("profile.marketplaceSave")}
-                    </Text>
+                    <Text style={styles.buttonText}>{t("common.save")}</Text>
                   )}
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.button, styles.secondary, styles.buttonInline]}
-                  onPress={handleMarketplaceReset}
-                  disabled={marketplaceMutation.isPending}
+                  style={[styles.button, styles.secondary]}
+                  onPress={handlePasswordCancel}
+                  disabled={resetPasswordMutation.isPending}
                 >
                   <Text style={styles.buttonTextSecondary}>
                     {t("common.cancel")}
                   </Text>
                 </TouchableOpacity>
-              </View>
-            ) : null}
+              </>
+            ) : (
+              <TouchableOpacity
+                style={styles.button}
+                onPress={handleOpenPasswordForm}
+                disabled={
+                  updateMutation.isPending || languageMutation.isPending
+                }
+              >
+                <Text style={styles.buttonText}>
+                  {t("profile.changePassword")}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
-        ) : null}
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={[styles.button, styles.danger]}
-            onPress={async () => {
-              hapticSelection();
-              await useAuthStore.getState().clear();
-              navigation.replace("Login");
-            }}
-          >
-            <Text style={styles.buttonText}>{t("profile.logout")}</Text>
-          </TouchableOpacity>
-          {versionLabel ? (
-            <Text style={styles.footerVersion}>{versionLabel}</Text>
-          ) : null}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
+        </>
+      ) : null}
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
-  const cardBase = getCardStyle(colors);
-  const segment = getSegmentStyles(colors);
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    scrollContent: {
-      padding: 24,
-      paddingTop: 12,
-      paddingBottom: 20,
-    },
-    headerCard: {
-      ...cardBase,
-      padding: 18,
-      marginBottom: 5,
-    },
-    headerRow: {
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    avatar: {
-      height: 64,
-      width: 64,
-      borderRadius: 12,
-      backgroundColor: colors.surface,
-      borderWidth: 0,
-      borderColor: colors.surface,
-      alignItems: "center",
-      justifyContent: "center",
-      marginRight: 14,
-      shadowColor: "#000",
-      shadowOpacity: 0.05,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 4,
-    },
-    headerInfo: {
-      flex: 1,
-    },
-    avatarText: {
-      color: colors.primary,
-      fontWeight: "800",
-      fontSize: 24,
-    },
-    headerLabel: {
-      color: colors.muted,
-      fontSize: 12,
-      letterSpacing: 1.2,
-      textTransform: "uppercase",
-    },
-    headerTitle: {
-      color: colors.text,
-      fontSize: 22,
-      fontWeight: "700",
-    },
-    headerSubtitle: {
-      color: colors.muted,
-      marginTop: 2,
-    },
-    headerDetail: {
-      color: colors.muted,
-      marginTop: 2,
-      fontSize: 13,
-    },
-    headerMeta: {
-      color: colors.muted,
-      fontSize: 12,
-      marginTop: 6,
-    },
-    avatarImage: {
-      width: "100%",
-      height: "100%",
-      borderRadius: 10,
-    },
-    avatarBadge: {
-      position: "absolute",
-      bottom: -4,
-      right: -4,
-      backgroundColor: colors.primary,
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 2,
-      borderColor: colors.surface,
-    },
-    avatarBadgeText: {
-      fontSize: 12,
-    },
-    avatarLoading: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: "rgba(0, 0, 0, 0.5)",
-      borderRadius: 10,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    inputField: {
-      backgroundColor: colors.background,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      color: colors.text,
-      fontSize: 15,
-      fontWeight: "400",
-      marginTop: 4,
-    },
-    error: {
-      color: colors.danger,
-      marginBottom: 8,
-    },
-    section: {
-      ...cardBase,
-      marginTop: 12,
-      padding: 18,
-    },
-    sectionTabs: {
-      ...segment.container,
-      marginTop: 12,
-      width: "100%",
-      paddingHorizontal: 12,
-    },
-    sectionTab: {
-      ...segment.button,
-      paddingVertical: 10,
-    },
-    sectionTabActive: {
-      ...segment.buttonActive,
-    },
-    sectionTabText: {
-      ...segment.text,
-    },
-    sectionTabTextActive: {
-      ...segment.textActive,
-    },
-    inputRow: {
-      flexDirection: "row",
-      gap: 12,
-    },
-    subsectionTitle: {
-      color: colors.text,
-      fontWeight: "700",
-      marginTop: 8,
-      marginBottom: 12,
-    },
-    inputGroup: {
-      flex: 1,
-      marginBottom: 10,
-    },
-    inputLabel: {
-      color: colors.muted,
-      fontSize: 11,
-      letterSpacing: 0.6,
-      textTransform: "uppercase",
-      marginBottom: 6,
-    },
-    inputLabelRegular: {
-      fontWeight: "400",
-    },
-    phoneField: {
-      marginBottom: 0,
-    },
-    languageOptions: {
-      flexDirection: "row",
-      gap: 12,
-      marginTop: 8,
-    },
-    languageOption: {
-      flex: 1,
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      paddingVertical: 12,
-      alignItems: "center",
-      shadowColor: "#000",
-      shadowOpacity: 0.05,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 3,
-    },
-    languageOptionActive: {
-      backgroundColor: colors.primarySoft,
-    },
-    languageOptionText: {
-      color: colors.muted,
-      fontWeight: "600",
-      fontSize: 14,
-    },
-    languageOptionTextActive: {
-      color: colors.primary,
-      fontWeight: "700",
-    },
-    modeOptions: {
-      flexDirection: "row",
-      gap: 12,
-      marginTop: 8,
-    },
-    modeOption: {
-      flex: 1,
-      backgroundColor: colors.surface,
-      borderRadius: 8,
-      paddingVertical: 8,
-      alignItems: "center",
-    },
-    modeOptionActive: {
-      backgroundColor: colors.switchTrack,
-    },
-    modeOptionText: {
-      color: colors.muted,
-      fontWeight: "600",
-      fontSize: 14,
-    },
-    modeOptionTextActive: {
-      color: colors.primary,
-      fontWeight: "700",
-    },
-    sectionTitle: {
-      color: colors.text,
-      fontWeight: "700",
-      fontSize: 16,
-      marginBottom: 8,
-    },
-    sectionText: {
-      color: colors.muted,
-      marginBottom: 12,
-    },
-    marketplaceMediaGrid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 12,
-      marginBottom: 12,
-    },
-    marketplaceMediaCard: {
-      ...cardBase,
-      flex: 1,
-      minWidth: 150,
-      padding: 12,
-    },
-    marketplaceMediaTitle: {
-      fontSize: 13,
-      fontWeight: "700",
-      color: colors.text,
-      marginBottom: 8,
-    },
-    marketplaceLogo: {
-      height: 96,
-      borderRadius: 12,
-      backgroundColor: colors.background,
-      alignItems: "center",
-      justifyContent: "center",
-      overflow: "hidden",
-      position: "relative",
-    },
-    marketplaceLogoImage: {
-      width: "100%",
-      height: "100%",
-    },
-    marketplaceLogoFallback: {
-      fontSize: 24,
-      fontWeight: "800",
-      color: colors.primary,
-    },
-    marketplaceHero: {
-      height: 96,
-      borderRadius: 12,
-      backgroundColor: colors.background,
-      alignItems: "center",
-      justifyContent: "center",
-      overflow: "hidden",
-      position: "relative",
-    },
-    marketplaceHeroImage: {
-      width: "100%",
-      height: "100%",
-    },
-    marketplaceHeroPlaceholder: {
-      paddingHorizontal: 8,
-    },
-    marketplaceHeroPlaceholderText: {
-      color: colors.muted,
-      fontSize: 12,
-      textAlign: "center",
-    },
-    marketplaceMediaOverlay: {
-      position: "absolute",
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-      backgroundColor: "rgba(0,0,0,0.35)",
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    marketplaceMediaButton: {
-      marginTop: 10,
-      borderRadius: 10,
-      paddingVertical: 10,
-      alignItems: "center",
-      backgroundColor: colors.primarySoft,
-      shadowColor: "#000",
-      shadowOpacity: 0.04,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 3 },
-      elevation: 2,
-    },
-    marketplaceMediaButtonText: {
-      color: colors.primary,
-      fontWeight: "700",
-      fontSize: 12,
-    },
-    toggleRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingVertical: 6,
-    },
-    toggleTextGroup: {
-      flex: 1,
-      paddingRight: 12,
-    },
-    toggleLabel: {
-      color: colors.text,
-      fontSize: 14,
-      fontWeight: "600",
-    },
-    toggleHelper: {
-      color: colors.muted,
-      fontSize: 12,
-      marginTop: 2,
-    },
-    toggleGroup: {
-      marginTop: 12,
-      paddingTop: 12,
-      borderTopWidth: 1,
-      borderTopColor: colors.surfaceBorder,
-    },
-    toggleGroupLabel: {
-      color: colors.muted,
-      fontSize: 11,
-      letterSpacing: 0.6,
-      textTransform: "uppercase",
-      marginBottom: 6,
-    },
-    reminderGroup: {
-      marginTop: 8,
-      paddingTop: 8,
-      borderTopWidth: 1,
-      borderTopColor: colors.surfaceBorder,
-    },
-    reminderTitle: {
-      color: colors.text,
-      fontSize: 13,
-      fontWeight: "600",
-    },
-    reminderHelper: {
-      color: colors.muted,
-      fontSize: 12,
-      marginTop: 2,
-      marginBottom: 8,
-    },
-    reminderChipsRow: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8,
-      marginBottom: 10,
-    },
-    reminderChip: {
-      borderWidth: 0,
-      borderColor: "transparent",
-      borderRadius: 16,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      backgroundColor: colors.surface,
-      shadowColor: "#000",
-      shadowOpacity: 0.04,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 3 },
-      elevation: 2,
-    },
-    reminderChipActive: {
-      backgroundColor: colors.primarySoft,
-    },
-    reminderChipDisabled: {
-      opacity: 0.5,
-    },
-    reminderChipText: {
-      color: colors.text,
-      fontSize: 12,
-      fontWeight: "600",
-    },
-    reminderChipTextActive: {
-      color: colors.primary,
-    },
-    reminderChipTextDisabled: {
-      color: colors.muted,
-    },
-    reminderCustomRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-    },
-    reminderInput: {
-      flex: 1,
-      borderWidth: 0,
-      borderColor: "transparent",
-      borderRadius: 10,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      color: colors.text,
-      backgroundColor: colors.surface,
-      shadowColor: "#000",
-      shadowOpacity: 0.04,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 3 },
-      elevation: 2,
-    },
-    reminderInputDisabled: {
-      backgroundColor: colors.surface,
-      color: colors.muted,
-    },
-    reminderAddButton: {
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-      borderRadius: 10,
-      backgroundColor: colors.primary,
-    },
-    reminderAddButtonDisabled: {
-      backgroundColor: colors.surfaceBorder,
-    },
-    reminderAddButtonText: {
-      color: colors.onPrimary,
-      fontWeight: "700",
-      fontSize: 12,
-    },
-    linkGroup: {
-      gap: 12,
-    },
-    linkButton: {
-      backgroundColor: colors.surface,
-      borderWidth: 0,
-      borderColor: colors.surface,
-      borderRadius: 12,
-      paddingVertical: 12,
-      alignItems: "center",
-      shadowColor: "#000",
-      shadowOpacity: 0.05,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 3,
-    },
-    linkButtonContent: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 10,
-    },
-    linkButtonText: {
-      color: colors.text,
-      fontWeight: "700",
-      fontSize: 15,
-    },
-    buttonDisabled: {
-      opacity: 0.6,
-    },
-    actionRow: {
-      flexDirection: "row",
-      gap: 12,
-      marginTop: 8,
-    },
-    button: {
-      backgroundColor: colors.primary,
-      borderRadius: 10,
-      paddingVertical: 12,
-      alignItems: "center",
-      marginBottom: 10,
-    },
-    buttonInline: {
-      flex: 1,
-      marginBottom: 0,
-    },
-    buttonText: {
-      color: colors.onPrimary,
-      fontWeight: "700",
-      fontSize: 16,
-    },
-    secondary: {
-      backgroundColor: colors.primarySoft,
-      borderWidth: 0,
-      borderColor: colors.primary,
-    },
-    buttonTextSecondary: {
-      color: colors.text,
-      fontWeight: "700",
-      fontSize: 16,
-    },
-    danger: {
-      backgroundColor: "#ef4444",
-    },
-    footerVersion: {
-      marginTop: 6,
-      color: colors.muted,
-      fontSize: 11,
-      textAlign: "center",
-    },
-  });
+      {isOwner && activeSection === "account" ? (
+        <ProfileMarketplace
+          styles={styles}
+          colors={colors}
+          t={t}
+          accountActive={accountActive}
+          handleToggleAccountActive={handleToggleAccountActive}
+          accountName={accountName}
+          setAccountName={setAccountName}
+          accountRegion={accountRegion}
+          setAccountRegion={setAccountRegion}
+          accountDescription={accountDescription}
+          setAccountDescription={setAccountDescription}
+          brandPrimary={brandPrimary}
+          setBrandPrimary={setBrandPrimary}
+          brandPrimarySoft={brandPrimarySoft}
+          setBrandPrimarySoft={setBrandPrimarySoft}
+          brandAccent={brandAccent}
+          setBrandAccent={setBrandAccent}
+          brandAccentSoft={brandAccentSoft}
+          setBrandAccentSoft={setBrandAccentSoft}
+          brandBackground={brandBackground}
+          setBrandBackground={setBrandBackground}
+          accountLogoUrl={accountLogoUrl}
+          accountHeroUrl={accountHeroUrl}
+          uploadingAccountLogo={uploadingAccountLogo}
+          uploadingAccountHero={uploadingAccountHero}
+          pickAccountImage={pickAccountImage}
+          accountUploadLogoFromUri={accountUploadLogoFromUri}
+          accountUploadHeroFromUri={accountUploadHeroFromUri}
+          accountInstagram={accountInstagram}
+          setAccountInstagram={setAccountInstagram}
+          accountFacebook={accountFacebook}
+          setAccountFacebook={setAccountFacebook}
+          accountTiktok={accountTiktok}
+          setAccountTiktok={setAccountTiktok}
+          accountWebsite={accountWebsite}
+          setAccountWebsite={setAccountWebsite}
+          accountMutationPending={accountMutation?.isPending}
+        />
+      ) : null}
+      <View style={styles.section}>
+        <TouchableOpacity
+          style={[styles.button, styles.danger]}
+          onPress={async () => {
+            hapticSelection();
+            await useAuthStore.getState().clear();
+            navigation.replace("Login");
+          }}
+        >
+          <Text style={styles.buttonText}>{t("profile.logout")}</Text>
+        </TouchableOpacity>
+        {versionLabel ? (
+          <Text style={styles.footerVersion}>{versionLabel}</Text>
+        ) : null}
+      </View>
+    </ProfileLayout>
+  );
 }

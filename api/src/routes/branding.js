@@ -7,12 +7,12 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 const BRANDING_BUCKET = 'account-branding'
 
 const DEFAULT_BRANDING = {
-  account_name: 'Pet Grooming',
-  brand_primary: '#1F6FEB',
-  brand_primary_soft: '#82B1FF',
-  brand_accent: '#144FA1',
-  brand_accent_soft: '#DCE8FF',
-  brand_background: '#F6F9FF',
+  account_name: 'Pawmi Account',
+  brand_primary: '#4fafa9',
+  brand_primary_soft: '#ebf5f4',
+  brand_accent: '#f4d58d',
+  brand_accent_soft: '#fdf6de',
+  brand_background: '#f6f9f8',
   brand_gradient: 'linear-gradient(135deg, #1F6FEB, #144FA1)',
   logo_url: null,
   portal_image_url: null,
@@ -23,77 +23,11 @@ const DEFAULT_BRANDING = {
   marketplace_instagram_url: null,
   marketplace_facebook_url: null,
   marketplace_tiktok_url: null,
-  marketplace_website_url: null
+  marketplace_website_url: null,
+  marketplace_enabled: true
 }
 
-function getBearer(req) {
-  const auth = req.headers.authorization || ''
-  if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
-    return auth.slice('Bearer '.length)
-  }
-  return null
-}
-
-async function resolveAccountId(req, supabaseAdmin) {
-  if (req.accountId) return req.accountId
-  if (req.query.accountId) return req.query.accountId
-  if (!supabaseAdmin) return null
-
-  const token = getBearer(req)
-  if (!token) return null
-
-  const { data: userData } = await supabaseAdmin.auth.getUser(token)
-  const userId = userData?.user?.id
-  if (!userId) return null
-
-  const { data: membership } = await supabaseAdmin
-    .from('account_members')
-    .select('account_id')
-    .eq('user_id', userId)
-    .eq('status', 'accepted')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  if (membership?.account_id) return membership.account_id
-  return null
-}
-
-async function ensureOwnerOrAdmin(req, supabase, accountId) {
-  const token = getBearer(req)
-  if (!token) return { ok: false, status: 401, error: 'Unauthorized' }
-
-  const { data: userData, error: userError } = await supabase.auth.getUser(token)
-  if (userError || !userData?.user?.id) return { ok: false, status: 401, error: 'Unauthorized' }
-
-  const userId = userData.user.id
-  const { data: membership } = await supabase
-    .from('account_members')
-    .select('role, status')
-    .eq('account_id', accountId)
-    .eq('user_id', userId)
-    .eq('status', 'accepted')
-    .maybeSingle()
-
-  const isAllowed = membership && ['owner', 'admin'].includes(membership.role)
-  if (!isAllowed) {
-    return { ok: false, status: 403, error: 'Forbidden' }
-  }
-  return { ok: true, userId }
-}
-
-router.get('/', async (req, res) => {
-  const supabase = getSupabaseServiceRoleClient()
-  const accountId = await resolveAccountId(req, supabase)
-
-  if (!supabase || !accountId) {
-    return res.json({ data: DEFAULT_BRANDING })
-  }
-
-  const { data, error } = await supabase
-    .from('accounts')
-    .select(
-      `
+const ACCOUNT_COLUMNS = `
       id,
       name,
       brand_primary,
@@ -111,11 +45,109 @@ router.get('/', async (req, res) => {
       marketplace_instagram_url,
       marketplace_facebook_url,
       marketplace_tiktok_url,
-      marketplace_website_url
+      marketplace_website_url,
+      marketplace_enabled
     `
-    )
-    .eq('id', accountId)
+
+function getBearer(req) {
+  const auth = req.headers.authorization || ''
+  if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
+    return auth.slice('Bearer '.length)
+  }
+  return null
+}
+
+function formatBrandingRow(row) {
+  if (!row) return DEFAULT_BRANDING
+  return {
+    id: row.id || null,
+    account_id: row.id || null,
+    ...DEFAULT_BRANDING,
+    account_name: row.name || DEFAULT_BRANDING.account_name,
+    brand_primary: row.brand_primary || DEFAULT_BRANDING.brand_primary,
+    brand_primary_soft: row.brand_primary_soft || DEFAULT_BRANDING.brand_primary_soft,
+    brand_accent: row.brand_accent || DEFAULT_BRANDING.brand_accent,
+    brand_accent_soft: row.brand_accent_soft || DEFAULT_BRANDING.brand_accent_soft,
+    brand_background: row.brand_background || DEFAULT_BRANDING.brand_background,
+    brand_gradient: row.brand_gradient || DEFAULT_BRANDING.brand_gradient,
+    logo_url: row.logo_url || DEFAULT_BRANDING.logo_url,
+    portal_image_url: row.portal_image_url || DEFAULT_BRANDING.portal_image_url,
+    support_email: row.support_email || DEFAULT_BRANDING.support_email,
+    support_phone: row.support_phone || DEFAULT_BRANDING.support_phone,
+    marketplace_region: row.marketplace_region || DEFAULT_BRANDING.marketplace_region,
+    marketplace_description: row.marketplace_description || DEFAULT_BRANDING.marketplace_description,
+    marketplace_instagram_url: row.marketplace_instagram_url || DEFAULT_BRANDING.marketplace_instagram_url,
+    marketplace_facebook_url: row.marketplace_facebook_url || DEFAULT_BRANDING.marketplace_facebook_url,
+    marketplace_tiktok_url: row.marketplace_tiktok_url || DEFAULT_BRANDING.marketplace_tiktok_url,
+    marketplace_website_url: row.marketplace_website_url || DEFAULT_BRANDING.marketplace_website_url,
+    marketplace_enabled: typeof row.marketplace_enabled === 'boolean' ? row.marketplace_enabled : true
+  }
+}
+
+async function resolveContext(req, supabase) {
+  const accountIdParam = typeof req.query.accountId === 'string' ? req.query.accountId : null
+  if (!supabase) return { accountId: accountIdParam, membership: null, userId: null, token: null }
+
+  const token = getBearer(req)
+  if (!token) return { accountId: accountIdParam, membership: null, userId: null, token: null }
+
+  const { data: userData } = await supabase.auth.getUser(token)
+  const userId = userData?.user?.id || null
+  if (!userId) return { accountId: accountIdParam, membership: null, userId: null, token }
+
+  const membershipQuery = supabase
+    .from('account_members')
+    .select('account_id, role, status')
+    .eq('user_id', userId)
+    .eq('status', 'accepted')
+    .order('created_at', { ascending: true })
+    .limit(1)
     .maybeSingle()
+
+  if (accountIdParam) {
+    membershipQuery.eq('account_id', accountIdParam)
+  }
+
+  const { data: membership } = await membershipQuery
+
+  return {
+    accountId: accountIdParam || membership?.account_id || null,
+    membership,
+    userId,
+    token
+  }
+}
+
+function assertOwnerOrAdmin(context) {
+  const membership = context?.membership
+  const isAllowed = membership && ['owner', 'admin'].includes(membership.role)
+  if (!isAllowed) return { ok: false, status: 403, error: 'Forbidden' }
+  return { ok: true }
+}
+
+async function fetchBrandingRow(supabase, accountId) {
+  return supabase.from('accounts').select(ACCOUNT_COLUMNS).eq('id', accountId).maybeSingle()
+}
+
+async function updateBrandingRow(supabase, accountId, updates) {
+  return supabase
+    .from('accounts')
+    .update(updates)
+    .eq('id', accountId)
+    .select(ACCOUNT_COLUMNS)
+    .maybeSingle()
+}
+
+router.get('/', async (req, res) => {
+  const supabase = getSupabaseServiceRoleClient()
+  const context = await resolveContext(req, supabase)
+  const accountId = context.accountId
+
+  if (!supabase || !accountId) {
+    return res.json({ data: DEFAULT_BRANDING })
+  }
+
+  const { data, error } = await fetchBrandingRow(supabase, accountId)
 
   if (error) {
     console.error('[api] branding error', error)
@@ -126,42 +158,19 @@ router.get('/', async (req, res) => {
     return res.json({ data: DEFAULT_BRANDING })
   }
 
-  return res.json({
-    data: {
-      ...DEFAULT_BRANDING,
-      account_name: data.name || DEFAULT_BRANDING.account_name,
-      brand_primary: data.brand_primary || DEFAULT_BRANDING.brand_primary,
-      brand_primary_soft: data.brand_primary_soft || DEFAULT_BRANDING.brand_primary_soft,
-      brand_accent: data.brand_accent || DEFAULT_BRANDING.brand_accent,
-      brand_accent_soft: data.brand_accent_soft || DEFAULT_BRANDING.brand_accent_soft,
-      brand_background: data.brand_background || DEFAULT_BRANDING.brand_background,
-      brand_gradient: data.brand_gradient || DEFAULT_BRANDING.brand_gradient,
-      logo_url: data.logo_url || DEFAULT_BRANDING.logo_url,
-      portal_image_url: data.portal_image_url || DEFAULT_BRANDING.portal_image_url,
-      support_email: data.support_email || DEFAULT_BRANDING.support_email,
-      support_phone: data.support_phone || DEFAULT_BRANDING.support_phone,
-      marketplace_region: data.marketplace_region || DEFAULT_BRANDING.marketplace_region,
-      marketplace_description: data.marketplace_description || DEFAULT_BRANDING.marketplace_description,
-      marketplace_instagram_url:
-        data.marketplace_instagram_url || DEFAULT_BRANDING.marketplace_instagram_url,
-      marketplace_facebook_url:
-        data.marketplace_facebook_url || DEFAULT_BRANDING.marketplace_facebook_url,
-      marketplace_tiktok_url:
-        data.marketplace_tiktok_url || DEFAULT_BRANDING.marketplace_tiktok_url,
-      marketplace_website_url:
-        data.marketplace_website_url || DEFAULT_BRANDING.marketplace_website_url
-    }
-  })
+  return res.json({ data: formatBrandingRow(data) })
 })
 
 router.patch('/', async (req, res) => {
   const supabase = getSupabaseServiceRoleClient()
-  const accountId = await resolveAccountId(req, supabase)
-  if (!supabase || !accountId) {
+  const context = await resolveContext(req, supabase)
+  const accountId = context.accountId
+
+  if (!supabase || !accountId || !context.userId) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
-  const allowed = await ensureOwnerOrAdmin(req, supabase, accountId)
+  const allowed = assertOwnerOrAdmin(context)
   if (!allowed.ok) return res.status(allowed.status).json({ error: allowed.error })
 
   const allowedFields = [
@@ -181,7 +190,8 @@ router.patch('/', async (req, res) => {
     'marketplace_instagram_url',
     'marketplace_facebook_url',
     'marketplace_tiktok_url',
-    'marketplace_website_url'
+    'marketplace_website_url',
+    'marketplace_enabled'
   ]
 
   const nullableFields = new Set([
@@ -194,7 +204,8 @@ router.patch('/', async (req, res) => {
     'marketplace_instagram_url',
     'marketplace_facebook_url',
     'marketplace_tiktok_url',
-    'marketplace_website_url'
+    'marketplace_website_url',
+    'marketplace_enabled'
   ])
 
   const updates = Object.entries(req.body || {}).reduce((acc, [key, value]) => {
@@ -225,75 +236,25 @@ router.patch('/', async (req, res) => {
     return res.status(400).json({ error: 'No valid fields to update' })
   }
 
-  const { data, error } = await supabase
-    .from('accounts')
-    .update(updates)
-    .eq('id', accountId)
-    .select(
-      `
-      id,
-      name,
-      brand_primary,
-      brand_primary_soft,
-      brand_accent,
-      brand_accent_soft,
-      brand_background,
-      brand_gradient,
-      logo_url,
-      portal_image_url,
-      support_email,
-      support_phone,
-      marketplace_region,
-      marketplace_description,
-      marketplace_instagram_url,
-      marketplace_facebook_url,
-      marketplace_tiktok_url,
-      marketplace_website_url
-    `
-    )
-    .maybeSingle()
+  const { data, error } = await updateBrandingRow(supabase, accountId, updates)
 
   if (error) {
     console.error('[api] branding patch error', error)
     return res.status(500).json({ error: error.message })
   }
 
-  return res.json({
-    data: {
-      ...DEFAULT_BRANDING,
-      account_name: data?.name || DEFAULT_BRANDING.account_name,
-      brand_primary: data?.brand_primary || DEFAULT_BRANDING.brand_primary,
-      brand_primary_soft: data?.brand_primary_soft || DEFAULT_BRANDING.brand_primary_soft,
-      brand_accent: data?.brand_accent || DEFAULT_BRANDING.brand_accent,
-      brand_accent_soft: data?.brand_accent_soft || DEFAULT_BRANDING.brand_accent_soft,
-      brand_background: data?.brand_background || DEFAULT_BRANDING.brand_background,
-      brand_gradient: data?.brand_gradient || DEFAULT_BRANDING.brand_gradient,
-      logo_url: data?.logo_url || DEFAULT_BRANDING.logo_url,
-      portal_image_url: data?.portal_image_url || DEFAULT_BRANDING.portal_image_url,
-      support_email: data?.support_email || DEFAULT_BRANDING.support_email,
-      support_phone: data?.support_phone || DEFAULT_BRANDING.support_phone,
-      marketplace_region: data?.marketplace_region || DEFAULT_BRANDING.marketplace_region,
-      marketplace_description: data?.marketplace_description || DEFAULT_BRANDING.marketplace_description,
-      marketplace_instagram_url:
-        data?.marketplace_instagram_url || DEFAULT_BRANDING.marketplace_instagram_url,
-      marketplace_facebook_url:
-        data?.marketplace_facebook_url || DEFAULT_BRANDING.marketplace_facebook_url,
-      marketplace_tiktok_url:
-        data?.marketplace_tiktok_url || DEFAULT_BRANDING.marketplace_tiktok_url,
-      marketplace_website_url:
-        data?.marketplace_website_url || DEFAULT_BRANDING.marketplace_website_url
-    }
-  })
+  return res.json({ data: formatBrandingRow(data) })
 })
 
 router.post('/logo', upload.single('file'), async (req, res) => {
   const supabase = getSupabaseServiceRoleClient()
-  const accountId = await resolveAccountId(req, supabase)
-  if (!supabase || !accountId) {
+  const context = await resolveContext(req, supabase)
+  const accountId = context.accountId
+  if (!supabase || !accountId || !context.userId) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
-  const allowed = await ensureOwnerOrAdmin(req, supabase, accountId)
+  const allowed = assertOwnerOrAdmin(context)
   if (!allowed.ok) return res.status(allowed.status).json({ error: allowed.error })
 
   const file = req.file
@@ -318,17 +279,26 @@ router.post('/logo', upload.single('file'), async (req, res) => {
     data: { publicUrl }
   } = supabase.storage.from(BRANDING_BUCKET).getPublicUrl(path)
 
-  return res.json({ url: publicUrl })
+  const { data, error: updateError } = await updateBrandingRow(supabase, accountId, {
+    logo_url: publicUrl
+  })
+
+  if (updateError) {
+    return res.status(500).json({ error: updateError.message })
+  }
+
+  return res.json({ url: publicUrl, data: formatBrandingRow(data) })
 })
 
 router.post('/portal-image', upload.single('file'), async (req, res) => {
   const supabase = getSupabaseServiceRoleClient()
-  const accountId = await resolveAccountId(req, supabase)
-  if (!supabase || !accountId) {
+  const context = await resolveContext(req, supabase)
+  const accountId = context.accountId
+  if (!supabase || !accountId || !context.userId) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
-  const allowed = await ensureOwnerOrAdmin(req, supabase, accountId)
+  const allowed = assertOwnerOrAdmin(context)
   if (!allowed.ok) return res.status(allowed.status).json({ error: allowed.error })
 
   const file = req.file
@@ -353,7 +323,15 @@ router.post('/portal-image', upload.single('file'), async (req, res) => {
     data: { publicUrl }
   } = supabase.storage.from(BRANDING_BUCKET).getPublicUrl(path)
 
-  return res.json({ url: publicUrl })
+  const { data, error: updateError } = await updateBrandingRow(supabase, accountId, {
+    portal_image_url: publicUrl
+  })
+
+  if (updateError) {
+    return res.status(500).json({ error: updateError.message })
+  }
+
+  return res.json({ url: publicUrl, data: formatBrandingRow(data) })
 })
 
 export default router

@@ -204,6 +204,11 @@ export function PetServiceRow({
       backgroundColor: colors.background,
       padding: 12,
     },
+    option: {
+      paddingVertical: 10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.surfaceBorder,
+    },
     optionCardActive: {
       borderColor: colors.primary,
       backgroundColor: colors.primarySoft,

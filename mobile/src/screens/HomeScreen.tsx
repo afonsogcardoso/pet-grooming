@@ -104,12 +104,33 @@ export default function HomeScreen({ navigation }: Props) {
   });
 
   const upcomingAppointments = upcomingData?.items || [];
+  // Marcações do dia atual (todas)
   const todayAppointments = useMemo(
     () =>
       upcomingAppointments.filter(
         (appointment) => appointment.appointment_date === today
       ),
     [today, upcomingAppointments]
+  );
+
+  // Próximas marcações: do dia atual, exceto completas
+  const nextAppointments = useMemo(
+    () =>
+      todayAppointments.filter(
+        (appointment) => appointment.status !== "completed"
+      ),
+    [todayAppointments]
+  );
+
+  // Pagamentos em falta: concluídas e por pagar
+  const unpaidCompletedAppointments = useMemo(
+    () =>
+      upcomingAppointments.filter(
+        (appointment) =>
+          appointment.status === "completed" &&
+          (appointment.payment_status || "unpaid") !== "paid"
+      ),
+    [upcomingAppointments]
   );
   const pendingCount = useMemo(
     () =>
@@ -354,53 +375,71 @@ export default function HomeScreen({ navigation }: Props) {
             </View>
           ) : null}
 
-          {inProgressAppointments && inProgressAppointments.length > 0 ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                {t("home.inProgressTitle")}
-              </Text>
+          {/* Próximas marcações (de hoje, exceto completas) */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Próximas marcações</Text>
+            {nextAppointments.length > 0 ? (
               <View style={{ marginHorizontal: -4 }}>
-                {inProgressAppointments
-                  .filter((a) => a.id !== nextAppointment?.id)
-                  .map((app) => (
-                    <View key={app.id} style={{ marginBottom: 12 }}>
-                      <AppointmentCard
-                        appointment={app}
-                        onPress={() =>
-                          navigation.navigate("AppointmentDetail", {
-                            id: app.id,
-                          })
-                        }
-                      />
-                    </View>
-                  ))}
+                {nextAppointments.map((app, idx) => (
+                  <View
+                    key={app.id}
+                    style={{
+                      marginBottom:
+                        idx === nextAppointments.length - 1 ? 0 : 12,
+                    }}
+                  >
+                    <AppointmentCard
+                      appointment={app}
+                      onPress={() =>
+                        navigation.navigate("AppointmentDetail", {
+                          id: app.id,
+                        })
+                      }
+                    />
+                  </View>
+                ))}
               </View>
-            </View>
-          ) : null}
+            ) : (
+              <View style={styles.emptyNextCard}>
+                <Text style={styles.emptyNextText}>
+                  Nenhuma marcação para hoje
+                </Text>
+              </View>
+            )}
+          </View>
 
-          {nextAppointment ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                {t("home.nextAppointmentTitle")}
-              </Text>
+          {/* Pagamentos em falta (concluídas e por pagar) */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Pagamentos em falta</Text>
+            {unpaidCompletedAppointments.length > 0 ? (
               <View style={{ marginHorizontal: -4 }}>
-                <AppointmentCard
-                  appointment={nextAppointment}
-                  onPress={() =>
-                    navigation.navigate("AppointmentDetail", {
-                      id: nextAppointment.id,
-                    })
-                  }
-                />
+                {unpaidCompletedAppointments.map((app, idx) => (
+                  <View
+                    key={app.id}
+                    style={{
+                      marginBottom:
+                        idx === unpaidCompletedAppointments.length - 1 ? 0 : 12,
+                    }}
+                  >
+                    <AppointmentCard
+                      appointment={app}
+                      onPress={() =>
+                        navigation.navigate("AppointmentDetail", {
+                          id: app.id,
+                        })
+                      }
+                    />
+                  </View>
+                ))}
               </View>
-            </View>
-          ) : (
-            <View style={styles.emptyNextCard}>
-              <Text style={styles.emptyNextText}>
-                {t("home.overviewNextEmpty")}
-              </Text>
-            </View>
-          )}
+            ) : (
+              <View style={styles.emptyNextCard}>
+                <Text style={styles.emptyNextText}>
+                  Nenhum pagamento em falta
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -478,8 +517,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       height: 130,
       overflow: "hidden",
       marginBottom: 16,
-      borderWidth: 1,
-      borderColor: "transparent",
     },
     heroImage: {
       position: "absolute",

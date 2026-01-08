@@ -2,12 +2,10 @@ import Constants from 'expo-constants';
 
 function resolveExtra() {
   return (
-    Constants.expoConfig?.extra ||
-    Constants.manifest?.extra ||
-    // @ts-expect-error manifest2 is undocumented but present on some builds
-    Constants.manifest2?.extra ||
-    // @ts-expect-error manifestExtra is new on SDK 54+
-    Constants.manifestExtra
+    (Constants as any).expoConfig?.extra ||
+    (Constants as any).manifest?.extra ||
+    (Constants as any).manifest2?.extra ||
+    (Constants as any).manifestExtra
   );
 }
 

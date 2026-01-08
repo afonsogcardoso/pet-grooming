@@ -31,6 +31,7 @@ import { getPetBreeds, getPetSpecies } from "../api/petAttributes";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
 import { hapticError, hapticSuccess, hapticWarning } from "../utils/haptics";
 import { cameraOptions, galleryOptions } from "../utils/imageOptions";
+import { compressImage } from "../utils/imageCompression";
 
 type Props = NativeStackScreenProps<any>;
 
@@ -100,13 +101,13 @@ export default function ConsumerPetFormScreen({ navigation, route }: Props) {
 
   const uploadPetPhotoMutation = useMutation({
     mutationFn: async ({ petId, uri }: { petId: string; uri: string }) => {
+      const compressedUri = await compressImage(uri);
       const timestamp = Date.now();
-      const extension = uri.split(".").pop() || "jpg";
-      const filename = `consumer-pet-${petId}-${timestamp}.${extension}`;
-      const fileType = `image/${extension === "jpg" ? "jpeg" : extension}`;
+      const filename = `consumer-pet-${petId}-${timestamp}.jpg`;
+      const fileType = "image/jpeg";
 
       return uploadConsumerPetPhoto(petId, {
-        uri,
+        uri: compressedUri,
         name: filename,
         type: fileType,
       });
@@ -161,7 +162,13 @@ export default function ConsumerPetFormScreen({ navigation, route }: Props) {
   const updateMutation = useMutation({
     mutationFn: (payload: {
       id: string;
-      updates: { name?: string; breed?: string | null; weight?: number | null };
+      updates: {
+        name?: string;
+        breed?: string | null;
+        weight?: number | null;
+        speciesId?: string | null;
+        breedId?: string | null;
+      };
     }) => updateConsumerPet(payload.id, payload.updates),
     onSuccess: async () => {
       if (photoUri && !photoUri.startsWith("http") && pet?.id) {

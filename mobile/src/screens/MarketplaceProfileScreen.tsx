@@ -34,6 +34,9 @@ export default function MarketplaceProfileScreen() {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const queryClient = useQueryClient();
+  const primedBranding = queryClient.getQueryData<Branding>(["branding"]);
+  const primedAccountId =
+    primedBranding?.account_id || primedBranding?.id || null;
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -54,11 +57,13 @@ export default function MarketplaceProfileScreen() {
     error,
   } = useQuery({
     queryKey: ["branding"],
-    queryFn: () => getBranding(),
+    queryFn: () => getBranding(primedAccountId || undefined),
     staleTime: 1000 * 60 * 2,
     initialData: () => queryClient.getQueryData<Branding>(["branding"]),
     placeholderData: () => queryClient.getQueryData<Branding>(["branding"]),
   });
+
+  const accountId = branding?.id || branding?.account_id || null;
 
   const applyBranding = (data?: Branding | null) => {
     if (!data) return;
@@ -81,7 +86,8 @@ export default function MarketplaceProfileScreen() {
   }, [branding, initialized]);
 
   const updateMutation = useMutation({
-    mutationFn: updateBranding,
+    mutationFn: (payload: Parameters<typeof updateBranding>[0]) =>
+      updateBranding(payload, accountId),
     onSuccess: (updated) => {
       hapticSuccess();
       queryClient.setQueryData(["branding"], updated);
@@ -132,11 +138,18 @@ export default function MarketplaceProfileScreen() {
         name: filename,
       } as any);
 
-      const { url } = await uploadBrandLogo(formData);
-      const updated = await updateBranding({ logo_url: url });
-      hapticSuccess();
-      queryClient.setQueryData(["branding"], updated);
-      applyBranding(updated);
+      const { url, data: brandingResponse } = await uploadBrandLogo(
+        formData,
+        accountId
+      );
+      const updated =
+        brandingResponse ||
+        (branding ? { ...branding, logo_url: url } : undefined);
+      if (updated) {
+        hapticSuccess();
+        queryClient.setQueryData(["branding"], updated);
+        applyBranding(updated);
+      }
     } catch (err) {
       hapticError();
       console.error("Erro ao carregar logotipo:", err);
@@ -166,11 +179,18 @@ export default function MarketplaceProfileScreen() {
         name: filename,
       } as any);
 
-      const { url } = await uploadPortalImage(formData);
-      const updated = await updateBranding({ portal_image_url: url });
-      hapticSuccess();
-      queryClient.setQueryData(["branding"], updated);
-      applyBranding(updated);
+      const { url, data: brandingResponse } = await uploadPortalImage(
+        formData,
+        accountId
+      );
+      const updated =
+        brandingResponse ||
+        (branding ? { ...branding, portal_image_url: url } : undefined);
+      if (updated) {
+        hapticSuccess();
+        queryClient.setQueryData(["branding"], updated);
+        applyBranding(updated);
+      }
     } catch (err) {
       hapticError();
       console.error("Erro ao carregar imagem de capa:", err);

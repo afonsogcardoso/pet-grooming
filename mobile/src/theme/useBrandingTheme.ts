@@ -9,6 +9,7 @@ type ThemeColors = {
   primary: string;
   primarySoft: string;
   accent: string;
+  accentSoft: string;
   background: string;
   surface: string;
   surfaceBorder: string;
@@ -67,12 +68,14 @@ function withAlpha(color: string, alpha: number) {
 
 export function useBrandingTheme() {
   const queryClient = useQueryClient();
+  const primedBranding = queryClient.getQueryData<Branding>(['branding']);
+  const accountId = primedBranding?.account_id || primedBranding?.id;
   const activeRole = useAuthStore((state) => state.user?.activeRole);
   const viewMode = useViewModeStore((state) => state.viewMode);
   const query = useQuery({
     queryKey: ['branding'],
     // Query should already be primed by App bootstrap; keep fetch here as safety.
-    queryFn: () => getBranding(),
+    queryFn: () => getBranding(accountId),
     staleTime: 1000 * 60 * 5,
     refetchOnMount: false,
     enabled: Boolean(queryClient.getQueryData<Branding>(['branding'])), // avoid firing before bootstrap
@@ -89,31 +92,33 @@ export function useBrandingTheme() {
           ? 'provider'
           : activeRole;
     const paletteBranding = roleForTheme === 'consumer' ? undefined : branding;
-    const background = normalizeHexColor(paletteBranding?.brand_background, '#F6F9FF');
+    const background = normalizeHexColor(paletteBranding?.brand_background, '#f6f9f8');
     const backgroundIsLight = isLightColor(background);
 
-    const primary = normalizeHexColor(paletteBranding?.brand_primary, '#1F6FEB');
+    const primary = normalizeHexColor(paletteBranding?.brand_primary, '#4fafa9');
     const primarySoftCandidate = normalizeHexColor(paletteBranding?.brand_primary_soft, '');
-    const primarySoft = primarySoftCandidate || '#82B1FF';
-    const accent = normalizeHexColor(paletteBranding?.brand_accent, '#144FA1');
+    const primarySoft = primarySoftCandidate || '#ebf5f4';
+    const accent = normalizeHexColor(paletteBranding?.brand_accent, '#f4d58d');
+    const accentSoft = normalizeHexColor(paletteBranding?.brand_accent_soft, '#fdf6de');
 
     const surface = primarySoftCandidate
-      ? primarySoftCandidate
-      : backgroundIsLight
-        ? '#F6F9FF'
-        : '#0F172A';
+        ? primarySoftCandidate
+        : backgroundIsLight
+          ? '#f6f9f8'
+          : '#0F172A';
 
     const text = backgroundIsLight ? '#1E1E1E' : '#F6F9FF';
     const muted = backgroundIsLight ? '#6F6F6F' : '#82B1FF';
     const surfaceBorder = withAlpha(text, backgroundIsLight ? 0.12 : 0.2);
     const onPrimary = isLightColor(primary) ? '#111827' : '#ffffff';
     // Make active switch track more visible across light backgrounds — increase alpha
-    const switchTrack = withAlpha(primary, 0.32);
+    const switchTrack = primary; 
 
     return {
       primary,
       primarySoft,
       accent,
+      accentSoft,
       background,
       surface,
       surfaceBorder,

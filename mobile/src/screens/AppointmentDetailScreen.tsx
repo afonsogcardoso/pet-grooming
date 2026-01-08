@@ -23,6 +23,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { launchCamera, launchImageLibrary } from "react-native-image-picker";
 import { cameraOptions, galleryOptions } from "../utils/imageOptions";
+import { compressImage } from "../utils/imageCompression";
 import { useTranslation } from "react-i18next";
 import {
   getAppointment,
@@ -593,16 +594,15 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   ) => {
     try {
       setUploadingPhoto(type);
+      const compressedUri = await compressImage(uri);
       const timestamp = Date.now();
-      const extension =
-        fileName?.split(".").pop() || uri.split(".").pop() || "jpg";
-      const filename = `appointment-${appointmentId}-${type}-${timestamp}.${extension}`;
-      const fileType = `image/${extension === "jpg" ? "jpeg" : extension}`;
+      const filename = `appointment-${appointmentId}-${type}-${timestamp}.jpg`;
+      const fileType = "image/jpeg";
 
       await photoMutation.mutateAsync({
         type,
         file: {
-          uri,
+          uri: compressedUri,
           name: filename,
           type: fileType,
         },
@@ -710,10 +710,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     try {
       setSavingPhoto(type);
       const permission = await MediaLibrary.requestPermissionsAsync();
-      if (
-        !permission.granted &&
-        permission.status !== MediaLibrary.PermissionStatus.LIMITED
-      ) {
+      const status = (permission as any).status;
+      if (!permission.granted && status !== "limited") {
         Alert.alert(
           t("common.error"),
           t("appointmentDetail.photoSavePermission")

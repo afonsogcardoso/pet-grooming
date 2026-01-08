@@ -238,6 +238,7 @@
     "marketplaceProfileSubtitle": "Update name, logo, and socials"
   },
   "marketplaceProfile": {
+    "activeLabel": "Marketplace",
     "logoTitle": "Logo",
     "logoHelper": "This logo appears in listings.",
     "changeLogo": "Change logo",
@@ -246,7 +247,7 @@
     "heroPlaceholder": "Add a hero image",
     "changeHero": "Change image",
     "businessSection": "Business information",
-    "nameLabel": "Marketplace name",
+    "nameLabel": "Name",
     "namePlaceholder": "Business name",
     "regionLabel": "Region / city",
     "regionPlaceholder": "Lisbon, Porto, Algarve",
@@ -339,6 +340,7 @@
     "createdAt": "Created",
     "sectionInfo": "Info",
     "sectionMarketplace": "Marketplace",
+    "sectionAccount": "Account",
     "firstNamePlaceholder": "First name",
     "lastNamePlaceholder": "Last name",
     "addressLabel": "Address",
@@ -356,6 +358,14 @@
     "viewModeDescription": "Switch between client and manager views.",
     "viewModeConsumer": "Client",
     "viewModePrivate": "Manager",
+    "accountRoleTitle": "Account role",
+    "accountRoleHelper": "Defines if you can manage branding, services and uploads.",
+    "accountRole": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member",
+      "unknown": "No role assigned"
+    },
     "language": "Language",
     "notificationsTitle": "Notifications",
     "notificationsPush": "Push notifications",

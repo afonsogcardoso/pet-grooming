@@ -11,10 +11,10 @@ import {
   Alert,
   ScrollView,
   Linking,
-  Switch,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import Switch from "../components/StyledSwitch";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useRoute } from "@react-navigation/native";
 import {

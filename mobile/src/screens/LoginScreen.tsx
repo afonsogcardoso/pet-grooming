@@ -151,7 +151,7 @@ export default function LoginScreen({ navigation }: Props) {
     }
 
     await queryClient
-      .fetchQuery({ queryKey: ["branding"], queryFn: getBranding })
+      .fetchQuery({ queryKey: ["branding"], queryFn: () => getBranding() })
       .catch(() => null);
 
     if (pendingLinkProvider && token) {
