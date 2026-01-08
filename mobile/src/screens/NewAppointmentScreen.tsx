@@ -52,6 +52,7 @@ import {
   PetServiceRow,
   type ServiceRow,
 } from "../components/appointment/PetServiceRow";
+import { AutocompleteSelect } from "../components/common/AutocompleteSelect";
 import { DateTimePickerModal } from "../components/appointment/DateTimePickerModal";
 import { ScreenHeader } from "../components/ScreenHeader";
 import { useTranslation } from "react-i18next";
@@ -63,6 +64,7 @@ import {
   formatCustomerName,
   getCustomerFirstName,
 } from "../utils/customer";
+import { getPetBreeds, getPetSpecies } from "../api/petAttributes";
 
 type Props = NativeStackScreenProps<any>;
 
@@ -193,6 +195,9 @@ function formatReminderOffsetLabel(
 type DraftPet = {
   id: string;
   name: string;
+  speciesId: string | null;
+  speciesLabel: string;
+  breedId: string | null;
   breed: string;
   weight: string;
 };
@@ -305,12 +310,15 @@ function pickPrimaryPetId(
   return null;
 }
 
-function createDraftPet(): DraftPet {
+function createDraftPet(initial?: Partial<DraftPet>): DraftPet {
   return {
     id: createLocalId("pet"),
     name: "",
-    breed: "",
-    weight: "",
+    speciesId: initial?.speciesId ?? null,
+    speciesLabel: initial?.speciesLabel ?? "",
+    breedId: initial?.breedId ?? null,
+    breed: initial?.breed ?? "",
+    weight: initial?.weight ?? "",
   };
 }
 
@@ -358,6 +366,18 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const submitLockRef = useRef(false);
   const [newPets, setNewPets] = useState<DraftPet[]>([createDraftPet()]);
   const [existingNewPets, setExistingNewPets] = useState<DraftPet[]>([]);
+  const [speciesOptions, setSpeciesOptions] = useState<
+    { id: string; label: string }[]
+  >([]);
+  const [defaultSpeciesId, setDefaultSpeciesId] = useState<string | null>(null);
+  const [defaultSpeciesLabel, setDefaultSpeciesLabel] = useState<string>("");
+  const [loadingSpecies, setLoadingSpecies] = useState(false);
+  const [breedOptionsBySpecies, setBreedOptionsBySpecies] = useState<
+    Record<string, { id: string; label: string }[]>
+  >({});
+  const [loadingBreedSpeciesId, setLoadingBreedSpeciesId] = useState<
+    string | null
+  >(null);
   const [showCustomerList, setShowCustomerList] = useState(false);
   const [showPetList, setShowPetList] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -400,6 +420,95 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const ensureBreedOptions = useCallback(
+    async (speciesId?: string | null) => {
+      if (!speciesId) return;
+      if (breedOptionsBySpecies[speciesId]) return;
+      setLoadingBreedSpeciesId(speciesId);
+      try {
+        const breeds = await getPetBreeds({ speciesId });
+        setBreedOptionsBySpecies((prev) => ({
+          ...prev,
+          [speciesId]: (breeds || []).map((breed) => ({
+            id: breed.id,
+            label: breed.name,
+          })),
+        }));
+      } catch (err) {
+        console.warn("Failed to load breeds", err);
+      } finally {
+        setLoadingBreedSpeciesId((prev) => (prev === speciesId ? null : prev));
+      }
+    },
+    [breedOptionsBySpecies]
+  );
+
+  const normalizeName = useCallback((value?: string | null) => {
+    return (value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadSpecies = async () => {
+      setLoadingSpecies(true);
+      try {
+        const species = await getPetSpecies();
+        if (!isMounted) return;
+        const options = (species || []).map((item) => ({
+          id: item.id,
+          label: item.name,
+        }));
+        setSpeciesOptions(options);
+
+        const dog = (species || []).find(
+          (item) => normalizeName(item.name) === "cao"
+        );
+        const fallback = species?.[0];
+        const defaultId = dog?.id || fallback?.id || null;
+        const defaultLabel = dog?.name || fallback?.name || "";
+        setDefaultSpeciesId((prev) => prev || defaultId);
+        setDefaultSpeciesLabel((prev) => prev || defaultLabel);
+
+        if (defaultId) {
+          setNewPets((prev) =>
+            prev.map((pet) =>
+              pet.speciesId
+                ? pet
+                : {
+                    ...pet,
+                    speciesId: defaultId,
+                    speciesLabel: defaultLabel,
+                  }
+            )
+          );
+          setExistingNewPets((prev) =>
+            prev.map((pet) =>
+              pet.speciesId
+                ? pet
+                : {
+                    ...pet,
+                    speciesId: defaultId,
+                    speciesLabel: defaultLabel,
+                  }
+            )
+          );
+          await ensureBreedOptions(defaultId);
+        }
+      } finally {
+        if (isMounted) setLoadingSpecies(false);
+      }
+    };
+
+    loadSpecies();
+    return () => {
+      isMounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load appointment data if in edit mode
   const { data: appointmentData, isLoading: loadingAppointment } = useQuery({
@@ -861,7 +970,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const timeIsValid = /^\d{2}:\d{2}$/.test(formatHHMM(time).trim());
   const existingDraftPetsValid =
     existingNewPets.length === 0 ||
-    existingNewPets.every((pet) => pet.name.trim());
+    existingNewPets.every((pet) => pet.name.trim() && pet.speciesId);
   const hasExistingPets =
     selectedPetIds.length > 0 || existingNewPets.length > 0;
   const hasExistingSelection = Boolean(
@@ -871,7 +980,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const hasServiceSelection =
     allServiceRows.length > 0 && allServiceRows.every((row) => row.serviceId);
   const newPetsValid =
-    newPets.length > 0 && newPets.every((pet) => pet.name.trim());
+    newPets.length > 0 &&
+    newPets.every((pet) => pet.name.trim() && pet.speciesId);
   const hasNewCustomerName = Boolean(newCustomerFirstName.trim());
   const hasNewSelection = Boolean(hasNewCustomerName && newPetsValid);
   const isSubmitting = mutation.isPending || isSubmittingRequest;
@@ -1051,8 +1161,40 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     []
   );
 
+  const handleSelectExistingPetSpecies = (
+    petId: string,
+    option: { id: string; label: string } | null
+  ) => {
+    handleUpdateExistingPet(petId, {
+      speciesId: option?.id || null,
+      speciesLabel: option?.label || "",
+      breedId: null,
+      breed: "",
+    });
+    if (option?.id) ensureBreedOptions(option.id).catch(() => null);
+  };
+
+  const handleSelectNewPetSpecies = (
+    petId: string,
+    option: { id: string; label: string } | null
+  ) => {
+    handleUpdateNewPet(petId, {
+      speciesId: option?.id || null,
+      speciesLabel: option?.label || "",
+      breedId: null,
+      breed: "",
+    });
+    if (option?.id) ensureBreedOptions(option.id).catch(() => null);
+  };
+
   const handleAddExistingPet = () => {
-    setExistingNewPets((prev) => [...prev, createDraftPet()]);
+    setExistingNewPets((prev) => [
+      ...prev,
+      createDraftPet({
+        speciesId: defaultSpeciesId,
+        speciesLabel: defaultSpeciesLabel,
+      }),
+    ]);
   };
 
   const handleRemoveExistingPet = (petId: string) => {
@@ -1069,7 +1211,13 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   };
 
   const handleAddNewPet = () => {
-    setNewPets((prev) => [...prev, createDraftPet()]);
+    setNewPets((prev) => [
+      ...prev,
+      createDraftPet({
+        speciesId: defaultSpeciesId,
+        speciesLabel: defaultSpeciesLabel,
+      }),
+    ]);
   };
 
   const handleRemoveNewPet = (petId: string) => {
@@ -1188,6 +1336,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
             const createdPet = await createPet(customerId, {
               name: pet.name.trim(),
               breed: pet.breed.trim() || null,
+              speciesId: pet.speciesId || null,
+              breedId: pet.breedId || null,
               weight: weightValue ?? null,
             });
             petIdMap.set(pet.id, createdPet.id);
@@ -1225,6 +1375,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
               const createdPet = await createPet(customerId, {
                 name: pet.name.trim(),
                 breed: pet.breed.trim() || null,
+                speciesId: pet.speciesId || null,
+                breedId: pet.breedId || null,
                 weight: weightValue ?? null,
               });
               petIdMap.set(pet.id, createdPet.id);
@@ -1737,7 +1889,12 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                       setCustomerAddress2("");
                       setCustomerNif("");
                       setShowPetList(false);
-                      setNewPets([createDraftPet()]);
+                      setNewPets([
+                        createDraftPet({
+                          speciesId: defaultSpeciesId,
+                          speciesLabel: defaultSpeciesLabel,
+                        }),
+                      ]);
                       setExistingNewPets([]);
                     }}
                   >
@@ -1768,7 +1925,12 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                       setNewCustomerAddress("");
                       setNewCustomerAddress2("");
                       setNewCustomerNif("");
-                      setNewPets([createDraftPet()]);
+                      setNewPets([
+                        createDraftPet({
+                          speciesId: defaultSpeciesId,
+                          speciesLabel: defaultSpeciesLabel,
+                        }),
+                      ]);
                       setExistingNewPets([]);
                     }}
                   >
@@ -2126,25 +2288,72 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                                     style={styles.input}
                                   />
                                 </View>
-                                <View style={[styles.field, { flex: 1 }]}>
-                                  <Text style={styles.label}>
-                                    {t("newCustomerForm.petBreedLabel")}
-                                  </Text>
-                                  <TextInput
-                                    value={pet.breed}
-                                    onChangeText={(value) =>
-                                      handleUpdateExistingPet(pet.id, {
-                                        breed: value,
-                                      })
-                                    }
-                                    placeholder={t(
-                                      "newCustomerForm.petBreedPlaceholder"
-                                    )}
-                                    placeholderTextColor={colors.muted}
-                                    style={styles.input}
-                                  />
-                                </View>
+                                <AutocompleteSelect
+                                  label={t("petForm.speciesLabel")}
+                                  value={pet.speciesLabel}
+                                  onChangeText={(value) =>
+                                    handleUpdateExistingPet(pet.id, {
+                                      speciesLabel: value,
+                                      speciesId: null,
+                                      breedId: null,
+                                      breed: "",
+                                    })
+                                  }
+                                  onSelectOption={(option) => {
+                                    if (!option) return;
+                                    handleSelectExistingPetSpecies(
+                                      pet.id,
+                                      option
+                                    );
+                                  }}
+                                  options={speciesOptions}
+                                  selectedId={pet.speciesId}
+                                  placeholder={t("petForm.speciesPlaceholder")}
+                                  emptyLabel={t("petForm.speciesEmpty")}
+                                  loading={loadingSpecies}
+                                  loadingLabel={t("common.loading")}
+                                  containerStyle={[styles.field, { flex: 1 }]}
+                                />
                               </View>
+
+                              <AutocompleteSelect
+                                label={t("petForm.breedLabel")}
+                                value={pet.breed}
+                                onChangeText={(value) =>
+                                  handleUpdateExistingPet(pet.id, {
+                                    breed: value,
+                                    breedId: null,
+                                  })
+                                }
+                                onSelectOption={(option) => {
+                                  if (!option) return;
+                                  handleUpdateExistingPet(pet.id, {
+                                    breedId: option.id,
+                                    breed: option.label,
+                                  });
+                                }}
+                                options={
+                                  pet.speciesId
+                                    ? breedOptionsBySpecies[pet.speciesId] || []
+                                    : []
+                                }
+                                selectedId={pet.breedId}
+                                placeholder={
+                                  pet.speciesId
+                                    ? t("petForm.breedPlaceholder")
+                                    : t("petForm.breedSelectSpecies")
+                                }
+                                emptyLabel={
+                                  pet.speciesId
+                                    ? t("petForm.breedEmptyForSpecies")
+                                    : t("petForm.breedSelectSpecies")
+                                }
+                                disabled={!pet.speciesId}
+                                loading={
+                                  loadingBreedSpeciesId === pet.speciesId
+                                }
+                                containerStyle={styles.field}
+                              />
 
                               <View style={styles.field}>
                                 <Text style={styles.label}>
@@ -2289,23 +2498,67 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                                 style={styles.input}
                               />
                             </View>
-                            <View style={[styles.field, { flex: 1 }]}>
-                              <Text style={styles.label}>
-                                {t("newCustomerForm.petBreedLabel")}
-                              </Text>
-                              <TextInput
-                                value={pet.breed}
-                                onChangeText={(value) =>
-                                  handleUpdateNewPet(pet.id, { breed: value })
-                                }
-                                placeholder={t(
-                                  "newCustomerForm.petBreedPlaceholder"
-                                )}
-                                placeholderTextColor={colors.muted}
-                                style={styles.input}
-                              />
-                            </View>
+                            <AutocompleteSelect
+                              label={t("petForm.speciesLabel")}
+                              value={pet.speciesLabel}
+                              onChangeText={(value) =>
+                                handleUpdateNewPet(pet.id, {
+                                  speciesLabel: value,
+                                  speciesId: null,
+                                  breedId: null,
+                                  breed: "",
+                                })
+                              }
+                              onSelectOption={(option) => {
+                                if (!option) return;
+                                handleSelectNewPetSpecies(pet.id, option);
+                              }}
+                              options={speciesOptions}
+                              selectedId={pet.speciesId}
+                              placeholder={t("petForm.speciesPlaceholder")}
+                              emptyLabel={t("petForm.speciesEmpty")}
+                              loading={loadingSpecies}
+                              loadingLabel={t("common.loading")}
+                              containerStyle={[styles.field, { flex: 1 }]}
+                            />
                           </View>
+
+                          <AutocompleteSelect
+                            label={t("petForm.breedLabel")}
+                            value={pet.breed}
+                            onChangeText={(value) =>
+                              handleUpdateNewPet(pet.id, {
+                                breed: value,
+                                breedId: null,
+                              })
+                            }
+                            onSelectOption={(option) => {
+                              if (!option) return;
+                              handleUpdateNewPet(pet.id, {
+                                breedId: option.id,
+                                breed: option.label,
+                              });
+                            }}
+                            options={
+                              pet.speciesId
+                                ? breedOptionsBySpecies[pet.speciesId] || []
+                                : []
+                            }
+                            selectedId={pet.breedId}
+                            placeholder={
+                              pet.speciesId
+                                ? t("petForm.breedPlaceholder")
+                                : t("petForm.breedSelectSpecies")
+                            }
+                            emptyLabel={
+                              pet.speciesId
+                                ? t("petForm.breedEmptyForSpecies")
+                                : t("petForm.breedSelectSpecies")
+                            }
+                            disabled={!pet.speciesId}
+                            loading={loadingBreedSpeciesId === pet.speciesId}
+                            containerStyle={styles.field}
+                          />
 
                           <View style={styles.field}>
                             <Text style={styles.label}>

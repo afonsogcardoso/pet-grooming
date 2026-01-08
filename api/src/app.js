@@ -18,6 +18,7 @@ import adminRouter from './routes/admin.js'
 import publicRouter from './routes/public.js'
 import accountMembersRouter from './routes/accountMembers.js'
 import marketplaceRouter from './routes/marketplace.js'
+import petAttributesRouter from './routes/petAttributes.js'
 
 const envResult = dotenv.config({ path: '.env.local' })
 if (envResult.error) {
@@ -60,8 +61,8 @@ const corsCache = new Map()
 const supabaseAdmin =
   supabaseUrl && supabaseServiceRoleKey
     ? createClient(supabaseUrl, supabaseServiceRoleKey, {
-        auth: { autoRefreshToken: false, persistSession: false }
-      })
+      auth: { autoRefreshToken: false, persistSession: false }
+    })
     : null
 
 function cacheDomain(hostname, allowed) {
@@ -876,6 +877,7 @@ app.use('/api/v1/profile', profileRouter)
 app.use('/api/v1/notifications', notificationsRouter)
 app.use('/api/v1/domains', domainsRouter)
 app.use('/api/v1/customers', customersRouter)
+app.use('/api/v1/pet-attributes', petAttributesRouter)
 app.use('/api/v1/services', servicesRouter)
 app.use('/api/v1/branding', brandingRouter)
 app.use('/api/v1/account', accountMembersRouter)

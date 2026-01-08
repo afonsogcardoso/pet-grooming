@@ -6,6 +6,7 @@ import {
   FlatList,
   ActivityIndicator,
   TouchableOpacity,
+  Image,
 } from "react-native";
 import {
   SafeAreaView,
@@ -15,7 +16,8 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
-import { getCustomers, type Customer } from "../api/customers";
+import { getCardStyle, getSegmentStyles } from "../theme/uiTokens";
+import { getCustomers, type Customer, type Pet } from "../api/customers";
 import { ScreenHeader } from "../components/ScreenHeader";
 import SwipeableRow from "../components/common/SwipeableRow";
 import { deleteCustomer } from "../api/customers";
@@ -30,6 +32,7 @@ import { formatCustomerName } from "../utils/customer";
 import { useTranslation } from "react-i18next";
 import { hapticError, hapticSuccess, hapticWarning } from "../utils/haptics";
 import { useSwipeDeleteIndicator } from "../hooks/useSwipeDeleteIndicator";
+import { getPetSpecies } from "../api/petAttributes";
 
 type Props = NativeStackScreenProps<any>;
 type DeletePayload = {
@@ -43,6 +46,7 @@ export default function CustomersScreen({ navigation }: Props) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [searchQuery, setSearchQuery] = useState("");
   const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState<"customers" | "pets">("customers");
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const undoBottomOffset = tabBarHeight > 0 ? tabBarHeight : insets.bottom + 16;
@@ -50,6 +54,11 @@ export default function CustomersScreen({ navigation }: Props) {
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ["customers"],
     queryFn: getCustomers,
+  });
+
+  const { data: species = [] } = useQuery({
+    queryKey: ["pet-species"],
+    queryFn: getPetSpecies,
   });
 
   const queryClient = useQueryClient();
@@ -163,6 +172,41 @@ export default function CustomersScreen({ navigation }: Props) {
     });
   }, [customers, searchQuery]);
 
+  const speciesNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    species.forEach((item) => {
+      map.set(item.id, item.name);
+    });
+    return map;
+  }, [species]);
+
+  const allPets = useMemo(() => {
+    const list: Array<Pet & { ownerId: string; ownerName: string }> = [];
+    customers.forEach((customer) => {
+      const ownerName = formatCustomerName(customer) || t("common.unknown");
+      (customer.pets || []).forEach((pet) => {
+        list.push({ ...pet, ownerId: customer.id, ownerName });
+      });
+    });
+    const filtered = searchQuery.trim()
+      ? list.filter((pet) => {
+          return (
+            (pet.name && matchesSearchQuery(pet.name, searchQuery)) ||
+            (pet.breed && matchesSearchQuery(pet.breed, searchQuery)) ||
+            (pet.ownerName && matchesSearchQuery(pet.ownerName, searchQuery))
+          );
+        })
+      : list;
+
+    return filtered.sort((a, b) => {
+      const an = (a.name || "").toLowerCase();
+      const bn = (b.name || "").toLowerCase();
+      if (an < bn) return -1;
+      if (an > bn) return 1;
+      return 0;
+    });
+  }, [customers, searchQuery, t]);
+
   const handleAddCustomer = () => {
     navigation.navigate("CustomerForm", { mode: "create" });
   };
@@ -197,60 +241,171 @@ export default function CustomersScreen({ navigation }: Props) {
           />
         </View>
 
-        {/* Customer List */}
+        <View style={styles.segment}>
+          <TouchableOpacity
+            style={[
+              styles.segmentButton,
+              activeTab === "customers" && styles.segmentButtonActive,
+            ]}
+            onPress={() => setActiveTab("customers")}
+          >
+            <Text
+              style={[
+                styles.segmentText,
+                activeTab === "customers" && styles.segmentTextActive,
+              ]}
+            >
+              {t("customers.tabCustomers")}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.segmentButton,
+              activeTab === "pets" && styles.segmentButtonActive,
+            ]}
+            onPress={() => setActiveTab("pets")}
+          >
+            <Text
+              style={[
+                styles.segmentText,
+                activeTab === "pets" && styles.segmentTextActive,
+              ]}
+            >
+              {t("customers.tabPets")}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Lists */}
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
-        ) : filteredCustomers.length === 0 ? (
+        ) : activeTab === "customers" ? (
+          filteredCustomers.length === 0 ? (
+            <EmptyState
+              icon={searchQuery ? "🔍" : "👥"}
+              title={
+                searchQuery
+                  ? t("customers.emptySearchTitle")
+                  : t("customers.emptyTitle")
+              }
+              description={
+                searchQuery
+                  ? t("customers.emptySearchDescription")
+                  : t("customers.emptyDescription")
+              }
+              actionLabel={
+                !searchQuery ? t("customers.addCustomer") : undefined
+              }
+              onAction={!searchQuery ? handleAddCustomer : undefined}
+            />
+          ) : (
+            <FlatList
+              data={filteredCustomers}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <SwipeableRow
+                  isDeleting={item.id === deletingId}
+                  onDelete={() => {
+                    const displayName = formatCustomerName(item);
+                    Alert.alert(
+                      t("customers.deleteTitle"),
+                      t("customers.deletePrompt", { name: displayName }),
+                      [
+                        { text: t("common.cancel"), style: "cancel" },
+                        {
+                          text: t("customers.deleteAction"),
+                          style: "destructive",
+                          onPress: () => {
+                            hapticWarning();
+                            beginDelete(item.id, () =>
+                              startOptimisticDelete(item)
+                            );
+                          },
+                        },
+                      ]
+                    );
+                  }}
+                >
+                  <CustomerCard
+                    customer={item}
+                    onPress={() => handleCustomerPress(item)}
+                  />
+                </SwipeableRow>
+              )}
+              contentContainerStyle={styles.listContent}
+              ItemSeparatorComponent={() => (
+                <View style={styles.itemSeparator} />
+              )}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            />
+          )
+        ) : allPets.length === 0 ? (
           <EmptyState
-            icon={searchQuery ? "🔍" : "👥"}
+            icon={searchQuery ? "🔍" : "🐾"}
             title={
               searchQuery
-                ? t("customers.emptySearchTitle")
-                : t("customers.emptyTitle")
+                ? t("customers.emptyPetsSearchTitle")
+                : t("customers.emptyPetsTitle")
             }
             description={
               searchQuery
-                ? t("customers.emptySearchDescription")
-                : t("customers.emptyDescription")
+                ? t("customers.emptyPetsSearchDescription")
+                : t("customers.emptyPetsDescription")
             }
-            actionLabel={!searchQuery ? t("customers.addCustomer") : undefined}
-            onAction={!searchQuery ? handleAddCustomer : undefined}
           />
         ) : (
           <FlatList
-            data={filteredCustomers}
+            data={allPets}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <SwipeableRow
-                isDeleting={item.id === deletingId}
-                onDelete={() => {
-                  const displayName = formatCustomerName(item);
-                  Alert.alert(
-                    t("customers.deleteTitle"),
-                    t("customers.deletePrompt", { name: displayName }),
-                    [
-                      { text: t("common.cancel"), style: "cancel" },
-                      {
-                        text: t("customers.deleteAction"),
-                        style: "destructive",
-                        onPress: () => {
-                          hapticWarning();
-                          beginDelete(item.id, () =>
-                            startOptimisticDelete(item)
-                          );
-                        },
-                      },
-                    ]
-                  );
-                }}
+              <TouchableOpacity
+                style={styles.petCard}
+                activeOpacity={0.7}
+                onPress={() =>
+                  navigation.navigate("PetForm", {
+                    mode: "edit",
+                    customerId: item.ownerId,
+                    petId: item.id,
+                    pet: item,
+                  })
+                }
               >
-                <CustomerCard
-                  customer={item}
-                  onPress={() => handleCustomerPress(item)}
-                />
-              </SwipeableRow>
+                {item.photo_url ? (
+                  <Image
+                    source={{ uri: item.photo_url }}
+                    style={styles.petImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.petPlaceholder}>
+                    <Text style={styles.petPlaceholderIcon}>🐾</Text>
+                  </View>
+                )}
+                <View style={styles.petInfo}>
+                  <Text style={styles.petName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.petOwner} numberOfLines={1}>
+                    {item.ownerName}
+                  </Text>
+                  <Text style={styles.petMeta} numberOfLines={1}>
+                    {`${
+                      speciesNameById.get(item.species_id || "") ||
+                      t("common.unknown")
+                    } | ${item.breed || t("common.noData")}`}
+                  </Text>
+                  <Text style={styles.petMeta} numberOfLines={1}>
+                    {typeof item.weight === "number"
+                      ? t("appointmentForm.petWeightInline", {
+                          value: item.weight,
+                        })
+                      : t("appointmentForm.petWeightPlaceholder")}
+                  </Text>
+                </View>
+              </TouchableOpacity>
             )}
             contentContainerStyle={styles.listContent}
             ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
@@ -274,6 +429,8 @@ export default function CustomersScreen({ navigation }: Props) {
 }
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
+  const cardBase = getCardStyle(colors);
+  const segment = getSegmentStyles(colors);
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -315,6 +472,71 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       fontWeight: "300",
       color: "#ffffff",
       lineHeight: 28,
+    },
+    segment: {
+      ...segment.container,
+      marginHorizontal: 16,
+      marginTop: 8,
+      marginBottom: 12,
+      paddingVertical: 2,
+    },
+    segmentButton: {
+      ...segment.button,
+      flex: 1,
+      paddingVertical: 12,
+    },
+    segmentButtonActive: {
+      ...segment.buttonActive,
+    },
+    segmentText: {
+      ...segment.text,
+      fontWeight: "700",
+    },
+    segmentTextActive: {
+      ...segment.textActive,
+    },
+    petCard: {
+      ...cardBase,
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 12,
+      gap: 12,
+    },
+    petImage: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: colors.background,
+    },
+    petPlaceholder: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: colors.primarySoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    petPlaceholderIcon: {
+      fontSize: 24,
+    },
+    petInfo: {
+      flex: 1,
+      gap: 2,
+    },
+    petName: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: colors.text,
+    },
+    petOwner: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.muted,
+    },
+    petMeta: {
+      fontSize: 13,
+      color: colors.muted,
+      fontWeight: "400",
     },
   });
 }

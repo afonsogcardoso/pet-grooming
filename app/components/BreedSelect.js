@@ -12,12 +12,15 @@ import { DEFAULT_PET_BREEDS } from '@/utils/petBreeds'
 const fallbackBreeds = DEFAULT_PET_BREEDS.map((name, index) => ({
   id: `fallback-${index}`,
   name,
+  species_id: null,
   scope: 'global'
 }))
 
 export default function BreedSelect({
   value = '',
   onChange,
+  onSelect,
+  speciesId,
   placeholder = 'Selecione a raça',
   className = '',
   inputProps = {}
@@ -29,14 +32,14 @@ export default function BreedSelect({
 
   useEffect(() => {
     let isMounted = true
-    ;(async () => {
-      const { data, error } = await loadPetBreeds()
-      if (!isMounted) return
-      if (!error && data.length) {
-        setBreeds(data)
-      }
-      setLoading(false)
-    })()
+      ; (async () => {
+        const { data, error } = await loadPetBreeds()
+        if (!isMounted) return
+        if (!error && data.length) {
+          setBreeds(data)
+        }
+        setLoading(false)
+      })()
     return () => {
       isMounted = false
     }
@@ -46,38 +49,49 @@ export default function BreedSelect({
     setTextValue(value || '')
   }, [value])
 
+  const filteredBreeds = useMemo(() => {
+    if (!speciesId) return breeds
+    return breeds.filter((breed) => breed.species_id === speciesId || !breed.species_id)
+  }, [breeds, speciesId])
+
   const normalizeBreed = useMemo(() => {
     const map = new Map(
-      breeds.map((breed) => [breed.name.trim().toLowerCase(), breed.name])
+      filteredBreeds.map((breed) => [breed.name.trim().toLowerCase(), breed])
     )
     return (candidate) => {
-      if (!candidate) return ''
-      return map.get(candidate.trim().toLowerCase()) || ''
+      if (!candidate) return null
+      return map.get(candidate.trim().toLowerCase()) || null
     }
-  }, [breeds])
+  }, [filteredBreeds])
 
   const handleChange = (event) => {
     const nextValue = event.target.value
     setTextValue(nextValue)
 
     if (!nextValue.trim()) {
+      onSelect?.(null)
       onChange?.('')
       return
     }
 
     const normalized = normalizeBreed(nextValue)
     if (normalized) {
-      onChange?.(normalized)
+      onSelect?.(normalized)
+      onChange?.(normalized.name)
+    } else {
+      onSelect?.(null)
+      onChange?.(nextValue)
     }
   }
 
   const handleBlur = () => {
     const normalized = normalizeBreed(textValue)
     if (normalized) {
-      setTextValue(normalized)
-      onChange?.(normalized)
+      setTextValue(normalized.name)
+      onSelect?.(normalized)
+      onChange?.(normalized.name)
     } else {
-      setTextValue(value || '')
+      onSelect?.(null)
     }
   }
 
@@ -104,7 +118,7 @@ export default function BreedSelect({
         {...restInputProps}
       />
       <datalist id={inputId}>
-        {breeds.map((breed) => (
+        {filteredBreeds.map((breed) => (
           <option key={breed.id ?? breed.name} value={breed.name}>
             {breed.name}
           </option>

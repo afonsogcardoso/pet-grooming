@@ -122,7 +122,7 @@ export function PhoneInput({
       paddingVertical: 12,
       color: colors.text,
       fontSize: 15,
-      fontWeight: "500",
+      fontWeight: "400",
     },
     codeList: {
       marginTop: 8,

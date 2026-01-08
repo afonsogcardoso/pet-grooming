@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { launchCamera, launchImageLibrary } from "react-native-image-picker";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
 import {
@@ -26,11 +26,12 @@ import {
   type Pet,
 } from "../api/customers";
 import { ScreenHeader } from "../components/ScreenHeader";
-import { Input } from "../components/common/Input";
+import { AutocompleteSelect, Input } from "../components/common";
 import { Button } from "../components/common/Button";
 import { useTranslation } from "react-i18next";
 import { hapticError, hapticSuccess, hapticWarning } from "../utils/haptics";
 import { cameraOptions, galleryOptions } from "../utils/imageOptions";
+import { getPetBreeds, getPetSpecies } from "../api/petAttributes";
 
 type Props = NativeStackScreenProps<any, "PetForm">;
 
@@ -50,6 +51,11 @@ export default function PetFormScreen({ navigation, route }: Props) {
 
   const [name, setName] = useState(pet?.name || "");
   const [breed, setBreed] = useState(pet?.breed || "");
+  const [breedId, setBreedId] = useState<string | null>(pet?.breed_id || null);
+  const [speciesId, setSpeciesId] = useState<string | null>(
+    pet?.species_id || null
+  );
+  const [speciesLabel, setSpeciesLabel] = useState<string>("");
   const [weight, setWeight] = useState(pet?.weight?.toString() || "");
   const [photoUri, setPhotoUri] = useState<string | null>(
     pet?.photo_url || null
@@ -57,6 +63,46 @@ export default function PetFormScreen({ navigation, route }: Props) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const { data: speciesOptions = [], isLoading: isLoadingSpecies } = useQuery({
+    queryKey: ["pet-species"],
+    queryFn: getPetSpecies,
+  });
+
+  const { data: breedOptions = [], isLoading: isLoadingBreeds } = useQuery({
+    queryKey: ["pet-breeds", speciesId],
+    queryFn: () => getPetBreeds({ speciesId }),
+    enabled: Boolean(speciesId),
+  });
+
+  // Prefill species as dog to reduce friction when required
+  useEffect(() => {
+    if (speciesId || speciesLabel) return;
+    const dog = speciesOptions.find((item) => {
+      const n = item.name.trim().toLowerCase();
+      return n === "cão" || n === "cao" || n.includes("dog");
+    });
+    if (dog) {
+      setSpeciesId(dog.id);
+      setSpeciesLabel(dog.name);
+    }
+  }, [speciesId, speciesLabel, speciesOptions]);
+
+  useEffect(() => {
+    if (!speciesId || speciesLabel) return;
+    const match = speciesOptions.find((item) => item.id === speciesId);
+    if (match) {
+      setSpeciesLabel(match.name);
+    }
+  }, [speciesId, speciesLabel, speciesOptions]);
+
+  useEffect(() => {
+    if (!breedId || breed) return;
+    const match = breedOptions.find((item) => item.id === breedId);
+    if (match) {
+      setBreed(match.name);
+    }
+  }, [breed, breedId, breedOptions]);
 
   const createMutation = useMutation({
     mutationFn: (data: {
@@ -328,6 +374,10 @@ export default function PetFormScreen({ navigation, route }: Props) {
       newErrors.name = t("petForm.validationNameRequired");
     }
 
+    if (!speciesId) {
+      newErrors.species = t("petForm.validationSpeciesRequired");
+    }
+
     if (weight && isNaN(Number(weight))) {
       newErrors.weight = t("petForm.validationWeightInvalid");
     }
@@ -343,6 +393,8 @@ export default function PetFormScreen({ navigation, route }: Props) {
       name: name.trim(),
       breed: breed.trim() || null,
       weight: weight ? Number(weight) : null,
+      speciesId,
+      breedId: breedId || null,
     };
 
     if (mode === "create") {
@@ -371,7 +423,6 @@ export default function PetFormScreen({ navigation, route }: Props) {
           <View style={styles.form}>
             {/* Photo Picker */}
             <View style={styles.photoSection}>
-              <Text style={styles.photoLabel}>{t("petForm.photoLabel")}</Text>
               <TouchableOpacity
                 style={styles.photoContainer}
                 onPress={selectImage}
@@ -380,7 +431,11 @@ export default function PetFormScreen({ navigation, route }: Props) {
               >
                 {photoUri ? (
                   <>
-                    <Image source={{ uri: photoUri }} style={styles.photo} />
+                    <Image
+                      source={{ uri: photoUri }}
+                      style={styles.photo}
+                      resizeMode="cover"
+                    />
                     {uploadingPhoto && (
                       <View style={styles.photoOverlay}>
                         <ActivityIndicator color="#fff" size="large" />
@@ -413,12 +468,73 @@ export default function PetFormScreen({ navigation, route }: Props) {
                 error={errors.name}
               />
 
-              <Input
+              <AutocompleteSelect
+                label={t("petForm.speciesLabel")}
+                placeholder={t("petForm.speciesPlaceholder")}
+                value={speciesLabel}
+                onChangeText={(value) => {
+                  setSpeciesLabel(value);
+                  setSpeciesId(null);
+                  setBreed("");
+                  setBreedId(null);
+                }}
+                onSelectOption={(option) => {
+                  if (!option) {
+                    setSpeciesId(null);
+                    setSpeciesLabel("");
+                    setBreed("");
+                    setBreedId(null);
+                    return;
+                  }
+                  setSpeciesId(option.id);
+                  setSpeciesLabel(option.label);
+                  setBreed("");
+                  setBreedId(null);
+                }}
+                options={speciesOptions.map((item) => ({
+                  id: item.id,
+                  label: item.name,
+                }))}
+                selectedId={speciesId || undefined}
+                loading={isLoadingSpecies}
+                emptyLabel={t("petForm.speciesEmpty")}
+                loadingLabel={t("common.loading")}
+                error={errors.species}
+              />
+
+              <AutocompleteSelect
                 label={t("petForm.breedLabel")}
-                placeholder={t("petForm.breedPlaceholder")}
+                placeholder={
+                  speciesId
+                    ? t("petForm.breedPlaceholder")
+                    : t("petForm.breedSelectSpecies")
+                }
                 value={breed}
-                onChangeText={setBreed}
-                error={errors.breed}
+                onChangeText={(value) => {
+                  setBreed(value);
+                  setBreedId(null);
+                }}
+                onSelectOption={(option) => {
+                  if (!option) {
+                    setBreedId(null);
+                    return;
+                  }
+                  setBreed(option.label);
+                  setBreedId(option.id);
+                }}
+                options={breedOptions.map((item) => ({
+                  id: item.id,
+                  label: item.name,
+                }))}
+                selectedId={breedId || undefined}
+                loading={isLoadingBreeds}
+                loadingLabel={t("common.loading")}
+                disabled={!speciesId}
+                emptyLabel={
+                  speciesId
+                    ? t("petForm.breedEmptyForSpecies")
+                    : t("petForm.breedSelectSpecies")
+                }
               />
 
               <Input
@@ -434,36 +550,36 @@ export default function PetFormScreen({ navigation, route }: Props) {
                 <Text style={styles.hintText}>{t("petForm.requiredHint")}</Text>
               </View>
             </View>
+
+            <View style={styles.actions}>
+              <Button
+                title={
+                  mode === "create"
+                    ? t("petForm.createAction")
+                    : t("petForm.saveAction")
+                }
+                onPress={handleSubmit}
+                variant="primary"
+                size="large"
+                loading={isLoading}
+                disabled={isLoading}
+              />
+
+              {mode === "edit" && (
+                <Button
+                  title={t("petForm.deleteAction")}
+                  onPress={handleDeletePet}
+                  variant="ghost"
+                  size="large"
+                  loading={deleteMutation.isPending}
+                  disabled={deleteMutation.isPending}
+                  style={styles.deleteButton}
+                  textStyle={styles.deleteButtonText}
+                />
+              )}
+            </View>
           </View>
         </ScrollView>
-
-        <View style={styles.footer}>
-          <Button
-            title={
-              mode === "create"
-                ? t("petForm.createAction")
-                : t("petForm.saveAction")
-            }
-            onPress={handleSubmit}
-            variant="primary"
-            size="large"
-            loading={isLoading}
-            disabled={isLoading}
-          />
-
-          {mode === "edit" && (
-            <Button
-              title={t("petForm.deleteAction")}
-              onPress={handleDeletePet}
-              variant="ghost"
-              size="large"
-              loading={deleteMutation.isPending}
-              disabled={deleteMutation.isPending}
-              style={styles.deleteButton}
-              textStyle={styles.deleteButtonText}
-            />
-          )}
-        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -490,8 +606,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       backgroundColor: colors.surface,
       borderRadius: 16,
       padding: 16,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
+      borderWidth: 0,
       gap: 4,
     },
     photoSection: {
@@ -510,18 +625,16 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       height: 140,
       borderRadius: 70,
       overflow: "hidden",
-      borderWidth: 2,
-      borderColor: colors.surfaceBorder,
-      borderStyle: "dashed",
+      backgroundColor: colors.surface,
+      position: "relative",
     },
     photo: {
-      width: "100%",
-      height: "100%",
+      ...StyleSheet.absoluteFillObject,
     },
     photoPlaceholder: {
-      width: "100%",
-      height: "100%",
-      backgroundColor: colors.surface,
+      ...StyleSheet.absoluteFillObject,
+      borderRadius: 70,
+      backgroundColor: colors.primarySoft,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -557,21 +670,16 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       color: colors.muted,
       fontStyle: "italic",
     },
-    footer: {
-      position: "absolute",
-      bottom: 0,
-      left: 0,
-      right: 0,
-      padding: 20,
-      backgroundColor: colors.background,
-      borderTopWidth: 1,
-      borderTopColor: colors.surfaceBorder,
+    actions: {
+      marginTop: 16,
+      paddingHorizontal: 0,
+      paddingBottom: 28,
       gap: 12,
     },
     deleteButton: {
-      borderColor: "#ef4444",
-      borderWidth: 1,
       marginTop: 8,
+      backgroundColor: "transparent",
+      borderWidth: 0,
     },
     deleteButtonText: {
       color: "#ef4444",

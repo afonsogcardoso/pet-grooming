@@ -6,6 +6,8 @@ export type ConsumerPet = {
   breed?: string | null;
   weight?: number | null;
   photo_url?: string | null;
+  species_id?: string | null;
+  breed_id?: string | null;
 };
 
 type ConsumerPetsResponse = {
@@ -21,6 +23,8 @@ export async function createConsumerPet(payload: {
   name: string;
   breed?: string | null;
   weight?: number | null;
+  speciesId?: string | null;
+  breedId?: string | null;
 }): Promise<ConsumerPet> {
   const { data } = await api.post<{ data: ConsumerPet }>('/marketplace/pets', payload);
   return data.data;
@@ -28,7 +32,7 @@ export async function createConsumerPet(payload: {
 
 export async function updateConsumerPet(
   id: string,
-  payload: { name?: string; breed?: string | null; weight?: number | null }
+  payload: { name?: string; breed?: string | null; weight?: number | null; speciesId?: string | null; breedId?: string | null }
 ): Promise<ConsumerPet> {
   const { data } = await api.patch<{ data: ConsumerPet }>(`/marketplace/pets/${id}`, payload);
   return data.data;

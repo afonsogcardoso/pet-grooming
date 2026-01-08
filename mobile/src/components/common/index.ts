@@ -4,5 +4,6 @@ export { Avatar } from './Avatar';
 export { EmptyState } from './EmptyState';
 export { MiniMap } from './MiniMap';
 export { PhoneInput } from './PhoneInput';
+export { AutocompleteSelect } from './AutocompleteSelect';
 export { UndoToast } from './UndoToast';
 export { SearchField } from './SearchField';

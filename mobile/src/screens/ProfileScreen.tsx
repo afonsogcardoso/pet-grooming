@@ -493,19 +493,7 @@ export default function ProfileScreen({ navigation }: Props) {
     mutationFn: updateProfile,
     onMutate: () => {
       const previousProfile =
-        queryClient.getQueryData<Profile>(["profile"]) ||
-        data ||
-        (user
-          ? {
-              email: user.email,
-              displayName: user.displayName,
-              firstName: user.firstName,
-              lastName: user.lastName,
-              address: user.address,
-              address2: user.address2,
-              avatarUrl: user.avatarUrl,
-            }
-          : undefined);
+        queryClient.getQueryData<Profile>(["profile"]) || data || undefined;
       if (previousProfile && !queryClient.getQueryData(["profile"])) {
         queryClient.setQueryData(["profile"], previousProfile);
       }
@@ -517,17 +505,7 @@ export default function ProfileScreen({ navigation }: Props) {
         queryClient.getQueryData<Profile>(["profile"]) ||
         context?.previousProfile ||
         data ||
-        (user
-          ? {
-              email: user.email,
-              displayName: user.displayName,
-              firstName: user.firstName,
-              lastName: user.lastName,
-              address: user.address,
-              address2: user.address2,
-              avatarUrl: user.avatarUrl,
-            }
-          : undefined);
+        undefined;
       const merged = current
         ? mergeProfileUpdate(current, updated, payload)
         : updated;
@@ -850,9 +828,7 @@ export default function ProfileScreen({ navigation }: Props) {
       const timestamp = Date.now();
       const extension =
         fileName?.split(".").pop() || uri.split(".").pop() || "jpg";
-      const filename = `profile-${
-        user?.id || "unknown"
-      }-${timestamp}.${extension}`;
+      const filename = `profile-${timestamp}.${extension}`;
       const fileType = `image/${extension === "jpg" ? "jpeg" : extension}`;
 
       formData.append("file", {
@@ -1348,19 +1324,12 @@ export default function ProfileScreen({ navigation }: Props) {
                 <View style={styles.avatarLoading}>
                   <ActivityIndicator color="#fff" />
                 </View>
-              ) : (
-                <View style={styles.avatarBadge}>
-                  <Text style={styles.avatarBadgeText}>📷</Text>
-                </View>
-              )}
+              ) : null}
             </TouchableOpacity>
             <View style={styles.headerInfo}>
               <Text style={styles.headerLabel}>{t("profile.header")}</Text>
               <Text style={styles.headerTitle}>{displayName}</Text>
               <Text style={styles.headerSubtitle}>{emailValue}</Text>
-              {phoneDisplay ? (
-                <Text style={styles.headerDetail}>{phoneDisplay}</Text>
-              ) : null}
               <Text style={styles.headerMeta}>
                 {t("profile.createdAt")}: {createdAtValue}
               </Text>
@@ -1420,7 +1389,7 @@ export default function ProfileScreen({ navigation }: Props) {
                     {t("profile.firstNamePlaceholder")}
                   </Text>
                   <TextInput
-                    style={styles.editInput}
+                    style={styles.inputField}
                     value={editFirstName}
                     onChangeText={handleFirstNameChange}
                     placeholder={t("profile.firstNamePlaceholder")}
@@ -1433,7 +1402,7 @@ export default function ProfileScreen({ navigation }: Props) {
                     {t("profile.lastNamePlaceholder")}
                   </Text>
                   <TextInput
-                    style={styles.editInput}
+                    style={styles.inputField}
                     value={editLastName}
                     onChangeText={handleLastNameChange}
                     placeholder={t("profile.lastNamePlaceholder")}
@@ -1464,11 +1433,8 @@ export default function ProfileScreen({ navigation }: Props) {
                 />
               </View>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  {t("profile.address2Label")}
-                </Text>
                 <TextInput
-                  style={styles.editInput}
+                  style={styles.inputField}
                   value={editAddress2}
                   onChangeText={handleAddress2Change}
                   placeholder={t("profile.address2Placeholder")}
@@ -1562,15 +1528,15 @@ export default function ProfileScreen({ navigation }: Props) {
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>{t("profile.language")}</Text>
-              <View style={styles.languageOptions}>
+              <View style={styles.modeOptions}>
                 {(["pt", "en"] as const).map((lang) => {
                   const isActive = currentLanguage === lang;
                   return (
                     <TouchableOpacity
                       key={lang}
                       style={[
-                        styles.languageOption,
-                        isActive && styles.languageOptionActive,
+                        styles.modeOption,
+                        isActive && styles.modeOptionActive,
                       ]}
                       onPress={() => handleLanguageChange(lang)}
                       disabled={
@@ -1579,8 +1545,8 @@ export default function ProfileScreen({ navigation }: Props) {
                     >
                       <Text
                         style={[
-                          styles.languageOptionText,
-                          isActive && styles.languageOptionTextActive,
+                          styles.modeOptionText,
+                          isActive && styles.modeOptionTextActive,
                         ]}
                       >
                         {t(`language.${lang}`)}
@@ -1959,7 +1925,7 @@ export default function ProfileScreen({ navigation }: Props) {
               {showPasswordForm ? (
                 <>
                   <TextInput
-                    style={styles.editInput}
+                    style={styles.inputField}
                     value={newPassword}
                     onChangeText={handleNewPasswordChange}
                     placeholder={t("profile.newPassword")}
@@ -1968,7 +1934,7 @@ export default function ProfileScreen({ navigation }: Props) {
                     secureTextEntry
                   />
                   <TextInput
-                    style={styles.editInput}
+                    style={styles.inputField}
                     value={confirmPassword}
                     onChangeText={handleConfirmPasswordChange}
                     placeholder={t("profile.confirmPassword")}
@@ -2026,7 +1992,7 @@ export default function ProfileScreen({ navigation }: Props) {
                 {t("marketplaceProfile.nameLabel")}
               </Text>
               <TextInput
-                style={styles.editInput}
+                style={styles.inputField}
                 value={marketplaceName}
                 onChangeText={setMarketplaceName}
                 placeholder={t("marketplaceProfile.namePlaceholder")}
@@ -2038,7 +2004,7 @@ export default function ProfileScreen({ navigation }: Props) {
                 {t("marketplaceProfile.regionLabel")}
               </Text>
               <TextInput
-                style={styles.editInput}
+                style={styles.inputField}
                 value={marketplaceRegion}
                 onChangeText={setMarketplaceRegion}
                 placeholder={t("marketplaceProfile.regionPlaceholder")}
@@ -2051,7 +2017,7 @@ export default function ProfileScreen({ navigation }: Props) {
               </Text>
               <TextInput
                 style={[
-                  styles.editInput,
+                  styles.inputField,
                   { minHeight: 90, textAlignVertical: "top" },
                 ]}
                 value={marketplaceDescription}
@@ -2313,21 +2279,17 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       alignItems: "center",
       justifyContent: "center",
     },
-    editInput: {
-      backgroundColor: colors.surface,
-      borderColor: "transparent",
-      borderWidth: 0,
+    inputField: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
       borderRadius: 12,
       paddingHorizontal: 16,
       paddingVertical: 12,
       color: colors.text,
+      fontSize: 15,
+      fontWeight: "400",
       marginTop: 4,
-      fontSize: 14,
-      shadowColor: "#000",
-      shadowOpacity: 0.04,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 3 },
-      elevation: 2,
     },
     error: {
       color: colors.danger,
@@ -2405,7 +2367,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       backgroundColor: colors.primarySoft,
     },
     languageOptionText: {
-      color: colors.text,
+      color: colors.muted,
       fontWeight: "600",
       fontSize: 14,
     },
@@ -2421,20 +2383,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     modeOption: {
       flex: 1,
       backgroundColor: colors.surface,
-      borderRadius: 12,
-      paddingVertical: 12,
+      borderRadius: 8,
+      paddingVertical: 8,
       alignItems: "center",
-      shadowColor: "#000",
-      shadowOpacity: 0.05,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 3,
     },
     modeOptionActive: {
-      backgroundColor: colors.primarySoft,
+      backgroundColor: colors.switchTrack,
     },
     modeOptionText: {
-      color: colors.text,
+      color: colors.muted,
       fontWeight: "600",
       fontSize: 14,
     },

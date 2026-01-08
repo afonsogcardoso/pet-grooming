@@ -381,7 +381,7 @@ export default function HomeScreen({ navigation }: Props) {
           {nextAppointment ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
-                {t("home.nextAppointmentsTitle")}
+                {t("home.nextAppointmentTitle")}
               </Text>
               <View style={{ marginHorizontal: -4 }}>
                 <AppointmentCard
@@ -490,7 +490,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     heroOverlay: {
       flex: 1,
       padding: 16,
-      justifyContent: "flex-end",
+      justifyContent: "center",
     },
     heroBadge: {
       alignSelf: "flex-start",

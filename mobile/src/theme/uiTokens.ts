@@ -1,4 +1,5 @@
 import type { useBrandingTheme } from './useBrandingTheme';
+import type { ViewStyle, TextStyle } from 'react-native';
 
 type ThemeColors = ReturnType<typeof useBrandingTheme>['colors'];
 
@@ -23,7 +24,7 @@ export const UI_TOKENS = {
   },
 };
 
-export function getCardStyle(colors: ThemeColors) {
+export function getCardStyle(colors: ThemeColors): ViewStyle {
   return {
     backgroundColor: `${colors.surface}`,
     borderRadius: UI_TOKENS.cardRadius,
@@ -31,7 +32,7 @@ export function getCardStyle(colors: ThemeColors) {
     borderWidth: UI_TOKENS.cardBorderWidth,
     borderColor: colors.surfaceBorder,
     ...UI_TOKENS.cardShadow,
-  };
+  } as ViewStyle;
 }
 
 export function getCardVariants(colors: ThemeColors) {
@@ -60,50 +61,56 @@ export function getCardVariants(colors: ThemeColors) {
   return { base, surface, raised, listItem };
 }
 
-export function getSegmentStyles(colors: ThemeColors) {
+export function getSegmentStyles(colors: ThemeColors): {
+  container: ViewStyle;
+  button: ViewStyle;
+  buttonActive: ViewStyle;
+  text: TextStyle;
+  textActive: TextStyle;
+} {
   const { segment } = UI_TOKENS;
 
-  const container = {
-    flexDirection: "row",
+  const container: ViewStyle = {
+    flexDirection: 'row',
     gap: segment.gap,
     paddingHorizontal: segment.paddingHorizontal,
     paddingVertical: segment.paddingVertical,
     borderRadius: segment.containerRadius,
     backgroundColor: `${colors.primary}10`,
-    alignItems: "center",
-    justifyContent: "flex-start",
+    alignItems: 'center',
+    justifyContent: 'flex-start',
   };
 
-  const button = {
+  const button: ViewStyle = {
     minWidth: 0,
     flexShrink: 0,
-    backgroundColor: "transparent",
+    backgroundColor: 'transparent',
     borderWidth: 0,
-    borderColor: "transparent",
+    borderColor: 'transparent',
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderRadius: segment.buttonRadius,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   };
 
-  const buttonActive = {
+  const buttonActive: ViewStyle = {
     backgroundColor: colors.surface,
     borderColor: colors.primarySoft || colors.primary,
     borderWidth: 1,
   };
 
-  const text = {
-    fontWeight: "600",
+  const text: TextStyle = {
+    fontWeight: '600' as TextStyle['fontWeight'],
     color: colors.muted,
     fontSize: 11,
-    textAlign: "center",
-    flexShrink: 1,
+    textAlign: 'center',
+    flexShrink: 1 as any,
   };
 
-  const textActive = {
+  const textActive: TextStyle = {
     color: colors.primary,
-    fontWeight: "700",
+    fontWeight: '700' as TextStyle['fontWeight'],
   };
 
   return { container, button, buttonActive, text, textActive };

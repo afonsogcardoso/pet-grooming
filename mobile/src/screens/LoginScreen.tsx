@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -11,24 +11,24 @@ import {
   ScrollView,
   Platform,
   Alert,
-} from 'react-native';
-import * as AuthSession from 'expo-auth-session';
-import * as WebBrowser from 'expo-web-browser';
-import { Ionicons } from '@expo/vector-icons';
-import { useForm, Controller } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useTranslation } from 'react-i18next';
-import { login } from '../api/auth';
-import { getBranding } from '../api/branding';
-import { getProfile } from '../api/profile';
-import { useAuthStore } from '../state/authStore';
-import { useBrandingTheme } from '../theme/useBrandingTheme';
-import { resolveSupabaseAnonKey, resolveSupabaseUrl } from '../config/supabase';
-import { formatVersionLabel } from '../utils/version';
-import { hapticError, hapticSuccess } from '../utils/haptics';
+} from "react-native";
+import * as AuthSession from "expo-auth-session";
+import * as WebBrowser from "expo-web-browser";
+import { Ionicons } from "@expo/vector-icons";
+import { useForm, Controller } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useTranslation } from "react-i18next";
+import { login } from "../api/auth";
+import { getBranding } from "../api/branding";
+import { getProfile } from "../api/profile";
+import { useAuthStore } from "../state/authStore";
+import { useBrandingTheme } from "../theme/useBrandingTheme";
+import { resolveSupabaseAnonKey, resolveSupabaseUrl } from "../config/supabase";
+import { formatVersionLabel } from "../utils/version";
+import { hapticError, hapticSuccess } from "../utils/haptics";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -40,14 +40,14 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 type Props = NativeStackScreenProps<any>;
 
-const OAUTH_REDIRECT_PATH = 'auth/callback';
+const OAUTH_REDIRECT_PATH = "auth/callback";
 
 function parseAuthParams(url: string | undefined | null) {
   if (!url) return {};
-  const [base, fragment] = url.split('#');
-  const query = base?.split('?')[1];
-  const params = new URLSearchParams(query ?? '');
-  const fragmentParams = new URLSearchParams(fragment ?? '');
+  const [base, fragment] = url.split("#");
+  const query = base?.split("?")[1];
+  const params = new URLSearchParams(query ?? "");
+  const fragmentParams = new URLSearchParams(fragment ?? "");
   const values: Record<string, string> = {};
   params.forEach((value, key) => {
     values[key] = value;
@@ -59,13 +59,15 @@ function parseAuthParams(url: string | undefined | null) {
 }
 
 function isAccountExistsOAuthError(params: Record<string, string>) {
-  const haystack = `${params.error ?? ''} ${params.error_code ?? ''} ${params.error_description ?? ''}`.toLowerCase();
+  const haystack = `${params.error ?? ""} ${params.error_code ?? ""} ${
+    params.error_description ?? ""
+  }`.toLowerCase();
   if (!haystack.trim()) return false;
   if (
-    haystack.includes('user_already_registered') ||
-    haystack.includes('email_already_registered') ||
-    haystack.includes('email_exists') ||
-    haystack.includes('user_already_exists')
+    haystack.includes("user_already_registered") ||
+    haystack.includes("email_already_registered") ||
+    haystack.includes("email_exists") ||
+    haystack.includes("user_already_exists")
   ) {
     return true;
   }
@@ -77,9 +79,15 @@ function isAccountExistsOAuthError(params: Record<string, string>) {
 export default function LoginScreen({ navigation }: Props) {
   const [apiError, setApiError] = useState<string | null>(null);
   const [brandingLogoFailed, setBrandingLogoFailed] = useState(false);
-  const [oauthLoading, setOauthLoading] = useState<'google' | 'apple' | null>(null);
-  const [linkingProvider, setLinkingProvider] = useState<'google' | 'apple' | null>(null);
-  const [pendingLinkProvider, setPendingLinkProvider] = useState<'google' | 'apple' | null>(null);
+  const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(
+    null
+  );
+  const [linkingProvider, setLinkingProvider] = useState<
+    "google" | "apple" | null
+  >(null);
+  const [pendingLinkProvider, setPendingLinkProvider] = useState<
+    "google" | "apple" | null
+  >(null);
   const setTokens = useAuthStore((s) => s.setTokens);
   const setUser = useAuthStore((s) => s.setUser);
   const queryClient = useQueryClient();
@@ -90,13 +98,13 @@ export default function LoginScreen({ navigation }: Props) {
   const showAppleLogin = false;
   const logoSource = useMemo(() => {
     if (!branding?.logo_url || brandingLogoFailed) {
-      return require('../../assets/logo_180x180.png');
+      return require("../../assets/logo_180x180.png");
     }
     return { uri: branding.logo_url };
   }, [branding?.logo_url, brandingLogoFailed]);
 
   const { control, handleSubmit } = useForm<FormValues>({
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: "", password: "" },
     resolver: zodResolver(schema),
   });
 
@@ -115,14 +123,17 @@ export default function LoginScreen({ navigation }: Props) {
       lastName?: string | null;
       address?: string | null;
       address2?: string | null;
-      activeRole?: 'consumer' | 'provider' | null;
+      activeRole?: "consumer" | "provider" | null;
     };
   }) => {
     setApiError(null);
     await setTokens({ token, refreshToken });
 
     try {
-      const profile = await queryClient.fetchQuery({ queryKey: ['profile'], queryFn: getProfile });
+      const profile = await queryClient.fetchQuery({
+        queryKey: ["profile"],
+        queryFn: getProfile,
+      });
       setUser({
         email: profile.email,
         displayName: profile.displayName,
@@ -139,7 +150,9 @@ export default function LoginScreen({ navigation }: Props) {
       }
     }
 
-    await queryClient.fetchQuery({ queryKey: ['branding'], queryFn: getBranding }).catch(() => null);
+    await queryClient
+      .fetchQuery({ queryKey: ["branding"], queryFn: getBranding })
+      .catch(() => null);
 
     if (pendingLinkProvider && token) {
       const providerToLink = pendingLinkProvider;
@@ -148,23 +161,26 @@ export default function LoginScreen({ navigation }: Props) {
     }
   };
 
-  const handleLinkProvider = async (provider: 'google' | 'apple', token: string) => {
+  const handleLinkProvider = async (
+    provider: "google" | "apple",
+    token: string
+  ) => {
     if (linkingProvider) return;
 
     const supabaseUrl = resolveSupabaseUrl();
     const supabaseAnonKey = resolveSupabaseAnonKey();
     if (!supabaseUrl || !supabaseAnonKey) {
       hapticError();
-      Alert.alert(t('common.error'), t('profile.linkConfigError'));
+      Alert.alert(t("common.error"), t("profile.linkConfigError"));
       return;
     }
 
     const providerLabel = t(`login.providers.${provider}`);
     const redirectUri = AuthSession.makeRedirectUri({
-      scheme: 'pawmi',
+      scheme: "pawmi",
       path: OAUTH_REDIRECT_PATH,
     });
-    const scopeParam = provider === 'apple' ? '&scopes=name%20email' : '';
+    const scopeParam = provider === "apple" ? "&scopes=name%20email" : "";
     const requestUrl = `${supabaseUrl}/auth/v1/user/identities/authorize?provider=${provider}&redirect_to=${encodeURIComponent(
       redirectUri
     )}&skip_http_redirect=true${scopeParam}`;
@@ -176,13 +192,16 @@ export default function LoginScreen({ navigation }: Props) {
         headers: {
           Authorization: `Bearer ${token}`,
           apikey: supabaseAnonKey,
-          Accept: 'application/json',
+          Accept: "application/json",
         },
       });
 
       if (!response.ok) {
         hapticError();
-        Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
+        Alert.alert(
+          t("common.error"),
+          t("profile.linkError", { provider: providerLabel })
+        );
         return;
       }
 
@@ -191,22 +210,37 @@ export default function LoginScreen({ navigation }: Props) {
 
       if (!authUrl) {
         hapticError();
-        Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
+        Alert.alert(
+          t("common.error"),
+          t("profile.linkError", { provider: providerLabel })
+        );
         return;
       }
 
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-      if (result.type === 'success') {
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        redirectUri
+      );
+      if (result.type === "success") {
         hapticSuccess();
-        Alert.alert(t('common.done'), t('profile.linkSuccess', { provider: providerLabel }));
-        await queryClient.refetchQueries({ queryKey: ['profile'] });
-      } else if (result.type !== 'cancel' && result.type !== 'dismiss') {
+        Alert.alert(
+          t("common.done"),
+          t("profile.linkSuccess", { provider: providerLabel })
+        );
+        await queryClient.refetchQueries({ queryKey: ["profile"] });
+      } else if (result.type !== "cancel" && result.type !== "dismiss") {
         hapticError();
-        Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
+        Alert.alert(
+          t("common.error"),
+          t("profile.linkError", { provider: providerLabel })
+        );
       }
     } catch {
       hapticError();
-      Alert.alert(t('common.error'), t('profile.linkError', { provider: providerLabel }));
+      Alert.alert(
+        t("common.error"),
+        t("profile.linkError", { provider: providerLabel })
+      );
     } finally {
       setLinkingProvider(null);
     }
@@ -232,19 +266,21 @@ export default function LoginScreen({ navigation }: Props) {
       const message =
         err?.response?.data?.error ??
         err?.response?.data?.message ??
-        t('login.errorFallback');
+        t("login.errorFallback");
       setApiError(message);
     },
   });
 
-  const handleOAuth = async (provider: 'google' | 'apple') => {
+  const handleOAuth = async (provider: "google" | "apple") => {
     if (isPending || oauthLoading) return;
 
     const supabaseUrl = resolveSupabaseUrl();
     if (!supabaseUrl) {
       hapticError();
-      setApiError(t('login.errors.oauthConfig'));
-      console.warn('[auth] Missing Supabase URL. Check EXPO_PUBLIC_SUPABASE_URL.');
+      setApiError(t("login.errors.oauthConfig"));
+      console.warn(
+        "[auth] Missing Supabase URL. Check EXPO_PUBLIC_SUPABASE_URL."
+      );
       return;
     }
 
@@ -253,35 +289,38 @@ export default function LoginScreen({ navigation }: Props) {
 
     const providerLabel = t(`login.providers.${provider}`);
     const redirectUri = AuthSession.makeRedirectUri({
-      scheme: 'pawmi',
+      scheme: "pawmi",
       path: OAUTH_REDIRECT_PATH,
     });
-    const scopeParam = provider === 'apple' ? '&scopes=name%20email' : '';
+    const scopeParam = provider === "apple" ? "&scopes=name%20email" : "";
     const authUrl = `${supabaseUrl}/auth/v1/authorize?provider=${provider}&redirect_to=${encodeURIComponent(
       redirectUri
     )}${scopeParam}`;
 
     try {
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        redirectUri
+      );
 
-      if (result.type !== 'success') {
-        if (result.type !== 'cancel' && result.type !== 'dismiss') {
+      if (result.type !== "success") {
+        if (result.type !== "cancel" && result.type !== "dismiss") {
           hapticError();
-          setApiError(t('login.errors.oauth', { provider: providerLabel }));
+          setApiError(t("login.errors.oauth", { provider: providerLabel }));
         }
         return;
       }
 
       const params = parseAuthParams(result.url);
       if (params.error) {
-        console.warn('[auth] OAuth returned error params', params);
+        console.warn("[auth] OAuth returned error params", params);
         if (isAccountExistsOAuthError(params)) {
           setPendingLinkProvider(provider);
           hapticError();
-          setApiError(t('login.errors.oauthAccountExists'));
+          setApiError(t("login.errors.oauthAccountExists"));
         } else {
           hapticError();
-          setApiError(t('login.errors.oauth', { provider: providerLabel }));
+          setApiError(t("login.errors.oauth", { provider: providerLabel }));
         }
         return;
       }
@@ -290,23 +329,28 @@ export default function LoginScreen({ navigation }: Props) {
       const refreshToken = params.refresh_token;
 
       if (!accessToken) {
-        console.warn('[auth] OAuth missing access token', { params: Object.keys(params) });
+        console.warn("[auth] OAuth missing access token", {
+          params: Object.keys(params),
+        });
         hapticError();
-        setApiError(t('login.errors.oauth', { provider: providerLabel }));
+        setApiError(t("login.errors.oauth", { provider: providerLabel }));
         return;
       }
 
-      await completeLogin({ token: accessToken, refreshToken: refreshToken ?? null });
+      await completeLogin({
+        token: accessToken,
+        refreshToken: refreshToken ?? null,
+      });
       hapticSuccess();
     } catch (error: any) {
-      console.error('[auth] OAuth error', {
+      console.error("[auth] OAuth error", {
         provider,
         message: error?.message,
         code: error?.code,
         error,
       });
       hapticError();
-      setApiError(t('login.errors.oauth', { provider: providerLabel }));
+      setApiError(t("login.errors.oauth", { provider: providerLabel }));
     } finally {
       setOauthLoading(null);
     }
@@ -317,8 +361,14 @@ export default function LoginScreen({ navigation }: Props) {
   });
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.headerSection}>
           <View style={styles.iconCircle}>
             <Image
@@ -327,8 +377,8 @@ export default function LoginScreen({ navigation }: Props) {
               onError={() => setBrandingLogoFailed(true)}
             />
           </View>
-          <Text style={styles.welcomeText}>{t('login.welcomeBack')}</Text>
-          <Text style={styles.subtitle}>{t('login.subtitle')}</Text>
+          <Text style={styles.welcomeText}>{t("login.welcomeBack")}</Text>
+          <Text style={styles.subtitle}>{t("login.subtitle")}</Text>
         </View>
 
         <View style={styles.formCard}>
@@ -338,18 +388,22 @@ export default function LoginScreen({ navigation }: Props) {
                 styles.oauthButton,
                 (isPending || oauthLoading) && styles.buttonDisabled,
               ]}
-              onPress={() => handleOAuth('google')}
+              onPress={() => handleOAuth("google")}
               disabled={isPending || oauthLoading !== null}
             >
-              {oauthLoading === 'google' ? (
+              {oauthLoading === "google" ? (
                 <View style={styles.oauthButtonContent}>
                   <ActivityIndicator color={colors.text} size="small" />
-                  <Text style={styles.oauthButtonText}>{t('common.loading')}</Text>
+                  <Text style={styles.oauthButtonText}>
+                    {t("common.loading")}
+                  </Text>
                 </View>
               ) : (
                 <View style={styles.oauthButtonContent}>
                   <Ionicons name="logo-google" size={18} color={colors.text} />
-                  <Text style={styles.oauthButtonText}>{t('login.actions.google')}</Text>
+                  <Text style={styles.oauthButtonText}>
+                    {t("login.actions.google")}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -360,18 +414,22 @@ export default function LoginScreen({ navigation }: Props) {
                   styles.oauthButton,
                   (isPending || oauthLoading) && styles.buttonDisabled,
                 ]}
-                onPress={() => handleOAuth('apple')}
+                onPress={() => handleOAuth("apple")}
                 disabled={isPending || oauthLoading !== null}
               >
-                {oauthLoading === 'apple' ? (
+                {oauthLoading === "apple" ? (
                   <View style={styles.oauthButtonContent}>
                     <ActivityIndicator color={colors.text} size="small" />
-                    <Text style={styles.oauthButtonText}>{t('common.loading')}</Text>
+                    <Text style={styles.oauthButtonText}>
+                      {t("common.loading")}
+                    </Text>
                   </View>
                 ) : (
                   <View style={styles.oauthButtonContent}>
                     <Ionicons name="logo-apple" size={18} color={colors.text} />
-                    <Text style={styles.oauthButtonText}>{t('login.actions.apple')}</Text>
+                    <Text style={styles.oauthButtonText}>
+                      {t("login.actions.apple")}
+                    </Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -380,92 +438,96 @@ export default function LoginScreen({ navigation }: Props) {
 
           <View style={styles.separator}>
             <View style={styles.separatorLine} />
-            <Text style={styles.separatorText}>{t('login.or')}</Text>
+            <Text style={styles.separatorText}>{t("login.or")}</Text>
             <View style={styles.separatorLine} />
           </View>
 
-        <Controller
-          control={control}
-          name="email"
-          render={({ field: { onChange, value }, fieldState: { error } }) => (
-            <View style={styles.field}>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.inputIcon}>📧</Text>
-                <TextInput
-                  style={[styles.input, error ? styles.inputError : null]}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder={t('common.email')}
-                  placeholderTextColor={colors.muted}
-                />
+          <Controller
+            control={control}
+            name="email"
+            render={({ field: { onChange, value }, fieldState: { error } }) => (
+              <View style={styles.field}>
+                <View style={styles.inputWrapper}>
+                  <Text style={styles.inputIcon}>📧</Text>
+                  <TextInput
+                    style={[styles.input, error ? styles.inputError : null]}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    value={value}
+                    onChangeText={onChange}
+                    placeholder={t("common.email")}
+                    placeholderTextColor={colors.muted}
+                  />
+                </View>
+                {error && <Text style={styles.error}>{error.message}</Text>}
               </View>
-              {error && <Text style={styles.error}>{error.message}</Text>}
-            </View>
-          )}
-        />
+            )}
+          />
 
-        <Controller
-          control={control}
-          name="password"
-          render={({ field: { onChange, value }, fieldState: { error } }) => (
-            <View style={styles.field}>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.inputIcon}>🔒</Text>
-                <TextInput
-                  style={[styles.input, error ? styles.inputError : null]}
-                  secureTextEntry
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder={t('common.password')}
-                  placeholderTextColor={colors.muted}
-                />
+          <Controller
+            control={control}
+            name="password"
+            render={({ field: { onChange, value }, fieldState: { error } }) => (
+              <View style={styles.field}>
+                <View style={styles.inputWrapper}>
+                  <Text style={styles.inputIcon}>🔒</Text>
+                  <TextInput
+                    style={[styles.input, error ? styles.inputError : null]}
+                    secureTextEntry
+                    value={value}
+                    onChangeText={onChange}
+                    placeholder={t("common.password")}
+                    placeholderTextColor={colors.muted}
+                  />
+                </View>
+                {error && <Text style={styles.error}>{error.message}</Text>}
               </View>
-              {error && <Text style={styles.error}>{error.message}</Text>}
+            )}
+          />
+
+          {apiError && (
+            <View style={styles.errorCard}>
+              <Text style={styles.errorText}>{apiError}</Text>
             </View>
           )}
-        />
 
-        {apiError && (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{apiError}</Text>
-          </View>
-        )}
-
-        <TouchableOpacity 
-          style={[styles.button, isPending && styles.buttonDisabled]} 
-          onPress={onSubmit} 
-          disabled={isPending}
-        >
-          {isPending ? (
-            <View style={styles.buttonContent}>
-              <ActivityIndicator color="#fff" size="small" />
-              <Text style={styles.buttonText}>{t('common.loading')}</Text>
-            </View>
-          ) : (
-            <Text style={styles.buttonText}>{t('login.signIn')}</Text>
-          )}
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, isPending && styles.buttonDisabled]}
+            onPress={onSubmit}
+            disabled={isPending}
+          >
+            {isPending ? (
+              <View style={styles.buttonContent}>
+                <ActivityIndicator color="#fff" size="small" />
+                <Text style={styles.buttonText}>{t("common.loading")}</Text>
+              </View>
+            ) : (
+              <Text style={styles.buttonText}>{t("login.signIn")}</Text>
+            )}
+          </TouchableOpacity>
 
           <View style={styles.registerRow}>
-            <Text style={styles.registerText}>{t('login.noAccount')}</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.registerLink}>{t('login.createAccount')}</Text>
+            <Text style={styles.registerText}>{t("login.noAccount")}</Text>
+            <TouchableOpacity onPress={() => navigation.navigate("Register")}>
+              <Text style={styles.registerLink}>
+                {t("login.createAccount")}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Pawmi App</Text>
-          {versionLabel ? <Text style={styles.footerVersion}>{versionLabel}</Text> : null}
+          {versionLabel ? (
+            <Text style={styles.footerVersion}>{versionLabel}</Text>
+          ) : null}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -474,11 +536,11 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     scrollContent: {
       flexGrow: 1,
-      justifyContent: 'space-between',
+      justifyContent: "space-between",
       paddingBottom: 24,
     },
     headerSection: {
-      alignItems: 'center',
+      alignItems: "center",
       paddingTop: 60,
       paddingHorizontal: 24,
     },
@@ -487,28 +549,28 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       height: 80,
       borderRadius: 40,
       backgroundColor: colors.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       marginBottom: 24,
     },
     iconImage: {
-      width: '100%',
-      height: '100%',
+      width: "100%",
+      height: "100%",
       borderRadius: 40,
-      resizeMode: 'cover',
+      resizeMode: "cover",
     },
     welcomeText: {
       fontSize: 32,
-      fontWeight: '800',
+      fontWeight: "800",
       color: colors.text,
       marginBottom: 8,
-      textAlign: 'center',
+      textAlign: "center",
     },
     subtitle: {
       fontSize: 16,
       color: colors.muted,
-      textAlign: 'center',
-      fontWeight: '500',
+      textAlign: "center",
+      fontWeight: "500",
     },
     formCard: {
       paddingHorizontal: 24,
@@ -522,23 +584,23 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       backgroundColor: colors.surface,
       borderRadius: 16,
       paddingVertical: 16,
-      alignItems: 'center',
+      alignItems: "center",
       borderWidth: 1.5,
       borderColor: colors.surfaceBorder,
     },
     oauthButtonContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 10,
     },
     oauthButtonText: {
       color: colors.text,
-      fontWeight: '700',
+      fontWeight: "700",
       fontSize: 16,
     },
     separator: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       marginBottom: 16,
     },
     separatorLine: {
@@ -549,17 +611,17 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     separatorText: {
       marginHorizontal: 12,
       color: colors.muted,
-      fontWeight: '600',
+      fontWeight: "600",
       fontSize: 12,
       letterSpacing: 0.4,
-      textTransform: 'uppercase',
+      textTransform: "uppercase",
     },
     field: {
       marginBottom: 20,
     },
     inputWrapper: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       backgroundColor: colors.surface,
       borderRadius: 16,
       borderWidth: 1.5,
@@ -575,7 +637,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       paddingVertical: 16,
       color: colors.text,
       fontSize: 16,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     inputError: {
       borderColor: colors.danger,
@@ -586,10 +648,10 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       marginTop: 8,
       marginLeft: 16,
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     errorCard: {
-      backgroundColor: '#fef2f2',
+      backgroundColor: "#fef2f2",
       borderRadius: 12,
       padding: 12,
       marginBottom: 16,
@@ -599,59 +661,59 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     errorText: {
       color: colors.danger,
       fontSize: 14,
-      fontWeight: '600',
-      textAlign: 'center',
+      fontWeight: "600",
+      textAlign: "center",
     },
     button: {
       backgroundColor: colors.primary,
       borderRadius: 16,
       paddingVertical: 18,
-      alignItems: 'center',
+      alignItems: "center",
       marginTop: 12,
     },
     buttonDisabled: {
       opacity: 0.7,
     },
     buttonContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 10,
     },
     buttonText: {
-      color: '#fff',
-      fontWeight: '700',
+      color: "#fff",
+      fontWeight: "700",
       fontSize: 17,
       letterSpacing: 0.5,
     },
     registerRow: {
       marginTop: 16,
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "center",
+      alignItems: "center",
       gap: 6,
     },
     registerText: {
       color: colors.muted,
-      fontWeight: '500',
+      fontWeight: "500",
     },
     registerLink: {
       color: colors.primary,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     footer: {
-      alignItems: 'center',
+      alignItems: "center",
       paddingBottom: 20,
     },
     footerText: {
       color: colors.muted,
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     footerVersion: {
       marginTop: 4,
       color: colors.muted,
       fontSize: 11,
-      fontWeight: '500',
+      fontWeight: "500",
     },
   });
 }

@@ -385,6 +385,7 @@
     },
     "labels": {
       "name": "Nome do animal *",
+      "species": "Espécie *",
       "breed": "Raça",
       "age": "Idade (anos)",
       "weight": "Peso (kg)",
@@ -395,6 +396,7 @@
     },
     "placeholders": {
       "name": "Max",
+      "species": "Escolhe a espécie",
       "breed": "Golden Retriever",
       "age": "5 anos",
       "weight": "25 kg",
@@ -411,7 +413,8 @@
       "removePhoto": "Remover fotografia"
     },
     "errors": {
-      "create": "Erro ao criar animal: {{message}}"
+      "create": "Erro ao criar animal: {{message}}",
+      "speciesRequired": "Seleciona uma espécie."
     }
   },
   "customersPage": {
@@ -692,7 +695,7 @@
       },
       "success": "Perfil atualizado.",
       "saving": "A guardar...",
-      "save": "Guardar alterações"
+      "save": "Guardar"
     },
     "passwordForm": {
       "errors": {

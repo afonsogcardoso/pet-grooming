@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -15,11 +15,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { launchCamera, launchImageLibrary } from "react-native-image-picker";
 import { ScreenHeader } from "../components/ScreenHeader";
-import { Button, Input } from "../components/common";
+import { AutocompleteSelect, Button, Input } from "../components/common";
 import {
   ConsumerPet,
   createConsumerPet,
@@ -27,6 +27,7 @@ import {
   deleteConsumerPet,
   uploadConsumerPetPhoto,
 } from "../api/consumerPets";
+import { getPetBreeds, getPetSpecies } from "../api/petAttributes";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
 import { hapticError, hapticSuccess, hapticWarning } from "../utils/haptics";
 import { cameraOptions, galleryOptions } from "../utils/imageOptions";
@@ -44,6 +45,11 @@ export default function ConsumerPetFormScreen({ navigation, route }: Props) {
 
   const [name, setName] = useState(pet?.name || "");
   const [breed, setBreed] = useState(pet?.breed || "");
+  const [breedId, setBreedId] = useState<string | null>(pet?.breed_id || null);
+  const [speciesId, setSpeciesId] = useState<string | null>(
+    pet?.species_id || null
+  );
+  const [speciesLabel, setSpeciesLabel] = useState<string>("");
   const [weight, setWeight] = useState(
     pet?.weight !== undefined && pet?.weight !== null ? String(pet.weight) : ""
   );
@@ -51,6 +57,46 @@ export default function ConsumerPetFormScreen({ navigation, route }: Props) {
     pet?.photo_url || null
   );
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const { data: speciesOptions = [], isLoading: loadingSpecies } = useQuery({
+    queryKey: ["pet-species"],
+    queryFn: getPetSpecies,
+  });
+
+  const { data: breedOptions = [], isLoading: loadingBreeds } = useQuery({
+    queryKey: ["pet-breeds", speciesId],
+    queryFn: () => getPetBreeds({ speciesId }),
+    enabled: Boolean(speciesId),
+  });
+
+  // Prefill species as dog to keep flow simple when required
+  useEffect(() => {
+    if (speciesId || speciesLabel) return;
+    const dog = speciesOptions.find((item) => {
+      const n = item.name.trim().toLowerCase();
+      return n === "cão" || n === "cao" || n.includes("dog");
+    });
+    if (dog) {
+      setSpeciesId(dog.id);
+      setSpeciesLabel(dog.name);
+    }
+  }, [speciesId, speciesLabel, speciesOptions]);
+
+  useEffect(() => {
+    if (!speciesId || speciesLabel) return;
+    const match = speciesOptions.find((item) => item.id === speciesId);
+    if (match) {
+      setSpeciesLabel(match.name);
+    }
+  }, [speciesId, speciesLabel, speciesOptions]);
+
+  useEffect(() => {
+    if (!breedId || breed) return;
+    const match = breedOptions.find((item) => item.id === breedId);
+    if (match) {
+      setBreed(match.name);
+    }
+  }, [breed, breedId, breedOptions]);
 
   const uploadPetPhotoMutation = useMutation({
     mutationFn: async ({ petId, uri }: { petId: string; uri: string }) => {
@@ -274,6 +320,13 @@ export default function ConsumerPetFormScreen({ navigation, route }: Props) {
       );
       return;
     }
+    if (!speciesId) {
+      Alert.alert(
+        t("consumerPetsForm.requiredTitle"),
+        t("consumerPetsForm.speciesRequired")
+      );
+      return;
+    }
     if (weight && Number.isNaN(weightValue)) {
       Alert.alert(t("common.error"), t("consumerPetsForm.weightInvalid"));
       return;
@@ -286,6 +339,8 @@ export default function ConsumerPetFormScreen({ navigation, route }: Props) {
           name: trimmedName,
           breed: trimmedBreed || null,
           weight: Number.isNaN(weightValue) ? null : weightValue,
+          speciesId,
+          breedId: breedId || null,
         },
       });
       return;
@@ -295,6 +350,8 @@ export default function ConsumerPetFormScreen({ navigation, route }: Props) {
       name: trimmedName,
       breed: trimmedBreed || null,
       weight: Number.isNaN(weightValue) ? null : weightValue,
+      speciesId,
+      breedId: breedId || null,
     });
   };
 
@@ -379,11 +436,72 @@ export default function ConsumerPetFormScreen({ navigation, route }: Props) {
               onChangeText={setName}
               placeholder={t("consumerPetsForm.namePlaceholder")}
             />
-            <Input
+            <AutocompleteSelect
+              label={t("consumerPetsForm.speciesLabel")}
+              placeholder={t("consumerPetsForm.speciesPlaceholder")}
+              value={speciesLabel}
+              onChangeText={(value) => {
+                setSpeciesLabel(value);
+                setSpeciesId(null);
+                setBreed("");
+                setBreedId(null);
+              }}
+              onSelectOption={(option) => {
+                if (!option) {
+                  setSpeciesId(null);
+                  setSpeciesLabel("");
+                  setBreed("");
+                  setBreedId(null);
+                  return;
+                }
+                setSpeciesId(option.id);
+                setSpeciesLabel(option.label);
+                setBreed("");
+                setBreedId(null);
+              }}
+              options={speciesOptions.map((item) => ({
+                id: item.id,
+                label: item.name,
+              }))}
+              selectedId={speciesId || undefined}
+              loading={loadingSpecies}
+              emptyLabel={t("consumerPetsForm.speciesEmpty")}
+              loadingLabel={t("common.loading")}
+            />
+
+            <AutocompleteSelect
               label={t("consumerPetsForm.breedLabel")}
+              placeholder={
+                speciesId
+                  ? t("consumerPetsForm.breedPlaceholder")
+                  : t("consumerPetsForm.breedSelectSpecies")
+              }
               value={breed}
-              onChangeText={setBreed}
-              placeholder={t("consumerPetsForm.breedPlaceholder")}
+              onChangeText={(value) => {
+                setBreed(value);
+                setBreedId(null);
+              }}
+              onSelectOption={(option) => {
+                if (!option) {
+                  setBreedId(null);
+                  return;
+                }
+                setBreed(option.label);
+                setBreedId(option.id);
+              }}
+              options={breedOptions.map((item) => ({
+                id: item.id,
+                label: item.name,
+              }))}
+              selectedId={breedId || undefined}
+              loading={loadingBreeds}
+              loadingLabel={t("common.loading")}
+              disabled={!speciesId}
+              emptyLabel={
+                speciesId
+                  ? t("consumerPetsForm.breedEmptyForSpecies")
+                  : t("consumerPetsForm.breedSelectSpecies")
+              }
             />
             <Input
               label={t("consumerPetsForm.weightLabel")}

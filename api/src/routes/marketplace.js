@@ -53,7 +53,9 @@ const CONSUMER_PET_SELECT = [
   'name',
   'breed',
   'weight',
-  'photo_url'
+  'photo_url',
+  'species_id',
+  'breed_id'
 ].join(',')
 
 const MARKETPLACE_APPOINTMENT_SELECT = `
@@ -97,6 +99,13 @@ function normalizeNumber(value) {
   if (value === undefined || value === null || value === '') return null
   const parsed = Number(value)
   return Number.isNaN(parsed) ? null : parsed
+}
+
+function normalizeUuid(value) {
+  const trimmed = normalizeString(value)
+  if (!trimmed) return null
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  return uuidRegex.test(trimmed) ? trimmed : null
 }
 
 function normalizeDate(value) {
@@ -144,6 +153,43 @@ function coerceOffset(value) {
   const parsed = Number.parseInt(value, 10)
   if (Number.isNaN(parsed)) return 0
   return Math.max(parsed, 0)
+}
+
+function applyPetAttributes(payload) {
+  if (Object.prototype.hasOwnProperty.call(payload, 'speciesId')) {
+    payload.species_id = normalizeUuid(payload.speciesId)
+    delete payload.speciesId
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'species_id')) {
+    payload.species_id = normalizeUuid(payload.species_id)
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'breedId')) {
+    payload.breed_id = normalizeUuid(payload.breedId)
+    delete payload.breedId
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'breed_id')) {
+    payload.breed_id = normalizeUuid(payload.breed_id)
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'breed')) {
+    payload.breed = normalizeString(payload.breed)
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'name')) {
+    payload.name = normalizeString(payload.name)
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'weight')) {
+    payload.weight = normalizeNumber(payload.weight)
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'photo_url') || Object.prototype.hasOwnProperty.call(payload, 'photoUrl')) {
+    payload.photo_url = normalizeString(payload.photo_url || payload.photoUrl)
+    delete payload.photoUrl
+  }
+
+  return payload
 }
 
 async function loadMarketplaceAccountBySlug(supabaseAdmin, slug) {
@@ -266,11 +312,8 @@ router.post('/pets', async (req, res) => {
   const user = await getAuthenticatedUser(req)
   if (!user) return res.status(401).json({ error: 'Unauthorized' })
 
-  const payload = sanitizeBody(req.body || {})
-  const name = normalizeString(payload.name)
-  const breed = normalizeString(payload.breed)
-  const weight = normalizeNumber(payload.weight)
-  const photoUrl = normalizeString(payload.photo_url || payload.photoUrl)
+  const payload = applyPetAttributes(sanitizeBody(req.body || {}))
+  const name = payload.name
 
   if (!name) return res.status(400).json({ error: 'pet_required' })
 
@@ -279,9 +322,11 @@ router.post('/pets', async (req, res) => {
     .insert({
       user_id: user.id,
       name,
-      breed,
-      weight,
-      photo_url: photoUrl
+      breed: payload.breed,
+      weight: payload.weight,
+      photo_url: payload.photo_url,
+      species_id: payload.species_id,
+      breed_id: payload.breed_id
     })
     .select(CONSUMER_PET_SELECT)
     .single()
@@ -304,14 +349,14 @@ router.patch('/pets/:id', async (req, res) => {
   const id = normalizeString(req.params.id)
   if (!id) return res.status(400).json({ error: 'missing_id' })
 
-  const payload = sanitizeBody(req.body || {})
+  const payload = applyPetAttributes(sanitizeBody(req.body || {}))
   const updates = {}
   if (payload.name !== undefined) updates.name = normalizeString(payload.name)
-  if (payload.breed !== undefined) updates.breed = normalizeString(payload.breed)
-  if (payload.weight !== undefined) updates.weight = normalizeNumber(payload.weight)
-  if (payload.photo_url !== undefined || payload.photoUrl !== undefined) {
-    updates.photo_url = normalizeString(payload.photo_url || payload.photoUrl)
-  }
+  if (payload.breed !== undefined) updates.breed = payload.breed
+  if (payload.weight !== undefined) updates.weight = payload.weight
+  if (payload.photo_url !== undefined) updates.photo_url = payload.photo_url
+  if (payload.species_id !== undefined) updates.species_id = payload.species_id
+  if (payload.breed_id !== undefined) updates.breed_id = payload.breed_id
 
   if (Object.keys(updates).length === 0) {
     return res.status(400).json({ error: 'missing_fields' })

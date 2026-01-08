@@ -6,6 +6,8 @@ export type Pet = {
   breed?: string | null;
   weight?: number | null;
   photo_url?: string | null;
+  species_id?: string | null;
+  breed_id?: string | null;
 };
 
 export type Customer = {
@@ -47,6 +49,8 @@ type CreatePetPayload = {
   name: string;
   breed?: string | null;
   weight?: number | null;
+  speciesId?: string | null;
+  breedId?: string | null;
 };
 
 export async function getCustomers(): Promise<Customer[]> {

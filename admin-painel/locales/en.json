@@ -369,8 +369,8 @@
       "address": "Optional, but helps if you need to navigate later."
     },
     "buttons": {
-      "save": "💾 Save Customer",
-      "update": "💾 Update Customer",
+      "save": "Save",
+      "update": "Update",
       "cancel": "Cancel",
       "delete": "Delete Customer"
     },
@@ -385,6 +385,7 @@
     },
     "labels": {
       "name": "Pet Name *",
+      "species": "Species *",
       "breed": "Breed",
       "age": "Age (years)",
       "weight": "Weight (kg)",
@@ -395,6 +396,7 @@
     },
     "placeholders": {
       "name": "Max",
+      "species": "Select the species",
       "breed": "Golden Retriever",
       "age": "5 yrs",
       "weight": "25.5 kg",
@@ -411,7 +413,8 @@
       "removePhoto": "Remove photo"
     },
     "errors": {
-      "create": "Error creating pet: {{message}}"
+      "create": "Error creating pet: {{message}}",
+      "speciesRequired": "Please select a species."
     }
   },
   "customersPage": {
@@ -692,7 +695,7 @@
       },
       "success": "Profile updated.",
       "saving": "Saving...",
-      "save": "Save changes"
+      "save": "Save"
     },
     "passwordForm": {
       "errors": {

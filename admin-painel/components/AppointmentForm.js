@@ -14,6 +14,7 @@ import {
     updateCustomer
 } from '@/lib/customerService'
 import { loadServices } from '@/lib/serviceService'
+import { loadPetSpecies } from '@/lib/breedService'
 import { useTranslation } from '@/components/TranslationProvider'
 import { formatCustomerName } from '@/lib/customerName'
 import BreedSelect from '@/components/BreedSelect'
@@ -51,6 +52,9 @@ export default function AppointmentForm({
     const [loadingPets, setLoadingPets] = useState(false)
     const [services, setServices] = useState([])
     const [loadingServices, setLoadingServices] = useState(true)
+    const [speciesOptions, setSpeciesOptions] = useState([])
+    const [loadingSpecies, setLoadingSpecies] = useState(true)
+    const [defaultSpeciesId, setDefaultSpeciesId] = useState('')
     const [showCustomerModal, setShowCustomerModal] = useState(false)
     const [showPetModal, setShowPetModal] = useState(false)
 
@@ -67,6 +71,8 @@ export default function AppointmentForm({
     })
     const [petFormData, setPetFormData] = useState({
         name: '',
+        speciesId: '',
+        breedId: '',
         breed: '',
         age: '',
         weight: '',
@@ -160,6 +166,7 @@ export default function AppointmentForm({
         fetchCustomers()
         fetchServicesList()
         fetchCustomerPetIndex()
+        fetchSpeciesList()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
@@ -257,6 +264,35 @@ export default function AppointmentForm({
             setServices(data)
         }
         setLoadingServices(false)
+    }
+
+    async function fetchSpeciesList() {
+        setLoadingSpecies(true)
+        const { data, error } = await loadPetSpecies()
+
+        if (error) {
+            console.error('Error loading pet species:', error)
+            setSpeciesOptions([])
+            setLoadingSpecies(false)
+            return
+        }
+
+        const species = data || []
+        const normalizeName = (name) =>
+            (name || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+        const defaultSpecies =
+            species.find((item) => normalizeName(item.name) === 'cao') || species[0] || null
+
+        setSpeciesOptions(species)
+        setDefaultSpeciesId((prev) => prev || defaultSpecies?.id || '')
+        setPetFormData((prev) => ({
+            ...prev,
+            speciesId: prev.speciesId || defaultSpecies?.id || ''
+        }))
+        setLoadingSpecies(false)
     }
 
     async function fetchCustomerPetIndex() {
@@ -365,6 +401,15 @@ export default function AppointmentForm({
         }))
     }
 
+    function handleSpeciesChange(speciesId) {
+        setPetFormData((prev) => ({
+            ...prev,
+            speciesId,
+            breedId: '',
+            breed: ''
+        }))
+    }
+
     async function handleCreateCustomer(e) {
         e.preventDefault()
         const payload = {
@@ -406,9 +451,15 @@ export default function AppointmentForm({
             alert(t('appointmentForm.messages.selectCustomerFirst'))
             return
         }
+        if (!petFormData.speciesId) {
+            alert(t('petForm.errors.speciesRequired'))
+            return
+        }
         const petData = {
             customer_id: formData.customer_id,
             name: petFormData.name,
+            species_id: petFormData.speciesId,
+            breed_id: petFormData.breedId || null,
             breed: petFormData.breed,
             age: petFormData.age ? parseInt(petFormData.age) : null,
             weight: petFormData.weight ? parseFloat(petFormData.weight) : null,
@@ -427,6 +478,8 @@ export default function AppointmentForm({
             setSearchTerm(formatSearchLabel(newPet.name, formatCustomerName(customer)))
             setPetFormData({
                 name: '',
+                speciesId: defaultSpeciesId,
+                breedId: '',
                 breed: '',
                 age: '',
                 weight: '',
@@ -496,9 +549,11 @@ export default function AppointmentForm({
                 !customerFormData.firstName ||
                 !customerFormData.lastName ||
                 !customerFormData.phone ||
-                !petFormData.name
+                !petFormData.name ||
+                !petFormData.speciesId
             ) {
                 alert(t('appointmentForm.messages.newCustomerPetRequired'))
+                setIsSubmitting(false)
                 return
             }
 
@@ -517,6 +572,7 @@ export default function AppointmentForm({
                         message: customerError?.message || 'Unknown error'
                     })
                 )
+                setIsSubmitting(false)
                 return
             }
             customerId = newCustomer[0].id
@@ -524,6 +580,8 @@ export default function AppointmentForm({
             const { data: newPet, error: petError } = await createPet({
                 customer_id: customerId,
                 name: petFormData.name,
+                species_id: petFormData.speciesId,
+                breed_id: petFormData.breedId || null,
                 breed: petFormData.breed || '',
                 age: petFormData.age ? parseInt(petFormData.age) : null,
                 weight: petFormData.weight ? parseFloat(petFormData.weight) : null,
@@ -535,6 +593,7 @@ export default function AppointmentForm({
                         message: petError?.message || 'Unknown error'
                     })
                 )
+                setIsSubmitting(false)
                 return
             }
             petId = newPet[0].id
@@ -555,6 +614,7 @@ export default function AppointmentForm({
                             message: updateError.message || 'Unknown error'
                         })
                     )
+                    setIsSubmitting(false)
                     return
                 }
                 if (updated?.[0]) {
@@ -1491,13 +1551,47 @@ export default function AppointmentForm({
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-800 mb-2">
+                                        {t('petForm.labels.species')}
+                                    </label>
+                                    <select
+                                        required
+                                        value={petFormData.speciesId}
+                                        onChange={(e) => handleSpeciesChange(e.target.value)}
+                                        disabled={loadingSpecies}
+                                        className="w-full px-4 py-3 border-2 border-gray-400 rounded-lg focus:ring-2 focus:ring-[color:var(--brand-accent)] focus:border-[color:var(--brand-accent)] text-base bg-white text-gray-900 font-medium"
+                                    >
+                                        <option value="">{t('petForm.placeholders.species')}</option>
+                                        {speciesOptions.map((species) => (
+                                            <option key={species.id} value={species.id}>
+                                                {species.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-800 mb-2">
                                         {t('petForm.labels.breed')}
                                     </label>
                                     <BreedSelect
                                         value={petFormData.breed}
-                                        onChange={(breed) => setPetFormData({ ...petFormData, breed })}
+                                        speciesId={petFormData.speciesId}
+                                        onSelect={(breed) =>
+                                            setPetFormData((prev) => ({
+                                                ...prev,
+                                                breed: breed?.name || prev.breed,
+                                                breedId: breed?.id || ''
+                                            }))
+                                        }
+                                        onChange={(breed) =>
+                                            setPetFormData((prev) => ({
+                                                ...prev,
+                                                breed,
+                                                breedId: ''
+                                            }))
+                                        }
                                         placeholder={t('petForm.placeholders.breed')}
                                         className="text-base py-3"
+                                        inputProps={{ disabled: !petFormData.speciesId }}
                                     />
                                 </div>
                                 <div>
@@ -1551,6 +1645,8 @@ export default function AppointmentForm({
                                         setShowPetModal(false)
                                         setPetFormData({
                                             name: '',
+                                            speciesId: defaultSpeciesId,
+                                            breedId: '',
                                             breed: '',
                                             age: '',
                                             weight: '',

@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { useBrandingTheme } from '../../theme/useBrandingTheme';
-import { getCardStyle } from '../../theme/uiTokens';
-import type { Pet } from '../../api/customers';
+import { useMemo } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
+import { useBrandingTheme } from "../../theme/useBrandingTheme";
+import { getCardStyle } from "../../theme/uiTokens";
+import type { Pet } from "../../api/customers";
 
 interface PetCardProps {
   pet: Pet;
@@ -14,11 +14,7 @@ export function PetCard({ pet, onPress }: PetCardProps) {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.imageContainer}>
         {pet.photo_url ? (
           <Image source={{ uri: pet.photo_url }} style={styles.image} />
@@ -28,7 +24,7 @@ export function PetCard({ pet, onPress }: PetCardProps) {
           </View>
         )}
       </View>
-      
+
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>
           {pet.name}
@@ -39,37 +35,35 @@ export function PetCard({ pet, onPress }: PetCardProps) {
           </Text>
         )}
       </View>
-
-      <Text style={styles.arrow}>→</Text>
     </TouchableOpacity>
   );
 }
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
   const cardBase = getCardStyle(colors);
   return StyleSheet.create({
     card: {
       ...cardBase,
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       marginBottom: 12,
     },
     imageContainer: {
       width: 56,
       height: 56,
-      borderRadius: 12,
-      overflow: 'hidden',
+      borderRadius: 28,
+      overflow: "hidden",
     },
     image: {
-      width: '100%',
-      height: '100%',
+      width: "100%",
+      height: "100%",
     },
     placeholder: {
-      width: '100%',
-      height: '100%',
+      width: "100%",
+      height: "100%",
       backgroundColor: colors.primarySoft,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     placeholderIcon: {
       fontSize: 24,
@@ -80,7 +74,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
     },
     name: {
       fontSize: 17,
-      fontWeight: '600',
+      fontWeight: "600",
       color: colors.text,
       marginBottom: 4,
     },

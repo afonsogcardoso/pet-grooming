@@ -80,6 +80,7 @@ export function AddressAutocomplete({
             borderColor: colors.surfaceBorder,
             backgroundColor: colors.background,
             color: colors.text,
+            fontWeight: "400",
           },
         ]}
       />
@@ -153,7 +154,7 @@ export function AddressAutocomplete({
             borderWidth: 1,
             borderColor: colors.surfaceBorder,
             color: colors.text,
-            fontWeight: "600",
+            fontWeight: "400",
             fontSize: 14,
             height: 44,
           },
@@ -227,6 +228,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
-    fontWeight: "500",
+    fontWeight: "600",
   },
 });

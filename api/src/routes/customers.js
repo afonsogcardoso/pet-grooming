@@ -74,9 +74,48 @@ function normalizeNumber(value) {
   return Number.isNaN(parsed) ? null : parsed
 }
 
+function normalizeUuid(value) {
+  const trimmed = normalizeString(value)
+  if (!trimmed) return null
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  return uuidRegex.test(trimmed) ? trimmed : null
+}
+
 function normalizeKey(value) {
   const trimmed = normalizeString(value)
   return trimmed ? trimmed.toLowerCase() : null
+}
+
+function applyPetAttributes(payload) {
+  if (Object.prototype.hasOwnProperty.call(payload, 'speciesId')) {
+    payload.species_id = normalizeUuid(payload.speciesId)
+    delete payload.speciesId
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'species_id')) {
+    payload.species_id = normalizeUuid(payload.species_id)
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'breedId')) {
+    payload.breed_id = normalizeUuid(payload.breedId)
+    delete payload.breedId
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'breed_id')) {
+    payload.breed_id = normalizeUuid(payload.breed_id)
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'breed')) {
+    payload.breed = normalizeString(payload.breed)
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'name')) {
+    payload.name = normalizeString(payload.name)
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'weight')) {
+    payload.weight = normalizeNumber(payload.weight)
+  }
+
+  return payload
 }
 
 function applyNamePayload(payload) {
@@ -124,7 +163,7 @@ router.get('/', async (req, res) => {
 
   const { data, error } = await supabase
     .from('customers')
-    .select('id,first_name,last_name,phone,phone_country_code,phone_number,email,address,address_2,nif,photo_url,account_id,pets(id,name,breed,photo_url,weight),appointments(count)')
+    .select('id,first_name,last_name,phone,phone_country_code,phone_number,email,address,address_2,nif,photo_url,account_id,pets(id,name,breed,photo_url,weight,species_id,breed_id),appointments(count)')
     .eq('account_id', accountId)
     .order('first_name', { ascending: true })
     .order('last_name', { ascending: true })
@@ -203,9 +242,13 @@ router.post('/:id/pets', async (req, res) => {
   if (!accountId) return res.status(400).json({ error: 'accountId is required' })
 
   const { id } = req.params
-  const payload = applyPhonePayload(sanitizeBody(req.body || {}))
+  const payload = applyPetAttributes(sanitizeBody(req.body || {}))
   payload.customer_id = id
   payload.account_id = accountId
+
+  if (!payload.name) {
+    return res.status(400).json({ error: 'name_required' })
+  }
 
   const { data, error } = await supabase.from('pets').insert([payload]).select()
 
@@ -229,6 +272,8 @@ router.post('/:id/pets', async (req, res) => {
     } else if (customer?.user_id && !createdPet.consumer_pet_id) {
       const petName = normalizeString(createdPet.name || payload.name)
       const petBreed = normalizeString(createdPet.breed || payload.breed)
+      const petSpeciesId = normalizeUuid(createdPet.species_id || payload.species_id)
+      const petBreedId = normalizeUuid(createdPet.breed_id || payload.breed_id)
       const petWeight = normalizeNumber(
         createdPet.weight !== undefined && createdPet.weight !== null ? createdPet.weight : payload.weight
       )
@@ -242,21 +287,26 @@ router.post('/:id/pets', async (req, res) => {
 
         const { data: consumerPets, error: consumerPetsError } = await supabase
           .from('consumer_pets')
-          .select('id, name, breed, weight')
+          .select('id, name, breed, weight, species_id, breed_id')
           .eq('user_id', customer.user_id)
           .ilike('name', safeName)
 
         if (consumerPetsError) {
           console.error('[api] find consumer pet error', consumerPetsError)
         } else {
-          const nameMatches = (consumerPets || []).filter(
-            (pet) => normalizeKey(pet.name) === petNameKey
-          )
+          const nameMatches = (consumerPets || []).filter((pet) => normalizeKey(pet.name) === petNameKey)
           let matches = nameMatches
 
-          if (petBreedKey) {
+          if (petSpeciesId) {
+            matches = matches.filter((pet) => pet.species_id === petSpeciesId)
+          }
+
+          if (petBreedId) {
+            matches = matches.filter((pet) => pet.breed_id === petBreedId)
+          } else if (petBreedKey) {
             matches = matches.filter((pet) => normalizeKey(pet.breed) === petBreedKey)
           }
+
           if (petWeight !== null && petWeight !== undefined) {
             matches = matches.filter((pet) => {
               if (pet.weight === null || pet.weight === undefined) return false
@@ -278,7 +328,9 @@ router.post('/:id/pets', async (req, res) => {
               user_id: customer.user_id,
               name: petName,
               breed: petBreed,
-              weight: petWeight
+              weight: petWeight,
+              species_id: petSpeciesId,
+              breed_id: petBreedId
             })
             .select('id')
             .single()
@@ -314,7 +366,11 @@ router.patch('/:customerId/pets/:petId', async (req, res) => {
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
   const { customerId, petId } = req.params
-  const payload = sanitizeBody(req.body || {})
+  const payload = applyPetAttributes(sanitizeBody(req.body || {}))
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'name') && !payload.name) {
+    return res.status(400).json({ error: 'name_required' })
+  }
 
   let query = supabase.from('pets').update(payload).eq('id', petId).eq('customer_id', customerId)
   if (accountId) {
