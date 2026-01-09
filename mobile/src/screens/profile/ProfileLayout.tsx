@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
-import { SafeAreaView } from "react-native";
-import { ScrollView } from "react-native";
+import { RefreshControl, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
 import createStyles from "../profileStyles";
 import { ScreenHeader } from "../../components/ScreenHeader";
@@ -10,6 +10,8 @@ type Props = {
   rightElement?: React.ReactNode;
   title: string;
   scrollRef?: any;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 };
 
 export default function ProfileLayout({
@@ -17,6 +19,8 @@ export default function ProfileLayout({
   rightElement,
   title,
   scrollRef,
+  refreshing,
+  onRefresh,
 }: Props) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -28,6 +32,14 @@ export default function ProfileLayout({
         ref={scrollRef}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              refreshing={Boolean(refreshing)}
+              onRefresh={onRefresh}
+            />
+          ) : undefined
+        }
       >
         {children}
       </ScrollView>

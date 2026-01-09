@@ -28,7 +28,8 @@
     "error": "Erro",
     "warning": "Aviso",
     "done": "Feito",
-    "selectCountryCode": "Selecionar indicativo"
+    "selectCountryCode": "Selecionar indicativo",
+    "delete": "Apagar"
   },
   "tabs": {
     "home": "Início",

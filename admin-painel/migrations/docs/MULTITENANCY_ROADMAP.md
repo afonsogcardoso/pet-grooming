@@ -149,7 +149,7 @@ Prompt example:
 - O `AccountGate` só libera o app após a seleção do tenant, garantindo que `getCurrentAccountId()` retorne um valor antes de qualquer mutação.
 - `docs/rls-manual-checklist.md` descreve o procedimento de testes manuais para inspecionar payloads, verificar logs RLS e confirmar que utilizadores sem membership são bloqueados.
 - `migrations/README.md` referencia esse checklist para que o time saiba quando e como executá-lo.
-- Agendamentos suportam fotos “antes/depois” (`before_photo_url`/`after_photo_url`) guardadas no bucket `appointment-photos`, com compressão automática antes do upload.
+- Agendamentos suportam fotos “antes/depois” (`before_photo_url`/`after_photo_url`) guardadas no bucket `appointments`, com compressão automática antes do upload.
 
 ---
 

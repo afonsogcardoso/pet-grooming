@@ -31,6 +31,7 @@ import {
   deleteAppointment,
   uploadAppointmentPhoto,
 } from "../api/appointments";
+import useAppointmentPhotos from "../hooks/useAppointmentPhotos";
 import { getPetsByCustomer, type Pet } from "../api/customers";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
 import { ScreenHeader } from "../components/ScreenHeader";
@@ -83,20 +84,27 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const { t } = useTranslation();
   const dateLocale = getDateLocale();
   const [status, setStatus] = useState<string | null>(null);
-  const [uploadingPhoto, setUploadingPhoto] = useState<
-    "before" | "after" | null
-  >(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState<{
+    type: "before" | "after";
+    appointmentServiceId?: string;
+  } | null>(null);
   const [savingPhoto, setSavingPhoto] = useState<"before" | "after" | null>(
     null
   );
 
-  const { data, isLoading, isRefetching, error } = useQuery({
-    queryKey: ["appointment", appointmentId],
-    queryFn: () => getAppointment(appointmentId),
-    placeholderData: (prev) => prev,
-    staleTime: 1000 * 60 * 5,
-    refetchOnWindowFocus: false,
-  });
+  // Use centralized hook to avoid duplicate GET /appointments/:id calls
+  const {
+    appointment: data,
+    isLoading,
+    photos: appointmentPhotosFromHook,
+    uploadPhoto: hookUploadPhoto,
+    removePhoto: hookRemovePhoto,
+  } = useAppointmentPhotos(appointmentId);
+
+  const error = null;
+  const isRefetching = false;
+
+  const appointmentPhotos = appointmentPhotosFromHook;
 
   const customerId = data?.customers?.id;
   const { data: customerPets = [] } = useQuery<Pet[]>({
@@ -145,7 +153,15 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         .invalidateQueries({ queryKey: ["appointment", appointmentId] })
         .catch(() => null);
       if (updated) {
-        queryClient.setQueryData(["appointment", appointmentId], updated);
+        const prev = queryClient.getQueryData([
+          "appointment",
+          appointmentId,
+        ]) as any;
+        const merged =
+          prev && prev.photos
+            ? { ...prev, ...updated, photos: prev.photos }
+            : updated;
+        queryClient.setQueryData(["appointment", appointmentId], merged);
       }
     },
     onError: (err: any, _payload, context) => {
@@ -172,44 +188,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     },
   });
 
-  const photoMutation = useMutation({
-    mutationFn: ({
-      type,
-      file,
-    }: {
-      type: "before" | "after";
-      file: { uri: string; name: string; type: string };
-    }) => uploadAppointmentPhoto(appointmentId, type, file),
-    onSuccess: async (data, variables) => {
-      hapticSuccess();
-      const photoUrl = data?.url;
-      if (photoUrl && appointment) {
-        const updatedAppointment = {
-          ...appointment,
-          [variables.type === "before"
-            ? "before_photo_url"
-            : "after_photo_url"]: photoUrl,
-        };
-        queryClient.setQueryData(
-          ["appointment", appointmentId],
-          updatedAppointment
-        );
-      }
-      await queryClient.invalidateQueries({
-        queryKey: ["appointment", appointmentId],
-      });
-    },
-    onError: (err: any) => {
-      hapticError();
-      const message =
-        err?.response?.data?.error ||
-        err.message ||
-        t("appointmentDetail.photoUploadError");
-      Alert.alert(t("common.error"), message);
-    },
-  });
-
   const appointment = data;
+  // debug logs removed
   const [notesDraft, setNotesDraft] = useState(appointment?.notes ?? "");
   const notesSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasNoteChanges = useMemo(
@@ -590,31 +570,43 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   const uploadPhoto = async (
     type: "before" | "after",
     uri: string,
-    fileName?: string
+    fileName?: string,
+    opts?: { appointmentServiceId?: string; serviceId?: string; petId?: string }
   ) => {
-    try {
-      setUploadingPhoto(type);
-      const compressedUri = await compressImage(uri);
-      const timestamp = Date.now();
-      const filename = `appointment-${appointmentId}-${type}-${timestamp}.jpg`;
-      const fileType = "image/jpeg";
+    setUploadingPhoto({
+      type,
+      appointmentServiceId: opts?.appointmentServiceId,
+    });
 
-      await photoMutation.mutateAsync({
-        type,
-        file: {
-          uri: compressedUri,
-          name: filename,
-          type: fileType,
-        },
-      });
-    } catch (error) {
-      console.error("Erro ao preparar upload:", error);
-    } finally {
-      setUploadingPhoto(null);
-    }
+    // Start the heavy work on the next tick so the UI can render the loading overlay
+    return new Promise(async (resolve, reject) => {
+      setTimeout(async () => {
+        try {
+          await hookUploadPhoto(
+            type,
+            { uri, name: fileName || undefined, type: "image/jpeg" } as any,
+            {
+              appointmentServiceId: opts?.appointmentServiceId,
+              serviceId: opts?.serviceId,
+              petId: opts?.petId,
+            }
+          );
+          hapticSuccess();
+          resolve(true);
+        } catch (error) {
+          console.error("Erro ao preparar upload:", error);
+          reject(error);
+        } finally {
+          setUploadingPhoto(null);
+        }
+      }, 0);
+    });
   };
 
-  const openCamera = async (type: "before" | "after") => {
+  const openCamera = async (
+    type: "before" | "after",
+    opts?: { appointmentServiceId?: string; serviceId?: string; petId?: string }
+  ) => {
     const hasPermission = await requestAndroidPermissions();
     if (!hasPermission) {
       Alert.alert(
@@ -637,13 +629,17 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         await uploadPhoto(
           type,
           response.assets[0].uri!,
-          response.assets[0].fileName
+          response.assets[0].fileName,
+          opts
         );
       }
     });
   };
 
-  const openGallery = async (type: "before" | "after") => {
+  const openGallery = async (
+    type: "before" | "after",
+    opts?: { appointmentServiceId?: string; serviceId?: string; petId?: string }
+  ) => {
     launchImageLibrary(galleryOptions, async (response) => {
       if (response.didCancel) {
         return;
@@ -657,13 +653,17 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         await uploadPhoto(
           type,
           response.assets[0].uri!,
-          response.assets[0].fileName
+          response.assets[0].fileName,
+          opts
         );
       }
     });
   };
 
-  const pickImage = (type: "before" | "after") => {
+  const pickImage = (
+    type: "before" | "after",
+    opts?: { appointmentServiceId?: string; serviceId?: string; petId?: string }
+  ) => {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
@@ -676,9 +676,9 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         },
         (buttonIndex) => {
           if (buttonIndex === 1) {
-            openCamera(type);
+            openCamera(type, opts);
           } else if (buttonIndex === 2) {
-            openGallery(type);
+            openGallery(type, opts);
           }
         }
       );
@@ -688,10 +688,13 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         t("profile.choosePhotoMessage"),
         [
           { text: t("common.cancel"), style: "cancel" },
-          { text: t("profile.takePhoto"), onPress: () => openCamera(type) },
+          {
+            text: t("profile.takePhoto"),
+            onPress: () => openCamera(type, opts),
+          },
           {
             text: t("profile.chooseFromGallery"),
-            onPress: () => openGallery(type),
+            onPress: () => openGallery(type, opts),
           },
         ]
       );
@@ -699,12 +702,29 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   };
 
   const getPhotoUrl = (type: "before" | "after") =>
-    type === "before"
-      ? appointment?.before_photo_url
-      : appointment?.after_photo_url;
+    // Prefer photos from the new `photos` relation (most recent by created_at)
+    (() => {
+      try {
+        const list = appointmentPhotos || [];
+        const found = list.find((p: any) => p.type === type);
+        if (found?.url) return found.url;
+      } catch (e) {
+        // ignore
+      }
+      return type === "before"
+        ? appointment?.before_photo_url
+        : appointment?.after_photo_url;
+    })();
 
-  const savePhotoToDevice = async (type: "before" | "after") => {
-    const photoUrl = getPhotoUrl(type);
+  const savePhotoToDevice = async (
+    type: "before" | "after",
+    opts?: { appointmentServiceId?: string }
+  ) => {
+    let photoUrl: string | undefined | null = undefined;
+    if (opts?.appointmentServiceId) {
+      photoUrl = getServicePhoto(opts.appointmentServiceId, type)?.url;
+    }
+    if (!photoUrl) photoUrl = getPhotoUrl(type) as string | undefined | null;
     if (!photoUrl) return;
 
     try {
@@ -744,13 +764,71 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     }
   };
 
-  const handlePhotoPress = (type: "before" | "after") => {
-    const hasPhoto = Boolean(getPhotoUrl(type));
+  const getServicePhoto = (
+    appointmentServiceId?: string,
+    type?: "before" | "after"
+  ) => {
+    if (!appointmentServiceId || !appointmentPhotos) return undefined;
+    return appointmentPhotos.find(
+      (p: any) =>
+        p.type === type && p.appointment_service_id === appointmentServiceId
+    );
+  };
+
+  const handlePhotoPress = (
+    type: "before" | "after",
+    opts?: { appointmentServiceId?: string; useLegacyFallback?: boolean }
+  ) => {
+    const photoObj = opts?.appointmentServiceId
+      ? getServicePhoto(opts.appointmentServiceId, type)
+      : (appointmentPhotos || []).find((p: any) => p.type === type);
+
+    const hasPhoto = Boolean(
+      photoObj || (opts?.useLegacyFallback ? getPhotoUrl(type) : false)
+    );
 
     if (!hasPhoto) {
+      // If an appointmentServiceId was provided, forward it so the upload is scoped
+      if (opts?.appointmentServiceId) {
+        pickImage(type, {
+          appointmentServiceId: opts.appointmentServiceId,
+        });
+        return;
+      }
       pickImage(type);
       return;
     }
+
+    const onDelete = () => {
+      if (!photoObj || !photoObj.id) {
+        // nothing to delete
+        return;
+      }
+      Alert.alert(
+        t("appointmentDetail.deletePhotoTitle"),
+        t("appointmentDetail.deletePhotoMessage"),
+        [
+          { text: t("common.cancel"), style: "cancel" },
+          {
+            text: t("common.delete"),
+            style: "destructive",
+            onPress: async () => {
+              try {
+                hapticWarning();
+                await hookRemovePhoto(photoObj.id);
+                hapticSuccess();
+              } catch (err) {
+                hapticError();
+                Alert.alert(
+                  t("common.error"),
+                  t("appointmentDetail.deletePhotoError")
+                );
+              }
+            },
+          },
+        ]
+      );
+    };
 
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
@@ -759,12 +837,18 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
             t("common.cancel"),
             t("appointmentDetail.savePhoto"),
             t("appointmentDetail.replacePhoto"),
+            t("common.delete"),
           ],
           cancelButtonIndex: 0,
+          destructiveButtonIndex: 3,
         },
         (buttonIndex) => {
-          if (buttonIndex === 1) savePhotoToDevice(type);
-          if (buttonIndex === 2) pickImage(type);
+          if (buttonIndex === 1) savePhotoToDevice(type, opts);
+          if (buttonIndex === 2)
+            pickImage(type, {
+              appointmentServiceId: opts?.appointmentServiceId,
+            });
+          if (buttonIndex === 3) onDelete();
         }
       );
       return;
@@ -774,11 +858,19 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
       { text: t("common.cancel"), style: "cancel" },
       {
         text: t("appointmentDetail.savePhoto"),
-        onPress: () => savePhotoToDevice(type),
+        onPress: () => savePhotoToDevice(type, opts),
       },
       {
         text: t("appointmentDetail.replacePhoto"),
-        onPress: () => pickImage(type),
+        onPress: () =>
+          pickImage(type, {
+            appointmentServiceId: opts?.appointmentServiceId,
+          }),
+      },
+      {
+        text: t("common.delete"),
+        style: "destructive",
+        onPress: () => onDelete(),
       },
     ]);
   };
@@ -969,8 +1061,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                                 {detail.service?.name || t("common.service")}
                               </Text>
                               {petName ? (
-                                <Text style={styles.serviceDetailMeta}>
-                                  {t("appointmentDetail.pet")}: {petName}
+                                <Text style={styles.serviceDetailPetName}>
+                                  {petName}
                                 </Text>
                               ) : null}
                               {detail.hasTier ? (
@@ -991,9 +1083,128 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                             </View>
                           </View>
                           {showPrice ? (
-                            <Text style={styles.serviceDetailPrice}>
-                              €{detail.total.toFixed(2)}
-                            </Text>
+                            <View style={{ alignItems: "flex-end" }}>
+                              <View style={styles.servicePhotoActionsRow}>
+                                <TouchableOpacity
+                                  style={styles.servicePhotoThumbWrap}
+                                  onPress={() =>
+                                    handlePhotoPress("before", {
+                                      appointmentServiceId: detail.entry.id,
+                                      useLegacyFallback: false,
+                                    })
+                                  }
+                                >
+                                  {getServicePhoto(detail.entry.id, "before")
+                                    ?.url ? (
+                                    <>
+                                      <Image
+                                        source={{
+                                          uri: getServicePhoto(
+                                            detail.entry.id,
+                                            "before"
+                                          )?.url,
+                                        }}
+                                        style={styles.servicePhotoThumb}
+                                        resizeMode="cover"
+                                      />
+                                      {uploadingPhoto?.type === "before" &&
+                                        uploadingPhoto?.appointmentServiceId ===
+                                          detail.entry.id && (
+                                          <View
+                                            style={
+                                              styles.servicePhotoLoadingOverlay
+                                            }
+                                          >
+                                            <ActivityIndicator color="#fff" />
+                                          </View>
+                                        )}
+                                    </>
+                                  ) : (
+                                    <View
+                                      style={
+                                        styles.servicePhotoThumbPlaceholder
+                                      }
+                                    >
+                                      <Text
+                                        style={styles.servicePhotoThumbPlus}
+                                      >
+                                        +
+                                      </Text>
+                                      <Text
+                                        style={styles.servicePhotoThumbLabel}
+                                      >
+                                        {t("appointmentDetail.before")}
+                                      </Text>
+                                    </View>
+                                  )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                  style={[
+                                    styles.servicePhotoThumbWrap,
+                                    { marginLeft: 8 },
+                                  ]}
+                                  onPress={() =>
+                                    handlePhotoPress("after", {
+                                      appointmentServiceId: detail.entry.id,
+                                      useLegacyFallback: false,
+                                    })
+                                  }
+                                >
+                                  {getServicePhoto(detail.entry.id, "after")
+                                    ?.url ? (
+                                    <>
+                                      <Image
+                                        source={{
+                                          uri: getServicePhoto(
+                                            detail.entry.id,
+                                            "after"
+                                          )?.url,
+                                        }}
+                                        style={styles.servicePhotoThumb}
+                                        resizeMode="cover"
+                                      />
+                                      {uploadingPhoto?.type === "after" &&
+                                        uploadingPhoto?.appointmentServiceId ===
+                                          detail.entry.id && (
+                                          <View
+                                            style={
+                                              styles.servicePhotoLoadingOverlay
+                                            }
+                                          >
+                                            <ActivityIndicator color="#fff" />
+                                          </View>
+                                        )}
+                                    </>
+                                  ) : (
+                                    <View
+                                      style={
+                                        styles.servicePhotoThumbPlaceholder
+                                      }
+                                    >
+                                      <Text
+                                        style={styles.servicePhotoThumbPlus}
+                                      >
+                                        +
+                                      </Text>
+                                      <Text
+                                        style={styles.servicePhotoThumbLabel}
+                                      >
+                                        {t("appointmentDetail.after")}
+                                      </Text>
+                                    </View>
+                                  )}
+                                </TouchableOpacity>
+                              </View>
+                              <Text
+                                style={[
+                                  styles.serviceDetailPrice,
+                                  { marginTop: 8 },
+                                ]}
+                              >
+                                €{detail.total.toFixed(2)}
+                              </Text>
+                            </View>
                           ) : null}
                         </View>
                       );
@@ -1191,101 +1402,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                 </View>
               ) : null}
 
-              {/* Fotos Antes/Depois */}
-              <View style={styles.photosCard}>
-                <Text style={styles.photosCardTitle}>
-                  📸 {t("appointmentDetail.servicePhotos")}
-                </Text>
-                <View style={styles.photosGrid}>
-                  <View style={styles.photoItem}>
-                    <Text style={styles.photoItemLabel}>
-                      {t("appointmentDetail.before")}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => handlePhotoPress("before")}
-                      activeOpacity={0.7}
-                      disabled={
-                        uploadingPhoto === "before" || savingPhoto === "before"
-                      }
-                    >
-                      {appointment?.before_photo_url ? (
-                        <>
-                          <Image
-                            source={{ uri: appointment.before_photo_url }}
-                            style={styles.photoItemImage}
-                          />
-                          {(uploadingPhoto === "before" ||
-                            savingPhoto === "before") && (
-                            <View style={styles.photoLoadingOverlay}>
-                              <ActivityIndicator color="#fff" />
-                            </View>
-                          )}
-                        </>
-                      ) : (
-                        <View style={styles.photoItemPlaceholder}>
-                          {uploadingPhoto === "before" ||
-                          savingPhoto === "before" ? (
-                            <ActivityIndicator color={colors.primary} />
-                          ) : (
-                            <>
-                              <Text style={styles.photoItemPlaceholderText}>
-                                +
-                              </Text>
-                              <Text style={styles.photoItemPlaceholderLabel}>
-                                {t("appointmentDetail.tapToAdd")}
-                              </Text>
-                            </>
-                          )}
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.photoItem}>
-                    <Text style={styles.photoItemLabel}>
-                      {t("appointmentDetail.after")}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => handlePhotoPress("after")}
-                      activeOpacity={0.7}
-                      disabled={
-                        uploadingPhoto === "after" || savingPhoto === "after"
-                      }
-                    >
-                      {appointment?.after_photo_url ? (
-                        <>
-                          <Image
-                            source={{ uri: appointment.after_photo_url }}
-                            style={styles.photoItemImage}
-                          />
-                          {(uploadingPhoto === "after" ||
-                            savingPhoto === "after") && (
-                            <View style={styles.photoLoadingOverlay}>
-                              <ActivityIndicator color="#fff" />
-                            </View>
-                          )}
-                        </>
-                      ) : (
-                        <View style={styles.photoItemPlaceholder}>
-                          {uploadingPhoto === "after" ||
-                          savingPhoto === "after" ? (
-                            <ActivityIndicator color={colors.primary} />
-                          ) : (
-                            <>
-                              <Text style={styles.photoItemPlaceholderText}>
-                                +
-                              </Text>
-                              <Text style={styles.photoItemPlaceholderLabel}>
-                                {t("appointmentDetail.tapToAdd")}
-                              </Text>
-                            </>
-                          )}
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
+              {/* legacy top-level before/after photos removed (now per-service) */}
 
               {/* Estado - Buttons Modernos */}
               <View style={styles.statusCard}>
@@ -1590,6 +1707,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       color: colors.text,
       fontWeight: "500",
     },
+    serviceDetailPetName: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.muted,
+      marginTop: 2,
+    },
     serviceDetailMeta: {
       fontSize: 12,
       color: colors.muted,
@@ -1599,6 +1722,56 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       fontSize: 15,
       fontWeight: "700",
       color: colors.primary,
+    },
+    servicePhotoActionsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "flex-end",
+    },
+    servicePhotoThumbWrap: {
+      width: 52,
+      height: 52,
+      borderRadius: 8,
+      overflow: "hidden",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: placeholderBg,
+    },
+    servicePhotoThumb: {
+      width: 52,
+      height: 52,
+      borderRadius: 8,
+      backgroundColor: colors.background,
+    },
+    servicePhotoThumbPlaceholder: {
+      width: 52,
+      height: 52,
+      borderRadius: 8,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: placeholderBg,
+    },
+    servicePhotoThumbPlus: {
+      fontSize: 16,
+      color: colors.muted,
+      fontWeight: "700",
+    },
+    servicePhotoThumbLabel: {
+      fontSize: 10,
+      color: colors.muted,
+      marginTop: 4,
+      fontWeight: "600",
+    },
+    servicePhotoLoadingOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "rgba(0,0,0,0.45)",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 8,
     },
     serviceDetailRowLast: {
       borderBottomWidth: 0,
@@ -1801,72 +1974,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       fontSize: 24,
       color: colors.muted,
     },
-    // Fotos Antes/Depois
-    photosCard: {
-      ...cardBase,
-      padding: 20,
-    },
-    photosCardTitle: {
-      fontSize: 18,
-      fontWeight: "700",
-      color: colors.text,
-      marginBottom: 16,
-    },
-    photosGrid: {
-      flexDirection: "row",
-      gap: 12,
-    },
-    photoItem: {
-      flex: 1,
-      alignItems: "center",
-    },
-    photoItemLabel: {
-      fontSize: 14,
-      fontWeight: "700",
-      color: colors.text,
-      marginBottom: 10,
-    },
-    photoItemImage: {
-      width: "100%",
-      aspectRatio: 3 / 4,
-      borderRadius: 16,
-      marginBottom: 10,
-      backgroundColor: colors.background,
-    },
-    photoLoadingOverlay: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 10,
-      backgroundColor: "rgba(0, 0, 0, 0.5)",
-      borderRadius: 16,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    photoItemPlaceholder: {
-      width: "100%",
-      aspectRatio: 3 / 4,
-      borderRadius: 16,
-      backgroundColor: colors.background,
-      justifyContent: "center",
-      alignItems: "center",
-      marginBottom: 10,
-      borderWidth: 2,
-      borderColor: colors.surfaceBorder,
-      borderStyle: "dashed",
-    },
-    photoItemPlaceholderText: {
-      fontSize: 48,
-      color: colors.muted,
-      fontWeight: "200",
-    },
-    photoItemPlaceholderLabel: {
-      fontSize: 11,
-      color: colors.muted,
-      marginTop: 8,
-      fontWeight: "500",
-    },
+    // (legacy photo styles removed)
     // Status Card
     statusCard: {
       ...cardBase,

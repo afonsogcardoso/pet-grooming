@@ -28,7 +28,8 @@
     "error": "Error",
     "warning": "Warning",
     "done": "Done",
-    "selectCountryCode": "Select country code"
+    "selectCountryCode": "Select country code",
+    "delete": "Delete"
   },
   "tabs": {
     "home": "Home",

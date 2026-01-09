@@ -151,6 +151,11 @@ export async function getAppointment(id: string): Promise<Appointment> {
   return data.data || ({} as Appointment);
 }
 
+export async function getOverdueCount(): Promise<number> {
+  const { data } = await api.get<{ count: number }>(`/appointments/overdue-count`);
+  return Number(data?.count || 0);
+}
+
 export async function updateAppointment(
   id: string,
   payload: Partial<CreateAppointmentPayload & { amount?: number | null }>,
@@ -163,7 +168,8 @@ export async function uploadAppointmentPhoto(
   appointmentId: string,
   type: 'before' | 'after',
   file: { uri: string; name: string; type: string },
-): Promise<{ url: string }> {
+  opts?: { appointmentServiceId?: string | null; serviceId?: string | null; petId?: string | null },
+): Promise<{ url: string } | any> {
   const formData = new FormData();
   formData.append('file', {
     uri: file.uri,
@@ -171,16 +177,21 @@ export async function uploadAppointmentPhoto(
     type: file.type,
   } as any);
   formData.append('type', type);
+  if (opts?.appointmentServiceId) formData.append('appointment_service_id', String(opts.appointmentServiceId));
+  if (opts?.serviceId) formData.append('service_id', String(opts.serviceId));
+  if (opts?.petId) formData.append('pet_id', String(opts.petId));
 
-  const { data } = await api.post<{ url: string }>(
-    `/appointments/${appointmentId}/photos`,
-    formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    },
-  );
+  const { data } = await api.post<any>(`/appointments/${appointmentId}/photos`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+
+  // Backend may return { url } or { data: insertedRow }
+  if (!data) return { url: '' };
+  if (data.url) return { url: data.url };
+  const inserted = data.data || data;
+  if (inserted && inserted.url) return { url: inserted.url };
+  if (Array.isArray(inserted) && inserted[0] && inserted[0].url) return { url: inserted[0].url };
+  // fallback: return raw payload
   return data;
 }
 

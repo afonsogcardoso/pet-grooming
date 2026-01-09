@@ -251,6 +251,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   // Scroll ref
   const scrollRef = useRef<ScrollView | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   // Date locale
   const dateLocale = getDateLocale(i18n.language);
   // Version label
@@ -400,6 +401,23 @@ export default function ProfileScreen({ navigation }: Props) {
   const appleButtonLabel = isAppleLinked
     ? t("profile.linked")
     : t("profile.linkApple");
+
+  const handleRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      await queryClient.invalidateQueries({ queryKey: ["profile"] });
+      await queryClient
+        .invalidateQueries({ queryKey: ["branding"] })
+        .catch(() => null);
+      await queryClient
+        .invalidateQueries({ queryKey: ["notificationPreferences"] })
+        .catch(() => null);
+    } catch (e) {
+      // ignore
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient]);
   const availableRoles = useMemo(() => {
     const roles = Array.isArray(data?.availableRoles)
       ? data.availableRoles
@@ -1561,6 +1579,8 @@ export default function ProfileScreen({ navigation }: Props) {
       title={t("profile.title")}
       rightElement={rightHeaderElement}
       scrollRef={scrollRef}
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
     >
       <ProfileHeader
         styles={styles}

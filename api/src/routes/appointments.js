@@ -41,8 +41,6 @@ const APPOINTMENT_DETAIL_SELECT = `
   payment_status,
   status,
   reminder_offsets,
-  before_photo_url,
-  after_photo_url,
   public_token,
   confirmation_opened_at,
   whatsapp_sent_at,
@@ -58,8 +56,24 @@ const APPOINTMENT_DETAIL_SELECT = `
     pets ( id, name, breed, photo_url, weight ),
     appointment_service_addons ( id, service_addon_id, name, price )
   )
+  ,
+  photos (
+    id,
+    appointment_id,
+    appointment_service_id,
+    service_id,
+    pet_id,
+    uploader_id,
+    type,
+    url,
+    thumb_url,
+    metadata,
+    taken_at,
+    created_at
+  )
 `
 const PET_PHOTO_BUCKET = 'pets'
+const APPOINTMENT_PHOTO_BUCKET = 'appointments'
 const REMINDER_WINDOW_MINUTES = 10
 const REMINDER_MAX_OFFSET_MINUTES = 1440
 const REMINDER_EXCLUDED_STATUSES = new Set(['cancelled', 'completed', 'in_progress'])
@@ -331,8 +345,6 @@ router.get('/', async (req, res) => {
       payment_status,
       status,
       reminder_offsets,
-      before_photo_url,
-      after_photo_url,
       public_token,
       confirmation_opened_at,
       whatsapp_sent_at,
@@ -379,6 +391,210 @@ router.get('/', async (req, res) => {
   const nextOffset = data.length === limit ? offset + limit : null
 
   res.json({ data: (data || []).map(mapAppointmentForApi), meta: { nextOffset } })
+})
+
+// Upload appointment photo (before/after) scoped to appointment x service x pet
+router.post('/:id/photos', upload.single('file'), async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase || !accountId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const token = req.headers.authorization
+  const bearer = typeof token === 'string' && token.startsWith('Bearer ') ? token.slice(7) : null
+  if (!bearer) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(bearer)
+  if (userError || !userData?.user?.id) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { data: membership } = await supabase
+    .from('account_members')
+    .select('id')
+    .eq('account_id', accountId)
+    .eq('user_id', userData.user.id)
+    .eq('status', 'accepted')
+    .maybeSingle()
+  if (!membership) return res.status(403).json({ error: 'Forbidden' })
+
+  const file = req.file
+  if (!file) return res.status(400).json({ error: 'No file provided' })
+
+  const id = req.params.id
+  // verify appointment belongs to account
+  const { data: appointment } = await supabase
+    .from('appointments')
+    .select('id')
+    .eq('id', id)
+    .eq('account_id', accountId)
+    .maybeSingle()
+  if (!appointment) return res.status(404).json({ error: 'Appointment not found' })
+
+  const typeRaw = (req.body.type || '').toString().toLowerCase()
+  const type = typeRaw === 'after' ? 'after' : 'before'
+
+  const appointmentServiceId = req.body.appointment_service_id || req.body.appointmentServiceId || null
+  const serviceId = req.body.service_id || req.body.serviceId || null
+  const petId = req.body.pet_id || req.body.petId || null
+
+  const ext = (file.originalname?.split('.').pop() || 'jpg').toLowerCase()
+  const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'heic'].includes(ext) ? ext : 'jpg'
+  const uniqueId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`
+  const filename = `${id}-${serviceId || 'noservice'}-${petId || 'nopic'}-${type}-${uniqueId}.${safeExt}`
+  const path = `appointments/${id}/${filename}`
+
+  const { error: uploadError } = await supabase.storage
+    .from(APPOINTMENT_PHOTO_BUCKET)
+    .upload(path, file.buffer, {
+      cacheControl: '3600',
+      upsert: true,
+      contentType: file.mimetype || 'image/jpeg'
+    })
+
+  if (uploadError) {
+    console.error('[api] storage upload error', JSON.stringify(uploadError, null, 2))
+    return res.status(500).json({ error: uploadError.message || 'storage_upload_failed', details: uploadError })
+  }
+
+  const { data: signedUrlData, error: signedError } = await supabase.storage
+    .from(APPOINTMENT_PHOTO_BUCKET)
+    .createSignedUrl(path, 604800)
+  if (signedError) return res.status(500).json({ error: signedError.message })
+  const url = signedUrlData?.signedUrl || null
+
+  const metadata = {
+    storage_path: path,
+    content_type: file.mimetype || null,
+    size: file.size || null
+  }
+
+  const insertPayload = {
+    account_id: accountId,
+    appointment_id: id,
+    appointment_service_id: appointmentServiceId,
+    service_id: serviceId,
+    pet_id: petId,
+    uploader_id: userData.user.id,
+    type,
+    url,
+    thumb_url: null,
+    metadata: metadata
+  }
+
+  const { data: inserted, error: insertError } = await supabase
+    .from('photos')
+    .insert([insertPayload])
+    .select()
+    .single()
+
+  if (insertError) {
+    console.error('[api] insert photo error', JSON.stringify(insertError, null, 2))
+    // Return the error details to help debugging (non-sensitive fields only)
+    return res.status(500).json({ error: insertError.message || 'insert_failed', details: insertError })
+  }
+
+  res.status(201).json({ data: inserted })
+})
+
+// List photos for an appointment
+router.get('/:id/photos', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+
+  const id = req.params.id
+  const { service_id: serviceId, pet_id: petId, type } = req.query || {}
+
+  let query = supabase.from('photos').select('*').eq('appointment_id', id)
+  if (serviceId) query = query.eq('service_id', serviceId)
+  if (petId) query = query.eq('pet_id', petId)
+  if (type) query = query.eq('type', type)
+
+  if (accountId) query = query.eq('account_id', accountId)
+
+  const { data, error } = await query.order('created_at', { ascending: true })
+  if (error) {
+    console.error('[api] list appointment photos error', error)
+    return res.status(500).json({ error: error.message })
+  }
+
+  res.json({ data: data || [] })
+})
+
+// Delete photo by id
+router.delete('/photos/:photoId', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase || !accountId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const token = req.headers.authorization
+  const bearer = typeof token === 'string' && token.startsWith('Bearer ') ? token.slice(7) : null
+  if (!bearer) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(bearer)
+  if (userError || !userData?.user?.id) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { data: membership } = await supabase
+    .from('account_members')
+    .select('id')
+    .eq('account_id', accountId)
+    .eq('user_id', userData.user.id)
+    .eq('status', 'accepted')
+    .maybeSingle()
+  if (!membership) return res.status(403).json({ error: 'Forbidden' })
+
+  const photoId = req.params.photoId
+  const { data: photo, error: pErr } = await supabase
+    .from('photos')
+    .select('*')
+    .eq('id', photoId)
+    .eq('account_id', accountId)
+    .maybeSingle()
+  if (pErr) return res.status(500).json({ error: pErr.message })
+  if (!photo) return res.status(404).json({ error: 'not_found' })
+
+  // Attempt to remove object from storage if we have path
+  const storagePath = photo?.metadata?.storage_path || null
+  if (storagePath) {
+    try {
+      await supabase.storage.from(APPOINTMENT_PHOTO_BUCKET).remove([storagePath])
+    } catch (e) {
+      console.warn('[api] remove storage object warning', e)
+    }
+  }
+
+  const { error: delErr } = await supabase.from('photos').delete().eq('id', photoId).eq('account_id', accountId)
+  if (delErr) return res.status(500).json({ error: delErr.message })
+
+  res.status(204).send()
+})
+
+// Lightweight count of overdue/unpaid completed appointments
+router.get('/overdue-count', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+
+  try {
+    const today = formatLocalDate(new Date())
+
+    let query = supabase.from('appointments').select('id', { count: 'exact', head: true })
+
+    if (accountId) query = query.eq('account_id', accountId)
+    query = query.eq('status', 'completed')
+    query = query.neq('payment_status', 'paid')
+    query = query.lte('appointment_date', today)
+
+    const { error, count } = await query
+    if (error) {
+      console.error('[api] overdue-count error', error)
+      const status = statusFromSupabaseError(error)
+      return res.status(status).json({ error: error.message })
+    }
+
+    return res.json({ count: Number(count || 0) })
+  } catch (err) {
+    console.error('[api] overdue-count unexpected error', err)
+    return res.status(500).json({ error: 'internal_error' })
+  }
 })
 
 router.post('/', async (req, res) => {
@@ -687,30 +903,61 @@ router.patch('/:id', async (req, res) => {
 
   // Update appointment services if provided
   if (shouldUpdateServices) {
-    await supabase
+    // Preserve existing appointment_service IDs when possible so photos linked
+    // to them do not become orphaned. Strategy:
+    // 1. Load existing rows for this appointment
+    // 2. Insert any missing rows for requested selections
+    // 3. Delete rows that are no longer requested
+
+    const { data: existingServices, error: existingErr } = await supabase
       .from('appointment_services')
-      .delete()
+      .select('id,service_id,pet_id')
       .eq('appointment_id', id)
 
-    const appointmentServices = normalizedSelections.map((selection) => ({
-      appointment_id: id,
-      service_id: selection.service_id,
-      pet_id: selection.pet_id || null
-    }))
-    const { error: servicesError } = await supabase
-      .from('appointment_services')
-      .insert(appointmentServices)
-
-    if (servicesError) {
-      console.error('[api] update appointment services error', servicesError)
-      return res.status(500).json({ error: servicesError.message })
+    if (existingErr) {
+      console.error('[api] load existing appointment services error', existingErr)
+      return res.status(500).json({ error: existingErr.message })
     }
 
-    await applyServiceSelections({
-      supabase,
-      appointmentId: id,
-      selections: serviceSelections
+    const existingMap = new Map()
+      ; (existingServices || []).forEach((row) => {
+        const key = `${row.service_id || ''}:${row.pet_id || ''}`
+        existingMap.set(key, row.id)
+      })
+
+    const desiredKeys = new Set()
+    const toInsert = []
+    normalizedSelections.forEach((selection) => {
+      const key = `${selection.service_id || ''}:${selection.pet_id || ''}`
+      desiredKeys.add(key)
+      if (!existingMap.has(key)) {
+        toInsert.push({ appointment_id: id, service_id: selection.service_id, pet_id: selection.pet_id || null })
+      }
     })
+
+    if (toInsert.length > 0) {
+      const { error: insertErr } = await supabase.from('appointment_services').insert(toInsert)
+      if (insertErr) {
+        console.error('[api] insert appointment services error', insertErr)
+        return res.status(500).json({ error: insertErr.message })
+      }
+    }
+
+    // Delete any existing rows that are not present in desiredKeys
+    const toDeleteIds = (existingServices || []).filter((row) => {
+      const key = `${row.service_id || ''}:${row.pet_id || ''}`
+      return !desiredKeys.has(key)
+    }).map((r) => r.id)
+
+    if (toDeleteIds.length > 0) {
+      const { error: delErr } = await supabase.from('appointment_services').delete().in('id', toDeleteIds)
+      if (delErr) {
+        console.error('[api] delete obsolete appointment services error', delErr)
+        return res.status(500).json({ error: delErr.message })
+      }
+    }
+
+    await applyServiceSelections({ supabase, appointmentId: id, selections: serviceSelections })
   }
 
   let responseAppointment = appointment
@@ -955,8 +1202,8 @@ router.post('/:id/photos', upload.single('file'), async (req, res) => {
     })
 
   if (uploadError) {
-    console.error('[api] appointment photo upload error', uploadError)
-    return res.status(500).json({ error: 'Upload failed' })
+    console.error('[api] appointment photo upload error', JSON.stringify(uploadError, null, 2))
+    return res.status(500).json({ error: uploadError.message || 'Upload failed', details: uploadError })
   }
 
   // Gerar signed URL (7 dias)
@@ -968,12 +1215,32 @@ router.post('/:id/photos', upload.single('file'), async (req, res) => {
   const publicUrl = signedUrlData?.signedUrl || null
 
   if (publicUrl) {
-    const column = type === 'before' ? 'before_photo_url' : 'after_photo_url'
-    await supabase
-      .from('appointments')
-      .update({ [column]: publicUrl })
-      .eq('id', id)
-      .eq('account_id', accountId)
+    // Do not write to legacy appointment-level columns anymore.
+    // Insert into `photos` table scoped to this appointment so new clients read the canonical source.
+    const metadata = {
+      storage_path: path,
+      content_type: file.mimetype || null,
+      size: file.size || null
+    }
+
+    const insertPayload = {
+      account_id: appointment.account_id || null,
+      appointment_id: id,
+      appointment_service_id: null,
+      service_id: null,
+      pet_id: null,
+      uploader_id: null,
+      type,
+      url: publicUrl,
+      thumb_url: null,
+      metadata
+    }
+
+    try {
+      await supabase.from('photos').insert([insertPayload])
+    } catch (e) {
+      console.error('[api] insert legacy-upload photo error', e)
+    }
   }
 
   return res.json({ url: publicUrl })
@@ -1186,7 +1453,7 @@ router.get('/:id/share', async (req, res) => {
 
   const { id } = req.params
 
-  // Buscar appointment com fotos
+  // Fetch appointment (photos are fetched separately from `photos` table)
   const { data: appointment, error } = await supabase
     .from('appointments')
     .select(`
@@ -1195,8 +1462,6 @@ router.get('/:id/share', async (req, res) => {
       appointment_time,
       status,
       notes,
-      before_photo_url,
-      after_photo_url,
       customers ( id, first_name, last_name, phone, phone_country_code, phone_number ),
       appointment_services ( 
         service_id,
@@ -1211,28 +1476,41 @@ router.get('/:id/share', async (req, res) => {
     return res.status(404).json({ error: 'Appointment not found' })
   }
 
-  // Gerar signed URLs temporárias para as fotos (válidas por 7 dias)
+  // Generate temporary signed URLs for stored photos (valid for 7 days)
   const signedUrls = {}
+  try {
+    const { data: photos } = await supabase
+      .from('photos')
+      .select('id, type, metadata, url')
+      .eq('appointment_id', id)
+      .order('created_at', { ascending: false })
 
-  if (appointment.before_photo_url) {
-    // Extrair path do URL completo
-    const beforePath = appointment.before_photo_url.split('/appointments/')[1]
-    if (beforePath) {
-      const { data } = await supabase.storage
-        .from('appointments')
-        .createSignedUrl(`appointments/${beforePath}`, 604800)
-      if (data?.signedUrl) signedUrls.beforePhoto = data.signedUrl
-    }
-  }
+    if (Array.isArray(photos) && photos.length > 0) {
+      const before = photos.find((p) => p.type === 'before')
+      const after = photos.find((p) => p.type === 'after')
 
-  if (appointment.after_photo_url) {
-    const afterPath = appointment.after_photo_url.split('/appointments/')[1]
-    if (afterPath) {
-      const { data } = await supabase.storage
-        .from('appointments')
-        .createSignedUrl(`appointments/${afterPath}`, 604800)
-      if (data?.signedUrl) signedUrls.afterPhoto = data.signedUrl
+      if (before) {
+        const storagePath = before.metadata?.storage_path || null
+        if (storagePath) {
+          const { data } = await supabase.storage.from('appointments').createSignedUrl(storagePath, 604800)
+          if (data?.signedUrl) signedUrls.beforePhoto = data.signedUrl
+        } else if (before.url) {
+          signedUrls.beforePhoto = before.url
+        }
+      }
+
+      if (after) {
+        const storagePath = after.metadata?.storage_path || null
+        if (storagePath) {
+          const { data } = await supabase.storage.from('appointments').createSignedUrl(storagePath, 604800)
+          if (data?.signedUrl) signedUrls.afterPhoto = data.signedUrl
+        } else if (after.url) {
+          signedUrls.afterPhoto = after.url
+        }
+      }
     }
+  } catch (e) {
+    console.warn('[api] generate share signed urls warning', e)
   }
 
   return res.json({

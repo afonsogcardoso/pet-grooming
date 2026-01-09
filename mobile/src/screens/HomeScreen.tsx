@@ -13,7 +13,11 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { getAppointments, Appointment } from "../api/appointments";
+import {
+  getAppointments,
+  getOverdueCount,
+  Appointment,
+} from "../api/appointments";
 import { useAuthStore } from "../state/authStore";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
 import { getCardStyle } from "../theme/uiTokens";
@@ -68,29 +72,7 @@ export default function HomeScreen({ navigation }: Props) {
   const heroImage = branding?.portal_image_url || branding?.logo_url || null;
   const today = todayLocalISO();
   const upcomingTo = addDaysISO(30);
-
-  const isUnpaidPastOrCompleted = useCallback(
-    (appointment: Appointment, now: Date) => {
-      const unpaid = (appointment.payment_status || "unpaid") !== "paid";
-      if (!unpaid) return false;
-      if (appointment.status === "completed") return true;
-
-      const dayKey = appointment.appointment_date;
-      if (!dayKey) return false;
-      if (dayKey < today) return true;
-      if (dayKey > today) return false;
-
-      const time = appointment.appointment_time;
-      if (!time) return false;
-      const m = String(time).match(/(\d{1,2}):(\d{2})/);
-      if (!m) return false;
-      const hh = `${m[1]}`.padStart(2, "0");
-      const mm = m[2];
-      const apptDate = new Date(`${dayKey}T${hh}:${mm}:00`);
-      return apptDate < now;
-    },
-    [today]
-  );
+  const pastFrom = addDaysISO(-365);
 
   const { data: upcomingData, isLoading: loadingAppointments } = useQuery({
     queryKey: ["appointments", "home", today, upcomingTo],
@@ -99,6 +81,22 @@ export default function HomeScreen({ navigation }: Props) {
         from: today,
         to: upcomingTo,
         limit: 50,
+        offset: 0,
+      }),
+  });
+
+  const { data: overdueCountData } = useQuery({
+    queryKey: ["appointments", "overdueCount"],
+    queryFn: () => getOverdueCount(),
+  });
+
+  const { data: overdueListData, isLoading: loadingOverdueList } = useQuery({
+    queryKey: ["appointments", "overdueList", pastFrom, today],
+    queryFn: () =>
+      getAppointments({
+        from: pastFrom,
+        to: today,
+        limit: 500,
         offset: 0,
       }),
   });
@@ -123,15 +121,13 @@ export default function HomeScreen({ navigation }: Props) {
   );
 
   // Pagamentos em falta: concluídas e por pagar
-  const unpaidCompletedAppointments = useMemo(
-    () =>
-      upcomingAppointments.filter(
-        (appointment) =>
-          appointment.status === "completed" &&
-          (appointment.payment_status || "unpaid") !== "paid"
-      ),
-    [upcomingAppointments]
-  );
+  const unpaidCompletedAppointments = useMemo(() => {
+    const items = overdueListData?.items || [];
+    return items.filter((appointment) => {
+      const unpaid = (appointment.payment_status || "unpaid") !== "paid";
+      return unpaid && appointment.status === "completed";
+    });
+  }, [overdueListData]);
   const pendingCount = useMemo(
     () =>
       todayAppointments.filter(
@@ -139,12 +135,7 @@ export default function HomeScreen({ navigation }: Props) {
       ).length,
     [todayAppointments]
   );
-  const unpaidCount = useMemo(() => {
-    const now = new Date();
-    return todayAppointments.filter((appointment) =>
-      isUnpaidPastOrCompleted(appointment, now)
-    ).length;
-  }, [isUnpaidPastOrCompleted, todayAppointments]);
+  const unpaidCount = overdueCountData ?? 0;
   const nextAppointment = useMemo(() => {
     const now = new Date();
     return (

@@ -24,11 +24,8 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  createAppointment,
-  updateAppointment,
-  getAppointment,
-} from "../api/appointments";
+import { createAppointment, updateAppointment } from "../api/appointments";
+import { useAppointmentPhotos } from "../hooks/useAppointmentPhotos";
 import { getNotificationPreferences } from "../api/notifications";
 import type { Customer, Pet } from "../api/customers";
 import {
@@ -45,7 +42,7 @@ import {
 } from "../api/services";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
 import { getCardVariants } from "../theme/uiTokens";
-import { FontAwesome } from "@expo/vector-icons";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { NewCustomerForm } from "../components/appointment/NewCustomerForm";
 import { ExistingCustomerForm } from "../components/appointment/ExistingCustomerForm";
 import {
@@ -510,12 +507,15 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load appointment data if in edit mode
-  const { data: appointmentData, isLoading: loadingAppointment } = useQuery({
-    queryKey: ["appointment", prefillAppointmentId],
-    queryFn: () => getAppointment(prefillAppointmentId!),
-    enabled: Boolean(prefillAppointmentId),
-  });
+  // Load appointment data if in edit mode (centralized hook)
+  const {
+    appointment: appointmentData,
+    isLoading: loadingAppointment,
+    photos: appointmentPhotos,
+    uploadPhoto: appointmentUploadPhoto,
+    uploadState: appointmentUploadState,
+    removePhoto: appointmentRemovePhoto,
+  } = useAppointmentPhotos(prefillAppointmentId);
   const { data: selectedCustomerPets = [] } = useQuery({
     queryKey: ["customer-pets", selectedCustomer],
     queryFn: () => getPetsByCustomer(selectedCustomer),
@@ -939,10 +939,23 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       queryClient
         .invalidateQueries({ queryKey: ["appointments"] })
         .catch(() => null);
-      if (isEditMode) {
-        queryClient
-          .invalidateQueries({ queryKey: ["appointment", editAppointmentId] })
-          .catch(() => null);
+      if (isEditMode && editAppointmentId) {
+        try {
+          const prev = queryClient.getQueryData([
+            "appointment",
+            editAppointmentId,
+          ]) as any;
+          const merged =
+            prev && prev.photos
+              ? { ...(savedAppointment || {}), photos: prev.photos }
+              : savedAppointment;
+          queryClient.setQueryData(["appointment", editAppointmentId], merged);
+        } catch (e) {
+          // fallback: just invalidate if anything goes wrong
+          queryClient
+            .invalidateQueries({ queryKey: ["appointment", editAppointmentId] })
+            .catch(() => null);
+        }
       }
       if (sendWhatsapp && canSendWhatsapp && !isEditMode) {
         const confirmationUrl = buildConfirmationUrl(savedAppointment);
@@ -1457,7 +1470,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
         ...reminderPayload,
       };
 
-      console.log("[appointment:create] payload", payload);
+      // payload logged in development during debugging (removed)
 
       await mutation.mutateAsync(payload);
     } finally {
@@ -1763,6 +1776,30 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           isEditMode
             ? t("appointmentForm.editTitle")
             : t("appointmentForm.createTitle")
+        }
+        rightElement={
+          canSubmit ? (
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={isSubmitting}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: isSubmitting ? colors.surface : colors.primary,
+                alignItems: "center",
+                justifyContent: "center",
+                marginLeft: 8,
+                opacity: isSubmitting ? 0.7 : 1,
+              }}
+            >
+              <Ionicons
+                name="save-outline"
+                size={20}
+                color={isHexLight(colors.primary) ? "#000" : colors.onPrimary}
+              />
+            </TouchableOpacity>
+          ) : null
         }
       />
       <KeyboardAvoidingView

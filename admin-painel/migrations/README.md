@@ -212,25 +212,25 @@ Adiciona as colunas `before_photo_url` e `after_photo_url` em `appointments`, pe
 supabase db execute --file migrations/011_appointment_photos.sql
 ```
 
-- Cria também o bucket público **`appointment-photos`** para armazenar as imagens de antes/depois (`appointments/<uuid>-before.jpg`).
+- Cria também o bucket público **`appointments`** para armazenar as imagens de antes/depois (`appointments/<uuid>-before.jpg`).
 - Os uploads são comprimidos no cliente (~1024px, JPEG) antes de serem enviados, reduzindo o consumo de storage.
 - Políticas recomendadas para o bucket:
   ```sql
   create policy "Allow appointment uploads"
     on storage.objects for insert
     with check (
-      bucket_id = 'appointment-photos'
+      bucket_id = 'appointments'
       and auth.uid() is not null
     );
 
   create policy "Allow appointment updates"
     on storage.objects for update
     using (
-      bucket_id = 'appointment-photos'
+      bucket_id = 'appointments'
       and auth.uid() is not null
     )
     with check (
-      bucket_id = 'appointment-photos'
+      bucket_id = 'appointments'
       and auth.uid() is not null
     );
   ```

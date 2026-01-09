@@ -23,7 +23,6 @@ function resolveApiBase() {
 const baseUrl = resolveApiBase();
 const baseWithVersion = baseUrl ? `${baseUrl}/api/v1` : undefined;
 
-console.log('[api/client] Base URL:', baseUrl, '-> Full:', baseWithVersion);
 
 const api = axios.create({
   baseURL: baseWithVersion,
@@ -103,17 +102,11 @@ function shouldRefreshSession(error: any) {
 
 api.interceptors.response.use(
   response => {
-    if (__DEV__ && (response.config as any)._startedAt) {
-      const duration = Date.now() - (response.config as any)._startedAt;
-      console.log('[api]', response.config.url, `${duration}ms`);
-    }
+    // response timing logs removed
     return response;
   },
   async error => {
-    if (__DEV__ && (error?.config as any)?._startedAt) {
-      const duration = Date.now() - (error.config as any)._startedAt;
-      console.log('[api] error', error.config?.url, `${duration}ms`);
-    }
+    // error timing logs removed
     const originalRequest = error?.config || {};
     if (shouldRefreshSession(error) && !originalRequest._retry) {
       originalRequest._retry = true;

@@ -67,8 +67,20 @@ const MARKETPLACE_APPOINTMENT_SELECT = `
   status,
   payment_status,
   amount,
-  before_photo_url,
-  after_photo_url,
+  photos (
+    id,
+    appointment_id,
+    appointment_service_id,
+    service_id,
+    pet_id,
+    uploader_id,
+    type,
+    url,
+    thumb_url,
+    metadata,
+    taken_at,
+    created_at
+  ),
   account:accounts ( id, name, slug, logo_url, support_email, support_phone ),
   customers!inner ( id, first_name, last_name, phone, email, address, address_2 ),
   appointment_services (

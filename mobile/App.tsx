@@ -395,7 +395,19 @@ function ConsumerTabs() {
 }
 
 export default function App() {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 1000 * 30,
+            refetchOnWindowFocus: false,
+            refetchOnMount: false,
+            retry: 1,
+          },
+        },
+      })
+  );
   const navigationRef = useMemo(() => createNavigationContainerRef(), []);
   const pendingNavigationRef = useRef<{
     route: string;

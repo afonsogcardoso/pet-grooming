@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "expo start",
+    "start": "dotenv -e .env.development expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "ios:sim": "dotenv -e .env.development expo run:ios --device E988FD32-604B-4E89-938D-283066CE1186",
+    "build:prod": "dotenv -e .env eas build --platform all",
     "web": "expo start --web"
   },
   "dependencies": {
@@ -55,6 +57,7 @@
   "devDependencies": {
     "@types/react": "~19.1.0",
     "babel-preset-expo": "^54.0.8",
+    "dotenv-cli": "^7.0.0",
     "typescript": "~5.9.2"
   },
   "overrides": {
