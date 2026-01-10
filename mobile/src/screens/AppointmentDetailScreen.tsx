@@ -16,8 +16,7 @@ import {
   KeyboardAvoidingView,
 } from "react-native";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
-import { File, Paths } from "expo-file-system";
-import * as MediaLibrary from "expo-media-library";
+import saveImageToDevice from "../utils/saveImage";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -36,6 +35,7 @@ import { getPetsByCustomer, type Pet } from "../api/customers";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
 import { ScreenHeader } from "../components/ScreenHeader";
 import { MiniMap } from "../components/common/MiniMap";
+import ImageWithDownload from "../components/common/ImageWithDownload";
 import { getStatusColor, getStatusLabel } from "../utils/appointmentStatus";
 import { getDateLocale } from "../i18n";
 import {
@@ -617,9 +617,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     }
 
     launchCamera(cameraOptions, async (response) => {
-      if (response.didCancel) {
-        return;
-      }
+      if (response.didCancel) return;
       if (response.errorCode) {
         console.error("Erro ao abrir câmara:", response.errorMessage);
         Alert.alert(t("common.error"), t("profile.openCameraError"));
@@ -641,9 +639,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     opts?: { appointmentServiceId?: string; serviceId?: string; petId?: string }
   ) => {
     launchImageLibrary(galleryOptions, async (response) => {
-      if (response.didCancel) {
-        return;
-      }
+      if (response.didCancel) return;
       if (response.errorCode) {
         console.error("Erro ao abrir galeria:", response.errorMessage);
         Alert.alert(t("common.error"), t("profile.openGalleryError"));
@@ -729,36 +725,25 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
 
     try {
       setSavingPhoto(type);
-      const permission = await MediaLibrary.requestPermissionsAsync();
-      const status = (permission as any).status;
-      if (!permission.granted && status !== "limited") {
-        Alert.alert(
-          t("common.error"),
-          t("appointmentDetail.photoSavePermission")
-        );
-        return;
-      }
-
       const extFromUrl = photoUrl.split(".").pop()?.split("?")[0] || "jpg";
       const extension = extFromUrl.length <= 5 ? extFromUrl : "jpg";
       const filename = `appointment-${appointmentId}-${type}-${Date.now()}.${extension}`;
-      const targetFile = new File(Paths.cache, filename);
-      const downloadedFile = await File.downloadFileAsync(
-        photoUrl,
-        targetFile,
-        {
-          idempotent: true,
-        }
-      );
-      await MediaLibrary.saveToLibraryAsync(downloadedFile.uri);
+      await saveImageToDevice(photoUrl, filename);
 
       Alert.alert(
         t("appointmentDetail.photoSavedTitle"),
         t("appointmentDetail.photoSavedMessage")
       );
-    } catch (error) {
-      console.error("Erro ao guardar foto:", error);
-      Alert.alert(t("common.error"), t("appointmentDetail.photoSaveError"));
+    } catch (error: any) {
+      if (error?.code === "permission_denied") {
+        Alert.alert(
+          t("common.error"),
+          t("appointmentDetail.photoSavePermission")
+        );
+      } else {
+        console.error("Erro ao guardar foto:", error);
+        Alert.alert(t("common.error"), t("appointmentDetail.photoSaveError"));
+      }
     } finally {
       setSavingPhoto(null);
     }
@@ -818,6 +803,12 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                 await hookRemovePhoto(photoObj.id);
                 hapticSuccess();
               } catch (err) {
+                console.error("delete appointment photo failed", {
+                  photoId: photoObj.id,
+                  appointmentId,
+                  appointmentServiceId: opts?.appointmentServiceId,
+                  error: err,
+                });
                 hapticError();
                 Alert.alert(
                   t("common.error"),
@@ -1045,6 +1036,14 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                         detail.total > 0 ||
                         detail.basePrice > 0 ||
                         detail.addonsTotal > 0;
+                      const beforePhoto = getServicePhoto(
+                        detail.entry.id,
+                        "before"
+                      )?.url;
+                      const afterPhoto = getServicePhoto(
+                        detail.entry.id,
+                        "after"
+                      )?.url;
                       return (
                         <View
                           key={detail.key}
@@ -1082,11 +1081,38 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                               ) : null}
                             </View>
                           </View>
-                          {showPrice ? (
-                            <View style={{ alignItems: "flex-end" }}>
-                              <View style={styles.servicePhotoActionsRow}>
+                      {showPrice ? (
+                        <View style={{ alignItems: "flex-end" }}>
+                          <View style={styles.servicePhotoActionsRow}>
+                            <View style={styles.servicePhotoThumbWrap}>
+                              {beforePhoto ? (
+                                <>
+                                  <ImageWithDownload
+                                    uri={beforePhoto}
+                                    style={styles.servicePhotoThumb}
+                                    disableDefaultOptions
+                                    onPress={() =>
+                                      handlePhotoPress("before", {
+                                        appointmentServiceId: detail.entry.id,
+                                        useLegacyFallback: false,
+                                      })
+                                    }
+                                  />
+                                  {uploadingPhoto?.type === "before" &&
+                                    uploadingPhoto?.appointmentServiceId ===
+                                      detail.entry.id && (
+                                      <View
+                                        style={
+                                          styles.servicePhotoLoadingOverlay
+                                        }
+                                      >
+                                        <ActivityIndicator color="#fff" />
+                                      </View>
+                                    )}
+                                </>
+                              ) : (
                                 <TouchableOpacity
-                                  style={styles.servicePhotoThumbWrap}
+                                  style={styles.servicePhotoThumbPlaceholder}
                                   onPress={() =>
                                     handlePhotoPress("before", {
                                       appointmentServiceId: detail.entry.id,
@@ -1094,56 +1120,54 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                                     })
                                   }
                                 >
-                                  {getServicePhoto(detail.entry.id, "before")
-                                    ?.url ? (
-                                    <>
-                                      <Image
-                                        source={{
-                                          uri: getServicePhoto(
-                                            detail.entry.id,
-                                            "before"
-                                          )?.url,
-                                        }}
-                                        style={styles.servicePhotoThumb}
-                                        resizeMode="cover"
-                                      />
-                                      {uploadingPhoto?.type === "before" &&
-                                        uploadingPhoto?.appointmentServiceId ===
-                                          detail.entry.id && (
-                                          <View
-                                            style={
-                                              styles.servicePhotoLoadingOverlay
-                                            }
-                                          >
-                                            <ActivityIndicator color="#fff" />
-                                          </View>
-                                        )}
-                                    </>
-                                  ) : (
-                                    <View
-                                      style={
-                                        styles.servicePhotoThumbPlaceholder
-                                      }
-                                    >
-                                      <Text
-                                        style={styles.servicePhotoThumbPlus}
-                                      >
-                                        +
-                                      </Text>
-                                      <Text
-                                        style={styles.servicePhotoThumbLabel}
-                                      >
-                                        {t("appointmentDetail.before")}
-                                      </Text>
-                                    </View>
-                                  )}
+                                  <Text
+                                    style={styles.servicePhotoThumbPlus}
+                                  >
+                                    +
+                                  </Text>
+                                  <Text
+                                    style={styles.servicePhotoThumbLabel}
+                                  >
+                                    {t("appointmentDetail.before")}
+                                  </Text>
                                 </TouchableOpacity>
+                              )}
+                            </View>
 
+                            <View
+                              style={[
+                                styles.servicePhotoThumbWrap,
+                                { marginLeft: 8 },
+                              ]}
+                            >
+                              {afterPhoto ? (
+                                <>
+                                  <ImageWithDownload
+                                    uri={afterPhoto}
+                                    style={styles.servicePhotoThumb}
+                                    disableDefaultOptions
+                                    onPress={() =>
+                                      handlePhotoPress("after", {
+                                        appointmentServiceId: detail.entry.id,
+                                        useLegacyFallback: false,
+                                      })
+                                    }
+                                  />
+                                  {uploadingPhoto?.type === "after" &&
+                                    uploadingPhoto?.appointmentServiceId ===
+                                      detail.entry.id && (
+                                      <View
+                                        style={
+                                          styles.servicePhotoLoadingOverlay
+                                        }
+                                      >
+                                        <ActivityIndicator color="#fff" />
+                                      </View>
+                                    )}
+                                </>
+                              ) : (
                                 <TouchableOpacity
-                                  style={[
-                                    styles.servicePhotoThumbWrap,
-                                    { marginLeft: 8 },
-                                  ]}
+                                  style={styles.servicePhotoThumbPlaceholder}
                                   onPress={() =>
                                     handlePhotoPress("after", {
                                       appointmentServiceId: detail.entry.id,
@@ -1151,61 +1175,30 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                                     })
                                   }
                                 >
-                                  {getServicePhoto(detail.entry.id, "after")
-                                    ?.url ? (
-                                    <>
-                                      <Image
-                                        source={{
-                                          uri: getServicePhoto(
-                                            detail.entry.id,
-                                            "after"
-                                          )?.url,
-                                        }}
-                                        style={styles.servicePhotoThumb}
-                                        resizeMode="cover"
-                                      />
-                                      {uploadingPhoto?.type === "after" &&
-                                        uploadingPhoto?.appointmentServiceId ===
-                                          detail.entry.id && (
-                                          <View
-                                            style={
-                                              styles.servicePhotoLoadingOverlay
-                                            }
-                                          >
-                                            <ActivityIndicator color="#fff" />
-                                          </View>
-                                        )}
-                                    </>
-                                  ) : (
-                                    <View
-                                      style={
-                                        styles.servicePhotoThumbPlaceholder
-                                      }
-                                    >
-                                      <Text
-                                        style={styles.servicePhotoThumbPlus}
-                                      >
-                                        +
-                                      </Text>
-                                      <Text
-                                        style={styles.servicePhotoThumbLabel}
-                                      >
-                                        {t("appointmentDetail.after")}
-                                      </Text>
-                                    </View>
-                                  )}
+                                  <Text
+                                    style={styles.servicePhotoThumbPlus}
+                                  >
+                                    +
+                                  </Text>
+                                  <Text
+                                    style={styles.servicePhotoThumbLabel}
+                                  >
+                                    {t("appointmentDetail.after")}
+                                  </Text>
                                 </TouchableOpacity>
-                              </View>
-                              <Text
-                                style={[
-                                  styles.serviceDetailPrice,
-                                  { marginTop: 8 },
-                                ]}
-                              >
-                                €{detail.total.toFixed(2)}
-                              </Text>
+                              )}
                             </View>
-                          ) : null}
+                          </View>
+                          <Text
+                            style={[
+                              styles.serviceDetailPrice,
+                              { marginTop: 8 },
+                            ]}
+                          >
+                            €{detail.total.toFixed(2)}
+                          </Text>
+                        </View>
+                      ) : null}
                         </View>
                       );
                     })}

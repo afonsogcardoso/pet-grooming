@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getAppointment, uploadAppointmentPhoto } from '../api/appointments';
+import { deleteAppointmentPhoto, getAppointment, uploadAppointmentPhoto } from '../api/appointments';
 import { compressImage } from '../utils/imageCompression';
 
 export function useAppointmentPhotos(appointmentId?: string | null) {
@@ -32,7 +32,14 @@ export function useAppointmentPhotos(appointmentId?: string | null) {
 
   const remove = useMutation({
     mutationFn: async (photoId: string) => {
-      await fetch(`/appointments/photos/${photoId}`, { method: 'DELETE' });
+      try {
+        await deleteAppointmentPhoto(photoId);
+      } catch (err: any) {
+        const status = err?.response?.status;
+        const data = err?.response?.data;
+        console.error('delete appointment photo error', { photoId, appointmentId, status, data });
+        throw err;
+      }
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['appointment', appointmentId] });

@@ -1,11 +1,6 @@
 import React from "react";
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, Image, ActivityIndicator } from "react-native";
+import ImageWithDownload from "../common/ImageWithDownload";
 import { Branding } from "../../api/branding";
 
 type Props = {
@@ -38,14 +33,13 @@ export default function ProfileHeader({
   return (
     <View style={styles.headerCard}>
       <View style={styles.headerRow}>
-        <TouchableOpacity
-          style={styles.avatar}
-          onPress={pickImage}
-          disabled={uploadingAvatar}
-          activeOpacity={0.85}
-        >
+        <View style={styles.avatar}>
           {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+            <ImageWithDownload
+              uri={avatarUrl}
+              style={styles.avatarImage}
+              onReplace={uploadingAvatar ? undefined : pickImage}
+            />
           ) : (
             <Text style={styles.avatarText}>{avatarFallback}</Text>
           )}
@@ -54,7 +48,7 @@ export default function ProfileHeader({
               <ActivityIndicator color="#fff" />
             </View>
           ) : null}
-        </TouchableOpacity>
+        </View>
         <View style={styles.headerInfo}>
           <View style={styles.headerTopRow}>
             <Text style={styles.headerTitle}>{displayName}</Text>

@@ -94,3 +94,15 @@ export async function uploadPortalImage(
   );
   return data;
 }
+
+export async function deleteBrandLogo(accountId?: string | null): Promise<Branding> {
+  const query = buildAccountQuery(accountId)
+  const { data } = await api.delete<BrandingResponse>(`/branding/logo${query}`)
+  return data.data
+}
+
+export async function deletePortalImage(accountId?: string | null): Promise<Branding> {
+  const query = buildAccountQuery(accountId)
+  const { data } = await api.delete<BrandingResponse>(`/branding/portal-image${query}`)
+  return data.data
+}

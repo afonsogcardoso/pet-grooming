@@ -19,6 +19,7 @@ import {
   createCustomer,
   updateCustomer,
   uploadCustomerPhoto,
+  deleteCustomerPhoto,
   type Customer,
 } from "../api/customers";
 import { ScreenHeader } from "../components/ScreenHeader";
@@ -212,6 +213,31 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
     }
   };
 
+  const handleDeleteAvatar = async () => {
+    if (mode === "create" || !customerId) {
+      Alert.alert(t("common.warning"), t("customerForm.saveFirstWarning"));
+      return;
+    }
+    try {
+      setUploadingPhoto(true);
+      // attempt to nullify photo via updateCustomer; API may accept photo_url null
+      // call server endpoint to remove storage objects and clear DB field
+      await deleteCustomerPhoto(customerId!);
+      setPhotoUrl("");
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({
+        queryKey: ["customer-pets", customerId],
+      });
+      hapticSuccess();
+    } catch (err) {
+      console.error("Erro ao apagar avatar:", err);
+      Alert.alert(t("common.error"), t("customerForm.photoUploadError"));
+      hapticError();
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const openCamera = async () => {
     const hasPermission = await requestAndroidPermissions();
     if (!hasPermission) {
@@ -322,6 +348,10 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
                   imageUrl={photoUrl}
                   size="large"
                   onPress={mode === "edit" ? handleAvatarPress : undefined}
+                  // allow deletion via avatar component
+                  // Avatar -> ImageWithDownload will forward onDelete to show delete option
+                  // pass handler only when editing
+                  {...(mode === "edit" ? { onDelete: handleDeleteAvatar } : {})}
                 />
                 {uploadingPhoto && (
                   <View style={styles.avatarLoadingOverlay}>

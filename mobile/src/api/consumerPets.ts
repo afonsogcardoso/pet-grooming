@@ -65,3 +65,7 @@ export async function uploadConsumerPetPhoto(
 
   return data;
 }
+
+export async function deleteConsumerPetPhoto(petId: string): Promise<void> {
+  await api.delete(`/marketplace/pets/${petId}/photo`);
+}

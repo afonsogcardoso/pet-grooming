@@ -24,6 +24,7 @@ import {
   getAppointmentPetNames,
   getAppointmentServiceEntries,
 } from "../../utils/appointmentSummary";
+import ImageWithDownload from "../common/ImageWithDownload";
 
 type Props = {
   appointment: Appointment;
@@ -141,10 +142,9 @@ export default function AppointmentCard({ appointment, onPress }: Props) {
                 ]}
               >
                 {p?.photo_url ? (
-                  <Image
-                    source={{ uri: p.photo_url }}
+                  <ImageWithDownload
+                    uri={p.photo_url}
                     style={styles.petMultiImage}
-                    resizeMode="cover"
                   />
                 ) : (
                   <Text
@@ -167,11 +167,7 @@ export default function AppointmentCard({ appointment, onPress }: Props) {
             ))}
           </View>
         ) : primaryPetPhoto ? (
-          <Image
-            source={{ uri: primaryPetPhoto }}
-            style={styles.petImage}
-            resizeMode="cover"
-          />
+          <ImageWithDownload uri={primaryPetPhoto} style={styles.petImage} />
         ) : (
           <Text style={styles.petInitial}>{petInitial}</Text>
         )}

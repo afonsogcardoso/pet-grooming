@@ -1,48 +1,53 @@
-import { useMemo } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { useBrandingTheme } from '../../theme/useBrandingTheme';
+import { useMemo } from "react";
+import { View, Text, Image, StyleSheet } from "react-native";
+import { useBrandingTheme } from "../../theme/useBrandingTheme";
+import ImageWithDownload from "./ImageWithDownload";
 
 interface AvatarProps {
   name: string;
   imageUrl?: string | null;
-  size?: 'small' | 'medium' | 'large';
+  size?: "small" | "medium" | "large";
   onPress?: () => void;
+  onDelete?: () => void;
 }
 
-export function Avatar({ name, imageUrl, size = 'medium', onPress }: AvatarProps) {
+export function Avatar({
+  name,
+  imageUrl,
+  size = "medium",
+  onPress,
+  onDelete,
+}: AvatarProps) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const initial = name?.charAt(0)?.toUpperCase() || '?';
+  const initial = name?.charAt(0)?.toUpperCase() || "?";
   const sizeStyle = styles[`container_${size}`];
 
   const content = imageUrl ? (
-    <Image source={{ uri: imageUrl }} style={styles.image} />
+    <ImageWithDownload
+      uri={imageUrl}
+      style={styles.image}
+      onPress={onPress}
+      onDelete={onDelete}
+    />
   ) : (
     <Text style={[styles.initial, styles[`initial_${size}`]]}>{initial}</Text>
   );
 
-  if (onPress) {
-    return (
-      <TouchableOpacity style={[styles.container, sizeStyle]} onPress={onPress} activeOpacity={0.7}>
-        {content}
-      </TouchableOpacity>
-    );
-  }
-
   return <View style={[styles.container, sizeStyle]}>{content}</View>;
 }
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
   return StyleSheet.create({
     container: {
       borderRadius: 999,
       backgroundColor: colors.primarySoft,
       borderWidth: 2,
       borderColor: colors.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-      overflow: 'hidden',
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
     },
     container_small: {
       width: 32,
@@ -57,12 +62,12 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
       height: 80,
     },
     image: {
-      width: '100%',
-      height: '100%',
+      width: "100%",
+      height: "100%",
     },
     initial: {
       color: colors.primary,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     initial_small: {
       fontSize: 14,

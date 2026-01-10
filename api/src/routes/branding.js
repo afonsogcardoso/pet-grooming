@@ -334,4 +334,82 @@ router.post('/portal-image', upload.single('file'), async (req, res) => {
   return res.json({ url: publicUrl, data: formatBrandingRow(data) })
 })
 
+// Delete logo
+router.delete('/logo', async (req, res) => {
+  const supabase = getSupabaseServiceRoleClient()
+  const context = await resolveContext(req, supabase)
+  const accountId = context.accountId
+  if (!supabase || !accountId || !context.userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const allowed = assertOwnerOrAdmin(context)
+  if (!allowed.ok) return res.status(allowed.status).json({ error: allowed.error })
+
+  try {
+    const { data: list, error: listErr } = await supabase.storage.from(BRANDING_BUCKET).list(`logos/${accountId}`)
+    if (listErr) {
+      console.error('[branding] list logos error', listErr)
+      return res.status(500).json({ error: listErr.message })
+    }
+
+    const toRemove = (list || []).map((f) => `logos/${accountId}/${f.name}`)
+    if (toRemove.length > 0) {
+      const { error: remErr } = await supabase.storage.from(BRANDING_BUCKET).remove(toRemove)
+      if (remErr) {
+        console.error('[branding] remove logos error', remErr)
+        return res.status(500).json({ error: remErr.message })
+      }
+    }
+
+    const { data, error: updateErr } = await updateBrandingRow(supabase, accountId, { logo_url: null })
+    if (updateErr) {
+      console.error('[branding] update logo_url error', updateErr)
+      return res.status(500).json({ error: updateErr.message })
+    }
+
+    return res.json({ data: formatBrandingRow(data) })
+  } catch (e) {
+    console.error('[branding] delete logo error', e)
+    return res.status(500).json({ error: 'internal_error' })
+  }
+})
+
+// Delete portal image
+router.delete('/portal-image', async (req, res) => {
+  const supabase = getSupabaseServiceRoleClient()
+  const context = await resolveContext(req, supabase)
+  const accountId = context.accountId
+  if (!supabase || !accountId || !context.userId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const allowed = assertOwnerOrAdmin(context)
+  if (!allowed.ok) return res.status(allowed.status).json({ error: allowed.error })
+
+  try {
+    const { data: list, error: listErr } = await supabase.storage.from(BRANDING_BUCKET).list(`portal-images/${accountId}`)
+    if (listErr) {
+      console.error('[branding] list portal images error', listErr)
+      return res.status(500).json({ error: listErr.message })
+    }
+
+    const toRemove = (list || []).map((f) => `portal-images/${accountId}/${f.name}`)
+    if (toRemove.length > 0) {
+      const { error: remErr } = await supabase.storage.from(BRANDING_BUCKET).remove(toRemove)
+      if (remErr) {
+        console.error('[branding] remove portal images error', remErr)
+        return res.status(500).json({ error: remErr.message })
+      }
+    }
+
+    const { data, error: updateErr } = await updateBrandingRow(supabase, accountId, { portal_image_url: null })
+    if (updateErr) {
+      console.error('[branding] update portal_image_url error', updateErr)
+      return res.status(500).json({ error: updateErr.message })
+    }
+
+    return res.json({ data: formatBrandingRow(data) })
+  } catch (e) {
+    console.error('[branding] delete portal image error', e)
+    return res.status(500).json({ error: 'internal_error' })
+  }
+})
+
 export default router

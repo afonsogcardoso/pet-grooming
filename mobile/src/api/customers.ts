@@ -162,3 +162,12 @@ export async function deleteCustomer(customerId: string): Promise<void> {
 export async function deletePet(customerId: string, petId: string): Promise<void> {
   await api.delete(`/customers/${customerId}/pets/${petId}`);
 }
+
+export async function deleteCustomerPhoto(customerId: string): Promise<void> {
+  await api.delete(`/customers/${customerId}/photo`);
+}
+
+export async function deleteCustomerPetPhoto(petId: string): Promise<void> {
+  // Note: backend route expects petId as first param
+  await api.delete(`/customers/${petId}/pet-photo`);
+}

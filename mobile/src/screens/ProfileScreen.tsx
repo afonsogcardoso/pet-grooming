@@ -35,6 +35,8 @@ import {
 import {
   Branding,
   BrandingUpdatePayload,
+  deleteBrandLogo,
+  deletePortalImage,
   getBranding,
   updateBranding,
   uploadBrandLogo,
@@ -1109,6 +1111,38 @@ export default function ProfileScreen({ navigation }: Props) {
     }
   };
 
+  const handleDeleteAccountLogo = async () => {
+    if (!brandingAccountId) return;
+    try {
+      setUploadingAccountLogo(true);
+      const updated = await deleteBrandLogo(brandingAccountId);
+      queryClient.setQueryData(["branding"], updated);
+      applyAccountBranding(updated);
+    } catch (err) {
+      hapticError();
+      console.error("Erro ao apagar logótipo:", err);
+      Alert.alert(t("common.error"), t("marketplaceProfile.logoUploadError"));
+    } finally {
+      setUploadingAccountLogo(false);
+    }
+  };
+
+  const handleDeleteAccountHero = async () => {
+    if (!brandingAccountId) return;
+    try {
+      setUploadingAccountHero(true);
+      const updated = await deletePortalImage(brandingAccountId);
+      queryClient.setQueryData(["branding"], updated);
+      applyAccountBranding(updated);
+    } catch (err) {
+      hapticError();
+      console.error("Erro ao apagar imagem de capa:", err);
+      Alert.alert(t("common.error"), t("marketplaceProfile.heroUploadError"));
+    } finally {
+      setUploadingAccountHero(false);
+    }
+  };
+
   const openAccountCamera = async (
     onSelected: (uri: string, fileName?: string | null) => Promise<void>
   ) => {
@@ -1832,6 +1866,8 @@ export default function ProfileScreen({ navigation }: Props) {
           pickAccountImage={pickAccountImage}
           accountUploadLogoFromUri={accountUploadLogoFromUri}
           accountUploadHeroFromUri={accountUploadHeroFromUri}
+          deleteAccountLogo={handleDeleteAccountLogo}
+          deleteAccountHero={handleDeleteAccountHero}
           accountInstagram={accountInstagram}
           setAccountInstagram={setAccountInstagram}
           accountFacebook={accountFacebook}

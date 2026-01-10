@@ -1,8 +1,9 @@
 import { useMemo } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
 import { getCardStyle } from "../../theme/uiTokens";
 import type { Pet } from "../../api/customers";
+import ImageWithDownload from "../common/ImageWithDownload";
 
 interface PetCardProps {
   pet: Pet;
@@ -17,7 +18,7 @@ export function PetCard({ pet, onPress }: PetCardProps) {
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.imageContainer}>
         {pet.photo_url ? (
-          <Image source={{ uri: pet.photo_url }} style={styles.image} />
+          <ImageWithDownload uri={pet.photo_url} style={styles.image} />
         ) : (
           <View style={styles.placeholder}>
             <Text style={styles.placeholderIcon}>🐾</Text>

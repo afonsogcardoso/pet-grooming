@@ -4,11 +4,11 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
 } from "react-native";
 import Switch from "../StyledSwitch";
 import { Input } from "../common/Input";
+import ImageWithDownload from "../common/ImageWithDownload";
 
 type Props = {
   styles: any;
@@ -50,7 +50,51 @@ type Props = {
   accountWebsite: string;
   setAccountWebsite: (s: string) => void;
   accountMutationPending: boolean;
+  deleteAccountLogo: () => void;
+  deleteAccountHero: () => void;
 };
+
+type ColorFieldProps = {
+  styles: any;
+  colors: any;
+  label: string;
+  value: string;
+  placeholder: string;
+  setter: (value: string) => void;
+};
+
+function ColorField({
+  styles,
+  colors,
+  label,
+  value,
+  placeholder,
+  setter,
+}: ColorFieldProps) {
+  const swatchColor = value || placeholder;
+
+  return (
+    <View style={styles.colorCell}>
+      <Text style={styles.colorLabel}>{label}</Text>
+      <View style={styles.colorInputRow}>
+        <View
+          style={[
+            styles.colorSwatch,
+            { backgroundColor: swatchColor || colors.surface },
+          ]}
+        />
+        <TextInput
+          style={styles.colorInput}
+          value={value}
+          placeholder={placeholder}
+          onChangeText={setter}
+          autoCapitalize="none"
+          placeholderTextColor={colors.muted}
+        />
+      </View>
+    </View>
+  );
+}
 
 export default function ProfileMarketplace({
   styles,
@@ -90,7 +134,57 @@ export default function ProfileMarketplace({
   accountWebsite,
   setAccountWebsite,
   accountMutationPending,
+  deleteAccountLogo,
+  deleteAccountHero,
 }: Props) {
+  const coloringFields = [
+    {
+      key: "primary",
+      label: t("marketplaceProfile.brandPrimary", {
+        defaultValue: "Primary",
+      }),
+      value: brandPrimary,
+      setter: setBrandPrimary,
+      placeholder: "#007aff",
+    },
+    {
+      key: "primarySoft",
+      label: t("marketplaceProfile.brandPrimarySoft", {
+        defaultValue: "Primary (soft)",
+      }),
+      value: brandPrimarySoft,
+      setter: setBrandPrimarySoft,
+      placeholder: "#e6f0ff",
+    },
+    {
+      key: "accent",
+      label: t("marketplaceProfile.brandAccent", {
+        defaultValue: "Accent",
+      }),
+      value: brandAccent,
+      setter: setBrandAccent,
+      placeholder: "#ff9500",
+    },
+    {
+      key: "accentSoft",
+      label: t("marketplaceProfile.brandAccentSoft", {
+        defaultValue: "Accent (soft)",
+      }),
+      value: brandAccentSoft,
+      setter: setBrandAccentSoft,
+      placeholder: "#fff2e6",
+    },
+    {
+      key: "background",
+      label: t("marketplaceProfile.brandBackground", {
+        defaultValue: "Background",
+      }),
+      value: brandBackground,
+      setter: setBrandBackground,
+      placeholder: "#f6f9f8",
+    },
+  ];
+
   return (
     <>
       <View style={styles.section}>
@@ -103,7 +197,6 @@ export default function ProfileMarketplace({
             labelStyle={styles.inputLabel}
           />
         </View>
-
         <View style={styles.inputGroup}>
           <Input
             label={t("marketplaceProfile.regionLabel")}
@@ -113,7 +206,6 @@ export default function ProfileMarketplace({
             labelStyle={styles.inputLabel}
           />
         </View>
-
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>
             {t("marketplaceProfile.descriptionLabel")}
@@ -130,7 +222,6 @@ export default function ProfileMarketplace({
             multiline
           />
         </View>
-
         <View style={styles.toggleRow}>
           <View style={styles.toggleTextGroup}>
             <Text style={styles.toggleLabel}>
@@ -150,65 +241,18 @@ export default function ProfileMarketplace({
         <Text style={styles.sectionTitle}>
           {t("marketplaceProfile.brandingTitle")}
         </Text>
-        <View style={styles.inputGroup}>
-          <Input
-            label={t("marketplaceProfile.brandPrimary", {
-              defaultValue: "Primary",
-            })}
-            value={brandPrimary}
-            onChangeText={setBrandPrimary}
-            placeholder="#007aff"
-            autoCapitalize="none"
-            labelStyle={styles.inputLabel}
-          />
-        </View>
-        <View style={styles.inputGroup}>
-          <Input
-            label={t("marketplaceProfile.brandPrimarySoft", {
-              defaultValue: "Primary (soft)",
-            })}
-            value={brandPrimarySoft}
-            onChangeText={setBrandPrimarySoft}
-            placeholder="#e6f0ff"
-            autoCapitalize="none"
-            labelStyle={styles.inputLabel}
-          />
-        </View>
-        <View style={styles.inputGroup}>
-          <Input
-            label={t("marketplaceProfile.brandAccent", {
-              defaultValue: "Accent",
-            })}
-            value={brandAccent}
-            onChangeText={setBrandAccent}
-            placeholder="#ff9500"
-            autoCapitalize="none"
-            labelStyle={styles.inputLabel}
-          />
-        </View>
-        <View style={styles.inputGroup}>
-          <Input
-            label={t("marketplaceProfile.brandAccentSoft", {
-              defaultValue: "Accent (soft)",
-            })}
-            value={brandAccentSoft}
-            onChangeText={setBrandAccentSoft}
-            placeholder="#fff2e6"
-            autoCapitalize="none"
-            labelStyle={styles.inputLabel}
-          />
-        </View>
-        <View style={styles.inputGroup}>
-          <Input
-            label={t("marketplaceProfile.brandBackground", {
-              defaultValue: "Background",
-            })}
-            value={brandBackground}
-            onChangeText={setBrandBackground}
-            placeholder="#f6f9f8"
-            autoCapitalize="none"
-            labelStyle={styles.inputLabel}
-          />
+        <View style={styles.colorGrid}>
+          {coloringFields.map((entry) => (
+            <ColorField
+              key={entry.key}
+              styles={styles}
+              colors={colors}
+              label={entry.label}
+              value={entry.value}
+              placeholder={entry.placeholder}
+              setter={entry.setter}
+            />
+          ))}
         </View>
       </View>
 
@@ -218,56 +262,84 @@ export default function ProfileMarketplace({
             <Text style={styles.marketplaceMediaTitle}>
               {t("marketplaceProfile.logoTitle")}
             </Text>
-            <TouchableOpacity
-              style={styles.marketplaceLogo}
-              onPress={() => pickAccountImage(accountUploadLogoFromUri)}
-              disabled={uploadingAccountLogo}
-            >
-              {accountLogoUrl ? (
-                <Image
-                  source={{ uri: accountLogoUrl }}
+            {accountLogoUrl ? (
+              <View style={styles.marketplaceLogo}>
+                <ImageWithDownload
+                  uri={accountLogoUrl}
                   style={styles.marketplaceLogoImage}
+                  onReplace={
+                    uploadingAccountLogo
+                      ? undefined
+                      : () => pickAccountImage(accountUploadLogoFromUri)
+                  }
+                  onDelete={uploadingAccountLogo ? undefined : deleteAccountLogo}
                 />
-              ) : (
+                {uploadingAccountLogo ? (
+                  <View style={styles.marketplaceMediaOverlay}>
+                    <ActivityIndicator color={colors.onPrimary} />
+                  </View>
+                ) : null}
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.marketplaceLogo}
+                onPress={() => pickAccountImage(accountUploadLogoFromUri)}
+                disabled={uploadingAccountLogo}
+              >
                 <Text style={styles.marketplaceLogoFallback}>
                   {(accountName.trim().charAt(0) || "P").toUpperCase()}
                 </Text>
-              )}
-              {uploadingAccountLogo ? (
-                <View style={styles.marketplaceMediaOverlay}>
-                  <ActivityIndicator color={colors.onPrimary} />
-                </View>
-              ) : null}
-            </TouchableOpacity>
+                {uploadingAccountLogo ? (
+                  <View style={styles.marketplaceMediaOverlay}>
+                    <ActivityIndicator color={colors.onPrimary} />
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={styles.marketplaceMediaCard}>
             <Text style={styles.marketplaceMediaTitle}>
               {t("marketplaceProfile.heroTitle")}
             </Text>
-            <TouchableOpacity
-              style={styles.marketplaceHero}
-              onPress={() => pickAccountImage(accountUploadHeroFromUri)}
-              disabled={uploadingAccountHero}
-            >
-              {accountHeroUrl ? (
-                <Image
-                  source={{ uri: accountHeroUrl }}
+            {accountHeroUrl ? (
+              <View style={styles.marketplaceHero}>
+                <ImageWithDownload
+                  uri={accountHeroUrl}
                   style={styles.marketplaceHeroImage}
+                  onReplace={
+                    uploadingAccountHero
+                      ? undefined
+                      : () => pickAccountImage(accountUploadHeroFromUri)
+                  }
+                  onDelete={
+                    uploadingAccountHero ? undefined : deleteAccountHero
+                  }
                 />
-              ) : (
+                {uploadingAccountHero ? (
+                  <View style={styles.marketplaceMediaOverlay}>
+                    <ActivityIndicator color={colors.onPrimary} />
+                  </View>
+                ) : null}
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.marketplaceHero}
+                onPress={() => pickAccountImage(accountUploadHeroFromUri)}
+                disabled={uploadingAccountHero}
+              >
                 <View style={styles.marketplaceHeroPlaceholder}>
                   <Text style={styles.marketplaceHeroPlaceholderText}>
                     {t("marketplaceProfile.heroPlaceholder")}
                   </Text>
                 </View>
-              )}
-              {uploadingAccountHero ? (
-                <View style={styles.marketplaceMediaOverlay}>
-                  <ActivityIndicator color={colors.onPrimary} />
-                </View>
-              ) : null}
-            </TouchableOpacity>
+                {uploadingAccountHero ? (
+                  <View style={styles.marketplaceMediaOverlay}>
+                    <ActivityIndicator color={colors.onPrimary} />
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>

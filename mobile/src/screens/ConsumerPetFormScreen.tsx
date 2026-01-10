@@ -3,7 +3,6 @@ import {
   ActionSheetIOS,
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   PermissionsAndroid,
   Platform,
@@ -13,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import ImageWithDownload from "../components/common/ImageWithDownload";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,6 +26,7 @@ import {
   updateConsumerPet,
   deleteConsumerPet,
   uploadConsumerPetPhoto,
+  deleteConsumerPetPhoto,
 } from "../api/consumerPets";
 import { getPetBreeds, getPetSpecies } from "../api/petAttributes";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
@@ -402,18 +403,41 @@ export default function ConsumerPetFormScreen({ navigation, route }: Props) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.photoSection}>
-            <Text style={styles.photoLabel}>
-              {t("consumerPetsForm.photoLabel")}
-            </Text>
-            <TouchableOpacity
-              style={styles.photoContainer}
-              onPress={selectImage}
-              activeOpacity={0.7}
-              disabled={uploadingPhoto}
-            >
+            <View style={styles.photoContainer}>
               {photoUri ? (
                 <>
-                  <Image source={{ uri: photoUri }} style={styles.photo} />
+                  <ImageWithDownload
+                    uri={photoUri}
+                    style={styles.photo}
+                    onReplace={uploadingPhoto ? undefined : selectImage}
+                    onDelete={async () => {
+                      if (!pet?.id) {
+                        Alert.alert(
+                          t("common.warning"),
+                          t("consumerPetsForm.saveFirstWarning")
+                        );
+                        return;
+                      }
+                      try {
+                        setUploadingPhoto(true);
+                        await deleteConsumerPetPhoto(pet.id);
+                        setPhotoUri(null);
+                        queryClient.invalidateQueries({
+                          queryKey: ["consumerPets"],
+                        });
+                        hapticSuccess();
+                      } catch (err) {
+                        console.error("Erro ao apagar foto do pet:", err);
+                        Alert.alert(
+                          t("common.error"),
+                          t("consumerPetsForm.photoDeleteError")
+                        );
+                        hapticError();
+                      } finally {
+                        setUploadingPhoto(false);
+                      }
+                    }}
+                  />
                   {uploadingPhoto && (
                     <View style={styles.photoOverlay}>
                       <ActivityIndicator color="#fff" size="large" />
@@ -424,17 +448,23 @@ export default function ConsumerPetFormScreen({ navigation, route }: Props) {
                   )}
                 </>
               ) : (
-                <View style={styles.photoPlaceholder}>
-                  {uploadingPhoto ? (
-                    <ActivityIndicator color={colors.primary} size="large" />
-                  ) : (
-                    <Text style={styles.photoPlaceholderText}>
-                      {t("consumerPetsForm.addPhoto")}
-                    </Text>
-                  )}
-                </View>
+                <TouchableOpacity
+                  onPress={selectImage}
+                  activeOpacity={0.7}
+                  disabled={uploadingPhoto}
+                >
+                  <View style={styles.photoPlaceholder}>
+                    {uploadingPhoto ? (
+                      <ActivityIndicator color={colors.primary} size="large" />
+                    ) : (
+                      <Text style={styles.photoPlaceholderText}>
+                        {t("consumerPetsForm.addPhoto")}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
+            </View>
           </View>
           <View style={styles.card}>
             <Input
@@ -572,15 +602,14 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     photoContainer: {
       width: 140,
       height: 140,
-      borderRadius: 70,
       overflow: "hidden",
-      borderWidth: 2,
-      borderColor: colors.surfaceBorder,
       borderStyle: "dashed",
     },
     photo: {
       width: "100%",
       height: "100%",
+      resizeMode: "cover",
+      borderRadius: 70,
     },
     photoPlaceholder: {
       width: "100%",

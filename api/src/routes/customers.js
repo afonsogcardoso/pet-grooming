@@ -587,3 +587,113 @@ router.post('/:petId/pet-photo', upload.single('file'), async (req, res) => {
 })
 
 export default router
+
+// Delete customer photo
+router.delete('/:id/photo', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase || !accountId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const token = req.headers.authorization
+  const bearer = typeof token === 'string' && token.startsWith('Bearer ') ? token.slice(7) : null
+  if (!bearer) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(bearer)
+  if (userError || !userData?.user?.id) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { data: membership } = await supabase
+    .from('account_members')
+    .select('id')
+    .eq('account_id', accountId)
+    .eq('user_id', userData.user.id)
+    .eq('status', 'accepted')
+    .maybeSingle()
+  if (!membership) return res.status(403).json({ error: 'Forbidden' })
+
+  const id = req.params.id
+
+  // list objects under customers/{id}/ and remove them
+  try {
+    const { data: list, error: listErr } = await supabase.storage.from('customers').list(`customers/${id}`)
+    if (listErr) {
+      console.error('[api] list customer photos error', listErr)
+      return res.status(500).json({ error: listErr.message })
+    }
+
+    const toRemove = (list || []).map((f) => `customers/${id}/${f.name}`)
+    if (toRemove.length > 0) {
+      const { error: removeErr } = await supabase.storage.from('customers').remove(toRemove)
+      if (removeErr) {
+        console.error('[api] remove customer photos error', removeErr)
+        return res.status(500).json({ error: removeErr.message })
+      }
+    }
+
+    // clear photo_url in DB
+    const { error: updateErr } = await supabase.from('customers').update({ photo_url: null }).eq('id', id).eq('account_id', accountId)
+    if (updateErr) {
+      console.error('[api] update customer photo_url error', updateErr)
+      return res.status(500).json({ error: updateErr.message })
+    }
+
+    return res.json({ ok: true })
+  } catch (e) {
+    console.error('[api] delete customer photo error', e)
+    return res.status(500).json({ error: 'internal_error' })
+  }
+})
+
+// Delete pet photo for a customer
+router.delete('/:petId/pet-photo', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase || !accountId) return res.status(401).json({ error: 'Unauthorized' })
+
+  const token = req.headers.authorization
+  const bearer = typeof token === 'string' && token.startsWith('Bearer ') ? token.slice(7) : null
+  if (!bearer) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(bearer)
+  if (userError || !userData?.user?.id) return res.status(401).json({ error: 'Unauthorized' })
+
+  const { data: membership } = await supabase
+    .from('account_members')
+    .select('id')
+    .eq('account_id', accountId)
+    .eq('user_id', userData.user.id)
+    .eq('status', 'accepted')
+    .maybeSingle()
+  if (!membership) return res.status(403).json({ error: 'Forbidden' })
+
+  const petId = req.params.petId
+  try {
+    // list all objects in PET_PHOTO_BUCKET under pets/ and remove those matching petId prefix
+    const { data: list, error: listErr } = await supabase.storage.from(PET_PHOTO_BUCKET).list('')
+    if (listErr) {
+      console.error('[api] list pet photos error', listErr)
+      return res.status(500).json({ error: listErr.message })
+    }
+    const matches = (list || []).filter((f) => f.name && f.name.startsWith(`${petId}-`)).map((f) => f.name)
+    const toRemove = matches.map((n) => n)
+    if (toRemove.length > 0) {
+      const { error: remErr } = await supabase.storage.from(PET_PHOTO_BUCKET).remove(toRemove)
+      if (remErr) {
+        console.error('[api] remove pet photos error', remErr)
+        return res.status(500).json({ error: remErr.message })
+      }
+    }
+
+    // clear photo_url on pets table if exists
+    const { error: updateErr } = await supabase.from('pets').update({ photo_url: null }).eq('id', petId).eq('account_id', accountId)
+    if (updateErr) {
+      console.error('[api] update pet photo_url error', updateErr)
+      return res.status(500).json({ error: updateErr.message })
+    }
+
+    return res.json({ ok: true })
+  } catch (e) {
+    console.error('[api] delete pet photo error', e)
+    return res.status(500).json({ error: 'internal_error' })
+  }
+})
+

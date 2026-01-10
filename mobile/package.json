@@ -8,7 +8,8 @@
     "ios": "expo run:ios",
     "ios:sim": "dotenv -e .env.development expo run:ios --device E988FD32-604B-4E89-938D-283066CE1186",
     "build:prod": "dotenv -e .env eas build --platform all",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "set-build-version": "node scripts/set-build-version.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

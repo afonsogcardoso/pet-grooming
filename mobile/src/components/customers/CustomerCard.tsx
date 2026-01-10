@@ -1,10 +1,11 @@
 import { useMemo } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
 import { getCardVariants } from "../../theme/uiTokens";
 import type { Customer } from "../../api/customers";
 import { formatCustomerName } from "../../utils/customer";
+import ImageWithDownload from "../common/ImageWithDownload";
 
 interface CustomerCardProps {
   customer: Customer;
@@ -26,10 +27,9 @@ export function CustomerCard({ customer, onPress }: CustomerCardProps) {
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.thumb}>
         {customer.photo_url ? (
-          <Image
-            source={{ uri: customer.photo_url }}
+          <ImageWithDownload
+            uri={customer.photo_url}
             style={styles.thumbImage}
-            resizeMode="cover"
           />
         ) : (
           <Text style={styles.thumbInitial}>{initial}</Text>

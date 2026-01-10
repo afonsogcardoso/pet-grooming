@@ -13,6 +13,7 @@ import {
   PermissionsAndroid,
   ActivityIndicator,
 } from "react-native";
+import ImageWithDownload from "../components/common/ImageWithDownload";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +26,7 @@ import {
   deletePet,
   type Pet,
 } from "../api/customers";
+import { deleteCustomerPetPhoto } from "../api/customers";
 import { ScreenHeader } from "../components/ScreenHeader";
 import { AutocompleteSelect, Input } from "../components/common";
 import { Button } from "../components/common/Button";
@@ -432,10 +434,40 @@ export default function PetFormScreen({ navigation, route }: Props) {
               >
                 {photoUri ? (
                   <>
-                    <Image
-                      source={{ uri: photoUri }}
+                    <ImageWithDownload
+                      uri={photoUri}
                       style={styles.photo}
-                      resizeMode="cover"
+                      onReplace={uploadingPhoto ? undefined : selectImage}
+                      onDelete={async () => {
+                        if (mode !== "edit" || !petId) {
+                          Alert.alert(
+                            t("common.warning"),
+                            t("petForm.saveFirstWarning")
+                          );
+                          return;
+                        }
+                        try {
+                          setUploadingPhoto(true);
+                          await deleteCustomerPetPhoto(petId);
+                          setPhotoUri(null);
+                          queryClient.invalidateQueries({
+                            queryKey: ["customers"],
+                          });
+                          queryClient.invalidateQueries({
+                            queryKey: ["customer-pets", customerId],
+                          });
+                          hapticSuccess();
+                        } catch (err) {
+                          console.error("Error deleting pet photo:", err);
+                          Alert.alert(
+                            t("common.error"),
+                            t("petForm.photoDeleteError")
+                          );
+                          hapticError();
+                        } finally {
+                          setUploadingPhoto(false);
+                        }
+                      }}
                     />
                     {uploadingPhoto && (
                       <View style={styles.photoOverlay}>

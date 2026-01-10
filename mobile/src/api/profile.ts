@@ -22,9 +22,15 @@ export type Profile = {
   authProviders?: string[];
 };
 
+function normalizeProfile(raw: any): Profile {
+  if (!raw) return raw as Profile;
+  const avatarUrl = raw.avatarUrl ?? raw.avatar_url ?? null;
+  return { ...raw, avatarUrl } as Profile;
+}
+
 export async function getProfile(): Promise<Profile> {
   const { data } = await api.get<Profile>('/profile?includeMemberships=true');
-  return data;
+  return normalizeProfile(data);
 }
 
 export async function updateProfile(payload: {
@@ -39,7 +45,7 @@ export async function updateProfile(payload: {
   activeRole?: 'consumer' | 'provider' | null;
 }): Promise<Profile> {
   const { data } = await api.patch<{ user: any }>('/profile', payload);
-  return data.user;
+  return normalizeProfile(data.user);
 }
 
 export async function uploadAvatar(formData: FormData): Promise<{ url: string }> {

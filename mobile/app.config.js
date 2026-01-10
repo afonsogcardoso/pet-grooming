@@ -1,12 +1,13 @@
 import 'dotenv/config';
 
 const bundleIdentifier = process.env.IOS_BUNDLE_ID || 'com.pawmi.app';
+const appVersion = process.env.APP_VERSION || '1.0.2';
 const buildNumber = process.env.IOS_BUILD_NUMBER || '1';
 
 export default {
   name: 'Pawmi',
   slug: 'pawmi-mobile',
-  version: '1.0.2',
+  version: appVersion,
   scheme: 'pawmi',
   orientation: 'portrait',
   icon: './assets/icon.png',

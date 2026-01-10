@@ -454,6 +454,47 @@ router.post('/pets/:id/photo', upload.single('file'), async (req, res) => {
   return res.json({ url })
 })
 
+// Delete consumer pet photo
+router.delete('/pets/:id/photo', async (req, res) => {
+  const supabaseAdmin = getSupabaseServiceRoleClient()
+  if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
+
+  const user = await getAuthenticatedUser(req)
+  if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+  const id = normalizeString(req.params.id)
+  if (!id) return res.status(400).json({ error: 'missing_id' })
+
+  try {
+    // list objects that match consumer-pets/{id}-*
+    const { data: list, error: listErr } = await supabaseAdmin.storage.from(PET_PHOTO_BUCKET).list('consumer-pets')
+    if (listErr) {
+      console.error('[marketplace] list consumer pet photos error', listErr)
+      return res.status(500).json({ error: listErr.message })
+    }
+
+    const matches = (list || []).filter((f) => f.name && f.name.startsWith(`${id}-`)).map((f) => `consumer-pets/${f.name}`)
+    if (matches.length > 0) {
+      const { error: remErr } = await supabaseAdmin.storage.from(PET_PHOTO_BUCKET).remove(matches)
+      if (remErr) {
+        console.error('[marketplace] remove consumer pet photos error', remErr)
+        return res.status(500).json({ error: remErr.message })
+      }
+    }
+
+    const { error: updateErr } = await supabaseAdmin.from('consumer_pets').update({ photo_url: null }).eq('id', id).eq('user_id', user.id)
+    if (updateErr) {
+      console.error('[marketplace] update consumer pet photo_url error', updateErr)
+      return res.status(500).json({ error: updateErr.message })
+    }
+
+    return res.json({ ok: true })
+  } catch (e) {
+    console.error('[marketplace] delete consumer pet photo error', e)
+    return res.status(500).json({ error: 'internal_error' })
+  }
+})
+
 router.delete('/pets/:id', async (req, res) => {
   const supabaseAdmin = getSupabaseServiceRoleClient()
   if (!supabaseAdmin) return res.status(500).json({ error: 'Service unavailable' })
