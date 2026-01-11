@@ -214,7 +214,13 @@ const swaggerDefinition = {
     { name: 'Customers', description: 'Customers and their pets' },
     { name: 'Services', description: 'Service catalog' },
     { name: 'Branding', description: 'Branding/theme per tenant' },
-    { name: 'Marketplace', description: 'Marketplace discovery and requests' }
+    { name: 'Marketplace', description: 'Marketplace discovery and requests' },
+    { name: 'AccountMembers', description: 'Account membership management' },
+    { name: 'Admin', description: 'Platform admin endpoints' },
+    { name: 'Notifications', description: 'Notification preferences and devices' },
+    { name: 'Domains', description: 'Custom domain management' },
+    { name: 'PetAttributes', description: 'Pet species and breed lookup' },
+    { name: 'Public', description: 'Public account lookup' }
   ],
   servers: [
     {
@@ -236,6 +242,13 @@ const swaggerDefinition = {
       }
     },
     schemas: {
+      ErrorResponse: {
+        type: 'object',
+        properties: {
+          error: { type: 'string' },
+          details: { type: 'string', nullable: true }
+        }
+      },
       AuthLoginRequest: {
         type: 'object',
         required: ['email', 'password'],
@@ -274,6 +287,44 @@ const swaggerDefinition = {
           createdAt: { type: 'string', format: 'date-time', nullable: true }
         }
       },
+      Account: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          slug: { type: 'string' },
+          plan: { type: 'string' },
+          is_active: { type: 'boolean' }
+        }
+      },
+      AccountMember: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          account_id: { type: 'string' },
+          user_id: { type: 'string' },
+          role: { type: 'string', enum: ['owner', 'admin', 'member'] },
+          status: { type: 'string', enum: ['pending', 'accepted', 'revoked'] },
+          email: { type: 'string', format: 'email', nullable: true }
+        }
+      },
+      Branding: {
+        type: 'object',
+        properties: {
+          account_id: { type: 'string' },
+          account_name: { type: 'string' },
+          brand_primary: { type: 'string' },
+          brand_primary_soft: { type: 'string' },
+          brand_accent: { type: 'string' },
+          brand_accent_soft: { type: 'string' },
+          brand_background: { type: 'string' },
+          brand_gradient: { type: 'string' },
+          logo_url: { type: 'string', nullable: true },
+          portal_image_url: { type: 'string', nullable: true },
+          support_email: { type: 'string', nullable: true },
+          support_phone: { type: 'string', nullable: true }
+        }
+      },
       Appointment: {
         type: 'object',
         properties: {
@@ -286,6 +337,16 @@ const swaggerDefinition = {
           customers: { type: 'object' },
           services: { type: 'object' },
           pets: { type: 'object' }
+        }
+      },
+      AppointmentPhoto: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          appointment_id: { type: 'string' },
+          url: { type: 'string' },
+          thumb_url: { type: 'string', nullable: true },
+          type: { type: 'string' }
         }
       },
       Customer: {
@@ -315,6 +376,74 @@ const swaggerDefinition = {
           description: { type: 'string' },
           image_url: { type: 'string', nullable: true }
         }
+      },
+      ServiceAddon: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          price: { type: 'number' },
+          service_id: { type: 'string' }
+        }
+      },
+      ServicePriceTier: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          label: { type: 'string' },
+          price: { type: 'number' },
+          service_id: { type: 'string' }
+        }
+      },
+      CustomerPet: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          breed: { type: 'string', nullable: true },
+          photo_url: { type: 'string', nullable: true }
+        }
+      },
+      NotificationPreferences: {
+        type: 'object',
+        additionalProperties: { type: 'boolean' }
+      },
+      DomainRequest: {
+        type: 'object',
+        required: ['domain'],
+        properties: {
+          domain: { type: 'string' },
+          dnsRecordType: { type: 'string', enum: ['cname', 'a'] }
+        }
+      },
+      MarketplaceAccount: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          slug: { type: 'string' },
+          logo_url: { type: 'string', nullable: true },
+          marketplace_region: { type: 'string', nullable: true }
+        }
+      },
+      MarketplaceService: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          description: { type: 'string', nullable: true },
+          price: { type: 'number', nullable: true },
+          image_url: { type: 'string', nullable: true }
+        }
+      },
+      MarketplacePet: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          breed: { type: 'string', nullable: true },
+          photo_url: { type: 'string', nullable: true }
+        }
       }
     }
   },
@@ -341,6 +470,52 @@ const swaggerDefinition = {
             }
           },
           401: { description: 'Credenciais inválidas' }
+        }
+      }
+    },
+    '/auth/signup': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Criar utilizador e conta (provider ou consumer)',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  email: { type: 'string', format: 'email' },
+                  password: { type: 'string' },
+                  accountName: { type: 'string', nullable: true },
+                  firstName: { type: 'string' },
+                  lastName: { type: 'string' },
+                  phone: { type: 'string', nullable: true },
+                  phoneCountryCode: { type: 'string', nullable: true },
+                  phoneNumber: { type: 'string', nullable: true },
+                  role: { type: 'string', enum: ['provider', 'consumer'] }
+                },
+                required: ['email', 'password', 'firstName', 'lastName']
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Conta criada', content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthLoginResponse' } } } },
+          400: { description: 'Payload inválido', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        }
+      }
+    },
+    '/auth/oauth-signup': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Criar utilizador via OAuth payload',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { type: 'object' } } }
+        },
+        responses: {
+          200: { description: 'Conta criada' },
+          400: { description: 'Payload inválido' }
         }
       }
     },
@@ -383,6 +558,57 @@ const swaggerDefinition = {
               }
             }
           },
+          401: { description: 'Não autenticado' }
+        }
+      }
+      ,
+      patch: {
+        tags: ['Profile'],
+        summary: 'Atualizar perfil',
+        security: [{ SupabaseBearer: [] }],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/UserProfile' } } }
+        },
+        responses: {
+          200: { description: 'Perfil atualizado' },
+          400: { description: 'Payload inválido' },
+          401: { description: 'Não autenticado' }
+        }
+      }
+    },
+    '/profile/avatar': {
+      post: {
+        tags: ['Profile'],
+        summary: 'Upload de avatar',
+        security: [{ SupabaseBearer: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                properties: {
+                  file: { type: 'string', format: 'binary' }
+                },
+                required: ['file']
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: 'Avatar carregado' },
+          401: { description: 'Não autenticado' }
+        }
+      }
+    },
+    '/profile/reset-password': {
+      post: {
+        tags: ['Profile'],
+        summary: 'Enviar email de reset de password',
+        security: [{ SupabaseBearer: [] }],
+        responses: {
+          200: { description: 'Email enviado' },
           401: { description: 'Não autenticado' }
         }
       }
@@ -614,6 +840,12 @@ const swaggerDefinition = {
           401: { description: 'Não autenticado' },
           403: { description: 'Sem permissões' }
         }
+      },
+      delete: {
+        tags: ['Branding'],
+        summary: 'Remover logo da conta',
+        security: [{ SupabaseBearer: [] }],
+        responses: { 200: { description: 'Logo removido' } }
       }
     },
     '/branding/portal-image': {
@@ -660,6 +892,12 @@ const swaggerDefinition = {
           401: { description: 'Não autenticado' },
           403: { description: 'Sem permissões' }
         }
+      },
+      delete: {
+        tags: ['Branding'],
+        summary: 'Remover imagem de portal',
+        security: [{ SupabaseBearer: [] }],
+        responses: { 200: { description: 'Imagem removida' } }
       }
     },
     '/appointments/{id}/status': {
@@ -704,6 +942,126 @@ const swaggerDefinition = {
             }
           }
         }
+      }
+    },
+    '/appointments/{id}': {
+      get: {
+        tags: ['Appointments'],
+        summary: 'Get appointment detail',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Appointment', content: { 'application/json': { schema: { $ref: '#/components/schemas/Appointment' } } } }, 404: { description: 'Not found' } }
+      },
+      patch: {
+        tags: ['Appointments'],
+        summary: 'Update appointment',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Appointment' } } } },
+        responses: { 200: { description: 'Updated' } }
+      },
+      delete: {
+        tags: ['Appointments'],
+        summary: 'Delete appointment',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Deleted' } }
+      }
+    },
+    '/appointments/{id}/photos': {
+      post: {
+        tags: ['Appointments'],
+        summary: 'Upload appointment photo',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } }, required: ['file'] }
+            }
+          }
+        },
+        responses: { 200: { description: 'Uploaded', content: { 'application/json': { schema: { $ref: '#/components/schemas/AppointmentPhoto' } } } } }
+      },
+      get: {
+        tags: ['Appointments'],
+        summary: 'List appointment photos',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Photos', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/AppointmentPhoto' } } } } } }
+      }
+    },
+    '/appointments/photos/{photoId}': {
+      delete: {
+        tags: ['Appointments'],
+        summary: 'Delete appointment photo',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'photoId', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Deleted' } }
+      }
+    },
+    '/appointments/confirm': {
+      get: {
+        tags: ['Appointments'],
+        summary: 'Public confirmation payload',
+        parameters: [
+          { in: 'query', name: 'token', required: true, schema: { type: 'string' } },
+          { in: 'query', name: 'id', required: false, schema: { type: 'string' } }
+        ],
+        responses: { 200: { description: 'Confirmation data' }, 400: { description: 'Invalid token' } }
+      }
+    },
+    '/appointments/confirm-open': {
+      post: {
+        tags: ['Appointments'],
+        summary: 'Mark confirmation as opened',
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { token: { type: 'string' } }, required: ['token'] } } } },
+        responses: { 200: { description: 'Marked' } }
+      }
+    },
+    '/appointments/{id}/share': {
+      get: {
+        tags: ['Appointments'],
+        summary: 'Generate share link',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Share link' } }
+      }
+    },
+    '/appointments/ics': {
+      get: {
+        tags: ['Appointments'],
+        summary: 'ICS calendar download',
+        parameters: [{ in: 'query', name: 'token', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'ICS file' } }
+      }
+    },
+    '/appointments/pet-photo': {
+      post: {
+        tags: ['Appointments'],
+        summary: 'Upload pet photo (public)',
+        requestBody: {
+          required: true,
+          content: { 'multipart/form-data': { schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } }, required: ['file'] } } }
+        },
+        responses: { 200: { description: 'Uploaded' } }
+      }
+    },
+    '/appointments/reminders': {
+      post: {
+        tags: ['Appointments'],
+        summary: 'Create reminder jobs for eligible appointments',
+        security: [{ ApiKeyAuth: [] }],
+        responses: { 200: { description: 'Scheduled' } }
+      }
+    },
+    '/appointments/overdue-count': {
+      get: {
+        tags: ['Appointments'],
+        summary: 'Count overdue confirmations',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        responses: { 200: { description: 'Counts' } }
       }
     },
     '/customers': {
@@ -850,6 +1208,567 @@ const swaggerDefinition = {
           { in: 'path', name: 'id', required: true, schema: { type: 'string' } }
         ],
         responses: { 200: { description: 'Deleted service' } }
+      }
+    },
+    '/services/{id}/image': {
+      post: {
+        tags: ['Services'],
+        summary: 'Upload service image',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                properties: { file: { type: 'string', format: 'binary' } },
+                required: ['file']
+              }
+            }
+          }
+        },
+        responses: { 200: { description: 'Uploaded image' } }
+      }
+    },
+    '/services/{id}/price-tiers': {
+      get: {
+        tags: ['Services'],
+        summary: 'List price tiers',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Price tiers', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/ServicePriceTier' } } } } } }
+      },
+      post: {
+        tags: ['Services'],
+        summary: 'Create price tier',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/ServicePriceTier' } } } },
+        responses: { 201: { description: 'Created price tier' } }
+      }
+    },
+    '/services/{id}/price-tiers/{tierId}': {
+      patch: {
+        tags: ['Services'],
+        summary: 'Update price tier',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [
+          { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          { in: 'path', name: 'tierId', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/ServicePriceTier' } } } },
+        responses: { 200: { description: 'Updated price tier' } }
+      },
+      delete: {
+        tags: ['Services'],
+        summary: 'Delete price tier',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [
+          { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          { in: 'path', name: 'tierId', required: true, schema: { type: 'string' } }
+        ],
+        responses: { 200: { description: 'Deleted price tier' } }
+      }
+    },
+    '/services/{id}/addons': {
+      get: {
+        tags: ['Services'],
+        summary: 'List service addons',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Addons', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/ServiceAddon' } } } } } }
+      },
+      post: {
+        tags: ['Services'],
+        summary: 'Create addon',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/ServiceAddon' } } } },
+        responses: { 201: { description: 'Created addon' } }
+      }
+    },
+    '/services/{id}/addons/{addonId}': {
+      patch: {
+        tags: ['Services'],
+        summary: 'Update addon',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [
+          { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          { in: 'path', name: 'addonId', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/ServiceAddon' } } } },
+        responses: { 200: { description: 'Updated addon' } }
+      },
+      delete: {
+        tags: ['Services'],
+        summary: 'Delete addon',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [
+          { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          { in: 'path', name: 'addonId', required: true, schema: { type: 'string' } }
+        ],
+        responses: { 200: { description: 'Deleted addon' } }
+      }
+    },
+    '/customers/{id}/pets': {
+      post: {
+        tags: ['Customers'],
+        summary: 'Create pet for customer',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/CustomerPet' } } } },
+        responses: { 201: { description: 'Created pet' } }
+      }
+    },
+    '/customers/{customerId}/pets/{petId}': {
+      patch: {
+        tags: ['Customers'],
+        summary: 'Update pet',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [
+          { in: 'path', name: 'customerId', required: true, schema: { type: 'string' } },
+          { in: 'path', name: 'petId', required: true, schema: { type: 'string' } }
+        ],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/CustomerPet' } } } },
+        responses: { 200: { description: 'Updated pet' } }
+      },
+      delete: {
+        tags: ['Customers'],
+        summary: 'Delete pet',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [
+          { in: 'path', name: 'customerId', required: true, schema: { type: 'string' } },
+          { in: 'path', name: 'petId', required: true, schema: { type: 'string' } }
+        ],
+        responses: { 200: { description: 'Deleted pet' } }
+      }
+    },
+    '/customers/{id}/photo': {
+      post: {
+        tags: ['Customers'],
+        summary: 'Upload customer photo',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: { 'multipart/form-data': { schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } }, required: ['file'] } } }
+        },
+        responses: { 200: { description: 'Uploaded photo' } }
+      },
+      delete: {
+        tags: ['Customers'],
+        summary: 'Delete customer photo',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Deleted photo' } }
+      }
+    },
+    '/customers/{petId}/pet-photo': {
+      post: {
+        tags: ['Customers'],
+        summary: 'Upload pet photo',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'petId', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: { 'multipart/form-data': { schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } }, required: ['file'] } } }
+        },
+        responses: { 200: { description: 'Uploaded photo' } }
+      },
+      delete: {
+        tags: ['Customers'],
+        summary: 'Delete pet photo',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'petId', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Deleted photo' } }
+      }
+    },
+    '/account/members': {
+      get: {
+        tags: ['AccountMembers'],
+        summary: 'Listar membros da conta',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        responses: { 200: { description: 'Membros', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/AccountMember' } } } } } }
+      },
+      post: {
+        tags: ['AccountMembers'],
+        summary: 'Convidar membro',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/AccountMember' } } } },
+        responses: { 201: { description: 'Convite criado' } }
+      }
+    },
+    '/account/members/accept': {
+      post: {
+        tags: ['AccountMembers'],
+        summary: 'Aceitar convite',
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { token: { type: 'string' } }, required: ['token'] } } } },
+        responses: { 200: { description: 'Aceite' } }
+      }
+    },
+    '/account/members/invite': {
+      post: {
+        tags: ['AccountMembers'],
+        summary: 'Gerar convite',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        responses: { 200: { description: 'Convite enviado' } }
+      }
+    },
+    '/account/members/invite/resend': {
+      post: {
+        tags: ['AccountMembers'],
+        summary: 'Reenviar convite',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        responses: { 200: { description: 'Convite reenviado' } }
+      }
+    },
+    '/account/members/invite/cancel': {
+      post: {
+        tags: ['AccountMembers'],
+        summary: 'Cancelar convite',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        responses: { 200: { description: 'Convite cancelado' } }
+      }
+    },
+    '/account/members/{memberId}/role': {
+      patch: {
+        tags: ['AccountMembers'],
+        summary: 'Atualizar role',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'memberId', required: true, schema: { type: 'string' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { role: { type: 'string' } }, required: ['role'] } } } },
+        responses: { 200: { description: 'Role atualizado' } }
+      }
+    },
+    '/account/members/{memberId}': {
+      delete: {
+        tags: ['AccountMembers'],
+        summary: 'Remover membro',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'memberId', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Removido' } }
+      }
+    },
+    '/notifications/preferences': {
+      get: {
+        tags: ['Notifications'],
+        summary: 'Obter preferências',
+        security: [{ SupabaseBearer: [] }],
+        responses: { 200: { description: 'Preferências', content: { 'application/json': { schema: { $ref: '#/components/schemas/NotificationPreferences' } } } } }
+      },
+      put: {
+        tags: ['Notifications'],
+        summary: 'Atualizar preferências',
+        security: [{ SupabaseBearer: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/NotificationPreferences' } } } },
+        responses: { 200: { description: 'Atualizado' } }
+      }
+    },
+    '/notifications/push/register': {
+      post: {
+        tags: ['Notifications'],
+        summary: 'Registar token push',
+        security: [{ SupabaseBearer: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { pushToken: { type: 'string' }, platform: { type: 'string' } }, required: ['pushToken'] } } } },
+        responses: { 200: { description: 'Registado' } }
+      }
+    },
+    '/notifications/push/unregister': {
+      post: {
+        tags: ['Notifications'],
+        summary: 'Desregistar token push',
+        security: [{ SupabaseBearer: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { pushToken: { type: 'string' } }, required: ['pushToken'] } } } },
+        responses: { 200: { description: 'Removido' } }
+      }
+    },
+    '/domains': {
+      get: {
+        tags: ['Domains'],
+        summary: 'Listar domínios',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        responses: { 200: { description: 'Domínios' } }
+      },
+      post: {
+        tags: ['Domains'],
+        summary: 'Adicionar domínio',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/DomainRequest' } } } },
+        responses: { 201: { description: 'Criado' } }
+      },
+      delete: {
+        tags: ['Domains'],
+        summary: 'Remover domínio',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/DomainRequest' } } } },
+        responses: { 200: { description: 'Removido' } }
+      }
+    },
+    '/domains/verify': {
+      post: {
+        tags: ['Domains'],
+        summary: 'Verificar registo DNS',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/DomainRequest' } } } },
+        responses: { 200: { description: 'Resultado' } }
+      }
+    },
+    '/pet-attributes/species': {
+      get: {
+        tags: ['PetAttributes'],
+        summary: 'Listar espécies',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        responses: { 200: { description: 'Espécies' } }
+      }
+    },
+    '/pet-attributes/breeds': {
+      get: {
+        tags: ['PetAttributes'],
+        summary: 'Listar raças',
+        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
+        responses: { 200: { description: 'Raças' } }
+      }
+    },
+    '/marketplace/accounts': {
+      get: {
+        tags: ['Marketplace'],
+        summary: 'Listar contas no marketplace',
+        responses: { 200: { description: 'Contas', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/MarketplaceAccount' } } } } } }
+      }
+    },
+    '/marketplace/accounts/{slug}': {
+      get: {
+        tags: ['Marketplace'],
+        summary: 'Obter conta do marketplace',
+        parameters: [{ in: 'path', name: 'slug', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Conta', content: { 'application/json': { schema: { $ref: '#/components/schemas/MarketplaceAccount' } } } }, 404: { description: 'Não encontrada' } }
+      }
+    },
+    '/marketplace/accounts/{slug}/services': {
+      get: {
+        tags: ['Marketplace'],
+        summary: 'Listar serviços de uma conta',
+        parameters: [{ in: 'path', name: 'slug', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Serviços', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/MarketplaceService' } } } } } }
+      }
+    },
+    '/marketplace/pets': {
+      get: {
+        tags: ['Marketplace'],
+        summary: 'Listar pets do consumidor',
+        security: [{ SupabaseBearer: [] }],
+        responses: { 200: { description: 'Pets', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/MarketplacePet' } } } } } }
+      },
+      post: {
+        tags: ['Marketplace'],
+        summary: 'Criar pet do consumidor',
+        security: [{ SupabaseBearer: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/MarketplacePet' } } } },
+        responses: { 201: { description: 'Criado' } }
+      }
+    },
+    '/marketplace/pets/{id}': {
+      patch: {
+        tags: ['Marketplace'],
+        summary: 'Atualizar pet do consumidor',
+        security: [{ SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/MarketplacePet' } } } },
+        responses: { 200: { description: 'Atualizado' } }
+      },
+      delete: {
+        tags: ['Marketplace'],
+        summary: 'Apagar pet do consumidor',
+        security: [{ SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Apagado' } }
+      }
+    },
+    '/marketplace/pets/{id}/photo': {
+      post: {
+        tags: ['Marketplace'],
+        summary: 'Upload foto do pet',
+        security: [{ SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        requestBody: { required: true, content: { 'multipart/form-data': { schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } }, required: ['file'] } } } },
+        responses: { 200: { description: 'Upload ok' } }
+      },
+      delete: {
+        tags: ['Marketplace'],
+        summary: 'Apagar foto do pet',
+        security: [{ SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Apagado' } }
+      }
+    },
+    '/marketplace/my-appointments': {
+      get: {
+        tags: ['Marketplace'],
+        summary: 'Listar marcações do consumidor',
+        security: [{ SupabaseBearer: [] }],
+        responses: { 200: { description: 'Marcações' } }
+      }
+    },
+    '/marketplace/my-appointments/{id}': {
+      get: {
+        tags: ['Marketplace'],
+        summary: 'Detalhe de marcação',
+        security: [{ SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Detalhe' }, 404: { description: 'Não encontrada' } }
+      }
+    },
+    '/marketplace/my-appointments/{id}/cancel': {
+      patch: {
+        tags: ['Marketplace'],
+        summary: 'Cancelar marcação',
+        security: [{ SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Cancelada' } }
+      }
+    },
+    '/marketplace/booking-requests': {
+      post: {
+        tags: ['Marketplace'],
+        summary: 'Criar pedido de marcação',
+        security: [{ SupabaseBearer: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+        responses: { 201: { description: 'Criado' } }
+      }
+    },
+    '/public/accounts/{slug}': {
+      get: {
+        tags: ['Public'],
+        summary: 'Consultar conta pública',
+        parameters: [{ in: 'path', name: 'slug', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Conta', content: { 'application/json': { schema: { $ref: '#/components/schemas/MarketplaceAccount' } } } }, 404: { description: 'Não encontrada' } }
+      }
+    },
+    '/admin/accounts': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Listar contas (admin)',
+        security: [{ SupabaseBearer: [] }],
+        responses: { 200: { description: 'Contas', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Account' } } } } }, 403: { description: 'Forbidden' } }
+      },
+      post: {
+        tags: ['Admin'],
+        summary: 'Criar conta',
+        security: [{ SupabaseBearer: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Account' } } } },
+        responses: { 201: { description: 'Criada' } }
+      },
+      patch: {
+        tags: ['Admin'],
+        summary: 'Atualizar conta',
+        security: [{ SupabaseBearer: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Account' } } } },
+        responses: { 200: { description: 'Atualizada' } }
+      },
+      put: {
+        tags: ['Admin'],
+        summary: 'Upsert conta',
+        security: [{ SupabaseBearer: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Account' } } } },
+        responses: { 200: { description: 'Atualizada' } }
+      }
+    },
+    '/admin/accounts/{id}': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Detalhe da conta',
+        security: [{ SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Conta', content: { 'application/json': { schema: { $ref: '#/components/schemas/Account' } } } }, 404: { description: 'Não encontrada' } }
+      }
+    },
+    '/admin/accounts/{id}/members': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Listar membros da conta',
+        security: [{ SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Membros', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/AccountMember' } } } } } }
+      },
+      post: {
+        tags: ['Admin'],
+        summary: 'Adicionar membro',
+        security: [{ SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/AccountMember' } } } },
+        responses: { 201: { description: 'Criado' } }
+      },
+      patch: {
+        tags: ['Admin'],
+        summary: 'Atualizar membro',
+        security: [{ SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/AccountMember' } } } },
+        responses: { 200: { description: 'Atualizado' } }
+      },
+      delete: {
+        tags: ['Admin'],
+        summary: 'Remover membro',
+        security: [{ SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'Removido' } }
+      }
+    },
+    '/admin/apikeys': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Listar API Keys',
+        security: [{ SupabaseBearer: [] }],
+        responses: { 200: { description: 'API Keys' } }
+      },
+      post: {
+        tags: ['Admin'],
+        summary: 'Criar API Key',
+        security: [{ SupabaseBearer: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+        responses: { 201: { description: 'Criada' } }
+      },
+      patch: {
+        tags: ['Admin'],
+        summary: 'Atualizar API Key',
+        security: [{ SupabaseBearer: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+        responses: { 200: { description: 'Atualizada' } }
+      },
+      delete: {
+        tags: ['Admin'],
+        summary: 'Remover API Key',
+        security: [{ SupabaseBearer: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+        responses: { 200: { description: 'Removida' } }
+      }
+    },
+    '/admin/users': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Listar utilizadores',
+        security: [{ SupabaseBearer: [] }],
+        responses: { 200: { description: 'Utilizadores' } }
+      }
+    },
+    '/admin/users/reset-password': {
+      post: {
+        tags: ['Admin'],
+        summary: 'Forçar reset de password',
+        security: [{ SupabaseBearer: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { email: { type: 'string', format: 'email' } }, required: ['email'] } } } },
+        responses: { 200: { description: 'Email enviado' } }
+      }
+    },
+    '/admin/accounts/{id}/maintenance': {
+      post: {
+        tags: ['Admin'],
+        summary: 'Atualizar flag de manutenção',
+        security: [{ SupabaseBearer: [] }],
+        parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { enabled: { type: 'boolean' } }, required: ['enabled'] } } } },
+        responses: { 200: { description: 'Atualizado' } }
       }
     }
   }
