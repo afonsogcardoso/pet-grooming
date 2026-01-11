@@ -16,7 +16,6 @@ function extractApiKey(req) {
   const auth = req.headers[AUTH_HEADER]
   if (auth && auth.startsWith('Bearer ')) {
     const bearerToken = auth.slice('Bearer '.length).trim()
-    // Let real JWT bearer tokens pass through to Supabase auth
     if (!looksLikeJwt(bearerToken)) {
       return bearerToken
     }
