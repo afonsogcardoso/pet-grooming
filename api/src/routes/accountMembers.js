@@ -267,7 +267,6 @@ router.post('/members/invite', async (req, res) => {
       userId = newUser.id
       targetEmail = newUser.email || normalizedEmail
 
-      // Seed profile so the UI has a display name/avatar immediately
       await supabaseAdmin
         .from('profiles')
         .upsert(
