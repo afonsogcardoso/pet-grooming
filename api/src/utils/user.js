@@ -26,7 +26,7 @@ export function resolveActiveRole({ availableRoles, activeRole }) {
   if (normalizedActive && availableRoles.includes(normalizedActive)) return normalizedActive
   if (availableRoles.includes('provider')) return 'provider'
   if (availableRoles.includes('consumer')) return 'consumer'
-  return 'provider'
+  return 'consumer'
 }
 
 export function collectAuthProviders(user) {

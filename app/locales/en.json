@@ -995,5 +995,35 @@
       "supportPrefix": "Need help? Contact",
       "imageAlt": "Portal preview for {{name}}"
     }
+  },
+  "inviteAccept": {
+    "title": "Accept invite",
+    "description": "Confirm your invite to access the workspace.",
+    "fields": {
+      "token": "Invite token",
+      "password": "Password (optional)"
+    },
+    "placeholders": {
+      "token": "Paste the token if the link didn't open",
+      "password": "Set a password to sign in later"
+    },
+    "helper": {
+      "password": "Set a password to accept and sign in right away."
+    },
+    "actions": {
+      "submit": "Accept invite",
+      "submitting": "Accepting...",
+      "google": "Continue with Google",
+      "loading": "Loading...",
+      "backToLogin": "Back to login"
+    },
+    "or": "or",
+    "success": "Invite accepted! You can now sign in.",
+    "footer": "After accepting, sign in with the password above or use Google.",
+    "errors": {
+      "generic": "Could not accept the invite.",
+      "missingToken": "Missing invite token.",
+      "oauth": "Could not start {{provider}} sign-in."
+    }
   }
 }

@@ -51,6 +51,11 @@ const mobileNavItems = [
     icon: '🧴'
   },
   {
+    href: '/settings',
+    labelKey: 'app.nav.settings',
+    icon: '⚙️'
+  },
+  {
     href: '/profile',
     labelKey: 'app.profile.viewProfile',
     icon: '👤'
@@ -117,11 +122,12 @@ export default function AppShell({ children }) {
   }, [])
 
   const isTenantPublicRoute = pathname?.startsWith('/portal/')
-  const publicRoutes = ['/login', '/auth/callback', '/appointments/confirm', '/marketplace', '/planos']
+  const isInviteRoute = pathname?.startsWith('/invite')
+  const publicRoutes = ['/login', '/auth/callback', '/appointments/confirm', '/marketplace', '/planos', '/invite']
   const isRootRoute = pathname === '/'
   const isPublicRoute =
     isRootRoute || isTenantPublicRoute || publicRoutes.some((route) => pathname?.startsWith(route))
-  const fullBleedPublicRoutes = ['/appointments/confirm', '/marketplace', '/planos']
+  const fullBleedPublicRoutes = ['/appointments/confirm', '/marketplace', '/planos', '/invite']
   const isFullBleedPublic =
     isRootRoute || (isPublicRoute && fullBleedPublicRoutes.some((route) => pathname?.startsWith(route)))
   const isLoginRoute = pathname?.startsWith('/login')
@@ -154,11 +160,15 @@ export default function AppShell({ children }) {
   }, [user?.activeRole, user?.user_metadata?.active_role, derivedRoles])
   const [availableRoles, setAvailableRoles] = useState(derivedRoles)
   const [activeRole, setActiveRole] = useState(derivedActiveRole)
+  const canAccessSettings = ['owner', 'admin', 'platform_admin'].includes(membership?.role)
   const availableNavItems = navItems.filter((item) => {
     if (item.href !== '/settings') return true
-    return ['owner', 'admin', 'platform_admin'].includes(membership?.role)
+    return canAccessSettings
   })
-  const mobileItems = mobileNavItems.filter((item) => item.href !== '/settings')
+  const mobileItems = mobileNavItems.filter((item) => {
+    if (item.href !== '/settings') return true
+    return canAccessSettings
+  })
 
   const handleLogout = async () => {
     try {
@@ -261,6 +271,10 @@ export default function AppShell({ children }) {
         ) : null}
       </div>
     )
+  }
+
+  if (isInviteRoute) {
+    return <div className="min-h-screen brand-background">{children}</div>
   }
 
   if (isAdminRoute) {

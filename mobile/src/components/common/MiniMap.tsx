@@ -6,14 +6,23 @@ import { useBrandingTheme } from '../../theme/useBrandingTheme';
 
 interface MiniMapProps {
   address: string;
+  height?: number;
+  borderless?: boolean;
 }
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || '';
 
-export function MiniMap({ address }: MiniMapProps) {
+export function MiniMap({
+  address,
+  height = 180,
+  borderless = false,
+}: MiniMapProps) {
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = useMemo(
+    () => createStyles(colors, borderless),
+    [colors, borderless]
+  );
   const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -77,7 +86,11 @@ export function MiniMap({ address }: MiniMapProps) {
   }
 
   return (
-    <TouchableOpacity style={styles.container} onPress={handleOpenMaps} activeOpacity={0.9}>
+    <TouchableOpacity
+      style={[styles.container, { height }]}
+      onPress={handleOpenMaps}
+      activeOpacity={0.9}
+    >
       <MapView
         style={styles.map}
         initialRegion={{
@@ -105,19 +118,21 @@ export function MiniMap({ address }: MiniMapProps) {
   );
 }
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>['colors']) {
+function createStyles(
+  colors: ReturnType<typeof useBrandingTheme>['colors'],
+  borderless: boolean
+) {
   const { width } = Dimensions.get('window');
 
   return StyleSheet.create({
     container: {
       width: '100%',
-      height: 180,
       borderRadius: 12,
       overflow: 'hidden',
       marginTop: 16,
       marginBottom: 4,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
+      backgroundColor: borderless ? 'transparent' : colors.surface,
+      borderWidth: borderless ? 0 : 1,
       borderColor: colors.surfaceBorder,
     },
     loadingContainer: {

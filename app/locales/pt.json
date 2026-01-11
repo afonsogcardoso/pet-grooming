@@ -995,5 +995,35 @@
       "supportPrefix": "Precisas de ajuda? fala com",
       "imageAlt": "Imagem do portal de {{name}}"
     }
+  },
+  "inviteAccept": {
+    "title": "Aceitar convite",
+    "description": "Confirma o convite para aceder à workspace.",
+    "fields": {
+      "token": "Token do convite",
+      "password": "Password (opcional)"
+    },
+    "placeholders": {
+      "token": "Cola o token se o link não abrir",
+      "password": "Define uma password para entrar depois"
+    },
+    "helper": {
+      "password": "Define uma password para aceitar e entrar de imediato."
+    },
+    "actions": {
+      "submit": "Aceitar convite",
+      "submitting": "A aceitar...",
+      "google": "Continuar com Google",
+      "loading": "A carregar...",
+      "backToLogin": "Voltar ao login"
+    },
+    "or": "ou",
+    "success": "Convite aceite! Já podes iniciar sessão.",
+    "footer": "Depois de aceitar, entra com a password acima ou via Google.",
+    "errors": {
+      "generic": "Não foi possível aceitar o convite.",
+      "missingToken": "Token do convite em falta.",
+      "oauth": "Não foi possível iniciar sessão com {{provider}}."
+    }
   }
 }

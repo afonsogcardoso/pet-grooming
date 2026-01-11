@@ -202,6 +202,26 @@ async function loadPushTokensForUsers(supabaseAdmin, userIds) {
   return tokensByUser
 }
 
+async function loadAcceptedMembersForAccount(supabaseAdmin, accountId, userIds) {
+  if (!supabaseAdmin || !accountId) return new Set(userIds || [])
+  const uniqueIds = Array.from(new Set((userIds || []).filter(Boolean)))
+  if (!uniqueIds.length) return new Set()
+
+  const { data, error } = await supabaseAdmin
+    .from('account_members')
+    .select('user_id')
+    .eq('account_id', accountId)
+    .eq('status', 'accepted')
+    .in('user_id', uniqueIds)
+
+  if (error) {
+    console.error('[notifications] load account members error', error)
+    return new Set()
+  }
+
+  return new Set((data || []).map((row) => row.user_id).filter(Boolean))
+}
+
 export async function sendPushNotifications({
   supabaseAdmin,
   userIds,
@@ -215,13 +235,17 @@ export async function sendPushNotifications({
   const recipients = Array.from(new Set((userIds || []).filter(Boolean)))
   if (!recipients.length) return { sent: 0, failed: 0, skipped: 0 }
 
-  const [preferencesByUser, tokensByUser] = await Promise.all([
+  const [preferencesByUser, tokensByUser, acceptedMembers] = await Promise.all([
     loadPreferencesForUsers(supabaseAdmin, recipients),
-    loadPushTokensForUsers(supabaseAdmin, recipients)
+    loadPushTokensForUsers(supabaseAdmin, recipients),
+    loadAcceptedMembersForAccount(supabaseAdmin, accountId, recipients)
   ])
 
   const eligible = []
   recipients.forEach((userId) => {
+    if (accountId && !acceptedMembers.has(userId)) {
+      return
+    }
     const preferences = preferencesByUser.get(userId) || cloneDefaults()
     if (!shouldSendNotification(preferences, type)) return
     const tokens = tokensByUser.get(userId) || []

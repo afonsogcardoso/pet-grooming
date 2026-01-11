@@ -14,7 +14,6 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
 import { getAllServices, Service } from "../api/services";
@@ -43,8 +42,7 @@ export default function ServicesScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
-  const undoBottomOffset = tabBarHeight > 0 ? tabBarHeight : insets.bottom + 16;
+  const undoBottomOffset = Math.max(18, insets.bottom + 16);
   const [undoVisible, setUndoVisible] = useState(false);
   const { deletingId, beginDelete, clearDeletingId } =
     useSwipeDeleteIndicator();

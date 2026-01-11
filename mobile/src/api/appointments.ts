@@ -116,6 +116,7 @@ export async function getAppointments(params?: {
   to?: string | Date | null;
   limit?: number;
   offset?: number;
+  customerId?: string;
 }): Promise<{ items: Appointment[]; nextOffset: number | null }> {
   const query = new URLSearchParams();
   const from = normalizeDate(params?.from);
@@ -125,6 +126,7 @@ export async function getAppointments(params?: {
   if (to) query.set('date_to', to);
   if (params?.limit) query.set('limit', String(params.limit));
   if (params?.offset !== undefined) query.set('offset', String(params.offset));
+  if (params?.customerId) query.set('customer_id', params.customerId);
 
   const search = query.toString();
   const url = search ? `/appointments?${search}` : '/appointments';

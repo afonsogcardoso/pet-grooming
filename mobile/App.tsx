@@ -11,7 +11,11 @@ import {
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
 import {
   SafeAreaProvider,
@@ -25,6 +29,9 @@ import LoginScreen from "./src/screens/LoginScreen";
 import RegisterScreen from "./src/screens/RegisterScreen";
 import HomeScreen from "./src/screens/HomeScreen";
 import ProfileScreen from "./src/screens/profile";
+import AccountBrandingScreen from "./src/screens/account/AccountBrandingScreen";
+import AccountSettingsScreen from "./src/screens/account/AccountSettingsScreen";
+import TeamScreen from "./src/screens/account/TeamScreen";
 import AppointmentsScreen from "./src/screens/AppointmentsScreen";
 import NewAppointmentScreen from "./src/screens/NewAppointmentScreen";
 import AppointmentDetailScreen from "./src/screens/AppointmentDetailScreen";
@@ -115,6 +122,23 @@ function ProviderTabs() {
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const { data: profile } = useQuery({
+    queryKey: ["profile"],
+    queryFn: getProfile,
+    staleTime: 1000 * 60 * 5,
+  });
+  const membershipRole = useMemo(() => {
+    const memberships = Array.isArray(profile?.memberships)
+      ? profile?.memberships
+      : [];
+    if (!memberships.length) return null;
+    const selected =
+      memberships.find((member: any) => member?.is_default) || memberships[0];
+    const role = selected?.role;
+    return role ? role.toString().toLowerCase() : null;
+  }, [profile?.memberships]);
+  const canAccessAccountSettings =
+    membershipRole === "owner" || membershipRole === "admin";
 
   const TabButton = ({
     children,
@@ -191,9 +215,7 @@ function ProviderTabs() {
   const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
     Home: "home",
     Appointments: "calendar",
-    Customers: "people",
-    Services: "cut",
-    Profile: "person",
+    Account: "settings",
   };
 
   return (
@@ -236,21 +258,13 @@ function ProviderTabs() {
         component={AppointmentsScreen}
         options={{ tabBarLabel: t("tabs.appointments") }}
       />
-      <ProviderTab.Screen
-        name="Customers"
-        component={CustomersScreen}
-        options={{ tabBarLabel: t("tabs.customers") }}
-      />
-      <ProviderTab.Screen
-        name="Services"
-        component={ServicesScreen}
-        options={{ tabBarLabel: t("tabs.services") }}
-      />
-      <ProviderTab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ tabBarLabel: t("tabs.profile") }}
-      />
+      {canAccessAccountSettings ? (
+        <ProviderTab.Screen
+          name="Account"
+          component={AccountSettingsScreen}
+          options={{ tabBarLabel: t("tabs.account") }}
+        />
+      ) : null}
     </ProviderTab.Navigator>
   );
 }
@@ -714,6 +728,23 @@ export default function App() {
                       name="ProviderTabs"
                       component={ProviderTabs}
                     />
+                    <RootStack.Screen
+                      name="Customers"
+                      component={CustomersScreen}
+                    />
+                    <RootStack.Screen
+                      name="Services"
+                      component={ServicesScreen}
+                    />
+                    <RootStack.Screen
+                      name="Team"
+                      component={TeamScreen}
+                    />
+                    <RootStack.Screen
+                      name="AccountBranding"
+                      component={AccountBrandingScreen}
+                    />
+                    <RootStack.Screen name="Profile" component={ProfileScreen} />
                     <RootStack.Screen
                       name="NewAppointment"
                       component={NewAppointmentScreen}

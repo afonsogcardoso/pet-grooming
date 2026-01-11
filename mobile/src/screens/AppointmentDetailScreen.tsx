@@ -358,6 +358,8 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     return Array.from(unique.values());
   }, [appointment, appointmentServiceEntries, customerPetsById]);
   const paymentStatus = appointment?.payment_status || "unpaid";
+  const paymentColor =
+    paymentStatus === "paid" ? colors.success : colors.warning;
   const statusOptions = [
     { value: "pending", emoji: "⏳" },
     { value: "scheduled", emoji: "📅" },
@@ -949,14 +951,23 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                   <TouchableOpacity
                     style={[
                       styles.paymentBadge,
-                      paymentStatus === "paid" && styles.paymentBadgePaid,
+                      { backgroundColor: `${paymentColor}14` },
                     ]}
                     onPress={togglePayment}
                   >
+                    <Ionicons
+                      name={
+                        paymentStatus === "paid"
+                          ? "checkmark-circle"
+                          : "time-outline"
+                      }
+                      size={16}
+                      color={paymentColor}
+                    />
                     <Text
                       style={[
                         styles.paymentBadgeText,
-                        paymentStatus === "paid" && styles.paymentBadgeTextPaid,
+                        { color: paymentColor },
                       ]}
                     >
                       {paymentStatus === "paid"
@@ -1601,21 +1612,16 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       fontWeight: "700",
     },
     paymentBadge: {
-      backgroundColor: "#fef3c7",
       paddingHorizontal: 12,
       paddingVertical: 6,
       borderRadius: 20,
-    },
-    paymentBadgePaid: {
-      backgroundColor: "#d1fae5",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
     },
     paymentBadgeText: {
-      color: "#92400e",
       fontSize: 13,
       fontWeight: "700",
-    },
-    paymentBadgeTextPaid: {
-      color: "#065f46",
     },
     heroTitle: {
       fontSize: 26,

@@ -274,10 +274,10 @@ export default function HomeScreen({ navigation }: Props) {
         {brandingLoading ? (
           <ActivityIndicator color={primary} />
         ) : (
-          <TouchableOpacity
-            style={[styles.profileButton, { borderColor: primarySoft }]}
-            onPress={() => navigation.navigate("Profile")}
-          >
+        <TouchableOpacity
+          style={[styles.profileButton, { borderColor: primarySoft }]}
+          onPress={() => navigation.navigate("Profile")}
+        >
             {avatarUrl ? (
               <Image source={{ uri: avatarUrl }} style={styles.profileImage} />
             ) : (

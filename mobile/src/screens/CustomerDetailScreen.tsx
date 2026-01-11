@@ -28,6 +28,7 @@ import {
   type Customer,
   type Pet,
 } from "../api/customers";
+import { getAppointments, type Appointment } from "../api/appointments";
 import { ScreenHeader } from "../components/ScreenHeader";
 import { Avatar } from "../components/common/Avatar";
 import { Button } from "../components/common/Button";
@@ -35,19 +36,33 @@ import { EmptyState } from "../components/common/EmptyState";
 import { MiniMap } from "../components/common/MiniMap";
 import { PetCard } from "../components/customers/PetCard";
 import SwipeableRow from "../components/common/SwipeableRow";
+import AppointmentCard from "../components/appointments/AppointmentCard";
 import { deletePet } from "../api/customers";
 import { useTranslation } from "react-i18next";
 import { hapticError, hapticSuccess, hapticWarning } from "../utils/haptics";
 import { useSwipeDeleteIndicator } from "../hooks/useSwipeDeleteIndicator";
 import { UndoToast } from "../components/common/UndoToast";
 import { cameraOptions, galleryOptions } from "../utils/imageOptions";
+import ProfileLayout from "./profile/ProfileLayout";
+import createProfileStyles from "./profileStyles";
 
 type Props = NativeStackScreenProps<any, "CustomerDetail">;
 type DeletePetPayload = {
   pet: Pet;
   index: number;
 };
+type CustomerSection = "overview" | "pets" | "appointments";
 const UNDO_TIMEOUT_MS = 4000;
+
+function getAppointmentTimestamp(appointment: Appointment): number | null {
+  if (!appointment.appointment_date) return null;
+  const time =
+    appointment.appointment_time?.padStart(5, "0")?.slice(0, 5) || "00:00";
+  const iso = `${appointment.appointment_date}T${time}:00`;
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.getTime();
+}
 
 export default function CustomerDetailScreen({ navigation, route }: Props) {
   const { customerId } = route.params as { customerId: string };
@@ -55,7 +70,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const queryClient = useQueryClient();
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const undoBottomOffset = insets.bottom + 16;
   const [undoVisible, setUndoVisible] = useState(false);
@@ -65,8 +80,13 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
     clearDeletingId,
   } = useSwipeDeleteIndicator();
   const pendingDeleteRef = useRef<DeletePetPayload | null>(null);
+  const layoutScrollRef = useRef<ScrollView | null>(null);
 
-  const { data: customers = [], isLoading: isLoadingCustomer } = useQuery({
+  const {
+    data: customers = [],
+    isLoading: isLoadingCustomer,
+    refetch: refetchCustomers,
+  } = useQuery({
     queryKey: ["customers"],
     queryFn: getCustomers,
   });
@@ -80,6 +100,47 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
     queryFn: () => getPetsByCustomer(customerId),
     enabled: !!customerId,
   });
+
+  const [activeSection, setActiveSection] =
+    useState<CustomerSection>("overview");
+  const {
+    data: appointmentsResponse,
+    isLoading: isLoadingAppointments,
+    refetch: refetchAppointments,
+  } = useQuery({
+    queryKey: ["customer-appointments", customerId],
+    queryFn: () => getAppointments({ customerId, limit: 40 }),
+    enabled: !!customerId,
+  });
+  const appointments = appointmentsResponse?.items ?? [];
+  const customerAppointments = useMemo(
+    () =>
+      appointments.filter(
+        (appointment) => appointment.customers?.id === customerId
+      ),
+    [appointments, customerId]
+  );
+  const refreshing =
+    isLoadingCustomer || isLoadingPets || isLoadingAppointments;
+  const handleRefresh = useCallback(() => {
+    refetchCustomers();
+    refetchPets();
+    refetchAppointments();
+  }, [refetchAppointments, refetchCustomers, refetchPets]);
+  const nextAppointment = useMemo(() => {
+    if (!customerAppointments.length) return null;
+    const candidates = customerAppointments
+      .map((appointment) => ({
+        appointment,
+        timestamp: getAppointmentTimestamp(appointment),
+      }))
+      .filter((entry) => entry.timestamp !== null)
+      .sort((a, b) => a.timestamp! - b.timestamp!);
+    if (!candidates.length) return null;
+    const now = Date.now();
+    const next = candidates.find((entry) => (entry.timestamp ?? 0) >= now);
+    return next ? next.appointment : candidates[0].appointment;
+  }, [customerAppointments]);
 
   const updateCustomerPetCount = useCallback(
     (delta: number) => {
@@ -405,6 +466,17 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
     });
   };
 
+  const handleAddAppointment = useCallback(() => {
+    navigation.navigate("NewAppointment");
+  }, [navigation]);
+
+  const handleAppointmentPress = useCallback(
+    (appointment: Appointment) => {
+      navigation.navigate("AppointmentDetail", { id: appointment.id });
+    },
+    [navigation]
+  );
+
   if (isLoadingCustomer) {
     return (
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
@@ -430,154 +502,291 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
   }
 
   const displayName = formatCustomerName(customer);
+  const customerAddress = formatCustomerAddress(customer);
+  const customerAddressMultiline = customerAddress
+    ? formatCustomerAddress(customer, "\n")
+    : undefined;
+  const petCount = pets.length;
+  const appointmentCount = customerAppointments.length;
+
+  const formatDateLabel = (value?: string | null) => {
+    if (!value) return "";
+    try {
+      return new Date(value).toLocaleDateString(i18n.language, {
+        day: "2-digit",
+        month: "short",
+      });
+    } catch {
+      return value;
+    }
+  };
+
+  const formatTimeLabel = (value?: string | null) => {
+    if (!value) return "—";
+    const match = String(value).match(/(\d{1,2}):(\d{2})/);
+    if (match) {
+      return `${match[1].padStart(2, "0")}:${match[2]}`;
+    }
+    return value;
+  };
+
+  const hasNextAppointment = Boolean(nextAppointment);
+  const nextAppointmentLabel = hasNextAppointment
+    ? `${formatDateLabel(nextAppointment!.appointment_date)} • ${formatTimeLabel(
+        nextAppointment!.appointment_time
+      )}`
+    : t("customerDetail.nextAppointmentEmpty");
+
+  const headerRightElement = (
+    <TouchableOpacity
+      onPress={handleEditCustomer}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+    >
+      <Text style={[styles.editIcon, { color: colors.primary }]}>✏️</Text>
+    </TouchableOpacity>
+  );
+
+  const sectionTabs: Array<{ key: CustomerSection; label: string }> = [
+    { key: "overview", label: t("customerDetail.sectionOverview") },
+    { key: "pets", label: t("customerDetail.segmentPets") },
+    { key: "appointments", label: t("customerDetail.segmentAppointments") },
+  ];
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      <ScreenHeader
+    <>
+      <ProfileLayout
         title={t("customerDetail.detailsTitle")}
-        showBack={true}
-        rightElement={
-          <TouchableOpacity
-            onPress={handleEditCustomer}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={[styles.editIcon, { color: colors.primary }]}>✏️</Text>
-          </TouchableOpacity>
-        }
-      />
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Customer Info Card */}
-        <View style={styles.customerCard}>
-          <View style={styles.avatarContainer}>
-            <Avatar
-              name={displayName}
-              size="large"
-              imageUrl={customer.photo_url}
-              onPress={handleAvatarPress}
-            />
-            {uploadingPhoto && (
-              <View style={styles.avatarLoadingOverlay}>
-                <ActivityIndicator color="#fff" />
-              </View>
-            )}
-          </View>
-
-          <Text style={styles.customerName}>{displayName}</Text>
-
-          <View style={styles.infoGrid}>
-            {customer.phone && (
-              <View style={styles.infoItem}>
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>{t("common.phone")}</Text>
-                  <Text style={styles.infoValue}>{customer.phone}</Text>
+        rightElement={headerRightElement}
+        scrollRef={layoutScrollRef}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
+      >
+        <View style={styles.headerCard}>
+          <View style={styles.headerRow}>
+            <View style={styles.avatar}>
+              <Avatar
+                name={displayName}
+                size="large"
+                imageUrl={customer.photo_url}
+                onPress={handleAvatarPress}
+              />
+              {uploadingPhoto && (
+                <View style={styles.avatarLoading}>
+                  <ActivityIndicator color="#fff" />
                 </View>
-              </View>
-            )}
-
-            {customer.email && (
-              <View style={styles.infoItem}>
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>{t("common.email")}</Text>
-                  <Text style={styles.infoValue}>{customer.email}</Text>
-                </View>
-              </View>
-            )}
-
-            {formatCustomerAddress(customer) && (
-              <>
-                <View style={styles.infoItem}>
-                  <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>
-                      {t("customerDetail.address")}
-                    </Text>
-                    <Text style={styles.infoValue}>
-                      {formatCustomerAddress(customer, "\n")}
-                    </Text>
-                  </View>
-                </View>
-                <MiniMap address={formatCustomerAddress(customer)} />
-              </>
-            )}
-
-            {customer.nif && (
-              <View style={styles.infoItem}>
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>
-                    {t("customerDetail.nif")}
+              )}
+            </View>
+            <View style={styles.headerInfo}>
+              <View style={styles.headerTopRow}>
+                <Text style={styles.headerTitle}>{displayName}</Text>
+                <View style={styles.roleBadge}>
+                  <Text style={styles.roleBadgeText}>
+                    {t("customerDetail.customerLabel")}
                   </Text>
-                  <Text style={styles.infoValue}>{customer.nif}</Text>
                 </View>
+              </View>
+              {customer.email ? (
+                <Text style={styles.headerSubtitle}>{customer.email}</Text>
+              ) : null}
+              {customer.phone ? (
+                <Text style={styles.headerMeta}>
+                  {t("common.phone")}: {customer.phone}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.sectionTabs}
+        >
+          {sectionTabs.map((section) => {
+            const isActive = activeSection === section.key;
+            return (
+              <TouchableOpacity
+                key={section.key}
+                style={[styles.sectionTab, isActive && styles.sectionTabActive]}
+                onPress={() => setActiveSection(section.key)}
+              >
+                <Text
+                  style={[
+                    styles.sectionTabText,
+                    isActive && styles.sectionTabTextActive,
+                  ]}
+                >
+                  {section.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {activeSection === "overview" && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>
+                {t("customerDetail.sectionOverview")}
+              </Text>
+            </View>
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>
+                  {t("customerDetail.segmentPets")}
+                </Text>
+                <Text style={styles.statValue}>{petCount}</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>
+                  {t("customerDetail.segmentAppointments")}
+                </Text>
+                <Text style={styles.statValue}>{appointmentCount}</Text>
+              </View>
+            </View>
+            {customerAddress ? (
+              <>
+                <View style={styles.mapWrapper}>
+                  <MiniMap
+                    address={customerAddress}
+                    height={150}
+                    borderless
+                  />
+                </View>
+                <Text style={styles.mapCaption}>{customerAddress}</Text>
+              </>
+            ) : null}
+            <View style={styles.nextAppointmentCard}>
+              <Text style={styles.nextAppointmentTitle}>
+                {t("customerDetail.nextAppointmentTitle")}
+              </Text>
+              <Text style={styles.nextAppointmentValue}>
+                {nextAppointmentLabel}
+              </Text>
+            </View>
+            <View style={styles.actionsRow}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.actionButtonSecondary]}
+                onPress={handleAddPet}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.actionButtonText,
+                    styles.actionButtonTextSecondary,
+                  ]}
+                >
+                  {t("customerDetail.addPet")}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.actionButtonPrimary]}
+                onPress={handleAddAppointment}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.actionButtonText,
+                    styles.actionButtonTextPrimary,
+                  ]}
+                >
+                  {t("customerDetail.addAppointment")}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {activeSection === "pets" && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>
+                {t("customerDetail.petsTitle", { count: pets.length })}
+              </Text>
+            </View>
+            {isLoadingPets ? (
+              <View style={styles.listLoading}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : pets.length === 0 ? (
+              <EmptyState
+                title={t("customerDetail.noPetsTitle")}
+                description={t("customerDetail.noPetsDescription")}
+                actionLabel={t("customerDetail.addPet")}
+                onAction={handleAddPet}
+              />
+            ) : (
+              <View style={styles.listStack}>
+                {pets.map((pet) => (
+                  <SwipeableRow
+                    key={pet.id}
+                    isDeleting={pet.id === deletingPetId}
+                    onDelete={() => {
+                      Alert.alert(
+                        t("customerDetail.deletePetTitle"),
+                        t("customerDetail.deletePetMessage", {
+                          name: pet.name,
+                        }),
+                        [
+                          { text: t("common.cancel"), style: "cancel" },
+                          {
+                            text: t("customerDetail.deletePetAction"),
+                            style: "destructive",
+                            onPress: () => {
+                              hapticWarning();
+                              beginDelete(pet.id, () =>
+                                startOptimisticDelete(pet)
+                              );
+                            },
+                          },
+                        ]
+                      );
+                    }}
+                  >
+                    <PetCard pet={pet} onPress={() => handlePetPress(pet)} />
+                  </SwipeableRow>
+                ))}
               </View>
             )}
           </View>
-        </View>
+        )}
 
-        {/* Pets Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              {t("customerDetail.petsTitle", { count: pets.length })}
-            </Text>
-            <Button
-              title={t("common.add")}
-              onPress={handleAddPet}
-              variant="ghost"
-              size="small"
-              icon="+"
-            />
+        {activeSection === "appointments" && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>
+                {t("customerDetail.sectionAppointments")}
+                {appointmentCount ? ` (${appointmentCount})` : ""}
+              </Text>
+            </View>
+            {isLoadingAppointments ? (
+              <View style={styles.listLoading}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : appointmentCount === 0 ? (
+              <EmptyState
+                icon="🗓️"
+                title={t("customerDetail.noAppointmentsTitle")}
+                description={t("customerDetail.noAppointmentsDescription")}
+                actionLabel={t("customerDetail.addAppointment")}
+                onAction={handleAddAppointment}
+              />
+            ) : (
+              <View style={styles.listStack}>
+                {customerAppointments.map((appointment) => (
+                  <View key={appointment.id} style={styles.appointmentCard}>
+                    <AppointmentCard
+                      appointment={appointment}
+                      onPress={() => handleAppointmentPress(appointment)}
+                    />
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
+        )}
 
-          {isLoadingPets ? (
-            <View style={styles.petsLoadingContainer}>
-              <ActivityIndicator size="small" color={colors.primary} />
-            </View>
-          ) : pets.length === 0 ? (
-            <EmptyState
-              title={t("customerDetail.noPetsTitle")}
-              description={t("customerDetail.noPetsDescription")}
-              actionLabel={t("customerDetail.addPet")}
-              onAction={handleAddPet}
-            />
-          ) : (
-            <View style={styles.petsList}>
-              {pets.map((pet) => (
-                <SwipeableRow
-                  key={pet.id}
-                  isDeleting={pet.id === deletingPetId}
-                  onDelete={() => {
-                    Alert.alert(
-                      t("customerDetail.deletePetTitle"),
-                      t("customerDetail.deletePetMessage", { name: pet.name }),
-                      [
-                        { text: t("common.cancel"), style: "cancel" },
-                        {
-                          text: t("customerDetail.deletePetAction"),
-                          style: "destructive",
-                          onPress: () => {
-                            hapticWarning();
-                            beginDelete(pet.id, () =>
-                              startOptimisticDelete(pet)
-                            );
-                          },
-                        },
-                      ]
-                    );
-                  }}
-                >
-                  <PetCard
-                    key={pet.id}
-                    pet={pet}
-                    onPress={() => handlePetPress(pet)}
-                  />
-                </SwipeableRow>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* Delete Customer Button */}
-        <View style={styles.dangerZone}>
+        <View style={[styles.section, styles.dangerZone]}>
           <Button
             title={t("customerDetail.deleteCustomerAction")}
             onPress={handleDeleteCustomer}
@@ -589,7 +798,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
             textStyle={styles.deleteButtonText}
           />
         </View>
-      </ScrollView>
+      </ProfileLayout>
       <UndoToast
         visible={undoVisible}
         message={t("customerDetail.deletePetUndoMessage")}
@@ -600,109 +809,125 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
         durationMs={UNDO_TIMEOUT_MS}
         bottomOffset={undoBottomOffset}
       />
-    </SafeAreaView>
+    </>
   );
 }
 
 function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    content: {
-      flex: 1,
-      paddingHorizontal: 20,
-    },
+  const baseStyles = createProfileStyles(colors);
+  const extraStyles = StyleSheet.create({
     loadingContainer: {
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
     },
-    petsLoadingContainer: {
+    listLoading: {
       paddingVertical: 40,
       alignItems: "center",
-    },
-    editIcon: {
-      fontSize: 20,
-    },
-    customerCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 20,
-      padding: 24,
-      marginTop: 20,
-      marginBottom: 24,
-      alignItems: "center",
-    },
-    avatarContainer: {
-      position: "relative",
-    },
-    avatarLoadingOverlay: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: "rgba(0, 0, 0, 0.5)",
-      borderRadius: 999,
       justifyContent: "center",
-      alignItems: "center",
     },
-    customerName: {
-      fontSize: 24,
-      fontWeight: "700",
-      color: colors.text,
-      marginTop: 16,
-      marginBottom: 24,
-      textAlign: "center",
+    listStack: {
+      gap: 12,
     },
-    infoGrid: {
-      width: "100%",
-      gap: 16,
+    appointmentCard: {
+      marginBottom: 12,
     },
-    infoItem: {
+    statsRow: {
       flexDirection: "row",
-      alignItems: "flex-start",
-      backgroundColor: colors.background,
-      borderRadius: 12,
-      padding: 16,
+      width: "100%",
+      justifyContent: "space-between",
+      gap: 12,
+      marginTop: 8,
     },
-    infoIcon: {
-      fontSize: 20,
-      marginRight: 12,
-    },
-    infoContent: {
+    statItem: {
       flex: 1,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.surface,
+      paddingVertical: 12,
+      paddingHorizontal: 10,
+      alignItems: "center",
+      justifyContent: "center",
     },
-    infoLabel: {
+    statLabel: {
       fontSize: 12,
       fontWeight: "600",
       color: colors.muted,
-      marginBottom: 4,
       textTransform: "uppercase",
       letterSpacing: 0.5,
+      marginBottom: 2,
     },
-    infoValue: {
-      fontSize: 15,
-      color: colors.text,
-      fontWeight: "500",
-    },
-    section: {
-      marginBottom: 24,
-    },
-    sectionHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      marginBottom: 16,
-    },
-    sectionTitle: {
+    statValue: {
       fontSize: 20,
       fontWeight: "700",
       color: colors.text,
     },
-    petsList: {
+    mapWrapper: {
+      width: "100%",
+      marginTop: 16,
+      borderRadius: 16,
+      overflow: "hidden",
+    },
+    mapCaption: {
+      width: "100%",
+      marginTop: 8,
+      color: colors.muted,
+      fontSize: 13,
+      textAlign: "center",
+    },
+    nextAppointmentCard: {
+      width: "100%",
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.surface,
+      padding: 16,
+      marginTop: 16,
+    },
+    nextAppointmentTitle: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.muted,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    nextAppointmentValue: {
+      fontSize: 18,
+      fontWeight: "600",
+      color: colors.text,
+      marginTop: 6,
+    },
+    actionsRow: {
+      flexDirection: "row",
       gap: 12,
+      marginTop: 20,
+    },
+    actionButton: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    actionButtonPrimary: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    actionButtonSecondary: {
+      backgroundColor: colors.surface,
+      borderColor: colors.surfaceBorder,
+    },
+    actionButtonText: {
+      fontSize: 15,
+      fontWeight: "600",
+    },
+    actionButtonTextPrimary: {
+      color: colors.onPrimary,
+    },
+    actionButtonTextSecondary: {
+      color: colors.primary,
     },
     dangerZone: {
       marginTop: 16,
@@ -719,4 +944,5 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       color: "#ef4444",
     },
   });
+  return { ...baseStyles, ...extraStyles };
 }

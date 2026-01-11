@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 // ...existing code...
-import { debounce } from "../utils/debounce";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   View,
@@ -33,16 +32,6 @@ import {
   Profile,
 } from "../api/profile";
 import {
-  Branding,
-  BrandingUpdatePayload,
-  deleteBrandLogo,
-  deletePortalImage,
-  getBranding,
-  updateBranding,
-  uploadBrandLogo,
-  uploadPortalImage,
-} from "../api/branding";
-import {
   getNotificationPreferences,
   registerPushToken,
   unregisterPushToken,
@@ -71,12 +60,11 @@ import ProfileHeader from "../components/profile/ProfileHeader";
 import ProfileInfo from "../components/profile/ProfileInfo";
 import ProfileNotifications from "../components/profile/ProfileNotifications";
 import ProfileSecurity from "../components/profile/ProfileSecurity";
-import ProfileMarketplace from "../components/profile/ProfileMarketplace";
 
 WebBrowser.maybeCompleteAuthSession();
 
 type Props = NativeStackScreenProps<any>;
-type ProfileSection = "info" | "account" | "security" | "notifications";
+type ProfileSection = "info" | "security" | "notifications";
 const REMINDER_PRESETS = [15, 30, 60, 120, 1440];
 const MAX_REMINDER_OFFSETS = 2;
 
@@ -187,10 +175,7 @@ function mergeNotificationPreferences(
   };
 }
 
-export default function ProfileScreen({ navigation }: Props) {
-  // Controla se houve alteração manual nos campos do account
-  const [accountDirty, setAccountDirty] = useState(false);
-  // Estados para campos do marketplace
+export default function ProfileScreen({ navigation, route }: Props) {
   // Fetch branding and profile data
   const { branding, colors } = useBrandingTheme();
   const { data } = useQuery({
@@ -207,40 +192,17 @@ export default function ProfileScreen({ navigation }: Props) {
   const [editAddress, setEditAddress] = useState("");
   const [editAddress2, setEditAddress2] = useState("");
   const [hasProfileEdits, setHasProfileEdits] = useState(false);
-  const [accountName, setAccountNameState] = useState("");
-  const [accountRegion, setAccountRegionState] = useState("");
-  const [accountDescription, setAccountDescriptionState] = useState("");
-  const [accountInstagram, setAccountInstagramState] = useState("");
-  const [accountFacebook, setAccountFacebookState] = useState("");
-  const [accountTiktok, setAccountTiktokState] = useState("");
-  const [accountWebsite, setAccountWebsiteState] = useState("");
-  const [brandPrimary, setBrandPrimaryState] = useState("");
-  const [brandPrimarySoft, setBrandPrimarySoftState] = useState("");
-  const [brandAccent, setBrandAccentState] = useState("");
-  const [brandAccentSoft, setBrandAccentSoftState] = useState("");
-  const [brandBackground, setBrandBackgroundState] = useState("");
   // Query e dados principais
   const queryClient = useQueryClient();
-  const primedBranding = queryClient.getQueryData<Branding>(["branding"]);
-  const primedAccountId =
-    primedBranding?.account_id || primedBranding?.id || null;
-  const brandingAccountId = branding?.id || branding?.account_id || null;
   const membershipRole = useMemo(() => {
     const memberships = Array.isArray(data?.memberships)
       ? data?.memberships
       : [];
     if (!memberships.length) return null;
-    const byAccount = brandingAccountId
-      ? memberships.find(
-          (member: any) =>
-            member?.account_id === brandingAccountId ||
-            member?.account?.id === brandingAccountId
-        )
-      : null;
-    const selected = byAccount || memberships[0];
+    const selected =
+      memberships.find((member: any) => member?.is_default) || memberships[0];
     return selected?.role || null;
-  }, [data?.memberships, brandingAccountId]);
-  const isOwner = membershipRole === "owner";
+  }, [data?.memberships]);
   const setUser = useAuthStore((s) => s.setUser);
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
@@ -248,7 +210,20 @@ export default function ProfileScreen({ navigation }: Props) {
   const setViewMode = useViewModeStore((s) => s.setViewMode);
   // Remove duplicate colors declaration
   // Section state
-  const [activeSection, setActiveSection] = useState<ProfileSection>("info");
+  const initialSectionFromRoute = (() => {
+    const candidate = route?.params?.initialSection;
+    if (
+      candidate === "info" ||
+      candidate === "security" ||
+      candidate === "notifications"
+    ) {
+      return candidate;
+    }
+    return "info";
+  })();
+  const [activeSection, setActiveSection] = useState<ProfileSection>(
+    initialSectionFromRoute
+  );
   // Avatar upload state
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   // Scroll ref
@@ -266,109 +241,6 @@ export default function ProfileScreen({ navigation }: Props) {
   });
   const styles = useMemo(() => createStyles(colors), [colors]);
   // ...existing code (outros hooks e lógica do componente)...
-
-  // Manual save flow: we no longer autosave marketplace fields on change.
-  // Changes mark `marketplaceDirty` and are persisted when the user taps Save.
-
-  // Generic setter factory for marketplace fields
-  const createMarketplaceSetter = <T extends keyof BrandingUpdatePayload>(
-    stateSetter: (v: string) => void,
-    brandingKey: keyof Branding,
-    payloadKey: T
-  ) => {
-    return (value: string, fromBranding = false) => {
-      stateSetter(value);
-      if (!fromBranding && value !== (branding?.[brandingKey] || "")) {
-        setAccountDirty(true);
-      }
-    };
-  };
-
-  const setAccountName = createMarketplaceSetter(
-    setAccountNameState,
-    "account_name",
-    "name"
-  );
-  const setAccountDescription = createMarketplaceSetter(
-    setAccountDescriptionState,
-    "marketplace_description",
-    "marketplace_description"
-  );
-  const setAccountRegion = createMarketplaceSetter(
-    setAccountRegionState,
-    "marketplace_region",
-    "marketplace_region"
-  );
-  const setAccountInstagram = createMarketplaceSetter(
-    setAccountInstagramState,
-    "marketplace_instagram_url",
-    "marketplace_instagram_url"
-  );
-  const setAccountFacebook = createMarketplaceSetter(
-    setAccountFacebookState,
-    "marketplace_facebook_url",
-    "marketplace_facebook_url"
-  );
-  const setAccountTiktok = createMarketplaceSetter(
-    setAccountTiktokState,
-    "marketplace_tiktok_url",
-    "marketplace_tiktok_url"
-  );
-  const setAccountWebsite = createMarketplaceSetter(
-    setAccountWebsiteState,
-    "marketplace_website_url",
-    "marketplace_website_url"
-  );
-  const setBrandPrimary = createMarketplaceSetter(
-    setBrandPrimaryState,
-    "brand_primary",
-    "brand_primary"
-  );
-  const setBrandPrimarySoft = createMarketplaceSetter(
-    setBrandPrimarySoftState,
-    "brand_primary_soft",
-    "brand_primary_soft"
-  );
-  const setBrandAccent = createMarketplaceSetter(
-    setBrandAccentState,
-    "brand_accent",
-    "brand_accent"
-  );
-  const setBrandAccentSoft = createMarketplaceSetter(
-    setBrandAccentSoftState,
-    "brand_accent_soft",
-    "brand_accent_soft"
-  );
-  const setBrandBackground = createMarketplaceSetter(
-    setBrandBackgroundState,
-    "brand_background",
-    "brand_background"
-  );
-  const [accountLogoUrl, setAccountLogoUrl] = useState<string | null>(null);
-
-  const [accountActive, setAccountActive] = useState<boolean>(true);
-  useEffect(() => {
-    if (typeof branding?.marketplace_enabled === "boolean") {
-      setAccountActive(branding.marketplace_enabled);
-    }
-  }, [branding?.marketplace_enabled]);
-
-  const debouncedSaveAccountActive = useMemo(
-    () =>
-      debounce((value: boolean) => {
-        updateBranding({ marketplace_enabled: value });
-      }, 600),
-    []
-  );
-
-  const handleToggleAccountActive = (value: boolean) => {
-    setAccountActive(value);
-    debouncedSaveAccountActive(value);
-  };
-  const [accountHeroUrl, setAccountHeroUrl] = useState<string | null>(null);
-  const [uploadingAccountLogo, setUploadingAccountLogo] = useState(false);
-  const [uploadingAccountHero, setUploadingAccountHero] = useState(false);
-  const [accountInitialized, setAccountInitialized] = useState(false);
   const [customReminderInput, setCustomReminderInput] = useState("");
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -429,7 +301,7 @@ export default function ProfileScreen({ navigation }: Props) {
     if (user?.activeRole) return [user.activeRole];
     return [];
   }, [data?.availableRoles, data?.activeRole, user?.activeRole]);
-  const activeRole = data?.activeRole ?? user?.activeRole ?? "provider";
+  const activeRole = data?.activeRole ?? user?.activeRole ?? "consumer";
   const resolvedViewMode: ViewMode =
     viewMode ?? (activeRole === "consumer" ? "consumer" : "private");
   const canSwitchViewMode =
@@ -546,95 +418,7 @@ export default function ProfileScreen({ navigation }: Props) {
     setEditAddress2(profileDefaults.address2);
   }, [profileDefaults, hasProfileEdits]);
 
-  useEffect(() => {
-    if (!isOwner && activeSection === "account") {
-      setActiveSection("info");
-    }
-  }, [isOwner, activeSection]);
-
   // Do not refetch on every focus to avoid extra latency; rely on React Query cache and explicit invalidations
-
-  const applyAccountBranding = (data?: Branding | null) => {
-    if (!data) return;
-    setAccountName(data.account_name || "", true);
-    setAccountDescription(data.marketplace_description || "", true);
-    setAccountRegion(data.marketplace_region || "", true);
-    setAccountInstagram(data.marketplace_instagram_url || "", true);
-    setAccountFacebook(data.marketplace_facebook_url || "", true);
-    setAccountTiktok(data.marketplace_tiktok_url || "", true);
-    setAccountWebsite(data.marketplace_website_url || "", true);
-    setBrandPrimary(data.brand_primary || "", true);
-    setBrandPrimarySoft(data.brand_primary_soft || "", true);
-    setBrandAccent(data.brand_accent || "", true);
-    setBrandAccentSoft(data.brand_accent_soft || "", true);
-    setBrandBackground(data.brand_background || "", true);
-    setAccountLogoUrl(data.logo_url || null);
-    setAccountHeroUrl(data.portal_image_url || null);
-  };
-
-  const isAccountDirty = useMemo(() => {
-    const defaults = {
-      name: branding?.account_name || "",
-      description: branding?.marketplace_description || "",
-      region: branding?.marketplace_region || "",
-      instagram: branding?.marketplace_instagram_url || "",
-      facebook: branding?.marketplace_facebook_url || "",
-      tiktok: branding?.marketplace_tiktok_url || "",
-      website: branding?.marketplace_website_url || "",
-      primary: branding?.brand_primary || "",
-      primarySoft: branding?.brand_primary_soft || "",
-      accent: branding?.brand_accent || "",
-      accentSoft: branding?.brand_accent_soft || "",
-      background: branding?.brand_background || "",
-    };
-    return (
-      accountName.trim() !== defaults.name.trim() ||
-      accountDescription.trim() !== defaults.description.trim() ||
-      accountRegion.trim() !== defaults.region.trim() ||
-      accountInstagram.trim() !== defaults.instagram.trim() ||
-      accountFacebook.trim() !== defaults.facebook.trim() ||
-      accountTiktok.trim() !== defaults.tiktok.trim() ||
-      accountWebsite.trim() !== defaults.website.trim() ||
-      brandPrimary.trim() !== defaults.primary.trim() ||
-      brandPrimarySoft.trim() !== defaults.primarySoft.trim() ||
-      brandAccent.trim() !== defaults.accent.trim() ||
-      brandAccentSoft.trim() !== defaults.accentSoft.trim() ||
-      brandBackground.trim() !== defaults.background.trim()
-    );
-  }, [
-    branding?.account_name,
-    branding?.marketplace_description,
-    branding?.marketplace_region,
-    branding?.marketplace_instagram_url,
-    branding?.marketplace_facebook_url,
-    branding?.marketplace_tiktok_url,
-    branding?.marketplace_website_url,
-    branding?.brand_primary,
-    branding?.brand_primary_soft,
-    branding?.brand_accent,
-    branding?.brand_accent_soft,
-    branding?.brand_background,
-    accountName,
-    accountDescription,
-    accountRegion,
-    accountInstagram,
-    accountFacebook,
-    accountTiktok,
-    accountWebsite,
-    brandPrimary,
-    brandPrimarySoft,
-    brandAccent,
-    brandAccentSoft,
-    brandBackground,
-  ]);
-
-  useEffect(() => {
-    if (!accountInitialized && branding) {
-      applyAccountBranding(branding);
-      setAccountInitialized(true);
-      setAccountDirty(false); // Reset dirty flag ao inicializar branding
-    }
-  }, [branding, accountInitialized]);
 
   const mergeProfileUpdate = (
     current: Profile | undefined,
@@ -747,20 +531,6 @@ export default function ProfileScreen({ navigation }: Props) {
     onError: () => {
       hapticError();
       Alert.alert(t("common.error"), t("profile.updateError"));
-    },
-  });
-
-  const accountMutation = useMutation({
-    mutationFn: (payload: Parameters<typeof updateBranding>[0]) =>
-      updateBranding(payload, brandingAccountId),
-    onSuccess: (updated) => {
-      hapticSuccess();
-      queryClient.setQueryData(["branding"], updated);
-      applyAccountBranding(updated);
-    },
-    onError: () => {
-      hapticError();
-      Alert.alert(t("common.error"), t("profile.marketplaceUpdateError"));
     },
   });
 
@@ -1035,195 +805,6 @@ export default function ProfileScreen({ navigation }: Props) {
     }
   };
 
-  const accountUploadLogoFromUri = async (
-    uri: string,
-    fileName?: string | null
-  ) => {
-    try {
-      setUploadingAccountLogo(true);
-      const compressedUri = await compressImage(uri);
-      const formData = new FormData();
-      const timestamp = Date.now();
-      const filename = `logo-${timestamp}.jpg`;
-      const fileType = "image/jpeg";
-
-      formData.append("file", {
-        uri: compressedUri,
-        type: fileType,
-        name: filename,
-      } as any);
-
-      const { url, data: brandingResponse } = await uploadBrandLogo(
-        formData,
-        brandingAccountId
-      );
-      const updated =
-        brandingResponse ||
-        (branding ? { ...branding, logo_url: url } : undefined);
-      if (updated) {
-        queryClient.setQueryData(["branding"], updated);
-        applyAccountBranding(updated);
-      }
-    } catch (err) {
-      hapticError();
-      console.error("Erro ao carregar logotipo:", err);
-      Alert.alert(t("common.error"), t("marketplaceProfile.logoUploadError"));
-    } finally {
-      setUploadingAccountLogo(false);
-    }
-  };
-
-  const accountUploadHeroFromUri = async (
-    uri: string,
-    fileName?: string | null
-  ) => {
-    try {
-      setUploadingAccountHero(true);
-      const compressedUri = await compressImage(uri);
-      const formData = new FormData();
-      const timestamp = Date.now();
-      const filename = `portal-${timestamp}.jpg`;
-      const fileType = "image/jpeg";
-
-      formData.append("file", {
-        uri: compressedUri,
-        type: fileType,
-        name: filename,
-      } as any);
-
-      const { url, data: brandingResponse } = await uploadPortalImage(
-        formData,
-        brandingAccountId
-      );
-      const updated =
-        brandingResponse ||
-        (branding ? { ...branding, portal_image_url: url } : undefined);
-      if (updated) {
-        queryClient.setQueryData(["branding"], updated);
-        applyAccountBranding(updated);
-      }
-    } catch (err) {
-      hapticError();
-      console.error("Erro ao carregar imagem de capa:", err);
-      Alert.alert(t("common.error"), t("marketplaceProfile.heroUploadError"));
-    } finally {
-      setUploadingAccountHero(false);
-    }
-  };
-
-  const handleDeleteAccountLogo = async () => {
-    if (!brandingAccountId) return;
-    try {
-      setUploadingAccountLogo(true);
-      const updated = await deleteBrandLogo(brandingAccountId);
-      queryClient.setQueryData(["branding"], updated);
-      applyAccountBranding(updated);
-    } catch (err) {
-      hapticError();
-      console.error("Erro ao apagar logótipo:", err);
-      Alert.alert(t("common.error"), t("marketplaceProfile.logoUploadError"));
-    } finally {
-      setUploadingAccountLogo(false);
-    }
-  };
-
-  const handleDeleteAccountHero = async () => {
-    if (!brandingAccountId) return;
-    try {
-      setUploadingAccountHero(true);
-      const updated = await deletePortalImage(brandingAccountId);
-      queryClient.setQueryData(["branding"], updated);
-      applyAccountBranding(updated);
-    } catch (err) {
-      hapticError();
-      console.error("Erro ao apagar imagem de capa:", err);
-      Alert.alert(t("common.error"), t("marketplaceProfile.heroUploadError"));
-    } finally {
-      setUploadingAccountHero(false);
-    }
-  };
-
-  const openAccountCamera = async (
-    onSelected: (uri: string, fileName?: string | null) => Promise<void>
-  ) => {
-    const hasPermission = await requestAndroidPermissions();
-    if (!hasPermission) {
-      Alert.alert(
-        t("profile.cameraPermissionDeniedTitle"),
-        t("profile.cameraPermissionDeniedMessage")
-      );
-      return;
-    }
-
-    launchCamera(cameraOptions, async (response) => {
-      if (response.didCancel) return;
-      if (response.errorCode) {
-        console.error("Erro ao abrir câmara:", response.errorMessage);
-        Alert.alert(t("common.error"), t("profile.openCameraError"));
-        return;
-      }
-      if (response.assets && response.assets[0]) {
-        await onSelected(response.assets[0].uri!, response.assets[0].fileName);
-      }
-    });
-  };
-
-  const openAccountGallery = async (
-    onSelected: (uri: string, fileName?: string | null) => Promise<void>
-  ) => {
-    launchImageLibrary(galleryOptions, async (response) => {
-      if (response.didCancel) return;
-      if (response.errorCode) {
-        console.error("Erro ao abrir galeria:", response.errorMessage);
-        Alert.alert(t("common.error"), t("profile.openGalleryError"));
-        return;
-      }
-      if (response.assets && response.assets[0]) {
-        await onSelected(response.assets[0].uri!, response.assets[0].fileName);
-      }
-    });
-  };
-
-  const pickAccountImage = (
-    onSelected: (uri: string, fileName?: string | null) => Promise<void>
-  ) => {
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: [
-            t("common.cancel"),
-            t("profile.takePhoto"),
-            t("profile.chooseFromGallery"),
-          ],
-          cancelButtonIndex: 0,
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 1) {
-            openAccountCamera(onSelected);
-          } else if (buttonIndex === 2) {
-            openAccountGallery(onSelected);
-          }
-        }
-      );
-    } else {
-      Alert.alert(
-        t("profile.choosePhotoTitle"),
-        t("profile.choosePhotoMessage"),
-        [
-          { text: t("common.cancel"), style: "cancel" },
-          {
-            text: t("profile.takePhoto"),
-            onPress: () => openAccountCamera(onSelected),
-          },
-          {
-            text: t("profile.chooseFromGallery"),
-            onPress: () => openAccountGallery(onSelected),
-          },
-        ]
-      );
-    }
-  };
-
   const pickImage = () => {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
@@ -1280,35 +861,6 @@ export default function ProfileScreen({ navigation }: Props) {
     setHasProfileEdits(false);
   };
 
-  const handleAccountSave = () => {
-    if (!isOwner) return;
-    const trimmedName = accountName.trim();
-    if (!trimmedName) {
-      Alert.alert(t("common.warning"), t("marketplaceProfile.nameRequired"));
-      return;
-    }
-    accountMutation.mutate({
-      name: trimmedName,
-      marketplace_region: accountRegion.trim() || null,
-      marketplace_description: accountDescription.trim() || null,
-      marketplace_instagram_url: accountInstagram.trim() || null,
-      marketplace_facebook_url: accountFacebook.trim() || null,
-      marketplace_tiktok_url: accountTiktok.trim() || null,
-      marketplace_website_url: accountWebsite.trim() || null,
-      brand_primary: brandPrimary.trim() || null,
-      brand_primary_soft: brandPrimarySoft.trim() || null,
-      brand_accent: brandAccent.trim() || null,
-      brand_accent_soft: brandAccentSoft.trim() || null,
-      brand_background: brandBackground.trim() || null,
-    });
-  };
-
-  const handleAccountReset = () => {
-    if (!isOwner) return;
-    applyAccountBranding(branding);
-    setAccountInitialized(true);
-  };
-
   const handleFirstNameChange = (value: string) => {
     setEditFirstName(value);
     setHasProfileEdits(true);
@@ -1335,7 +887,6 @@ export default function ProfileScreen({ navigation }: Props) {
   };
 
   const handleSectionChange = (section: ProfileSection) => {
-    if (section === "account" && !isOwner) return;
     setActiveSection(section);
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
@@ -1537,40 +1088,6 @@ export default function ProfileScreen({ navigation }: Props) {
   const avatarFallback = displayName.charAt(0).toUpperCase() || "?";
 
   const rightHeaderElement = (() => {
-    if (activeSection === "account" && isAccountDirty && isOwner) {
-      return (
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity
-            onPress={handleAccountReset}
-            disabled={accountMutation.isPending}
-            style={{
-              marginRight: 12,
-              width: 40,
-              height: 40,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Ionicons name="close-outline" size={22} color={colors.text} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleAccountSave}
-            disabled={accountMutation.isPending}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: colors.primary,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Ionicons name="save-outline" size={20} color={colors.onPrimary} />
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
     if (activeSection === "info" && isProfileDirty) {
       return (
         <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -1645,16 +1162,13 @@ export default function ProfileScreen({ navigation }: Props) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.sectionTabs}
       >
-        {(
-          [
-            { key: "info", label: t("profile.sectionInfo") },
-            { key: "security", label: t("profile.security") },
-            { key: "notifications", label: t("profile.notificationsTitle") },
-            { key: "account", label: t("profile.sectionAccount") },
-          ] as const
-        )
-          .filter((section) => section.key !== "account" || isOwner)
-          .map((section) => {
+          {(
+            [
+              { key: "info", label: t("profile.sectionInfo") },
+              { key: "security", label: t("profile.security") },
+              { key: "notifications", label: t("profile.notificationsTitle") },
+            ] as const
+          ).map((section) => {
             const isActive = activeSection === section.key;
             return (
               <TouchableOpacity
@@ -1836,49 +1350,6 @@ export default function ProfileScreen({ navigation }: Props) {
         </>
       ) : null}
 
-      {isOwner && activeSection === "account" ? (
-        <ProfileMarketplace
-          styles={styles}
-          colors={colors}
-          t={t}
-          accountActive={accountActive}
-          handleToggleAccountActive={handleToggleAccountActive}
-          accountName={accountName}
-          setAccountName={setAccountName}
-          accountRegion={accountRegion}
-          setAccountRegion={setAccountRegion}
-          accountDescription={accountDescription}
-          setAccountDescription={setAccountDescription}
-          brandPrimary={brandPrimary}
-          setBrandPrimary={setBrandPrimary}
-          brandPrimarySoft={brandPrimarySoft}
-          setBrandPrimarySoft={setBrandPrimarySoft}
-          brandAccent={brandAccent}
-          setBrandAccent={setBrandAccent}
-          brandAccentSoft={brandAccentSoft}
-          setBrandAccentSoft={setBrandAccentSoft}
-          brandBackground={brandBackground}
-          setBrandBackground={setBrandBackground}
-          accountLogoUrl={accountLogoUrl}
-          accountHeroUrl={accountHeroUrl}
-          uploadingAccountLogo={uploadingAccountLogo}
-          uploadingAccountHero={uploadingAccountHero}
-          pickAccountImage={pickAccountImage}
-          accountUploadLogoFromUri={accountUploadLogoFromUri}
-          accountUploadHeroFromUri={accountUploadHeroFromUri}
-          deleteAccountLogo={handleDeleteAccountLogo}
-          deleteAccountHero={handleDeleteAccountHero}
-          accountInstagram={accountInstagram}
-          setAccountInstagram={setAccountInstagram}
-          accountFacebook={accountFacebook}
-          setAccountFacebook={setAccountFacebook}
-          accountTiktok={accountTiktok}
-          setAccountTiktok={setAccountTiktok}
-          accountWebsite={accountWebsite}
-          setAccountWebsite={setAccountWebsite}
-          accountMutationPending={accountMutation?.isPending}
-        />
-      ) : null}
       <View style={styles.section}>
         <TouchableOpacity
           style={[styles.button, styles.danger]}

@@ -81,6 +81,7 @@ export function AddressAutocomplete({
             backgroundColor: colors.background,
             color: colors.text,
             fontWeight: "400",
+            fontSize: 15,
           },
         ]}
       />
@@ -100,7 +101,7 @@ export function AddressAutocomplete({
         disableScroll={true}
         renderRow={(data) => (
           <View style={{ padding: 12 }}>
-            <Text style={{ color: colors.text, fontSize: 13 }}>
+            <Text style={{ color: colors.text, fontSize: 12 }}>
               {data.description}
             </Text>
           </View>
@@ -154,10 +155,10 @@ export function AddressAutocomplete({
             borderWidth: 1,
             borderColor: colors.surfaceBorder,
             color: colors.text,
-            fontWeight: "400",
-            fontSize: 14,
-            height: 44,
-          },
+          fontWeight: "400",
+          fontSize: 15,
+          height: 44,
+        },
           listView: {
             backgroundColor: "#FFFFFF",
             borderWidth: 1.5,

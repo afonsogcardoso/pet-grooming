@@ -41,8 +41,6 @@ router.get('/', async (req, res) => {
   const payload = {
     id: enrichedUser.id,
     email: enrichedUser.email,
-    user_metadata: enrichedUser.user_metadata || {},
-    app_metadata: enrichedUser.app_metadata || {},
     authProviders: collectAuthProviders(enrichedUser),
     created_at: enrichedUser.created_at,
     last_sign_in_at: enrichedUser.last_sign_in_at,
@@ -53,10 +51,39 @@ router.get('/', async (req, res) => {
     }))
   }
 
-  const availableRoles = mergeAvailableRoles(
+  const { data: profileRow } = await supabaseAdmin
+    .from('profiles')
+    .select('display_name, first_name, last_name, avatar_url, phone, phone_country_code, preferred_locale, address, address_2')
+    .eq('id', enrichedUser.id)
+    .maybeSingle()
+
+  const meta = enrichedUser.user_metadata || {}
+  payload.displayName =
+    profileRow?.display_name ||
+    meta.display_name ||
+    meta.full_name ||
+    [meta.first_name, meta.last_name].filter(Boolean).join(' ') ||
+    enrichedUser.email ||
+    null
+  payload.firstName = profileRow?.first_name ?? meta.first_name ?? null
+  payload.lastName = profileRow?.last_name ?? meta.last_name ?? null
+  payload.avatarUrl = profileRow?.avatar_url ?? meta.avatar_url ?? null
+  payload.phone = profileRow?.phone ?? meta.phone ?? meta.phone_number ?? null
+  payload.phoneNumber = meta.phone_number ?? profileRow?.phone ?? null
+  payload.phoneCountryCode = profileRow?.phone_country_code ?? meta.phone_country_code ?? null
+  payload.address = profileRow?.address ?? meta.address ?? null
+  payload.address2 = profileRow?.address_2 ?? meta.address_2 ?? null
+  payload.locale = profileRow?.preferred_locale ?? meta.preferred_locale ?? null
+
+  const membershipCount = (memberships || []).filter((m) => m?.status === 'accepted').length
+
+  let availableRoles = mergeAvailableRoles(
     parseAvailableRoles(enrichedUser.user_metadata?.available_roles),
     normalizeUserRole(enrichedUser.user_metadata?.active_role)
   )
+  if (membershipCount === 0) {
+    availableRoles = ['consumer']
+  }
   payload.availableRoles = availableRoles
   payload.activeRole = resolveActiveRole({
     availableRoles,
@@ -193,6 +220,24 @@ router.patch('/', async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message })
   const updatedUser = data.user
+
+  // Upsert into profiles to keep table in sync for reads
+  await supabaseAdmin.from('profiles').upsert(
+    {
+      id: updatedUser.id,
+      display_name: updatedUser?.user_metadata?.display_name ?? null,
+      first_name: updatedUser?.user_metadata?.first_name ?? null,
+      last_name: updatedUser?.user_metadata?.last_name ?? null,
+      avatar_url: updatedUser?.user_metadata?.avatar_url ?? null,
+      phone: updatedUser?.user_metadata?.phone ?? updatedUser?.user_metadata?.phone_number ?? null,
+      phone_country_code: updatedUser?.user_metadata?.phone_country_code ?? null,
+      preferred_locale: updatedUser?.user_metadata?.preferred_locale ?? null,
+      address: updatedUser?.user_metadata?.address ?? null,
+      address_2: updatedUser?.user_metadata?.address_2 ?? null,
+      updated_at: new Date().toISOString()
+    },
+    { onConflict: 'id' }
+  )
 
   const shouldSyncCustomerAddress =
     Object.prototype.hasOwnProperty.call(metadataUpdates, 'address') ||

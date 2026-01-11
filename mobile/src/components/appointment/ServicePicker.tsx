@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   ActivityIndicator,
   StyleSheet,
+  Keyboard,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
@@ -61,9 +62,22 @@ export function ServicePicker({
     });
   }, [services, searchQuery]);
 
+  useEffect(() => {
+    setSearchQuery(selectedService?.name || "");
+  }, [selectedService]);
+
   const styles = StyleSheet.create({
     field: {
       marginBottom: 12,
+    },
+    searchField: {
+      backgroundColor: colors.background,
+      borderWidth: 1.5,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 12,
+      minHeight: 52,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
     },
     label: {
       color: colors.text,
@@ -71,32 +85,14 @@ export function ServicePicker({
       fontWeight: "600",
       fontSize: 15,
     },
-    select: {
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      backgroundColor: colors.background,
-    },
-    selectText: {
-      color: colors.text,
-      fontWeight: "600",
-      fontSize: 15,
-    },
-    placeholder: {
-      color: colors.muted,
-      fontWeight: "500",
-    },
     dropdown: {
       borderWidth: 1,
       borderRadius: 12,
-      padding: 12,
-      backgroundColor: colors.background,
-      marginTop: 8,
-      borderColor: colors.primarySoft,
-      width: "96%",
-      alignSelf: "center",
+      paddingVertical: 6,
+      backgroundColor: colors.surface,
+      marginTop: 6,
+      borderColor: colors.surfaceBorder,
+      overflow: "hidden",
     },
     option: {
       paddingVertical: 10,
@@ -134,98 +130,97 @@ export function ServicePicker({
     },
   });
 
-  const displayText = selectedService
-    ? selectedService.name
-    : loading
-    ? t("common.loading")
-    : placeholder || t("serviceSelector.placeholder");
-
   return (
     <View style={styles.field}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
-      <TouchableOpacity
-        style={styles.select}
-        onPress={() => setOpen((prev) => !prev)}
-      >
-        <Text
-          style={[styles.selectText, !selectedService && styles.placeholder]}
-        >
-          {displayText}
-        </Text>
-      </TouchableOpacity>
+      <SearchField
+        value={searchQuery}
+        onChangeText={(text) => {
+          setSearchQuery(text);
+          setOpen(true);
+          if (allowClear && !text) {
+            onSelect("");
+          }
+        }}
+        placeholder={
+          placeholder ||
+          selectedService?.name ||
+          t("serviceSelector.searchPlaceholder")
+        }
+        containerStyle={[styles.searchField, { marginBottom: 10 }]}
+        inputStyle={{ fontSize: 15 }}
+        autoCapitalize="none"
+        autoCorrect={false}
+        onFocus={() => setOpen(true)}
+        returnKeyType="search"
+      />
 
       {open ? (
         <View style={styles.dropdown}>
           {loading ? (
             <ActivityIndicator color={colors.primary} />
           ) : (
-            <>
-              <SearchField
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder={t("serviceSelector.searchPlaceholder")}
-                containerStyle={{ marginBottom: 10 }}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <ScrollView
-                style={{ maxHeight: 240 }}
-                keyboardShouldPersistTaps="handled"
-              >
-                {filteredServices.length === 0 ? (
-                  <Text
-                    style={{
-                      color: colors.muted,
-                      textAlign: "center",
-                      paddingVertical: 20,
-                    }}
-                  >
-                    {t("serviceSelector.empty")}
-                  </Text>
-                ) : (
-                  filteredServices.map((service) => {
-                    const isSelected = selectedServiceId === service.id;
-                    return (
-                      <TouchableOpacity
-                        key={service.id}
-                        style={[
-                          styles.option,
-                          isSelected && styles.optionActive,
-                        ]}
-                        onPress={() => {
-                          if (isSelected && allowClear) {
-                            onSelect("");
-                          } else {
-                            onSelect(service.id);
-                          }
-                          setOpen(false);
+            <ScrollView
+              style={{ maxHeight: 240 }}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
+              {filteredServices.length === 0 ? (
+                <Text
+                  style={{
+                    color: colors.muted,
+                    textAlign: "center",
+                    paddingVertical: 20,
+                  }}
+                >
+                  {t("serviceSelector.empty")}
+                </Text>
+              ) : (
+                filteredServices.map((service) => {
+                  const isSelected = selectedServiceId === service.id;
+                  return (
+                    <TouchableOpacity
+                      key={service.id}
+                      style={[
+                        styles.option,
+                        isSelected && styles.optionActive,
+                      ]}
+                      onPress={() => {
+                        if (isSelected && allowClear) {
+                          onSelect("");
+                          setSearchQuery("");
+                        } else {
+                          onSelect(service.id);
+                          setSearchQuery(service.name);
+                        }
+                        setOpen(false);
+                        Keyboard.dismiss();
+                      }}
+                    >
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          justifyContent: "space-between",
+                          alignItems: "center",
                         }}
                       >
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                          }}
-                        >
-                          <Text style={styles.optionTitle}>{service.name}</Text>
-                          {service.price != null && (
-                            <Text style={styles.priceText}>
-                              {service.price.toFixed(2)}€
-                            </Text>
-                          )}
-                        </View>
-                        {service.description ? (
-                          <Text style={styles.optionDescription}>
-                            {service.description}
+                        <Text style={styles.optionTitle}>{service.name}</Text>
+                        {service.price != null && (
+                          <Text style={styles.priceText}>
+                            {service.price.toFixed(2)}€
                           </Text>
-                        ) : null}
-                      </TouchableOpacity>
-                    );
-                  })
-                )}
-              </ScrollView>
-            </>
+                        )}
+                      </View>
+                      {service.description ? (
+                        <Text style={styles.optionDescription}>
+                          {service.description}
+                        </Text>
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
           )}
         </View>
       ) : null}

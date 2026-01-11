@@ -13,7 +13,6 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
 import { getCardStyle, getSegmentStyles } from "../theme/uiTokens";
@@ -39,6 +38,7 @@ type DeletePayload = {
   customer: Customer;
   index: number;
 };
+type PetListItem = Pet & { ownerId: string; ownerName: string };
 const UNDO_TIMEOUT_MS = 4000;
 
 export default function CustomersScreen({ navigation }: Props) {
@@ -48,8 +48,9 @@ export default function CustomersScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"customers" | "pets">("customers");
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
-  const undoBottomOffset = tabBarHeight > 0 ? tabBarHeight : insets.bottom + 16;
+  const undoBottomOffset = Math.max(18, insets.bottom + 16);
+  const customersListRef = useRef<FlatList<Customer>>(null);
+  const petsListRef = useRef<FlatList<PetListItem>>(null);
 
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ["customers"],
@@ -181,7 +182,7 @@ export default function CustomersScreen({ navigation }: Props) {
   }, [species]);
 
   const allPets = useMemo(() => {
-    const list: Array<Pet & { ownerId: string; ownerName: string }> = [];
+    const list: PetListItem[] = [];
     customers.forEach((customer) => {
       const ownerName = formatCustomerName(customer) || t("common.unknown");
       (customer.pets || []).forEach((pet) => {
@@ -206,6 +207,14 @@ export default function CustomersScreen({ navigation }: Props) {
       return 0;
     });
   }, [customers, searchQuery, t]);
+
+  useEffect(() => {
+    if (activeTab === "customers") {
+      customersListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    } else {
+      petsListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    }
+  }, [activeTab]);
 
   const handleAddCustomer = () => {
     navigation.navigate("CustomerForm", { mode: "create" });
@@ -302,6 +311,7 @@ export default function CustomersScreen({ navigation }: Props) {
             />
           ) : (
             <FlatList
+              ref={customersListRef}
               data={filteredCustomers}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
@@ -358,6 +368,7 @@ export default function CustomersScreen({ navigation }: Props) {
           />
         ) : (
           <FlatList
+            ref={petsListRef}
             data={allPets}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (

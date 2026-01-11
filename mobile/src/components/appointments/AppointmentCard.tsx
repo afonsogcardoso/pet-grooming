@@ -72,8 +72,6 @@ export default function AppointmentCard({ appointment, onPress }: Props) {
   const paymentStatus = appointment.payment_status ?? null;
   const paymentColor =
     paymentStatus === "paid" ? colors.success : colors.warning;
-  const paymentLabel =
-    paymentStatus === "paid" ? t("listView.paid") : t("listView.unpaid");
 
   function handlePress() {
     if (onPress) onPress(appointment);
@@ -209,14 +207,16 @@ export default function AppointmentCard({ appointment, onPress }: Props) {
         }}
       >
         <View style={styles.badges}>
-          <View style={[styles.pill, { backgroundColor: `${statusColor}14` }]}>
-            <View style={[{ backgroundColor: statusColor }]} />
-            <Text style={[styles.pillText, { color: statusColor }]}>
-              {statusLabel}
-            </Text>
-          </View>
-          {paymentStatus ? (
-            <>
+          <View style={styles.badgeRow}>
+            <View
+              style={[styles.pill, { backgroundColor: `${statusColor}14` }]}
+            >
+              <View style={[{ backgroundColor: statusColor }]} />
+              <Text style={[styles.pillText, { color: statusColor }]}>
+                {statusLabel}
+              </Text>
+            </View>
+            {paymentStatus ? (
               <View
                 style={[styles.pill, { backgroundColor: `${paymentColor}14` }]}
               >
@@ -228,18 +228,14 @@ export default function AppointmentCard({ appointment, onPress }: Props) {
                   }
                   size={14}
                   color={paymentColor}
-                  style={styles.pillIcon}
                 />
-                <Text style={[styles.pillText, { color: paymentColor }]}>
-                  {paymentLabel}
-                </Text>
               </View>
-              {amount !== undefined && amount !== null ? (
-                <Text style={styles.paymentAmount}>{`€ ${Number(amount).toFixed(
-                  2
-                )}`}</Text>
-              ) : null}
-            </>
+            ) : null}
+          </View>
+          {paymentStatus && amount !== undefined && amount !== null ? (
+            <Text style={styles.paymentAmount}>{`€ ${Number(amount).toFixed(
+              2
+            )}`}</Text>
           ) : null}
         </View>
       </View>
@@ -359,15 +355,19 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       gap: 8,
       alignItems: "flex-end",
     },
+    badgeRow: {
+      flexDirection: "row",
+      gap: 8,
+      alignItems: "center",
+      justifyContent: "flex-end",
+      alignSelf: "stretch",
+    },
     pill: {
       paddingHorizontal: 10,
       paddingVertical: 6,
       borderRadius: 14,
       flexDirection: "row",
       alignItems: "center",
-    },
-    pillIcon: {
-      marginRight: 6,
     },
     pillText: {
       fontSize: 12,

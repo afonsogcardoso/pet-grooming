@@ -201,6 +201,23 @@ router.get('/accounts/:id/members', async (req, res) => {
   const user = await requireAdmin(req, res)
   if (!user) return
   const accountId = req.params.id
+  const mapMember = (row) =>
+    row && {
+      id: row.id,
+      account_id: row.account_id,
+      user_id: row.user_id,
+      role: row.role,
+      status: row.status,
+      created_at: row.created_at,
+      email: row.email ?? null,
+      displayName: row.display_name ?? null,
+      firstName: row.first_name ?? null,
+      lastName: row.last_name ?? null,
+      avatarUrl: row.avatar_url ?? null,
+      phone: row.phone ?? null,
+      phoneCountryCode: row.phone_country_code ?? null,
+      preferredLocale: row.preferred_locale ?? null
+    }
 
   const supabaseAdmin = getSupabaseServiceRoleClient()
   const [{ data: account }, { data, error }] = await Promise.all([
@@ -210,14 +227,20 @@ router.get('/accounts/:id/members', async (req, res) => {
       .eq('id', accountId)
       .maybeSingle(),
     supabaseAdmin
-      .from('account_members')
-      .select('id, account_id, user_id, role, status, created_at')
+      .from('account_member_profiles')
+      .select(
+        'id, account_id, user_id, role, status, created_at, display_name, first_name, last_name, avatar_url, email, phone, phone_country_code, preferred_locale'
+      )
       .eq('account_id', accountId)
       .order('created_at', { ascending: true })
   ])
 
   if (error) return res.status(500).json({ error: error.message })
-  res.json({ account: account || null, members: data || [], timeline: [] })
+  res.json({
+    account: account || null,
+    members: (data || []).map(mapMember),
+    timeline: []
+  })
 })
 
 router.post('/accounts/:id/members', async (req, res) => {
@@ -244,6 +267,20 @@ router.post('/accounts/:id/members', async (req, res) => {
 
   if (createError) return res.status(400).json({ error: createError.message })
 
+  // Seed profile for the new user
+  await supabaseAdmin
+    .from('profiles')
+    .upsert(
+      {
+        id: newUser.id,
+        display_name: newUser.email || null,
+        first_name: null,
+        last_name: null,
+        avatar_url: null
+      },
+      { onConflict: 'id' }
+    )
+
   const { data, error } = await supabaseAdmin
     .from('account_members')
     .insert({ account_id: accountId, user_id: newUser.id, role, status: 'accepted' })
@@ -251,7 +288,24 @@ router.post('/accounts/:id/members', async (req, res) => {
     .single()
 
   if (error) return res.status(500).json({ error: error.message })
-  res.status(201).json({ member: { ...data, email: newUser.email } })
+  res.status(201).json({
+    member: {
+      id: data.id,
+      account_id: data.account_id,
+      user_id: data.user_id,
+      role: data.role,
+      status: data.status,
+      created_at: data.created_at,
+      email: newUser.email,
+      displayName: newUser.email,
+      firstName: null,
+      lastName: null,
+      avatarUrl: null,
+      phone: null,
+      phoneCountryCode: null,
+      preferredLocale: null
+    }
+  })
 })
 
 router.patch('/accounts/:id/members', async (req, res) => {
@@ -270,16 +324,59 @@ router.patch('/accounts/:id/members', async (req, res) => {
 
   if (role) {
     query = query.update({ role })
-  } else {
-    // No profile columns yet; return the existing member unchanged
-    const { data: existing } = await query.select('id, account_id, user_id, role, status, created_at').maybeSingle()
-    return res.json({ member: existing })
   }
 
-  const { data, error } = await query.select('id, account_id, user_id, role, status, created_at').single()
+  const { data: memberRow, error } = await query.select('id, account_id, user_id, role, status, created_at').maybeSingle()
 
   if (error) return res.status(500).json({ error: error.message })
-  res.json({ member: data })
+  if (!memberRow) return res.status(404).json({ error: 'Member not found' })
+
+  if (profile) {
+    const updates = {}
+    if (Object.prototype.hasOwnProperty.call(profile, 'displayName')) {
+      updates.display_name = profile.displayName?.trim() || null
+    }
+    if (Object.prototype.hasOwnProperty.call(profile, 'phone')) {
+      updates.phone = profile.phone?.toString().trim() || null
+    }
+    if (Object.prototype.hasOwnProperty.call(profile, 'phoneCountryCode')) {
+      updates.phone_country_code = profile.phoneCountryCode?.toString().trim() || null
+    }
+    if (Object.keys(updates).length) {
+      updates.updated_at = new Date().toISOString()
+      await supabaseAdmin.from('profiles').upsert({ id: memberRow.user_id, ...updates }, { onConflict: 'id' })
+    }
+  }
+
+  const { data: enriched } = await supabaseAdmin
+    .from('account_member_profiles')
+    .select(
+      'id, account_id, user_id, role, status, created_at, display_name, first_name, last_name, avatar_url, email, phone, phone_country_code, preferred_locale'
+    )
+    .eq('id', memberId)
+    .maybeSingle()
+
+  const mapMember = (row) =>
+    row && {
+      id: row.id,
+      account_id: row.account_id,
+      user_id: row.user_id,
+      role: row.role,
+      status: row.status,
+      created_at: row.created_at ?? null,
+      email: row.email ?? null,
+      displayName: row.display_name ?? null,
+      firstName: row.first_name ?? null,
+      lastName: row.last_name ?? null,
+      avatarUrl: row.avatar_url ?? null,
+      phone: row.phone ?? null,
+      phoneCountryCode: row.phone_country_code ?? null,
+      preferredLocale: row.preferred_locale ?? null
+    }
+
+  res.json({
+    member: mapMember(enriched) || mapMember(memberRow)
+  })
 })
 
 router.delete('/accounts/:id/members', async (req, res) => {

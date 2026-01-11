@@ -4,6 +4,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  Keyboard,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
@@ -128,6 +129,8 @@ export const AutocompleteSelect = forwardRef<
                 onChangeText(option.label);
                 onSelectOption?.(option);
                 setOpen(false);
+                inputRef.current?.blur();
+                Keyboard.dismiss();
               }}
             >
               <Text
@@ -215,7 +218,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     },
     input: {
       flex: 1,
-      fontSize: 16,
+      fontSize: 15,
       color: colors.text,
       padding: 0,
     },

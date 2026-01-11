@@ -168,7 +168,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     },
     input: {
       flex: 1,
-      fontSize: 16,
+      fontSize: 15,
       color: colors.text,
       padding: 0,
     },
