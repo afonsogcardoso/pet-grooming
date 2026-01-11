@@ -27,7 +27,6 @@ if (envResult.error) {
 
 const app = express()
 
-// Lightweight request timing to surface latency in Vercel logs and response headers
 app.use((req, res, next) => {
   const start = process.hrtime.bigint()
   let headersSent = false
@@ -862,8 +861,34 @@ const swaggerOptions = {
 }
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions)
-// Serve Swagger under the API prefix so proxies that forward `/api/*` also expose the docs
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
+
+// Serve Swagger docs using CDN assets to avoid bundling issues on Vercel
+app.get('/api/docs', (_req, res) => {
+  res.type('html').send(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Pawmi API Docs</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+    <script>
+      window.onload = () => {
+        SwaggerUIBundle({
+          url: '/api/docs.json',
+          dom_id: '#swagger-ui',
+          presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+          layout: 'BaseLayout'
+        });
+      };
+    </script>
+  </body>
+</html>`)
+})
+
 app.get('/api/docs.json', (_req, res) => res.json(swaggerSpec))
 // Backwards compatibility: old /docs path now redirects to /api/docs
 app.get('/docs', (_req, res) => res.redirect(301, '/api/docs'))
