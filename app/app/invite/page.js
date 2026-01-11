@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslation } from '@/components/TranslationProvider'
 import { supabase } from '@/lib/supabase'
@@ -12,7 +13,7 @@ function resolveApiBase() {
   return base || ''
 }
 
-export default function InviteAcceptPage() {
+function InviteAcceptContent() {
   const { t } = useTranslation()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -181,9 +182,11 @@ export default function InviteAcceptPage() {
             aria-busy={oauthLoading === 'google'}
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
-              <img
+              <Image
                 src="/icons/google.svg"
-                alt=""
+                alt={t('inviteAccept.actions.google')}
+                width={16}
+                height={16}
                 className="h-4 w-4"
                 aria-hidden="true"
               />
@@ -207,5 +210,19 @@ export default function InviteAcceptPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function InviteAcceptPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
+          <div className="w-full max-w-xl text-center text-sm text-gray-600">Loading...</div>
+        </div>
+      }
+    >
+      <InviteAcceptContent />
+    </Suspense>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
 import ProfileMetadataForm from '@/components/ProfileMetadataForm'
 import ResetPasswordForm from '@/components/ResetPasswordForm'
@@ -60,7 +60,7 @@ export default function ProfilePageClient({
   const [linkingProvider, setLinkingProvider] = useState(null)
   const [linkStatus, setLinkStatus] = useState(null)
 
-  const loadMemberships = async () => {
+  const loadMemberships = useCallback(async () => {
     if (membershipsLoading) return
     const token = getStoredAccessToken()
     if (!token) return
@@ -86,13 +86,13 @@ export default function ProfilePageClient({
     } finally {
       setMembershipsLoading(false)
     }
-  }
+  }, [membershipsLoading])
 
   useEffect(() => {
     if (activeTab === 'memberships' && membershipsList.length === 0 && membershipCount > 0) {
       loadMemberships()
     }
-  }, [activeTab, membershipCount, membershipsList.length])
+  }, [activeTab, loadMemberships, membershipCount, membershipsList.length])
 
   useEffect(() => {
     if (typeof window === 'undefined') return

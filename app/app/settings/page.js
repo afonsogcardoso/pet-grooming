@@ -5,6 +5,7 @@
 // Account branding + member management
 // ============================================
 
+import Image from 'next/image'
 import { useEffect, useMemo, useState, useCallback, useRef, useId } from 'react'
 import { useAccount } from '@/components/AccountProvider'
 import { useTranslation } from '@/components/TranslationProvider'
@@ -696,11 +697,12 @@ export default function SettingsPage() {
                       <div className="flex items-center gap-4">
                         <div className={`${imageWrapperClass} h-20 w-20`}>
                           {logoSrc ? (
-                            <img
+                            <Image
                               src={logoSrc}
                               alt={t('settings.branding.fields.logo')}
-                              className="h-full w-full object-cover"
-                              loading="lazy"
+                              fill
+                              sizes="80px"
+                              className="object-cover"
                             />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
@@ -743,11 +745,12 @@ export default function SettingsPage() {
                       </span>
                       <div className={`${imageWrapperClass} h-40 sm:h-48`}>
                         {portalImageSrc ? (
-                          <img
+                          <Image
                             src={portalImageSrc}
                             alt={t('settings.branding.fields.portalImage')}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
+                            fill
+                            sizes="(min-width: 1024px) 60vw, 100vw"
+                            className="object-cover"
                           />
                         ) : (
                           <div className="flex h-full items-center justify-center text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">

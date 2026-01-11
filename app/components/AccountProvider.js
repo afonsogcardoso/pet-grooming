@@ -36,11 +36,6 @@ export function AccountProvider({ children }) {
   const [authReady, setAuthReady] = useState(false)
   const latestUserRef = useRef(null)
 
-  const isPlatformAdmin = useCallback((user) => {
-    if (!user) return false
-    return Boolean(user.platformAdmin)
-  }, [])
-
   const deriveActiveMembership = useCallback(async (memberships) => {
     const preferredAccountId = getStoredAccountPreference()
 
@@ -72,7 +67,7 @@ export function AccountProvider({ children }) {
     })
   }, [])
 
-  const loadProfile = useProfileLoader({ setState, deriveActiveMembership, isPlatformAdmin, latestUserRef })
+  const loadProfile = useProfileLoader({ setState, deriveActiveMembership, latestUserRef })
 
   useEffect(() => {
     let cancelled = false
@@ -272,7 +267,7 @@ function setUnauthenticatedState(setStateFn) {
   })
 }
 
-function useProfileLoader({ setState, deriveActiveMembership, isPlatformAdmin, latestUserRef }) {
+function useProfileLoader({ setState, deriveActiveMembership, latestUserRef }) {
   return useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true, error: null }))
     const token = getStoredAccessToken()
@@ -291,7 +286,7 @@ function useProfileLoader({ setState, deriveActiveMembership, isPlatformAdmin, l
     const memberships = profile.memberships || []
 
     await deriveActiveMembership(memberships)
-  }, [deriveActiveMembership, isPlatformAdmin, setState])
+  }, [deriveActiveMembership, latestUserRef, setState])
 }
 
 export function useAccount() {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { setActiveAccountId } from '@/lib/accountHelpers'
@@ -126,9 +127,11 @@ export default function LoginPage() {
             aria-busy={oauthLoading === 'google'}
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
-              <img
+              <Image
                 src="/icons/google.svg"
-                alt=""
+                alt={t('login.actions.google')}
+                width={16}
+                height={16}
                 className="h-4 w-4"
                 aria-hidden="true"
               />
@@ -143,9 +146,11 @@ export default function LoginPage() {
             aria-busy={oauthLoading === 'apple'}
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
-              <img
+              <Image
                 src="/icons/apple.svg"
-                alt=""
+                alt={t('login.actions.apple')}
+                width={16}
+                height={16}
                 className="h-4 w-4"
                 aria-hidden="true"
               />

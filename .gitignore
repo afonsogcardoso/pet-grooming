@@ -13,6 +13,8 @@
 **/.env
 **/.env.*
 apple-signin.md
+supabase-inspect.md
+.gitignore
 
 # Local backups
 .git_backup_pet_app/
@@ -23,3 +25,6 @@ apple-signin.md
 # OS/Junk
 **/.DS_Store
 **/Thumbs.db
+
+# Product Roadmap files
+**/product-roadmap/
