@@ -303,6 +303,15 @@
       "update": "💾 Atualizar serviço",
       "cancel": "Cancelar"
     },
+    "tabs": {
+      "service": "Serviço",
+      "tiers": "Escalões",
+      "extras": "Extras",
+      "tiersSoonTitle": "Em breve vais poder gerir escalões de serviço",
+      "tiersSoonDescription": "Vamos permitir criar diferentes escalões para controlar preços e tempos consoante o porte do animal.",
+      "extrasSoonTitle": "Extras disponíveis em breve",
+      "extrasSoonDescription": "Irás conseguir adicionar complementos ao serviço base, como banhos medicados ou unhas."
+    },
     "errors": {
       "create": "Erro ao criar serviço: {{message}}"
     }

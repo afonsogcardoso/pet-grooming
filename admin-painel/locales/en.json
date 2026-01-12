@@ -303,6 +303,15 @@
       "update": "💾 Update Service",
       "cancel": "Cancel"
     },
+    "tabs": {
+      "service": "Service",
+      "tiers": "Tiers",
+      "extras": "Extras",
+      "tiersSoonTitle": "Tier management coming soon",
+      "tiersSoonDescription": "We’ll let you create tiers to adjust pricing and timing based on pet size.",
+      "extrasSoonTitle": "Extras coming soon",
+      "extrasSoonDescription": "You’ll be able to add add-ons to the base service, like medicated baths or nail trims."
+    },
     "errors": {
       "create": "Error creating service: {{message}}"
     }
