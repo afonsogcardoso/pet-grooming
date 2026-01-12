@@ -31,60 +31,84 @@ type Props = {
   onPress?: (appointment: Appointment) => void;
 };
 
+function formatTime(value?: string | null) {
+  if (!value) return "—";
+  const match = String(value).match(/(\d{1,2}):(\d{2})/);
+  if (match) {
+    const [, hh, mm] = match;
+    return `${hh.padStart(2, "0")}:${mm}`;
+  }
+  return value;
+}
+
 export default function AppointmentCard({ appointment, onPress }: Props) {
   const { t } = useTranslation();
   const { colors } = useBrandingTheme();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const [multiHeight, setMultiHeight] = React.useState<number | null>(null);
 
-  const appointmentServices = getAppointmentServiceEntries(appointment);
-  const petNames = getAppointmentPetNames(appointment, appointmentServices);
-  const petLabel = formatPetLabel(petNames);
+  const {
+    appointmentServices,
+    petNames,
+    serviceNames,
+    servicesTotal,
+    address,
+    statusColor,
+    statusLabel,
+    appointmentPets,
+  } = React.useMemo(() => {
+    const appointmentServices = getAppointmentServiceEntries(appointment);
+    const petNames = getAppointmentPetNames(appointment, appointmentServices);
+    const serviceNames = formatServiceLabels(appointmentServices);
+    const address = formatCustomerAddress(appointment.customers);
+    const statusColor = getStatusColor(appointment.status);
+    const statusLabel = getStatusLabel(appointment.status);
+    const servicesTotal =
+      appointmentServices.length > 0
+        ? appointmentServices.reduce((sum, entry) => {
+            const basePrice =
+              entry.price_tier_price ?? entry.services?.price ?? 0;
+            const addonsTotal = Array.isArray(entry.appointment_service_addons)
+              ? entry.appointment_service_addons.reduce(
+                  (addonSum, addon) => addonSum + (addon.price || 0),
+                  0
+                )
+              : 0;
+            return sum + basePrice + addonsTotal;
+          }, 0)
+        : appointment.services?.price ?? null;
+    const appointmentPets =
+      (Array.isArray(appointment.appointment_services)
+        ? appointment.appointment_services
+            .map((e: any) => e.pets)
+            .filter(Boolean)
+        : []) || (appointment.pets ? [appointment.pets] : []);
+    return {
+      appointmentServices,
+      petNames,
+      serviceNames,
+      servicesTotal,
+      address,
+      statusColor,
+      statusLabel,
+      appointmentPets,
+    };
+  }, [appointment]);
+
   const primaryPetName = petNames[0] || "";
   const petInitial = primaryPetName
     ? primaryPetName.charAt(0).toUpperCase()
     : "🐾";
-  const appointmentPets =
-    (Array.isArray(appointment.appointment_services)
-      ? appointment.appointment_services.map((e: any) => e.pets).filter(Boolean)
-      : []) || (appointment.pets ? [appointment.pets] : []);
   const primaryPet = appointmentPets[0] || appointment.pets || null;
   const primaryPetPhoto = primaryPet?.photo_url || null;
-  const serviceNames = formatServiceLabels(appointmentServices);
-  const address = formatCustomerAddress(appointment.customers);
-  const statusColor = getStatusColor(appointment.status);
-  const statusLabel = getStatusLabel(appointment.status);
-  const servicesTotal =
-    appointmentServices.length > 0
-      ? appointmentServices.reduce((sum, entry) => {
-          const basePrice =
-            entry.price_tier_price ?? entry.services?.price ?? 0;
-          const addonsTotal = Array.isArray(entry.appointment_service_addons)
-            ? entry.appointment_service_addons.reduce(
-                (addonSum, addon) => addonSum + (addon.price || 0),
-                0
-              )
-            : 0;
-          return sum + basePrice + addonsTotal;
-        }, 0)
-      : appointment.services?.price ?? null;
   const amount = appointment.amount ?? servicesTotal;
   const paymentStatus = appointment.payment_status ?? null;
   const paymentColor =
     paymentStatus === "paid" ? colors.success : colors.warning;
+  const isRecurring = Boolean(appointment.series_id);
 
   function handlePress() {
     if (onPress) onPress(appointment);
-  }
-
-  function formatTime(value?: string | null) {
-    if (!value) return "—";
-    const match = String(value).match(/(\d{1,2}):(\d{2})/);
-    if (match) {
-      const [, hh, mm] = match;
-      return `${hh.padStart(2, "0")}:${mm}`;
-    }
-    return value;
   }
 
   const hasMultiplePets = appointmentPets && appointmentPets.length > 1;
@@ -198,46 +222,49 @@ export default function AppointmentCard({ appointment, onPress }: Props) {
         )}
       </View>
 
-      <View
-        style={{
-          flexDirection: "column",
-          alignItems: "flex-end",
-          justifyContent: "space-between",
-          alignSelf: "stretch",
-        }}
-      >
-        <View style={styles.badges}>
-          <View style={styles.badgeRow}>
-            <View
-              style={[styles.pill, { backgroundColor: `${statusColor}14` }]}
-            >
-              <View style={[{ backgroundColor: statusColor }]} />
-              <Text style={[styles.pillText, { color: statusColor }]}>
-                {statusLabel}
-              </Text>
-            </View>
-            {paymentStatus ? (
+      <View style={styles.rightColumn}>
+        <View style={styles.statusRow}>
+          <View style={styles.badges}>
+            <View style={styles.badgeRow}>
               <View
-                style={[styles.pill, { backgroundColor: `${paymentColor}14` }]}
+                style={[styles.pill, { backgroundColor: `${statusColor}14` }]}
               >
-                <Ionicons
-                  name={
-                    paymentStatus === "paid"
-                      ? "checkmark-circle"
-                      : "time-outline"
-                  }
-                  size={14}
-                  color={paymentColor}
-                />
+                <View style={[{ backgroundColor: statusColor }]} />
+                <Text style={[styles.pillText, { color: statusColor }]}>
+                  {statusLabel}
+                </Text>
               </View>
-            ) : null}
+              {isRecurring ? (
+                <View style={[styles.pill, styles.recurrenceChip]}>
+                  <Ionicons name="refresh" size={14} color={colors.primary} />
+                </View>
+              ) : null}
+              {paymentStatus ? (
+                <View
+                  style={[
+                    styles.pill,
+                    { backgroundColor: `${paymentColor}14` },
+                  ]}
+                >
+                  <Ionicons
+                    name={
+                      paymentStatus === "paid"
+                        ? "checkmark-circle"
+                        : "time-outline"
+                    }
+                    size={14}
+                    color={paymentColor}
+                  />
+                </View>
+              ) : null}
+            </View>
           </View>
-          {paymentStatus && amount !== undefined && amount !== null ? (
-            <Text style={styles.paymentAmount}>{`€ ${Number(amount).toFixed(
-              2
-            )}`}</Text>
-          ) : null}
         </View>
+        {paymentStatus && amount !== undefined && amount !== null ? (
+          <Text style={styles.paymentAmount}>{`€ ${Number(amount).toFixed(
+            2
+          )}`}</Text>
+        ) : null}
       </View>
     </TouchableOpacity>
   );
@@ -293,6 +320,15 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     },
     petThumbPlaceholder: {
       backgroundColor: placeholderBg,
+    },
+    recurrenceChip: {
+      marginLeft: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      backgroundColor: `${colors.primary}14`,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
     },
     petThumbMultiple: {
       width: 54,
@@ -350,6 +386,19 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       fontSize: 13,
       color: colors.muted,
       fontWeight: "500",
+    },
+    rightColumn: {
+      flexDirection: "column",
+      alignItems: "flex-end",
+      justifyContent: "space-between",
+      alignSelf: "stretch",
+    },
+    statusRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      gap: 8,
+      alignSelf: "stretch",
     },
     badges: {
       gap: 8,

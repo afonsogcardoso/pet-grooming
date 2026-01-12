@@ -12,7 +12,6 @@ import {
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import {
-  QueryClient,
   QueryClientProvider,
   useQuery,
 } from "@tanstack/react-query";
@@ -49,6 +48,7 @@ import ConsumerPetFormScreen from "./src/screens/ConsumerPetFormScreen";
 import MarketplaceScreen from "./src/screens/MarketplaceScreen";
 import MarketplaceAccountScreen from "./src/screens/MarketplaceAccountScreen";
 import MarketplaceRequestScreen from "./src/screens/MarketplaceRequestScreen";
+import BillingScreen from "./src/screens/BillingScreen";
 import { useAuthStore } from "./src/state/authStore";
 import { useViewModeStore } from "./src/state/viewModeStore";
 import { Branding, getBranding } from "./src/api/branding";
@@ -59,6 +59,7 @@ import {
   writeBrandingCache,
 } from "./src/theme/brandingCache";
 import { readProfileCache, writeProfileCache } from "./src/state/profileCache";
+import queryClient from "./src/state/queryClient";
 import { bootstrapLanguage, setAppLanguage } from "./src/i18n";
 import { configureNotificationHandler } from "./src/utils/pushNotifications";
 import { useBrandingTheme } from "./src/theme/useBrandingTheme";
@@ -409,19 +410,6 @@ function ConsumerTabs() {
 }
 
 export default function App() {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 1000 * 30,
-            refetchOnWindowFocus: false,
-            refetchOnMount: false,
-            retry: 1,
-          },
-        },
-      })
-  );
   const navigationRef = useMemo(() => createNavigationContainerRef(), []);
   const pendingNavigationRef = useRef<{
     route: string;
@@ -768,6 +756,10 @@ export default function App() {
                     <RootStack.Screen
                       name="ServiceForm"
                       component={ServiceFormScreen}
+                    />
+                    <RootStack.Screen
+                      name="Billing"
+                      component={BillingScreen}
                     />
                   </>
                 )

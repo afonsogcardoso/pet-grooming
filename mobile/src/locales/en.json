@@ -39,7 +39,50 @@
     "marketplace": "Marketplace",
     "pets": "Pets",
     "account": "Account",
-    "profile": "Profile"
+    "profile": "Profile",
+    "billing": "Billing"
+  },
+  "billing": {
+    "title": "Billing",
+    "subtitle": "Snapshot of bookings and revenue.",
+    "range": {
+      "7d": "7 days",
+      "30d": "30 days",
+      "90d": "90 days"
+    },
+    "kpi": {
+      "bookings": "Bookings",
+      "completedLabel": "{{value}} completed",
+      "revenue": "Revenue",
+      "revenueHint": "Completed only",
+      "avgTicket": "Avg. ticket",
+      "avgTicketHint": "Based on completed",
+      "returning": "Returning clients",
+      "returningHint": "% with >1 visit"
+    },
+    "chart": {
+      "title": "Trend",
+      "bookings": "Volume",
+      "revenue": "Revenue",
+      "empty": "No data in this range"
+    },
+    "services": {
+      "title": "Services",
+      "meta": "{{count}} bookings",
+      "empty": "No services in this range"
+    },
+    "customers": {
+      "title": "Clients",
+      "meta": "{{count}} visits",
+      "empty": "No clients in this range"
+    },
+    "insights": {
+      "title": "Quick insights",
+      "busiestDay": "{{day}} was the busiest day ({{value}})",
+      "topService": "{{service}} sold the most ({{value}})",
+      "cancelRate": "Cancellations/no-show: {{value}}",
+      "empty": "No insights to show"
+    }
   },
   "login": {
     "welcomeBack": "Welcome back",
@@ -544,7 +587,20 @@
     "cancelNo": "No",
     "cancelYes": "Yes, cancel",
     "cancelAction": "Cancel",
-    "notes": "Notes"
+    "notes": "Notes",
+    "recurrenceActionsTitle": "Recurring series",
+    "recurrenceActionsMessage": "Control this recurring booking or delete its future occurrences.",
+    "editRecurrence": "Edit recurrence",
+    "editScopeTitle": "Edit recurrence",
+    "editScopeMessage": "Do you want to update only this appointment or this and future ones?",
+    "editAppointmentOnly": "Only this appointment",
+    "editAppointmentAndFuture": "This and future appointments",
+    "deleteFutureTitle": "Delete future occurrences",
+    "deleteFutureMessage":
+      "This removes every future occurrence in the series. Are you sure?",
+    "deleteFutureAction": "Delete future occurrences",
+    "deleteFutureSuccess": "Future recurrences deleted",
+    "recurrenceActionError": "Could not update recurrence series"
   },
   "customers": {
     "title": "Customers",
@@ -716,6 +772,9 @@
     "displayOrderLabel": "Display Order",
     "activeLabel": "Service Active",
     "activeHint": "Inactive services do not appear in the appointments list",
+    "tabService": "Service",
+    "tabTiers": "Tiers",
+    "tabAddons": "Extras",
     "categoryLabel": "Category",
     "categoryPlaceholder": "e.g., grooming",
     "subcategoryLabel": "Subcategory",
@@ -830,7 +889,6 @@
     "nextStep": "Next",
     "previousStep": "Back",
     "servicesSummaryTitle": "Services included",
-    "servicesSummaryEmpty": "No services selected yet.",
     "totalValue": "Total Value",
     "amountLabel": "Appointment value",
     "amountPlaceholder": "0.00",
@@ -874,6 +932,10 @@
     "addPet": "Add pet",
     "summarySection": "Totals",
     "totalDurationLabel": "Total duration",
+    "reviewDateLabel": "Date & time",
+    "reviewRecurrenceLabel": "Recurrence",
+    "reviewRecurrenceYes": "Recurring ({{frequency}})",
+    "reviewRecurrenceNo": "Not recurring",
     "tierRequiredMessage": "Choose a tier for each service with weight-based pricing.",
     "additionalInfo": "Additional Info",
     "remindersTitle": "Appointment reminders",
@@ -888,6 +950,7 @@
     "notesPlaceholder": "Add notes for the team (optional)",
     "sendWhatsapp": "Send via WhatsApp",
     "addPhoneHint": "Add a phone number",
+    "phoneRequired": "A phone number is required to create an appointment.",
     "processing": "Processing...",
     "saveAction": "Save",
     "createAction": "Create"
@@ -895,5 +958,8 @@
   "language": {
     "pt": "Portuguese",
     "en": "English"
+  },
+  "appointmentCard": {
+    "recurring": "Recurring"
   }
 }

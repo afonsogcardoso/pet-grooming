@@ -95,6 +95,7 @@ export function ServicePicker({
       overflow: "hidden",
     },
     option: {
+      width: "100%",
       paddingVertical: 10,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.surfaceBorder,

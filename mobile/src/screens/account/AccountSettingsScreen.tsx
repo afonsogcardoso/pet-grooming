@@ -1,4 +1,4 @@
-import { Alert, ScrollView, Text, SafeAreaView } from "react-native";
+import { ScrollView, Text, SafeAreaView } from "react-native";
 import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -50,9 +50,7 @@ export default function AccountSettingsScreen() {
     queryFn: getCustomers,
   });
 
-  const {
-    data: accountMembers = [],
-  } = useQuery({
+  const { data: accountMembers = [] } = useQuery({
     queryKey: ["accountMembers"],
     queryFn: getAccountMembers,
   });
@@ -90,11 +88,7 @@ export default function AccountSettingsScreen() {
   const handleViewClients = () => navigateRoot("Customers");
   const handleAddClient = () =>
     navigateRoot("CustomerForm", { mode: "create" });
-  const handleBilling = () =>
-    Alert.alert(
-      t("accountSettings.billingComingSoonTitle"),
-      t("accountSettings.billingComingSoon")
-    );
+  const handleBilling = () => navigateRoot("Billing");
 
   const brandingBadge =
     branding?.account_name && branding?.marketplace_region
@@ -162,8 +156,7 @@ export default function AccountSettingsScreen() {
               variant: "primary",
             },
           ]}
-        >
-        </AccountSectionCard>
+        ></AccountSectionCard>
 
         <AccountSectionCard
           title={t("accountSettings.servicesTitle")}
@@ -183,13 +176,7 @@ export default function AccountSettingsScreen() {
               variant: "primary",
             },
           ]}
-        >
-          {totalServices === 0 && (
-            <Text style={styles.emptyState}>
-              {t("accountSettings.noServices")}
-            </Text>
-          )}
-        </AccountSectionCard>
+        ></AccountSectionCard>
 
         <AccountSectionCard
           title={t("accountSettings.billingTitle")}
@@ -207,13 +194,14 @@ export default function AccountSettingsScreen() {
               onPress: handleBilling,
             },
           ]}
-        >
-        </AccountSectionCard>
+        ></AccountSectionCard>
 
         <AccountSectionCard
           title={t("accountSettings.teamTitle")}
           subtitle={t("accountSettings.teamSubtitle")}
-          badge={t("accountSettings.teamBadge", { count: accountMembers.length })}
+          badge={t("accountSettings.teamBadge", {
+            count: accountMembers.length,
+          })}
           colors={colors}
           actions={[
             {
@@ -222,8 +210,7 @@ export default function AccountSettingsScreen() {
               variant: "primary",
             },
           ]}
-        >
-        </AccountSectionCard>
+        ></AccountSectionCard>
 
         <AccountSectionCard
           title={t("accountSettings.brandingTitle")}

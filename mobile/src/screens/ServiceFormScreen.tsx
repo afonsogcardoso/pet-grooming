@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   ActionSheetIOS,
   PermissionsAndroid,
+  TextStyle,
 } from "react-native";
 import Switch from "../components/StyledSwitch";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -41,6 +42,7 @@ import { useTranslation } from "react-i18next";
 import { hapticError, hapticSuccess, hapticWarning } from "../utils/haptics";
 import { launchCamera, launchImageLibrary } from "react-native-image-picker";
 import { cameraOptions, galleryOptions } from "../utils/imageOptions";
+import { getSegmentStyles } from "../theme/uiTokens";
 
 type Props = NativeStackScreenProps<any, "ServiceForm">;
 
@@ -51,8 +53,12 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
   };
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const segment = useMemo(() => createSegmentStyles(colors), [colors]);
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState<"service" | "tiers" | "addons">(
+    "service"
+  );
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -513,425 +519,494 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
           style={styles.content}
           contentContainerStyle={styles.scrollContent}
         >
-          <View style={styles.formCard}>
-            <Input
-              label={t("serviceForm.nameLabel")}
-              placeholder={t("serviceForm.namePlaceholder")}
-              value={name}
-              onChangeText={setName}
-              error={errors.name}
-            />
-
-            <Input
-              label={t("serviceForm.descriptionLabel")}
-              placeholder={t("serviceForm.descriptionPlaceholder")}
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={3}
-              style={{ height: 80, textAlignVertical: "top", paddingTop: 12 }}
-            />
+          <View style={[segment.container, styles.segmentContainer]}>
+            {[
+              { id: "service", label: t("serviceForm.tabService") },
+              { id: "tiers", label: t("serviceForm.tabTiers") },
+              { id: "addons", label: t("serviceForm.tabAddons") },
+            ].map((tab) => (
+              <TouchableOpacity
+                key={tab.id}
+                style={[
+                  segment.button,
+                  activeTab === tab.id && segment.buttonActive,
+                ]}
+                onPress={() =>
+                  setActiveTab(tab.id as "service" | "tiers" | "addons")
+                }
+              >
+                <Text
+                  style={[
+                    segment.text,
+                    activeTab === tab.id && segment.textActive,
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {t("serviceForm.imageTitle")}
-            </Text>
-            {mode === "create" || !serviceId ? (
-              <Text style={styles.sectionHint}>
-                {t("serviceForm.imageSaveFirst")}
-              </Text>
-            ) : (
-              <>
-                <TouchableOpacity
-                  style={styles.imagePreview}
-                  onPress={pickServiceImage}
-                  disabled={uploadingServiceImage}
-                >
-                  {serviceImageUrl ? (
-                    <Image
-                      source={{ uri: serviceImageUrl }}
-                      style={styles.imagePreviewImage}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={styles.imagePlaceholder}>
-                      <Ionicons
-                        name="image-outline"
-                        size={24}
-                        color={colors.muted}
-                      />
-                      <Text style={styles.imagePlaceholderText}>
-                        {t("serviceForm.imagePlaceholder")}
-                      </Text>
-                    </View>
-                  )}
-                  {uploadingServiceImage ? (
-                    <View style={styles.imageLoading}>
-                      <ActivityIndicator color={colors.onPrimary} />
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-                <Text style={styles.imageHelper}>
-                  {t("serviceForm.imageHelper")}
-                </Text>
-                <Button
-                  title={t("serviceForm.imageChangeAction")}
-                  onPress={pickServiceImage}
-                  variant="outline"
-                  size="small"
-                  disabled={uploadingServiceImage}
-                  style={styles.imageButton}
+          {activeTab === "service" && (
+            <>
+              <View style={styles.formCard}>
+                <Input
+                  label={t("serviceForm.nameLabel")}
+                  placeholder={t("serviceForm.namePlaceholder")}
+                  value={name}
+                  onChangeText={setName}
+                  error={errors.name}
                 />
-              </>
-            )}
-          </View>
 
-          <View style={styles.formCard}>
-            <Input
-              label={t("serviceForm.priceLabel")}
-              placeholder="0.00"
-              value={price}
-              onChangeText={setPrice}
-              error={errors.price}
-              keyboardType="decimal-pad"
-            />
-
-            <Input
-              label={t("serviceForm.categoryLabel")}
-              placeholder={t("serviceForm.categoryPlaceholder")}
-              value={category}
-              onChangeText={setCategory}
-            />
-
-            <Input
-              label={t("serviceForm.subcategoryLabel")}
-              placeholder={t("serviceForm.subcategoryPlaceholder")}
-              value={subcategory}
-              onChangeText={setSubcategory}
-            />
-
-            <Input
-              label={t("serviceForm.petTypeLabel")}
-              placeholder={t("serviceForm.petTypePlaceholder")}
-              value={petType}
-              onChangeText={setPetType}
-            />
-
-            <Input
-              label={t("serviceForm.pricingModelLabel")}
-              placeholder={t("serviceForm.pricingModelPlaceholder")}
-              value={pricingModel}
-              onChangeText={setPricingModel}
-            />
-
-            <View style={{ marginBottom: 16 }}>
-              <Text style={[styles.label]}>
-                {t("serviceForm.durationLabel")}
-              </Text>
-              <View style={[styles.spinnerRow]}>
-                <TouchableOpacity
-                  style={styles.spinnerButton}
-                  onPress={() => {
-                    const cur = Number(duration) || 0;
-                    const next = Math.max(5, cur - 5);
-                    setDuration(String(next));
+                <Input
+                  label={t("serviceForm.descriptionLabel")}
+                  placeholder={t("serviceForm.descriptionPlaceholder")}
+                  value={description}
+                  onChangeText={setDescription}
+                  multiline
+                  numberOfLines={3}
+                  style={{
+                    height: 80,
+                    textAlignVertical: "top",
+                    paddingTop: 12,
                   }}
-                  accessibilityLabel={t("serviceForm.durationDecrease")}
-                >
-                  <Ionicons name="remove" size={20} color={colors.text} />
-                </TouchableOpacity>
-
-                <View style={styles.spinnerValueContainer}>
-                  <Text style={styles.spinnerValue}>
-                    {duration ? String(Number(duration)) : "0"}
-                  </Text>
-                  <Text style={styles.spinnerUnit}>
-                    {t("common.minutesShort")}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.spinnerButton}
-                  onPress={() => {
-                    const cur = Number(duration) || 0;
-                    const next = Math.min(600, cur + 5);
-                    setDuration(String(next));
-                  }}
-                  accessibilityLabel={t("serviceForm.durationIncrease")}
-                >
-                  <Ionicons name="add" size={20} color={colors.text} />
-                </TouchableOpacity>
+                />
               </View>
-              {errors.duration && (
-                <Text style={styles.error}>{errors.duration}</Text>
-              )}
-            </View>
 
-            <Input
-              label={t("serviceForm.displayOrderLabel")}
-              placeholder="0"
-              value={displayOrder}
-              onChangeText={setDisplayOrder}
-              keyboardType="number-pad"
-            />
-
-            <View style={styles.switchContainer}>
-              <View>
-                <Text style={styles.switchLabel}>
-                  {t("serviceForm.activeLabel")}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  {t("serviceForm.imageTitle")}
                 </Text>
-                <Text style={styles.switchSubtext}>
-                  {t("serviceForm.activeHint")}
-                </Text>
-              </View>
-              <Switch
-                value={active}
-                onValueChange={setActive}
-                trackColor={{
-                  false: colors.surfaceBorder,
-                  true: colors.primary + "40",
-                }}
-                thumbColor={active ? colors.primary : colors.muted}
-              />
-            </View>
-
-            <Button
-              title={
-                mode === "create"
-                  ? t("serviceForm.createAction")
-                  : t("serviceForm.saveAction")
-              }
-              onPress={handleSubmit}
-              loading={isLoading}
-              disabled={isLoading}
-            />
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {t("serviceForm.tiersTitle")}
-            </Text>
-            {mode !== "edit" || !serviceId ? (
-              <Text style={styles.sectionHint}>
-                {t("serviceForm.saveFirstHint")}
-              </Text>
-            ) : (
-              <>
-                {priceTiers.length === 0 ? (
+                {mode === "create" || !serviceId ? (
                   <Text style={styles.sectionHint}>
-                    {t("serviceForm.tiersEmpty")}
+                    {t("serviceForm.imageSaveFirst")}
                   </Text>
                 ) : (
-                  priceTiers.map((tier) => (
-                    <View key={tier.id} style={styles.rowCard}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.rowTitle}>
-                          {tier.label || t("serviceForm.tierDefaultLabel")}
-                        </Text>
-                        <Text style={styles.rowMeta}>
-                          {t("serviceForm.tierRangeValue", {
-                            min: tier.min_weight_kg ?? "-",
-                            max: tier.max_weight_kg ?? "+",
-                          })}
-                        </Text>
-                        <Text style={styles.rowMeta}>
-                          {t("serviceForm.tierPriceValue", {
-                            price: tier.price,
-                          })}
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => deleteTierMutation.mutate(tier.id)}
-                        style={styles.iconButton}
-                      >
-                        <Ionicons
-                          name="trash-outline"
-                          size={18}
-                          color={colors.danger}
+                  <>
+                    <TouchableOpacity
+                      style={styles.imagePreview}
+                      onPress={pickServiceImage}
+                      disabled={uploadingServiceImage}
+                    >
+                      {serviceImageUrl ? (
+                        <Image
+                          source={{ uri: serviceImageUrl }}
+                          style={styles.imagePreviewImage}
+                          resizeMode="cover"
                         />
-                      </TouchableOpacity>
-                    </View>
-                  ))
-                )}
-
-                <View style={styles.inlineRow}>
-                  <Input
-                    label={t("serviceForm.tierLabel")}
-                    placeholder="XS"
-                    value={tierLabel}
-                    onChangeText={setTierLabel}
-                    style={styles.inlineInput}
-                  />
-                  <Input
-                    label={t("serviceForm.tierMinWeight")}
-                    placeholder="5"
-                    value={tierMinWeight}
-                    onChangeText={setTierMinWeight}
-                    keyboardType="decimal-pad"
-                    style={styles.inlineInput}
-                  />
-                  <Input
-                    label={t("serviceForm.tierMaxWeight")}
-                    placeholder="9"
-                    value={tierMaxWeight}
-                    onChangeText={setTierMaxWeight}
-                    keyboardType="decimal-pad"
-                    style={styles.inlineInput}
-                  />
-                </View>
-
-                <View style={styles.inlineRow}>
-                  <Input
-                    label={t("serviceForm.tierPrice")}
-                    placeholder="40.00"
-                    value={tierPrice}
-                    onChangeText={setTierPrice}
-                    keyboardType="decimal-pad"
-                    style={styles.inlineInput}
-                  />
-                  <Input
-                    label={t("serviceForm.tierOrder")}
-                    placeholder="0"
-                    value={tierOrder}
-                    onChangeText={setTierOrder}
-                    keyboardType="number-pad"
-                    style={styles.inlineInput}
-                  />
-                </View>
-
-                <Button
-                  title={t("serviceForm.addTierAction")}
-                  onPress={handleAddTier}
-                  loading={createTierMutation.isPending}
-                  disabled={createTierMutation.isPending}
-                  variant="outline"
-                  size="small"
-                  style={{ marginTop: 8 }}
-                />
-              </>
-            )}
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {t("serviceForm.addonsTitle")}
-            </Text>
-            {mode !== "edit" || !serviceId ? (
-              <Text style={styles.sectionHint}>
-                {t("serviceForm.saveFirstHint")}
-              </Text>
-            ) : (
-              <>
-                {addons.length === 0 ? (
-                  <Text style={styles.sectionHint}>
-                    {t("serviceForm.addonsEmpty")}
-                  </Text>
-                ) : (
-                  addons.map((addon) => (
-                    <View key={addon.id} style={styles.rowCard}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.rowTitle}>{addon.name}</Text>
-                        {addon.description ? (
-                          <Text style={styles.rowMeta}>
-                            {addon.description}
+                      ) : (
+                        <View style={styles.imagePlaceholder}>
+                          <Ionicons
+                            name="image-outline"
+                            size={24}
+                            color={colors.muted}
+                          />
+                          <Text style={styles.imagePlaceholderText}>
+                            {t("serviceForm.imagePlaceholder")}
                           </Text>
-                        ) : null}
-                        <Text style={styles.rowMeta}>
-                          {t("serviceForm.addonPriceValue", {
-                            price: addon.price,
-                          })}
+                        </View>
+                      )}
+                      {uploadingServiceImage ? (
+                        <View style={styles.imageLoading}>
+                          <ActivityIndicator color={colors.onPrimary} />
+                        </View>
+                      ) : null}
+                    </TouchableOpacity>
+                    <Text style={styles.imageHelper}>
+                      {t("serviceForm.imageHelper")}
+                    </Text>
+                    <Button
+                      title={t("serviceForm.imageChangeAction")}
+                      onPress={pickServiceImage}
+                      variant="outline"
+                      size="small"
+                      disabled={uploadingServiceImage}
+                      style={styles.imageButton}
+                    />
+                  </>
+                )}
+              </View>
+
+              <View style={styles.formCard}>
+                <View style={styles.fieldRow}>
+                  <View style={styles.fieldColumn}>
+                    <Input
+                      label={t("serviceForm.priceLabel")}
+                      placeholder="0.00"
+                      value={price}
+                      onChangeText={setPrice}
+                      error={errors.price}
+                      keyboardType="decimal-pad"
+                      style={styles.rowInput}
+                    />
+                  </View>
+                  <View style={styles.fieldColumn}>
+                    <Text style={styles.label}>
+                      {t("serviceForm.durationLabel")}
+                    </Text>
+                    <View style={styles.spinnerRow}>
+                      <TouchableOpacity
+                        style={styles.spinnerButton}
+                        onPress={() => {
+                          const cur = Number(duration) || 0;
+                          const next = Math.max(5, cur - 5);
+                          setDuration(String(next));
+                        }}
+                        accessibilityLabel={t("serviceForm.durationDecrease")}
+                      >
+                        <Ionicons name="remove" size={20} color={colors.text} />
+                      </TouchableOpacity>
+
+                      <View style={styles.spinnerValueContainer}>
+                        <Text style={styles.spinnerValue}>
+                          {duration ? String(Number(duration)) : "0"}
+                        </Text>
+                        <Text style={styles.spinnerUnit}>
+                          {t("common.minutesShort")}
                         </Text>
                       </View>
+
                       <TouchableOpacity
-                        onPress={() => deleteAddonMutation.mutate(addon.id)}
-                        style={styles.iconButton}
+                        style={styles.spinnerButton}
+                        onPress={() => {
+                          const cur = Number(duration) || 0;
+                          const next = Math.min(600, cur + 5);
+                          setDuration(String(next));
+                        }}
+                        accessibilityLabel={t("serviceForm.durationIncrease")}
                       >
-                        <Ionicons
-                          name="trash-outline"
-                          size={18}
-                          color={colors.danger}
-                        />
+                        <Ionicons name="add" size={20} color={colors.text} />
                       </TouchableOpacity>
                     </View>
-                  ))
-                )}
+                    {errors.duration && (
+                      <Text style={styles.error}>{errors.duration}</Text>
+                    )}
+                  </View>
+                </View>
 
-                <Input
-                  label={t("serviceForm.addonNameLabel")}
-                  placeholder={t("serviceForm.addonNamePlaceholder")}
-                  value={addonName}
-                  onChangeText={setAddonName}
-                />
+                <View style={styles.fieldRow}>
+                  <View style={styles.fieldColumn}>
+                    <Input
+                      label={t("serviceForm.categoryLabel")}
+                      placeholder={t("serviceForm.categoryPlaceholder")}
+                      value={category}
+                      onChangeText={setCategory}
+                      style={styles.rowInput}
+                    />
+                  </View>
+                  <View style={styles.fieldColumn}>
+                    <Input
+                      label={t("serviceForm.subcategoryLabel")}
+                      placeholder={t("serviceForm.subcategoryPlaceholder")}
+                      value={subcategory}
+                      onChangeText={setSubcategory}
+                      style={styles.rowInput}
+                    />
+                  </View>
+                </View>
 
-                <Input
-                  label={t("serviceForm.addonDescriptionLabel")}
-                  placeholder={t("serviceForm.addonDescriptionPlaceholder")}
-                  value={addonDescription}
-                  onChangeText={setAddonDescription}
-                />
+                <View style={styles.fieldRow}>
+                  <View style={styles.fieldColumn}>
+                    <Input
+                      label={t("serviceForm.petTypeLabel")}
+                      placeholder={t("serviceForm.petTypePlaceholder")}
+                      value={petType}
+                      onChangeText={setPetType}
+                      style={styles.rowInput}
+                    />
+                  </View>
+                  <View style={styles.fieldColumn}>
+                    <Input
+                      label={t("serviceForm.pricingModelLabel")}
+                      placeholder={t("serviceForm.pricingModelPlaceholder")}
+                      value={pricingModel}
+                      onChangeText={setPricingModel}
+                      style={styles.rowInput}
+                    />
+                  </View>
+                </View>
 
-                <View style={styles.inlineRow}>
+                <View style={styles.fieldRowSingle}>
                   <Input
-                    label={t("serviceForm.addonPriceLabel")}
-                    placeholder="10.00"
-                    value={addonPrice}
-                    onChangeText={setAddonPrice}
-                    keyboardType="decimal-pad"
-                    style={styles.inlineInput}
-                  />
-                  <Input
-                    label={t("serviceForm.addonOrderLabel")}
+                    label={t("serviceForm.displayOrderLabel")}
                     placeholder="0"
-                    value={addonOrder}
-                    onChangeText={setAddonOrder}
+                    value={displayOrder}
+                    onChangeText={setDisplayOrder}
                     keyboardType="number-pad"
-                    style={styles.inlineInput}
                   />
                 </View>
 
-                <View style={styles.switchContainer}>
+                <View style={styles.switchRow}>
                   <View>
                     <Text style={styles.switchLabel}>
-                      {t("serviceForm.addonActiveLabel")}
+                      {t("serviceForm.activeLabel")}
                     </Text>
                     <Text style={styles.switchSubtext}>
-                      {t("serviceForm.addonActiveHint")}
+                      {t("serviceForm.activeHint")}
                     </Text>
                   </View>
                   <Switch
-                    value={addonActive}
-                    onValueChange={setAddonActive}
+                    value={active}
+                    onValueChange={setActive}
                     trackColor={{
                       false: colors.surfaceBorder,
-                      true: colors.primary + "40",
+                      true: colors.primary,
                     }}
-                    thumbColor={addonActive ? colors.primary : colors.muted}
+                    thumbColor={
+                      Platform.OS === "android"
+                        ? active
+                          ? colors.surface
+                          : colors.surface
+                        : undefined
+                    }
+                    ios_backgroundColor={colors.surfaceBorder}
                   />
                 </View>
+              </View>
 
+              <View style={styles.formCard}>
                 <Button
-                  title={t("serviceForm.addAddonAction")}
-                  onPress={handleAddAddon}
-                  loading={createAddonMutation.isPending}
-                  disabled={createAddonMutation.isPending}
-                  variant="outline"
-                  size="small"
-                  style={{ marginTop: 8 }}
+                  title={
+                    mode === "create"
+                      ? t("serviceForm.createAction")
+                      : t("serviceForm.saveAction")
+                  }
+                  onPress={handleSubmit}
+                  loading={isLoading}
+                  disabled={isLoading}
                 />
-              </>
-            )}
-          </View>
 
-          {mode === "edit" && (
-            <Button
-              title={t("serviceForm.deleteAction")}
-              onPress={handleDelete}
-              loading={deleteMutation.isPending}
-              disabled={isLoading}
-              variant="danger"
-              style={{ marginTop: 16 }}
-            />
+                {mode === "edit" && (
+                  <Button
+                    title={t("serviceForm.deleteAction")}
+                    onPress={handleDelete}
+                    loading={deleteMutation.isPending}
+                    disabled={isLoading}
+                    variant="danger"
+                    style={{ marginTop: 16 }}
+                  />
+                )}
+              </View>
+            </>
+          )}
+
+          {activeTab === "tiers" && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                {t("serviceForm.tiersTitle")}
+              </Text>
+              {mode !== "edit" || !serviceId ? (
+                <Text style={styles.sectionHint}>
+                  {t("serviceForm.saveFirstHint")}
+                </Text>
+              ) : (
+                <>
+                  {priceTiers.length === 0 ? (
+                    <Text style={styles.sectionHint}>
+                      {t("serviceForm.tiersEmpty")}
+                    </Text>
+                  ) : (
+                    priceTiers.map((tier) => (
+                      <View key={tier.id} style={styles.rowCard}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.rowTitle}>
+                            {tier.label || t("serviceForm.tierDefaultLabel")}
+                          </Text>
+                          <Text style={styles.rowMeta}>
+                            {t("serviceForm.tierRangeValue", {
+                              min: tier.min_weight_kg ?? "-",
+                              max: tier.max_weight_kg ?? "+",
+                            })}
+                          </Text>
+                          <Text style={styles.rowMeta}>
+                            {t("serviceForm.tierPriceValue", {
+                              price: tier.price,
+                            })}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => deleteTierMutation.mutate(tier.id)}
+                          style={styles.iconButton}
+                        >
+                          <Ionicons
+                            name="trash-outline"
+                            size={18}
+                            color={colors.danger}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  )}
+
+                  <View style={styles.inlineRow}>
+                    <Input
+                      label={t("serviceForm.tierLabel")}
+                      placeholder="XS"
+                      value={tierLabel}
+                      onChangeText={setTierLabel}
+                      style={styles.inlineInput}
+                    />
+                    <Input
+                      label={t("serviceForm.tierMinWeight")}
+                      placeholder="5"
+                      value={tierMinWeight}
+                      onChangeText={setTierMinWeight}
+                      keyboardType="decimal-pad"
+                      style={styles.inlineInput}
+                    />
+                    <Input
+                      label={t("serviceForm.tierMaxWeight")}
+                      placeholder="9"
+                      value={tierMaxWeight}
+                      onChangeText={setTierMaxWeight}
+                      keyboardType="decimal-pad"
+                      style={styles.inlineInput}
+                    />
+                  </View>
+
+                  <View style={styles.inlineRow}>
+                    <Input
+                      label={t("serviceForm.tierPrice")}
+                      placeholder="40.00"
+                      value={tierPrice}
+                      onChangeText={setTierPrice}
+                      keyboardType="decimal-pad"
+                      style={styles.inlineInput}
+                    />
+                    <Input
+                      label={t("serviceForm.tierOrder")}
+                      placeholder="0"
+                      value={tierOrder}
+                      onChangeText={setTierOrder}
+                      keyboardType="number-pad"
+                      style={styles.inlineInput}
+                    />
+                  </View>
+
+                  <Button
+                    title={t("serviceForm.addTierAction")}
+                    onPress={handleAddTier}
+                    loading={createTierMutation.isPending}
+                    disabled={createTierMutation.isPending}
+                    variant="outline"
+                    size="small"
+                    style={{ marginTop: 8 }}
+                  />
+                </>
+              )}
+            </View>
+          )}
+
+          {activeTab === "addons" && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                {t("serviceForm.addonsTitle")}
+              </Text>
+              {mode !== "edit" || !serviceId ? (
+                <Text style={styles.sectionHint}>
+                  {t("serviceForm.saveFirstHint")}
+                </Text>
+              ) : (
+                <>
+                  {addons.length === 0 ? (
+                    <Text style={styles.sectionHint}>
+                      {t("serviceForm.addonsEmpty")}
+                    </Text>
+                  ) : (
+                    addons.map((addon) => (
+                      <View key={addon.id} style={styles.rowCard}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.rowTitle}>{addon.name}</Text>
+                          {addon.description ? (
+                            <Text style={styles.rowMeta}>
+                              {addon.description}
+                            </Text>
+                          ) : null}
+                          <Text style={styles.rowMeta}>
+                            {t("serviceForm.addonPriceValue", {
+                              price: addon.price,
+                            })}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => deleteAddonMutation.mutate(addon.id)}
+                          style={styles.iconButton}
+                        >
+                          <Ionicons
+                            name="trash-outline"
+                            size={18}
+                            color={colors.danger}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  )}
+
+                  <Input
+                    label={t("serviceForm.addonNameLabel")}
+                    placeholder={t("serviceForm.addonNamePlaceholder")}
+                    value={addonName}
+                    onChangeText={setAddonName}
+                  />
+
+                  <Input
+                    label={t("serviceForm.addonDescriptionLabel")}
+                    placeholder={t("serviceForm.addonDescriptionPlaceholder")}
+                    value={addonDescription}
+                    onChangeText={setAddonDescription}
+                  />
+
+                  <View style={styles.inlineRow}>
+                    <Input
+                      label={t("serviceForm.addonPriceLabel")}
+                      placeholder="10.00"
+                      value={addonPrice}
+                      onChangeText={setAddonPrice}
+                      keyboardType="decimal-pad"
+                      style={styles.inlineInput}
+                    />
+                    <Input
+                      label={t("serviceForm.addonOrderLabel")}
+                      placeholder="0"
+                      value={addonOrder}
+                      onChangeText={setAddonOrder}
+                      keyboardType="number-pad"
+                      style={styles.inlineInput}
+                    />
+                  </View>
+
+                  <View style={styles.switchContainer}>
+                    <View>
+                      <Text style={styles.switchLabel}>
+                        {t("serviceForm.addonActiveLabel")}
+                      </Text>
+                      <Text style={styles.switchSubtext}>
+                        {t("serviceForm.addonActiveHint")}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={addonActive}
+                      onValueChange={setAddonActive}
+                      trackColor={{
+                        false: colors.surfaceBorder,
+                        true: colors.primary + "40",
+                      }}
+                      thumbColor={addonActive ? colors.primary : colors.muted}
+                    />
+                  </View>
+
+                  <Button
+                    title={t("serviceForm.addAddonAction")}
+                    onPress={handleAddAddon}
+                    loading={createAddonMutation.isPending}
+                    disabled={createAddonMutation.isPending}
+                    variant="outline"
+                    size="small"
+                    style={{ marginTop: 8 }}
+                  />
+                </>
+              )}
+            </View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -1043,6 +1118,33 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     iconButton: {
       padding: 8,
     },
+    fieldRow: {
+      flexDirection: "row",
+      gap: 12,
+      alignItems: "flex-start",
+      marginBottom: 12,
+    },
+    fieldRowSingle: {
+      marginBottom: 12,
+    },
+    rowInput: {
+      flex: 1,
+      minWidth: 140,
+    },
+    fieldColumn: {
+      flex: 1,
+      minWidth: 0,
+    },
+    durationBlock: {
+      flex: 1,
+      minWidth: 160,
+    },
+    switchRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginTop: 12,
+    },
     inlineRow: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -1051,6 +1153,10 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     },
     inlineInput: {
       minWidth: 120,
+    },
+    inlineInputFlex: {
+      flex: 1,
+      minWidth: 150,
     },
     switchContainer: {
       flexDirection: "row",
@@ -1120,5 +1226,52 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       marginTop: 6,
       marginLeft: 4,
     },
+    segmentContainer: {
+      marginBottom: 12,
+    },
   });
+}
+
+function createSegmentStyles(
+  colors: ReturnType<typeof useBrandingTheme>["colors"]
+) {
+  const base = getSegmentStyles(colors);
+  return {
+    container: {
+      ...base.container,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 18,
+      gap: 10,
+      shadowColor: "#000",
+      shadowOpacity: 0.06,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 3,
+    },
+    button: {
+      ...base.button,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 14,
+    },
+    buttonActive: {
+      ...base.buttonActive,
+      backgroundColor: colors.primary + "12",
+      borderColor: colors.primary,
+    },
+    text: {
+      ...base.text,
+      fontSize: 13,
+      fontWeight: "600",
+    },
+    textActive: {
+      ...base.textActive,
+      fontSize: 13,
+      fontWeight: "700",
+    },
+  };
 }

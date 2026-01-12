@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Image,
   Dimensions,
   ScrollView,
+  RefreshControl,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -58,6 +59,7 @@ export default function HomeScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const { branding, colors, isLoading: brandingLoading } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const primary = colors.primary;
   const primarySoft = colors.primarySoft;
@@ -74,7 +76,11 @@ export default function HomeScreen({ navigation }: Props) {
   const upcomingTo = addDaysISO(30);
   const pastFrom = addDaysISO(-365);
 
-  const { data: upcomingData, isLoading: loadingAppointments } = useQuery({
+  const {
+    data: upcomingData,
+    isLoading: loadingAppointments,
+    refetch: refetchUpcoming,
+  } = useQuery({
     queryKey: ["appointments", "home", today, upcomingTo],
     queryFn: () =>
       getAppointments({
@@ -85,12 +91,16 @@ export default function HomeScreen({ navigation }: Props) {
       }),
   });
 
-  const { data: overdueCountData } = useQuery({
+  const { data: overdueCountData, refetch: refetchOverdueCount } = useQuery({
     queryKey: ["appointments", "overdueCount"],
     queryFn: () => getOverdueCount(),
   });
 
-  const { data: overdueListData, isLoading: loadingOverdueList } = useQuery({
+  const {
+    data: overdueListData,
+    isLoading: loadingOverdueList,
+    refetch: refetchOverdueList,
+  } = useQuery({
     queryKey: ["appointments", "overdueList", pastFrom, today],
     queryFn: () =>
       getAppointments({
@@ -256,6 +266,19 @@ export default function HomeScreen({ navigation }: Props) {
     unpaidCount,
   ]);
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        refetchUpcoming(),
+        refetchOverdueCount(),
+        refetchOverdueList(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchUpcoming, refetchOverdueCount, refetchOverdueList]);
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: background }]}
@@ -299,6 +322,14 @@ export default function HomeScreen({ navigation }: Props) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={primary}
+            colors={[primary]}
+          />
+        }
       >
         {/* Hero Card */}
         <View style={[styles.heroCard, { backgroundColor: primary }]}>

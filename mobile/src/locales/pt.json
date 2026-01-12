@@ -39,7 +39,50 @@
     "marketplace": "Marketplace",
     "pets": "Animais",
     "account": "Conta",
-    "profile": "Perfil"
+    "profile": "Perfil",
+    "billing": "Faturação"
+  },
+  "billing": {
+    "title": "Faturação",
+    "subtitle": "Resumo rápido de marcações e receita.",
+    "range": {
+      "7d": "7 dias",
+      "30d": "30 dias",
+      "90d": "90 dias"
+    },
+    "kpi": {
+      "bookings": "Marcações",
+      "completedLabel": "{{value}} concluídas",
+      "revenue": "Receita",
+      "revenueHint": "Apenas concluídas",
+      "avgTicket": "Ticket médio",
+      "avgTicketHint": "Baseado nas concluídas",
+      "returning": "Clientes recorrentes",
+      "returningHint": "% com >1 visita"
+    },
+    "chart": {
+      "title": "Tendência",
+      "bookings": "Volume",
+      "revenue": "Receita",
+      "empty": "Sem dados no período"
+    },
+    "services": {
+      "title": "Serviços",
+      "meta": "{{count}} marcações",
+      "empty": "Sem serviços no período"
+    },
+    "customers": {
+      "title": "Clientes",
+      "meta": "{{count}} visitas",
+      "empty": "Sem clientes no período"
+    },
+    "insights": {
+      "title": "Insights rápidos",
+      "busiestDay": "{{day}} foi o dia mais cheio ({{value}})",
+      "topService": "{{service}} foi o mais vendido ({{value}})",
+      "cancelRate": "Cancelamentos/no-show: {{value}}",
+      "empty": "Sem insights para mostrar"
+    }
   },
   "login": {
     "welcomeBack": "Bem-vindo",
@@ -551,7 +594,20 @@
     "cancelNo": "Não",
     "cancelYes": "Sim, cancelar",
     "cancelAction": "Cancelar",
-    "notes": "Notas"
+    "notes": "Notas",
+    "recurrenceActionsTitle": "Série recorrente",
+    "recurrenceActionsMessage": "Gerencie esta marcação recorrente ou apague as marcações futuras.",
+    "editRecurrence": "Editar recorrência",
+    "editScopeTitle": "Editar recorrência",
+    "editScopeMessage": "Quer atualizar apenas esta marcação ou esta e as futuras?",
+    "editAppointmentOnly": "Apenas esta marcação",
+    "editAppointmentAndFuture": "Esta e futuras marcações",
+    "deleteFutureTitle": "Apagar recorrências futuras",
+    "deleteFutureMessage":
+      "Isto remove todas as marcações futuras desta série. Tem certeza?",
+    "deleteFutureAction": "Apagar marcações futuras",
+    "deleteFutureSuccess": "Marcações futuras apagadas",
+    "recurrenceActionError": "Não foi possível atualizar a série recorrente"
   },
   "customers": {
     "title": "Clientes",
@@ -722,6 +778,9 @@
     "displayOrderLabel": "Ordem de Exibição",
     "activeLabel": "Serviço Ativo",
     "activeHint": "Serviços inativos não aparecem na lista de marcações",
+    "tabService": "Serviço",
+    "tabTiers": "Escalões",
+    "tabAddons": "Extras",
     "categoryLabel": "Categoria",
     "categoryPlaceholder": "Ex: grooming",
     "subcategoryLabel": "Subcategoria",
@@ -836,7 +895,6 @@
     "nextStep": "Seguinte",
     "previousStep": "Voltar",
     "servicesSummaryTitle": "Serviços incluídos",
-    "servicesSummaryEmpty": "Ainda sem serviços selecionados.",
     "totalValue": "Valor Total",
     "amountLabel": "Valor da marcação",
     "amountPlaceholder": "0,00",
@@ -880,6 +938,10 @@
     "addPet": "Adicionar animal",
     "summarySection": "Totais",
     "totalDurationLabel": "Duração total",
+    "reviewDateLabel": "Data e hora",
+    "reviewRecurrenceLabel": "Recorrência",
+    "reviewRecurrenceYes": "Recorrente ({{frequency}})",
+    "reviewRecurrenceNo": "Sem recorrência",
     "tierRequiredMessage": "Escolhe um escalão para cada serviço com preços por peso.",
     "additionalInfo": "Informações Adicionais",
     "remindersTitle": "Lembretes da marcação",
@@ -890,10 +952,27 @@
     "remindersAdd": "Adicionar",
     "remindersLimit": "Podes escolher no máximo 2 lembretes.",
     "remindersInvalid": "Indica um número entre 1 e 1440 minutos.",
+    "recurrenceTitle": "Repetir marcação",
+    "recurrenceHint": "Cria várias marcações futuras com base nesta data e hora.",
+    "recurrenceFrequencyLabel": "Frequência",
+    "recurrenceWeekly": "Semanal",
+    "recurrenceBiweekly": "Quinzenal",
+    "recurrenceMonthly": "Mensal",
+    "recurrenceEndsLabel": "Termina",
+    "recurrenceEndsAfter": "Após N ocorrências",
+    "recurrenceEndsOn": "Em data específica",
+    "recurrenceCountLabel": "Número de ocorrências",
+    "recurrenceCountPlaceholder": "Ex: 6",
+    "recurrenceUntilLabel": "Data final",
+    "recurrenceUntilPlaceholder": "AAAA-MM-DD",
+    "recurrenceMissingDate": "Seleciona uma data para gerar a recorrência.",
+    "recurrenceCountInvalid": "Indica um número de ocorrências válido.",
+    "recurrenceUntilInvalid": "Indica uma data final no formato AAAA-MM-DD.",
     "notesLabel": "Notas",
     "notesPlaceholder": "Adiciona notas para a equipa (opcional)",
     "sendWhatsapp": "Enviar por WhatsApp",
     "addPhoneHint": "Adiciona um número de telefone",
+    "phoneRequired": "O número de telefone é obrigatório para criar a marcação.",
     "processing": "A processar...",
     "saveAction": "Guardar",
     "createAction": "Criar"
@@ -901,5 +980,8 @@
   "language": {
     "pt": "Português",
     "en": "Inglês"
+  },
+  "appointmentCard": {
+    "recurring": "Recorrente"
   }
 }

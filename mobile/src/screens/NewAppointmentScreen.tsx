@@ -51,11 +51,22 @@ import {
 } from "../components/appointment/PetServiceRow";
 import { AutocompleteSelect } from "../components/common/AutocompleteSelect";
 import { DateTimePickerModal } from "../components/appointment/DateTimePickerModal";
+import { ScheduleSection } from "../components/appointment/ScheduleSection";
 import { ScreenHeader } from "../components/ScreenHeader";
 import { useTranslation } from "react-i18next";
 import { hapticError, hapticSuccess } from "../utils/haptics";
 import { getDateLocale } from "../i18n";
 import { buildPhone } from "../utils/phone";
+import {
+  buildRecurrenceRule,
+  currentLocalTime,
+  formatHHMM,
+  formatReminderOffsetLabel,
+  normalizeReminderOffsets,
+  parseAmountInput,
+  todayLocalISO,
+  type RecurrenceFrequency,
+} from "../utils/appointments";
 import {
   formatCustomerAddress,
   formatCustomerName,
@@ -83,30 +94,6 @@ function isHexLight(color?: string) {
   if ([r, g, b].some((v) => Number.isNaN(v))) return false;
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   return luminance > 0.65;
-}
-
-function todayLocalISO() {
-  return new Date().toLocaleDateString("sv-SE");
-}
-
-function currentLocalTime() {
-  const now = new Date();
-  const hh = `${now.getHours()}`.padStart(2, "0");
-  const mm = `${now.getMinutes()}`.padStart(2, "0");
-  return `${hh}:${mm}`;
-}
-
-function formatHHMM(value?: string | null) {
-  if (!value) return "";
-  const safe = value.trim();
-  // Handles formats like "10:00" or "10:00:00"
-  const parts = safe.split(":");
-  if (parts.length >= 2) {
-    const hh = `${parts[0]}`.padStart(2, "0");
-    const mm = `${parts[1]}`.padStart(2, "0");
-    return `${hh}:${mm}`;
-  }
-  return safe.slice(0, 5);
 }
 
 function normalizeBaseUrl(value?: string | null) {
@@ -147,48 +134,25 @@ function buildConfirmationUrl(appointment?: {
   return `${CONFIRMATION_BASE_URL}/appointments/confirm?${query}`;
 }
 
-function parseAmountInput(value: string) {
-  const normalized = value.replace(/\s/g, "").replace(",", ".");
-  if (!normalized) return null;
-  const sanitized = normalized.replace(/[^0-9.]/g, "");
-  if (!sanitized) return null;
-  const parsed = Number(sanitized);
-  return Number.isNaN(parsed) ? null : parsed;
+function parseRecurrenceFrequency(
+  rule?: string | null
+): RecurrenceFrequency | null {
+  if (!rule) return null;
+  const freqMatch = rule.match(/FREQ=([A-Z]+)/i);
+  const intervalMatch = rule.match(/INTERVAL=(\d+)/i);
+  const freq = freqMatch?.[1]?.toUpperCase();
+  const interval = Number.parseInt(intervalMatch?.[1] || "1", 10);
+  if (freq === "WEEKLY") {
+    return interval === 2 ? "biweekly" : "weekly";
+  }
+  if (freq === "MONTHLY") {
+    return "monthly";
+  }
+  return null;
 }
 
 const REMINDER_PRESETS = [15, 30, 60, 120, 1440];
 const MAX_REMINDER_OFFSETS = 2;
-
-function normalizeReminderOffsets(value: unknown, fallback: number[] = [30]) {
-  if (!Array.isArray(value)) return fallback;
-  const normalized = value
-    .map((entry) => Number(entry))
-    .filter((entry) => Number.isFinite(entry))
-    .map((entry) => Math.round(entry))
-    .filter((entry) => entry > 0 && entry <= 1440);
-  const unique = Array.from(new Set(normalized)).sort((a, b) => a - b);
-  return unique.length ? unique.slice(0, MAX_REMINDER_OFFSETS) : fallback;
-}
-
-function formatReminderOffsetLabel(
-  offset: number,
-  t: (key: string, options?: any) => string
-) {
-  if (offset % 1440 === 0) {
-    const days = offset / 1440;
-    return `${days} ${
-      days === 1 ? t("common.dayShort") : t("common.daysShort")
-    }`;
-  }
-  if (offset % 60 === 0) {
-    const hours = offset / 60;
-    return `${hours} ${
-      hours === 1 ? t("common.hourShort") : t("common.hoursShort")
-    }`;
-  }
-  return `${offset} ${t("common.minutesShort")}`;
-}
-
 type DraftPet = {
   id: string;
   name: string;
@@ -329,6 +293,9 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const isDuplicateMode = !!duplicateFromId;
   const prefillAppointmentId = editAppointmentId || duplicateFromId;
   const isPrefillMode = isEditMode || isDuplicateMode;
+  const editScope = route.params?.editScope as "single" | "future" | undefined;
+  const focusRecurrence = route.params?.focusRecurrence === true;
+  const [recurrenceFocusHandled, setRecurrenceFocusHandled] = useState(false);
 
   const [date, setDate] = useState(initialDateParam || todayLocalISO());
   const [time, setTime] = useState(
@@ -339,6 +306,14 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const [useDefaultReminders, setUseDefaultReminders] = useState(true);
   const [reminderOffsets, setReminderOffsets] = useState<number[]>([]);
   const [customReminderInput, setCustomReminderInput] = useState("");
+  const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
+  const [recurrenceFrequency, setRecurrenceFrequency] =
+    useState<RecurrenceFrequency>("weekly");
+  const [recurrenceEndMode, setRecurrenceEndMode] = useState<"after" | "on">(
+    "after"
+  );
+  const [recurrenceCount, setRecurrenceCount] = useState("6");
+  const [recurrenceUntil, setRecurrenceUntil] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [selectedPetIds, setSelectedPetIds] = useState<string[]>([]);
   const [serviceRowsByPet, setServiceRowsByPet] = useState<
@@ -595,6 +570,28 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     }
   }, [appointmentData, isPrefillMode, amountEdited]);
 
+  useEffect(() => {
+    if (!appointmentData || !isPrefillMode) return;
+    const recurrenceRule = appointmentData.recurrence_rule || null;
+    const frequency = parseRecurrenceFrequency(recurrenceRule);
+    setRecurrenceEnabled(Boolean(appointmentData.series_id || recurrenceRule));
+    setRecurrenceFrequency(frequency || "weekly");
+    if (appointmentData.recurrence_until) {
+      setRecurrenceEndMode("on");
+      setRecurrenceUntil(appointmentData.recurrence_until.slice(0, 10));
+    } else if (
+      typeof appointmentData.recurrence_count === "number" &&
+      appointmentData.recurrence_count > 0
+    ) {
+      setRecurrenceEndMode("after");
+      setRecurrenceCount(String(appointmentData.recurrence_count));
+    } else {
+      setRecurrenceEndMode("after");
+      setRecurrenceCount("6");
+      setRecurrenceUntil("");
+    }
+  }, [appointmentData, isPrefillMode]);
+
   // Se ainda não houver pet selecionado após carregar pets do cliente, preenche com o primeiro disponível
   useEffect(() => {
     if (!isPrefillMode) return;
@@ -641,6 +638,29 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const addressPlaceholder = t("appointmentForm.addressPlaceholder");
   const address2Placeholder = t("appointmentForm.address2Placeholder");
   const displayTime = formatHHMM(time);
+  const reviewDateDisplay = useMemo(() => {
+    if (!date) return t("common.noDate");
+    const parsed = new Date(`${date}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return date;
+    return parsed.toLocaleDateString(dateLocale, {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+    });
+  }, [date, dateLocale, t]);
+  const recurrenceLabel = useMemo(() => {
+    const map: Record<RecurrenceFrequency, string> = {
+      weekly: t("appointmentForm.recurrenceWeekly"),
+      biweekly: t("appointmentForm.recurrenceBiweekly"),
+      monthly: t("appointmentForm.recurrenceMonthly"),
+    };
+    return recurrenceEnabled
+      ? t("appointmentForm.reviewRecurrenceYes", {
+          frequency:
+            map[recurrenceFrequency] ?? t("appointmentForm.recurrenceWeekly"),
+        })
+      : t("appointmentForm.reviewRecurrenceNo");
+  }, [recurrenceEnabled, recurrenceFrequency, t]);
   const defaultReminderOffsets = useMemo(
     () =>
       normalizeReminderOffsets(
@@ -981,13 +1001,20 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   });
 
   const timeIsValid = /^\d{2}:\d{2}$/.test(formatHHMM(time).trim());
+  const newCustomerPhoneDigits = newCustomerPhone.replace(/\D/g, "");
+  const hasNewCustomerPhone = newCustomerPhoneDigits.length > 0;
+  const existingCustomerPhoneDigits = customerPhone.replace(/\D/g, "");
+  const hasExistingCustomerPhone = existingCustomerPhoneDigits.length > 0;
   const existingDraftPetsValid =
     existingNewPets.length === 0 ||
     existingNewPets.every((pet) => pet.name.trim() && pet.speciesId);
   const hasExistingPets =
     selectedPetIds.length > 0 || existingNewPets.length > 0;
   const hasExistingSelection = Boolean(
-    selectedCustomer && hasExistingPets && existingDraftPetsValid
+    selectedCustomer &&
+      hasExistingPets &&
+      existingDraftPetsValid &&
+      hasExistingCustomerPhone
   );
   const allServiceRows = Object.values(serviceRowsByPet).flat();
   const hasServiceSelection =
@@ -996,7 +1023,9 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     newPets.length > 0 &&
     newPets.every((pet) => pet.name.trim() && pet.speciesId);
   const hasNewCustomerName = Boolean(newCustomerFirstName.trim());
-  const hasNewSelection = Boolean(hasNewCustomerName && newPetsValid);
+  const hasNewSelection = Boolean(
+    hasNewCustomerName && hasNewCustomerPhone && newPetsValid
+  );
   const isSubmitting = mutation.isPending || isSubmittingRequest;
   const canSubmit =
     Boolean(
@@ -1020,8 +1049,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const canAdvanceFromStep1 = Boolean(date && timeIsValid);
   const canAdvanceFromStep2 =
     mode === "existing"
-      ? Boolean(selectedCustomer)
-      : Boolean(hasNewCustomerName);
+      ? Boolean(selectedCustomer && hasExistingCustomerPhone)
+      : Boolean(hasNewCustomerName && hasNewCustomerPhone);
   const hasPetsForStep =
     mode === "existing"
       ? hasExistingPets && existingDraftPetsValid
@@ -1050,6 +1079,16 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     });
   };
+
+  useEffect(() => {
+    if (focusRecurrence && !recurrenceFocusHandled) {
+      setActiveStep(0);
+      requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      });
+      setRecurrenceFocusHandled(true);
+    }
+  }, [focusRecurrence, recurrenceFocusHandled]);
 
   const handleDateChange = (_event: any, selectedDate?: Date) => {
     if (selectedDate) {
@@ -1248,6 +1287,14 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       return; // Previne múltiplos cliques
     }
 
+    const missingPhone =
+      mode === "existing" ? !hasExistingCustomerPhone : !hasNewCustomerPhone;
+    if (missingPhone) {
+      hapticError();
+      Alert.alert(t("common.error"), t("appointmentForm.phoneRequired"));
+      return;
+    }
+
     if (!canSubmit) {
       hapticError();
       Alert.alert(
@@ -1270,6 +1317,51 @@ export default function NewAppointmentScreen({ navigation }: Props) {
         t("appointmentForm.tierRequiredMessage")
       );
       return;
+    }
+
+    let recurrenceRule: string | null = null;
+    let recurrenceCountNumber: number | null = null;
+    let recurrenceUntilValue = "";
+    let recurrenceTimezoneValue: string | null = null;
+    if (recurrenceEnabled) {
+      recurrenceRule = buildRecurrenceRule({
+        frequency: recurrenceFrequency,
+        date,
+      });
+      if (!recurrenceRule) {
+        hapticError();
+        Alert.alert(
+          t("common.error"),
+          t("appointmentForm.recurrenceMissingDate")
+        );
+        return;
+      }
+      if (recurrenceEndMode === "after") {
+        recurrenceCountNumber = Math.max(
+          1,
+          Math.round(Number(recurrenceCount))
+        );
+        if (!Number.isFinite(recurrenceCountNumber)) {
+          hapticError();
+          Alert.alert(
+            t("common.error"),
+            t("appointmentForm.recurrenceCountInvalid")
+          );
+          return;
+        }
+      } else {
+        recurrenceUntilValue = recurrenceUntil.trim().slice(0, 10);
+        if (!/\d{4}-\d{2}-\d{2}/.test(recurrenceUntilValue)) {
+          hapticError();
+          Alert.alert(
+            t("common.error"),
+            t("appointmentForm.recurrenceUntilInvalid")
+          );
+          return;
+        }
+      }
+      recurrenceTimezoneValue =
+        Intl.DateTimeFormat().resolvedOptions().timeZone || null;
     }
 
     submitLockRef.current = true;
@@ -1457,6 +1549,30 @@ export default function NewAppointmentScreen({ navigation }: Props) {
           : {}
         : { reminder_offsets: effectiveReminderOffsets };
 
+      const recurrencePayload = recurrenceEnabled
+        ? {
+            recurrence_rule: recurrenceRule || undefined,
+            recurrence_count:
+              recurrenceEndMode === "after"
+                ? recurrenceCountNumber || null
+                : null,
+            recurrence_until:
+              recurrenceEndMode === "on" ? recurrenceUntilValue || null : null,
+            recurrence_timezone: recurrenceTimezoneValue
+              ? recurrenceTimezoneValue
+              : undefined,
+          }
+        : {
+            recurrence_rule: null,
+            recurrence_count: null,
+            recurrence_until: null,
+            recurrence_timezone: null,
+          };
+
+      const scopePayload: Record<string, string | undefined> = isEditMode
+        ? { update_scope: editScope ?? "future" }
+        : {};
+
       const payload = {
         appointment_date: date,
         appointment_time: formatHHMM(time).trim(),
@@ -1468,6 +1584,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
         service_ids: serviceIds,
         service_selections: serviceSelections,
         ...reminderPayload,
+        ...recurrencePayload,
+        ...scopePayload,
       };
 
       // payload logged in development during debugging (removed)
@@ -1778,10 +1896,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
             : t("appointmentForm.createTitle")
         }
         rightElement={
-          canSubmit ? (
-            <TouchableOpacity
-              onPress={handleSubmit}
-              disabled={isSubmitting}
+          (canSubmit || isSubmitting) && (
+            <View
               style={{
                 width: 40,
                 height: 40,
@@ -1793,13 +1909,30 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                 opacity: isSubmitting ? 0.7 : 1,
               }}
             >
-              <Ionicons
-                name="save-outline"
-                size={20}
-                color={isHexLight(colors.primary) ? "#000" : colors.onPrimary}
-              />
-            </TouchableOpacity>
-          ) : null
+              <TouchableOpacity
+                onPress={handleSubmit}
+                disabled={!canSubmit || isSubmitting}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Ionicons
+                    name="save-outline"
+                    size={20}
+                    color={
+                      isHexLight(colors.primary) ? "#000" : colors.onPrimary
+                    }
+                  />
+                )}
+              </TouchableOpacity>
+            </View>
+          )
         }
       />
       <KeyboardAvoidingView
@@ -1860,43 +1993,24 @@ export default function NewAppointmentScreen({ navigation }: Props) {
             </View>
             {/* Seção: Data e Hora */}
             {activeStep === 0 ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  {t("appointmentForm.dateServiceSection")}
-                </Text>
-
-                <View style={styles.row}>
-                  <View style={[styles.field, { flex: 1 }]}>
-                    <Text style={styles.label}>
-                      {t("appointmentForm.dateLabel")}
-                    </Text>
-                    <TouchableOpacity
-                      style={[styles.input, styles.pickInput]}
-                      onPress={openDatePicker}
-                    >
-                      <Text style={styles.pickText}>{date}</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={[styles.field, { flex: 1 }]}>
-                    <Text style={styles.label}>
-                      {t("appointmentForm.timeLabel")}
-                    </Text>
-                    <TouchableOpacity
-                      style={[styles.input, styles.pickInput]}
-                      onPress={openTimePicker}
-                    >
-                      <Text
-                        style={[
-                          styles.pickText,
-                          !displayTime && styles.placeholder,
-                        ]}
-                      >
-                        {displayTime || t("appointmentForm.timePlaceholder")}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
+              <ScheduleSection
+                date={date}
+                displayTime={displayTime}
+                recurrenceEnabled={recurrenceEnabled}
+                recurrenceFrequency={recurrenceFrequency}
+                recurrenceEndMode={recurrenceEndMode}
+                recurrenceCount={recurrenceCount}
+                recurrenceUntil={recurrenceUntil}
+                onPressDate={openDatePicker}
+                onPressTime={openTimePicker}
+                onToggleRecurrence={setRecurrenceEnabled}
+                onChangeFrequency={setRecurrenceFrequency}
+                onChangeEndMode={setRecurrenceEndMode}
+                onChangeCount={setRecurrenceCount}
+                onChangeUntil={setRecurrenceUntil}
+                colors={colors}
+                t={t}
+              />
             ) : null}
 
             {/* Seção: Cliente */}
@@ -2681,6 +2795,23 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>
+                    {t("appointmentForm.reviewDateLabel")}
+                  </Text>
+                  <Text style={styles.summaryValue}>
+                    {reviewDateDisplay}
+                    {displayTime ? ` · ${displayTime}` : ""}
+                  </Text>
+                </View>
+
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>
+                    {t("appointmentForm.reviewRecurrenceLabel")}
+                  </Text>
+                  <Text style={styles.summaryValue}>{recurrenceLabel}</Text>
+                </View>
+
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>
                     {t("appointmentForm.totalDurationLabel")}
                   </Text>
                   <Text style={styles.summaryValue}>
@@ -2694,11 +2825,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                   <Text style={styles.summaryTitle}>
                     {t("appointmentForm.servicesSummaryTitle")}
                   </Text>
-                  {serviceSummary.length === 0 ? (
-                    <Text style={styles.summaryEmpty}>
-                      {t("appointmentForm.servicesSummaryEmpty")}
-                    </Text>
-                  ) : (
+                  {serviceSummary.length > 0 &&
                     serviceSummary.map((entry, index) => {
                       return (
                         <View
@@ -2746,8 +2873,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                           )}
                         </View>
                       );
-                    })
-                  )}
+                    })}
                 </View>
 
                 <View style={styles.field}>
@@ -3010,6 +3136,10 @@ export default function NewAppointmentScreen({ navigation }: Props) {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {isSubmitting && (
+        <View pointerEvents="auto" style={styles.submitBlocker} />
+      )}
+
       <DateTimePickerModal
         visible={showDatePicker || showTimePicker}
         onClose={closePickers}
@@ -3040,6 +3170,11 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     subtitle: {
       fontSize: 14,
       color: colors.muted,
+    },
+    submitBlocker: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "#00000000",
+      zIndex: 10,
     },
     keyboardAvoid: {
       flex: 1,
@@ -3089,7 +3224,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       opacity: 0.5,
     },
     stepIndex: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: "700",
       color: colors.muted,
       marginLeft: 2,
@@ -3109,7 +3244,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       color: colors.primary,
     },
     stepLabel: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: "600",
       color: colors.text,
       textAlign: "left",
@@ -3203,10 +3338,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       fontSize: 13,
       fontWeight: "500",
     },
-    pickInput: {
-      minHeight: 52,
-      justifyContent: "center",
-    },
     select: {
       borderWidth: 1,
       borderRadius: 12,
@@ -3214,11 +3345,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       paddingVertical: 14,
       backgroundColor: colors.background,
       borderColor: colors.surfaceBorder,
-    },
-    pickText: {
-      color: colors.text,
-      fontWeight: "600",
-      fontSize: 16,
     },
     selectText: {
       color: colors.text,
@@ -3419,7 +3545,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     summaryValue: {
       color: colors.text,
       fontWeight: "700",
-      fontSize: 16,
+      fontSize: 14,
     },
     segment: {
       flexDirection: "row",

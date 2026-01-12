@@ -205,6 +205,10 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
     retry: 1,
   });
 
+  useEffect(() => {
+    refetch();
+  }, [dateRange.from, dateRange.to, refetch]);
+
   const appointments: Appointment[] =
     (appointmentsData?.pages?.flatMap(
       (page: any) => page.items

@@ -2,6 +2,7 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import { useAuthStore } from '../state/authStore';
+import { getCachedToken, setCachedToken } from './tokenCache';
 
 function resolveApiBase() {
   // expoConfig -> dev/Expo Go, manifest/manifest2/manifestExtra -> production builds
@@ -33,17 +34,16 @@ const rawApi = axios.create({
   baseURL: baseWithVersion,
 });
 
-let cachedToken: string | null = null;
-
 async function resolveToken(): Promise<string | null> {
   const memoryToken = useAuthStore.getState().token;
   if (memoryToken) {
-    cachedToken = memoryToken;
+    setCachedToken(memoryToken);
     return memoryToken;
   }
+  const cachedToken = getCachedToken();
   if (cachedToken) return cachedToken;
   const stored = await SecureStore.getItemAsync('authToken');
-  if (stored) cachedToken = stored;
+  if (stored) setCachedToken(stored);
   return stored;
 }
 
@@ -73,7 +73,7 @@ async function refreshToken() {
       const nextRefresh = data?.refreshToken || refreshToken;
       if (token) {
         await useAuthStore.getState().setTokens({ token, refreshToken: nextRefresh });
-        cachedToken = token;
+        setCachedToken(token);
         return token;
       }
       return null;

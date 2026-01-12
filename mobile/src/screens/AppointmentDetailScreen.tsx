@@ -29,6 +29,7 @@ import {
   updateAppointment,
   deleteAppointment,
   uploadAppointmentPhoto,
+  deleteSeriesOccurrences,
 } from "../api/appointments";
 import useAppointmentPhotos from "../hooks/useAppointmentPhotos";
 import { getPetsByCustomer, type Pet } from "../api/customers";
@@ -72,6 +73,26 @@ function formatDateTime(
       : date || noDateLabel;
   const timeLabel = time ? time.slice(0, 5) : "—";
   return `${dateLabel} ${atLabel} ${timeLabel}`;
+}
+
+function addDaysToDateString(value?: string | null, days = 0) {
+  if (!value) return undefined;
+  const parts = value.split("-");
+  if (parts.length < 3) return value;
+  const year = Number(parts[0]);
+  const monthIndex = Number(parts[1]) - 1;
+  const day = Number(parts[2]);
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(monthIndex) ||
+    !Number.isFinite(day)
+  ) {
+    return value;
+  }
+  const result = new Date(year, monthIndex, day + days);
+  const month = `${result.getMonth() + 1}`.padStart(2, "0");
+  const dayOfMonth = `${result.getDate()}`.padStart(2, "0");
+  return `${result.getFullYear()}-${month}-${dayOfMonth}`;
 }
 
 export default function AppointmentDetailScreen({ route, navigation }: Props) {
@@ -184,6 +205,29 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         err?.response?.data?.error ||
         err.message ||
         t("appointmentDetail.updateError");
+      Alert.alert(t("common.error"), message);
+    },
+  });
+
+  const seriesMutation = useMutation({
+    mutationFn: (payload: { seriesId: string; fromDate?: string }) =>
+      deleteSeriesOccurrences(payload.seriesId, payload.fromDate),
+    onSuccess: () => {
+      hapticSuccess();
+      queryClient
+        .invalidateQueries({ queryKey: ["appointments"] })
+        .catch(() => null);
+      queryClient
+        .invalidateQueries({ queryKey: ["appointment", appointmentId] })
+        .catch(() => null);
+      Alert.alert(t("common.done"), t("appointmentDetail.deleteFutureSuccess"));
+    },
+    onError: (err: any) => {
+      hapticError();
+      const message =
+        err?.response?.data?.error ||
+        err?.message ||
+        t("appointmentDetail.recurrenceActionError");
       Alert.alert(t("common.error"), message);
     },
   });
@@ -312,6 +356,14 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     handleSaveNotes,
   ]);
   const displayStatus = status ?? appointment?.status ?? "scheduled";
+  const statusColor = useMemo(
+    () => getStatusColor(displayStatus),
+    [displayStatus]
+  );
+  const statusLabel = useMemo(
+    () => getStatusLabel(displayStatus),
+    [displayStatus]
+  );
   const customer = appointment?.customers;
   const customerName = formatCustomerName(customer);
   const appointmentServiceEntries = useMemo(
@@ -357,9 +409,16 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     });
     return Array.from(unique.values());
   }, [appointment, appointmentServiceEntries, customerPetsById]);
+  const primaryPetName = useMemo(() => {
+    if (appointmentPets.length > 0 && appointmentPets[0]?.name) {
+      return appointmentPets[0].name as string;
+    }
+    return "Pet";
+  }, [appointmentPets]);
   const paymentStatus = appointment?.payment_status || "unpaid";
   const paymentColor =
     paymentStatus === "paid" ? colors.success : colors.warning;
+  const isRecurring = Boolean(appointment?.series_id);
   const statusOptions = [
     { value: "pending", emoji: "⏳" },
     { value: "scheduled", emoji: "📅" },
@@ -500,13 +559,89 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   };
 
   const handleEditAppointment = () => {
-    navigation.navigate("NewAppointment", { editId: appointmentId });
+    navigation.replace("NewAppointment", { editId: appointmentId });
+  };
+
+  const handleRecurrenceEdit = () => {
+    hapticSelection();
+    navigation.replace("NewAppointment", {
+      editId: appointmentId,
+      focusRecurrence: true,
+    });
+  };
+
+  const triggerDeleteFuture = () => {
+    if (!appointment?.series_id) return;
+    const fromDate = addDaysToDateString(appointment.appointment_date, 1);
+    seriesMutation.mutate({
+      seriesId: appointment.series_id,
+      fromDate,
+    });
+  };
+
+  const confirmDeleteFuture = () => {
+    Alert.alert(
+      t("appointmentDetail.deleteFutureTitle"),
+      t("appointmentDetail.deleteFutureMessage"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("appointmentDetail.deleteFutureAction"),
+          style: "destructive",
+          onPress: triggerDeleteFuture,
+        },
+      ]
+    );
+  };
+
+  const openRecurrenceActions = () => {
+    if (!isRecurring || !appointment?.series_id) return;
+    hapticSelection();
+    const recurrenceOptions = [
+      t("appointmentDetail.editRecurrence"),
+      t("appointmentDetail.deleteFutureAction"),
+      t("common.cancel"),
+    ];
+    const cancelButtonIndex = recurrenceOptions.length - 1;
+    const destructiveButtonIndex = 1;
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title: t("appointmentDetail.recurrenceActionsTitle"),
+          message: t("appointmentDetail.recurrenceActionsMessage"),
+          options: recurrenceOptions,
+          cancelButtonIndex,
+          destructiveButtonIndex,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 0) {
+            handleRecurrenceEdit();
+          } else if (buttonIndex === 1) {
+            confirmDeleteFuture();
+          }
+        }
+      );
+      return;
+    }
+    Alert.alert(
+      t("appointmentDetail.recurrenceActionsTitle"),
+      t("appointmentDetail.recurrenceActionsMessage"),
+      [
+        { text: recurrenceOptions[0], onPress: handleRecurrenceEdit },
+        {
+          text: recurrenceOptions[1],
+          style: "destructive",
+          onPress: confirmDeleteFuture,
+        },
+        { text: recurrenceOptions[2], style: "cancel" },
+      ]
+    );
   };
 
   const handleDuplicateAppointment = () => {
     if (!appointment) return;
     hapticSelection();
-    navigation.navigate("NewAppointment", {
+    navigation.replace("NewAppointment", {
       duplicateFromId: appointment.id,
       date: appointment.appointment_date || undefined,
       time: appointment.appointment_time || undefined,
@@ -928,30 +1063,57 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                     style={[
                       styles.statusBadge,
                       {
-                        backgroundColor: getStatusColor(displayStatus) + "20",
-                        borderColor: getStatusColor(displayStatus),
+                        backgroundColor: statusColor + "20",
+                        borderColor: statusColor,
                       },
                     ]}
                   >
                     <View
                       style={[
                         styles.statusDot,
-                        { backgroundColor: getStatusColor(displayStatus) },
+                        { backgroundColor: statusColor },
                       ]}
                     />
                     <Text
                       style={[
                         styles.statusBadgeText,
-                        { color: getStatusColor(displayStatus) },
+                        { color: statusColor },
                       ]}
                     >
-                      {getStatusLabel(displayStatus)}
+                      {statusLabel}
                     </Text>
                   </View>
+                  {isRecurring ? (
+                    <TouchableOpacity
+                      style={styles.heroRecurrenceBadge}
+                      onPress={openRecurrenceActions}
+                      activeOpacity={0.7}
+                    >
+                      {seriesMutation.isLoading ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.primary}
+                        />
+                      ) : (
+                        <>
+                          <Ionicons
+                            name="refresh"
+                            size={16}
+                            color={colors.primary}
+                          />
+                          <Text style={styles.heroRecurrenceText}>
+                            {t("appointmentCard.recurring")}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  ) : null}
                   <TouchableOpacity
                     style={[
                       styles.paymentBadge,
-                      { backgroundColor: `${paymentColor}14` },
+                      {
+                        backgroundColor: `${paymentColor}14`,
+                      },
                     ]}
                     onPress={togglePayment}
                   >
@@ -965,10 +1127,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                       color={paymentColor}
                     />
                     <Text
-                      style={[
-                        styles.paymentBadgeText,
-                        { color: paymentColor },
-                      ]}
+                      style={[styles.paymentBadgeText, { color: paymentColor }]}
                     >
                       {paymentStatus === "paid"
                         ? t("payment.paid")
@@ -1092,23 +1251,46 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                               ) : null}
                             </View>
                           </View>
-                      {showPrice ? (
-                        <View style={{ alignItems: "flex-end" }}>
-                          <View style={styles.servicePhotoActionsRow}>
-                            <View style={styles.servicePhotoThumbWrap}>
-                              {beforePhoto ? (
-                                <>
-                                  <ImageWithDownload
-                                    uri={beforePhoto}
-                                    style={styles.servicePhotoThumb}
-                                    disableDefaultOptions
-                                    onPress={() =>
-                                      handlePhotoPress("before", {
-                                        appointmentServiceId: detail.entry.id,
-                                        useLegacyFallback: false,
-                                      })
-                                    }
-                                  />
+                          {showPrice ? (
+                            <View style={{ alignItems: "flex-end" }}>
+                              <View style={styles.servicePhotoActionsRow}>
+                                <View style={styles.servicePhotoThumbWrap}>
+                                  {beforePhoto ? (
+                                    <ImageWithDownload
+                                      uri={beforePhoto}
+                                      style={styles.servicePhotoThumb}
+                                      disableDefaultOptions
+                                      onPress={() =>
+                                        handlePhotoPress("before", {
+                                          appointmentServiceId: detail.entry.id,
+                                          useLegacyFallback: false,
+                                        })
+                                      }
+                                    />
+                                  ) : (
+                                    <TouchableOpacity
+                                      style={
+                                        styles.servicePhotoThumbPlaceholder
+                                      }
+                                      onPress={() =>
+                                        handlePhotoPress("before", {
+                                          appointmentServiceId: detail.entry.id,
+                                          useLegacyFallback: false,
+                                        })
+                                      }
+                                    >
+                                      <Text
+                                        style={styles.servicePhotoThumbPlus}
+                                      >
+                                        +
+                                      </Text>
+                                      <Text
+                                        style={styles.servicePhotoThumbLabel}
+                                      >
+                                        {t("appointmentDetail.before")}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  )}
                                   {uploadingPhoto?.type === "before" &&
                                     uploadingPhoto?.appointmentServiceId ===
                                       detail.entry.id && (
@@ -1120,50 +1302,50 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                                         <ActivityIndicator color="#fff" />
                                       </View>
                                     )}
-                                </>
-                              ) : (
-                                <TouchableOpacity
-                                  style={styles.servicePhotoThumbPlaceholder}
-                                  onPress={() =>
-                                    handlePhotoPress("before", {
-                                      appointmentServiceId: detail.entry.id,
-                                      useLegacyFallback: false,
-                                    })
-                                  }
-                                >
-                                  <Text
-                                    style={styles.servicePhotoThumbPlus}
-                                  >
-                                    +
-                                  </Text>
-                                  <Text
-                                    style={styles.servicePhotoThumbLabel}
-                                  >
-                                    {t("appointmentDetail.before")}
-                                  </Text>
-                                </TouchableOpacity>
-                              )}
-                            </View>
+                                </View>
 
-                            <View
-                              style={[
-                                styles.servicePhotoThumbWrap,
-                                { marginLeft: 8 },
-                              ]}
-                            >
-                              {afterPhoto ? (
-                                <>
-                                  <ImageWithDownload
-                                    uri={afterPhoto}
-                                    style={styles.servicePhotoThumb}
-                                    disableDefaultOptions
-                                    onPress={() =>
-                                      handlePhotoPress("after", {
-                                        appointmentServiceId: detail.entry.id,
-                                        useLegacyFallback: false,
-                                      })
-                                    }
-                                  />
+                                <View
+                                  style={[
+                                    styles.servicePhotoThumbWrap,
+                                    { marginLeft: 8 },
+                                  ]}
+                                >
+                                  {afterPhoto ? (
+                                    <ImageWithDownload
+                                      uri={afterPhoto}
+                                      style={styles.servicePhotoThumb}
+                                      disableDefaultOptions
+                                      onPress={() =>
+                                        handlePhotoPress("after", {
+                                          appointmentServiceId: detail.entry.id,
+                                          useLegacyFallback: false,
+                                        })
+                                      }
+                                    />
+                                  ) : (
+                                    <TouchableOpacity
+                                      style={
+                                        styles.servicePhotoThumbPlaceholder
+                                      }
+                                      onPress={() =>
+                                        handlePhotoPress("after", {
+                                          appointmentServiceId: detail.entry.id,
+                                          useLegacyFallback: false,
+                                        })
+                                      }
+                                    >
+                                      <Text
+                                        style={styles.servicePhotoThumbPlus}
+                                      >
+                                        +
+                                      </Text>
+                                      <Text
+                                        style={styles.servicePhotoThumbLabel}
+                                      >
+                                        {t("appointmentDetail.after")}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  )}
                                   {uploadingPhoto?.type === "after" &&
                                     uploadingPhoto?.appointmentServiceId ===
                                       detail.entry.id && (
@@ -1175,41 +1357,18 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                                         <ActivityIndicator color="#fff" />
                                       </View>
                                     )}
-                                </>
-                              ) : (
-                                <TouchableOpacity
-                                  style={styles.servicePhotoThumbPlaceholder}
-                                  onPress={() =>
-                                    handlePhotoPress("after", {
-                                      appointmentServiceId: detail.entry.id,
-                                      useLegacyFallback: false,
-                                    })
-                                  }
-                                >
-                                  <Text
-                                    style={styles.servicePhotoThumbPlus}
-                                  >
-                                    +
-                                  </Text>
-                                  <Text
-                                    style={styles.servicePhotoThumbLabel}
-                                  >
-                                    {t("appointmentDetail.after")}
-                                  </Text>
-                                </TouchableOpacity>
-                              )}
+                                </View>
+                              </View>
+                              <Text
+                                style={[
+                                  styles.serviceDetailPrice,
+                                  { marginTop: 8 },
+                                ]}
+                              >
+                                €{detail.total.toFixed(2)}
+                              </Text>
                             </View>
-                          </View>
-                          <Text
-                            style={[
-                              styles.serviceDetailPrice,
-                              { marginTop: 8 },
-                            ]}
-                          >
-                            €{detail.total.toFixed(2)}
-                          </Text>
-                        </View>
-                      ) : null}
+                          ) : null}
                         </View>
                       );
                     })}
@@ -1599,7 +1758,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       paddingHorizontal: 12,
       paddingVertical: 6,
       borderRadius: 20,
-      borderWidth: 1.5,
+      borderWidth: 1,
       gap: 6,
     },
     statusDot: {
@@ -1610,6 +1769,22 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     statusBadgeText: {
       fontSize: 13,
       fontWeight: "700",
+    },
+    heroRecurrenceBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      backgroundColor: `${colors.primary}14`,
+    },
+    heroRecurrenceText: {
+      color: colors.primary,
+      fontWeight: "700",
+      fontSize: 13,
     },
     paymentBadge: {
       paddingHorizontal: 12,

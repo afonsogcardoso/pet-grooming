@@ -9,6 +9,12 @@ export type Appointment = {
   payment_status?: string | null;
   status?: string | null;
   reminder_offsets?: number[] | null;
+  recurrence_rule?: string | null;
+  recurrence_until?: string | null;
+  recurrence_count?: number | null;
+  recurrence_timezone?: string | null;
+  series_id?: string | null;
+  series_occurrence?: string | null;
   public_token?: string | null;
   amount?: number | null;
   before_photo_url?: string | null;
@@ -91,6 +97,11 @@ export type CreateAppointmentPayload = {
   status?: string | null;
   amount?: number | null;
   reminder_offsets?: number[] | null;
+  recurrence_rule?: string | null;
+  recurrence_until?: string | null;
+  recurrence_count?: number | null;
+  recurrence_timezone?: string | null;
+  update_scope?: "single" | "future";
 };
 
 type CreateAppointmentResponse = {
@@ -203,4 +214,15 @@ export async function deleteAppointment(id: string): Promise<void> {
 
 export async function deleteAppointmentPhoto(photoId: string): Promise<void> {
   await api.delete(`/appointments/photos/${photoId}`);
+}
+
+export async function getSeriesOccurrences(seriesId: string): Promise<Appointment[]> {
+  const { data } = await api.get<{ data: Appointment[] }>(`/appointments/series/${seriesId}/occurrences`);
+  return data.data || [];
+}
+
+export async function deleteSeriesOccurrences(seriesId: string, fromDate?: string) {
+  await api.post(`/appointments/series/${seriesId}/delete`, {
+    from_date: fromDate,
+  });
 }

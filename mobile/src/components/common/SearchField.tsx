@@ -1,9 +1,9 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useRef } from "react";
 import {
-  View,
   TextInput,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
   StyleProp,
   ViewStyle,
   TextStyle,
@@ -36,11 +36,16 @@ export function SearchField({
 }: SearchFieldProps) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const inputRef = useRef<TextInput>(null);
 
   return (
-    <View style={[styles.container, containerStyle]}>
+    <Pressable
+      style={[styles.container, containerStyle]}
+      onPress={() => inputRef.current?.focus()}
+    >
       <Ionicons name="search" size={SEARCH_ICON_SIZE} color={colors.muted} />
       <TextInput
+        ref={inputRef}
         style={[styles.input, inputStyle]}
         value={value}
         onChangeText={onChangeText}
@@ -65,7 +70,7 @@ export function SearchField({
           />
         </TouchableOpacity>
       ) : null}
-    </View>
+    </Pressable>
   );
 }
 

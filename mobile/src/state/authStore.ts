@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { clearProfileCache } from './profileCache';
 import { useViewModeStore } from './viewModeStore';
+import { resetTokenCache } from '../api/tokenCache';
+import { resetQueryClient } from './queryClient';
 
 type AuthState = {
   token: string | null;
@@ -48,6 +50,8 @@ export const useAuthStore = create<AuthState>()((set) => ({
   },
   setUser: (user) => set({ user }),
   clear: async () => {
+    resetTokenCache();
+    await resetQueryClient();
     await SecureStore.deleteItemAsync('authToken');
     await SecureStore.deleteItemAsync('refreshToken');
     await clearProfileCache();

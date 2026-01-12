@@ -17,6 +17,8 @@ const APPOINTMENT_CONFIRM_SELECT = `
   appointment_date,
   appointment_time,
   duration,
+  series_id,
+  series_occurrence,
   notes,
   status,
   payment_status,
@@ -37,6 +39,8 @@ const APPOINTMENT_DETAIL_SELECT = `
   appointment_date,
   appointment_time,
   duration,
+  series_id,
+  series_occurrence,
   notes,
   payment_status,
   status,
@@ -72,12 +76,65 @@ const APPOINTMENT_DETAIL_SELECT = `
     created_at
   )
 `
+const APPOINTMENT_RECURRENCE_SELECT = `
+  id,
+  appointment_date,
+  appointment_time,
+  duration,
+  notes,
+  payment_status,
+  status,
+  reminder_offsets,
+  recurrence_rule,
+  recurrence_count,
+  recurrence_until,
+  recurrence_timezone,
+  series_id,
+  series_occurrence,
+  account_id,
+  customer_id,
+  appointment_services (
+    id,
+    service_id,
+    pet_id,
+    price_tier_id,
+    price_tier_label,
+    price_tier_price,
+    appointment_service_addons (
+      id,
+      service_addon_id
+    )
+  )
+`
 const PET_PHOTO_BUCKET = 'pets'
 const APPOINTMENT_PHOTO_BUCKET = 'appointments'
 const REMINDER_WINDOW_MINUTES = 10
 const REMINDER_MAX_OFFSET_MINUTES = 1440
 const REMINDER_EXCLUDED_STATUSES = new Set(['cancelled', 'completed', 'in_progress'])
 const DEFAULT_REMINDER_OFFSETS = [30]
+const MAX_RECURRENCE_OCCURRENCES = 26 // safety limit so we don't explode inserts
+const ALLOWED_APPOINTMENT_FIELDS = new Set([
+  'appointment_date',
+  'appointment_time',
+  'duration',
+  'notes',
+  'status',
+  'payment_status',
+  'payment_method',
+  'payment_amount',
+  'amount',
+  'customer_id',
+  'account_id',
+  'before_photo_url',
+  'after_photo_url',
+  'public_token',
+  'confirmation_opened_at',
+  'whatsapp_sent_at',
+  'source',
+  'reminder_offsets',
+  'series_id',
+  'series_occurrence'
+])
 
 function formatAppointmentDateTime(appointment) {
   if (!appointment) return ''
@@ -100,6 +157,69 @@ function normalizeReminderOffsets(value, fallback = DEFAULT_REMINDER_OFFSETS) {
 function formatLocalDate(value) {
   if (!value) return null
   return value.toLocaleDateString('sv-SE')
+}
+
+function addDays(baseDate, days) {
+  const copy = new Date(baseDate)
+  copy.setDate(copy.getDate() + days)
+  return copy
+}
+
+function addMonths(baseDate, months) {
+  const copy = new Date(baseDate)
+  copy.setMonth(copy.getMonth() + months)
+  return copy
+}
+
+function parseRecurrenceRule(rule) {
+  if (!rule || typeof rule !== 'string') return null
+  const freqMatch = rule.match(/FREQ=([A-Z]+)/)
+  const intervalMatch = rule.match(/INTERVAL=(\d+)/)
+  const freq = freqMatch?.[1]?.toUpperCase()
+  const interval = Number.parseInt(intervalMatch?.[1] || '1', 10)
+  if (!freq) return null
+  if (!['WEEKLY', 'MONTHLY'].includes(freq)) return null
+  return {
+    freq,
+    interval: Number.isFinite(interval) && interval > 0 ? interval : 1
+  }
+}
+
+function buildRecurrenceDates({
+  startDate,
+  rule,
+  count,
+  until
+}) {
+  const parsedRule = parseRecurrenceRule(rule)
+  if (!parsedRule) return [startDate]
+
+  const base = new Date(`${startDate}T00:00:00`)
+  if (Number.isNaN(base.getTime())) return [startDate]
+
+  const safeCount = Number.isFinite(Number(count)) ? Math.max(1, Number(count)) : null
+  const untilDate = until ? new Date(`${until}T23:59:59`) : null
+
+  const occurrences = [startDate]
+  let cursor = new Date(base)
+
+  const maxOccurrences = safeCount || MAX_RECURRENCE_OCCURRENCES
+
+  while (occurrences.length < maxOccurrences) {
+    if (parsedRule.freq === 'WEEKLY') {
+      cursor = addDays(cursor, 7 * parsedRule.interval)
+    } else if (parsedRule.freq === 'MONTHLY') {
+      cursor = addMonths(cursor, parsedRule.interval)
+    }
+
+    const nextDate = formatLocalDate(cursor)
+    if (!nextDate) break
+    if (untilDate && cursor > untilDate) break
+
+    occurrences.push(nextDate)
+  }
+
+  return occurrences.slice(0, MAX_RECURRENCE_OCCURRENCES)
 }
 
 function normalizeTimeString(value) {
@@ -279,6 +399,34 @@ async function applyServiceSelections({ supabase, appointmentId, selections }) {
   }
 }
 
+function buildSelectionsFromAppointment(appointment) {
+  if (!appointment || !Array.isArray(appointment.appointment_services)) return []
+  return appointment.appointment_services
+    .map((entry) => {
+      if (!entry) return null
+      const addonIds =
+        Array.isArray(entry.appointment_service_addons) && entry.appointment_service_addons.length > 0
+          ? entry.appointment_service_addons
+              .map((addon) => addon?.service_addon_id)
+              .filter(Boolean)
+          : null
+      return {
+        service_id: entry.service_id,
+        pet_id: entry.pet_id,
+        price_tier_id: entry.price_tier_id,
+        price_tier_label: entry.price_tier_label,
+        price_tier_price: entry.price_tier_price,
+        addon_ids: addonIds,
+        has_tier_field:
+          entry.price_tier_id != null ||
+          entry.price_tier_label != null ||
+          entry.price_tier_price != null,
+        has_addon_field: Boolean(addonIds && addonIds.length > 0),
+      }
+    })
+    .filter((selection) => Boolean(selection?.service_id))
+}
+
 function formatIcsDateUtc(date) {
   const pad = (n) => String(n).padStart(2, '0')
   return (
@@ -348,6 +496,8 @@ router.get('/', async (req, res) => {
       public_token,
       confirmation_opened_at,
       whatsapp_sent_at,
+      series_id,
+      series_occurrence,
       customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 ),
       appointment_services (
         id,
@@ -391,6 +541,64 @@ router.get('/', async (req, res) => {
   const nextOffset = data.length === limit ? offset + limit : null
 
   res.json({ data: (data || []).map(mapAppointmentForApi), meta: { nextOffset } })
+})
+
+// List occurrences for a given series
+router.get('/series/:seriesId/occurrences', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+  const { seriesId } = req.params
+  if (!seriesId) return res.status(400).json({ error: 'missing_series_id' })
+
+  try {
+    let query = supabase
+      .from('appointments')
+      .select(APPOINTMENT_DETAIL_SELECT)
+      .eq('series_id', seriesId)
+      .order('appointment_date', { ascending: true })
+      .order('appointment_time', { ascending: true })
+
+    if (accountId) query = query.eq('account_id', accountId)
+
+    const { data, error } = await query
+    if (error) {
+      console.error('[api] list series occurrences error', error)
+      const status = statusFromSupabaseError(error)
+      return res.status(status).json({ error: error.message })
+    }
+    return res.json({ data: (data || []).map(mapAppointmentForApi) })
+  } catch (err) {
+    console.error('[api] list series occurrences unexpected', err)
+    return res.status(500).json({ error: 'internal_error' })
+  }
+})
+
+router.post('/series/:seriesId/delete', async (req, res) => {
+  const accountId = req.accountId
+  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
+  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+  const { seriesId } = req.params
+  const { from_date: fromDate } = req.body || {}
+  if (!seriesId) return res.status(400).json({ error: 'missing_series_id' })
+
+  try {
+    let query = supabase.from('appointments').delete().eq('series_id', seriesId)
+    if (accountId) query = query.eq('account_id', accountId)
+    if (fromDate) {
+      query = query.gte('appointment_date', fromDate)
+    }
+    const { error } = await query
+    if (error) {
+      console.error('[api] delete series occurrences error', error)
+      const status = statusFromSupabaseError(error)
+      return res.status(status).json({ error: error.message })
+    }
+    return res.json({ ok: true })
+  } catch (err) {
+    console.error('[api] delete series occurrences unexpected', err)
+    return res.status(500).json({ error: 'internal_error' })
+  }
 })
 
 // Upload appointment photo (before/after) scoped to appointment x service x pet
@@ -602,11 +810,21 @@ router.post('/', async (req, res) => {
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
   const supabaseAdmin = getSupabaseServiceRoleClient() || supabase
-  const payload = { ...(req.body || {}) }
-  const serviceSelections = payload.service_selections
+  const raw = { ...(req.body || {}) }
+  const recurrenceRule = raw.recurrence_rule || null
+  const recurrenceCount = raw.recurrence_count || null
+  const recurrenceUntil = raw.recurrence_until || null
+  const recurrenceTimezone = raw.recurrence_timezone || null
+  const serviceSelections = raw.service_selections
   const normalizedSelections = normalizeServiceSelections(serviceSelections)
-  delete payload.service_ids
-  delete payload.service_selections
+
+  // Whitelist only appointment columns to avoid passing unknown fields to Supabase
+  const payload = {}
+  for (const key of Object.keys(raw)) {
+    if (ALLOWED_APPOINTMENT_FIELDS.has(key)) {
+      payload[key] = raw[key]
+    }
+  }
 
   if (accountId) {
     payload.account_id = accountId
@@ -619,24 +837,58 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'pet_required' })
   }
 
-  const { data: appointment, error } = await supabase.from('appointments').insert(payload).select().single()
+  const occurrenceDates =
+    recurrenceRule && payload.appointment_date
+      ? buildRecurrenceDates({
+        startDate: payload.appointment_date,
+        rule: recurrenceRule,
+        count: recurrenceCount,
+        until: recurrenceUntil
+      })
+      : [payload.appointment_date]
 
-  if (error) {
-    console.error('[api] create appointment error', error)
-    return res.status(500).json({ error: error.message })
+  const createdAppointments = []
+  let seriesId = null
+
+  if (recurrenceRule) {
+    const { data: series, error: seriesError } = await supabaseAdmin
+      .from('appointment_series')
+      .insert({
+        account_id: payload.account_id || accountId || null,
+        recurrence_rule: recurrenceRule,
+        recurrence_count: recurrenceCount || null,
+        recurrence_until: recurrenceUntil || null,
+        start_date: payload.appointment_date,
+        start_time: payload.appointment_time || null,
+        duration: payload.duration || null,
+        notes: payload.notes || null,
+        timezone: recurrenceTimezone || null,
+        status: 'active'
+      })
+      .select('id')
+      .maybeSingle()
+
+    if (seriesError) {
+      console.error('[api] create appointment series error', seriesError)
+      const status = statusFromSupabaseError(seriesError) || 500
+      return res.status(status).json({ error: seriesError.message })
+    }
+    seriesId = series?.id || null
   }
 
-  // Insert appointment services if provided
-  if (appointment) {
+  const createAppointmentWithSelections = async (appointmentPayload) => {
+    const { data: appointment, error } = await supabase.from('appointments').insert(appointmentPayload).select().single()
+
+    if (error) {
+      console.error('[api] create appointment error', error)
+      throw error
+    }
+
     const appointmentServices = normalizedSelections.map((selection) => ({
       appointment_id: appointment.id,
       service_id: selection.service_id,
       pet_id: selection.pet_id || null
     }))
-
-    if (appointmentServices.length === 0) {
-      return res.status(400).json({ error: 'service_selections_required' })
-    }
 
     const { error: servicesError } = await supabase
       .from('appointment_services')
@@ -644,7 +896,7 @@ router.post('/', async (req, res) => {
 
     if (servicesError) {
       console.error('[api] create appointment services error', servicesError)
-      return res.status(500).json({ error: servicesError.message })
+      throw servicesError
     }
 
     await applyServiceSelections({
@@ -672,14 +924,41 @@ router.post('/', async (req, res) => {
         }).catch((error) => console.error('[api] push notification error', error))
       }
     }
+
+    return appointment
   }
 
-  let responseAppointment = appointment
-  if (appointment?.id) {
+  try {
+    for (const date of occurrenceDates) {
+      const appointmentPayload = {
+        ...payload,
+        appointment_date: date,
+        series_id: seriesId,
+        series_occurrence: date
+      }
+      const created = await createAppointmentWithSelections(appointmentPayload)
+      createdAppointments.push(created)
+    }
+  } catch (err) {
+    // Attempt cleanup if any were created before failing
+    const createdIds = createdAppointments.map((apt) => apt.id).filter(Boolean)
+    if (createdIds.length > 0) {
+      await supabase.from('appointments').delete().in('id', createdIds)
+      await supabase.from('appointment_services').delete().in('appointment_id', createdIds)
+    }
+    if (seriesId) {
+      await supabase.from('appointment_series').delete().eq('id', seriesId)
+    }
+    const status = statusFromSupabaseError(err) || 500
+    return res.status(status).json({ error: err?.message || 'create_error' })
+  }
+
+  let responseAppointment = createdAppointments[0]
+  if (responseAppointment?.id) {
     const { data: refreshed, error: refreshError } = await supabase
       .from('appointments')
       .select(APPOINTMENT_DETAIL_SELECT)
-      .eq('id', appointment.id)
+      .eq('id', responseAppointment.id)
       .maybeSingle()
     if (refreshError) {
       console.error('[api] reload appointment error', refreshError)
@@ -688,7 +967,10 @@ router.post('/', async (req, res) => {
     }
   }
 
-  res.status(201).json({ data: mapAppointmentForApi(responseAppointment) })
+  res.status(201).json({
+    data: mapAppointmentForApi(responseAppointment),
+    meta: { created: createdAppointments.length, series_id: seriesId }
+  })
 })
 
 // Public: fetch appointment details for confirmation
@@ -819,8 +1101,12 @@ router.patch('/:id', async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
+  const supabaseAdmin = getSupabaseServiceRoleClient() || supabase
   const { id } = req.params
   const payload = req.body || {}
+  const updateScope = payload.update_scope || "future"
+  const scopeSingle = updateScope === "single"
+  delete payload.update_scope
   const serviceSelections = payload.service_selections
   const normalizedSelections = normalizeServiceSelections(serviceSelections)
   delete payload.service_selections
@@ -845,6 +1131,10 @@ router.patch('/:id', async (req, res) => {
     'appointment_time',
     'customer_id',
     'reminder_offsets',
+    'recurrence_rule',
+    'recurrence_count',
+    'recurrence_until',
+    'recurrence_timezone',
   ]
 
   const updates = {}
@@ -854,9 +1144,25 @@ router.patch('/:id', async (req, res) => {
 
   const shouldUpdateAppointment = Object.keys(updates).length > 0
   const shouldUpdateServices = normalizedSelections.length > 0
+  const servicesChanged = shouldUpdateServices
 
   if (!shouldUpdateAppointment && !shouldUpdateServices) {
     return res.status(400).json({ error: 'No fields to update' })
+  }
+
+  let previousAppointment = null
+  {
+    let prevQuery = supabase.from('appointments').select(APPOINTMENT_RECURRENCE_SELECT).eq('id', id)
+    if (accountId) prevQuery = prevQuery.eq('account_id', accountId)
+    const { data: prevData, error: prevError } = await prevQuery.maybeSingle()
+    if (prevError) {
+      console.error('[api] load appointment error', prevError)
+      return res.status(500).json({ error: prevError.message })
+    }
+    if (!prevData) {
+      return res.status(404).json({ error: 'Not found' })
+    }
+    previousAppointment = prevData
   }
 
   let appointment = null
@@ -866,19 +1172,7 @@ router.patch('/:id', async (req, res) => {
       query = query.eq('account_id', accountId)
     }
 
-    const { data, error } = await query.select(
-      `
-      id,
-      appointment_date,
-      appointment_time,
-      duration,
-      notes,
-      payment_status,
-      status,
-      reminder_offsets,
-  customers ( id, first_name, last_name, phone, phone_country_code, phone_number, address, address_2 )
-    `
-    ).single()
+    const { data, error } = await query.select(APPOINTMENT_RECURRENCE_SELECT).single()
 
     if (error) {
       console.error('[api] update appointment error', error)
@@ -887,28 +1181,11 @@ router.patch('/:id', async (req, res) => {
 
     appointment = data
   } else {
-    let authQuery = supabase.from('appointments').select('id').eq('id', id).maybeSingle()
-    if (accountId) {
-      authQuery = authQuery.eq('account_id', accountId)
-    }
-    const { data: existing, error: loadError } = await authQuery
-    if (loadError) {
-      console.error('[api] load appointment error', loadError)
-      return res.status(500).json({ error: loadError.message })
-    }
-    if (!existing) {
-      return res.status(404).json({ error: 'Not found' })
-    }
+    appointment = previousAppointment
   }
 
   // Update appointment services if provided
   if (shouldUpdateServices) {
-    // Preserve existing appointment_service IDs when possible so photos linked
-    // to them do not become orphaned. Strategy:
-    // 1. Load existing rows for this appointment
-    // 2. Insert any missing rows for requested selections
-    // 3. Delete rows that are no longer requested
-
     const { data: existingServices, error: existingErr } = await supabase
       .from('appointment_services')
       .select('id,service_id,pet_id')
@@ -920,10 +1197,10 @@ router.patch('/:id', async (req, res) => {
     }
 
     const existingMap = new Map()
-      ; (existingServices || []).forEach((row) => {
-        const key = `${row.service_id || ''}:${row.pet_id || ''}`
-        existingMap.set(key, row.id)
-      })
+    ;(existingServices || []).forEach((row) => {
+      const key = `${row.service_id || ''}:${row.pet_id || ''}`
+      existingMap.set(key, row.id)
+    })
 
     const desiredKeys = new Set()
     const toInsert = []
@@ -943,7 +1220,6 @@ router.patch('/:id', async (req, res) => {
       }
     }
 
-    // Delete any existing rows that are not present in desiredKeys
     const toDeleteIds = (existingServices || []).filter((row) => {
       const key = `${row.service_id || ''}:${row.pet_id || ''}`
       return !desiredKeys.has(key)
@@ -958,9 +1234,316 @@ router.patch('/:id', async (req, res) => {
     }
 
     await applyServiceSelections({ supabase, appointmentId: id, selections: serviceSelections })
+
+    const { data: refreshedAfterServices, error: serviceRefreshError } = await supabase
+      .from('appointments')
+      .select(APPOINTMENT_RECURRENCE_SELECT)
+      .eq('id', id)
+      .maybeSingle()
+
+    if (serviceRefreshError) {
+      console.error('[api] reload appointment services error', serviceRefreshError)
+    } else if (refreshedAfterServices) {
+      appointment = refreshedAfterServices
+    }
   }
 
-  let responseAppointment = appointment
+  let updatedAppointment = appointment || previousAppointment
+  const previousSeriesId = previousAppointment?.series_id
+  let currentSeriesId = updatedAppointment?.series_id || previousSeriesId
+  const recurrenceCountValue = Number.isFinite(updatedAppointment?.recurrence_count ?? NaN)
+    ? updatedAppointment?.recurrence_count
+    : null
+  const recurrenceUntilValue = updatedAppointment?.recurrence_until || null
+  const recurrenceTimezoneValue = updatedAppointment?.recurrence_timezone || null
+  const recurrenceFieldsChanged =
+    (previousAppointment?.recurrence_rule ?? null) !== (updatedAppointment?.recurrence_rule ?? null) ||
+    (previousAppointment?.recurrence_count ?? null) !== (updatedAppointment?.recurrence_count ?? null) ||
+    (previousAppointment?.recurrence_until ?? null) !== (updatedAppointment?.recurrence_until ?? null) ||
+    (previousAppointment?.recurrence_timezone ?? null) !== (updatedAppointment?.recurrence_timezone ?? null)
+  const dateChanged =
+    (previousAppointment?.appointment_date ?? null) !== (updatedAppointment?.appointment_date ?? null)
+  const timeChanged =
+    (previousAppointment?.appointment_time ?? null) !== (updatedAppointment?.appointment_time ?? null)
+  const hasRule = Boolean(updatedAppointment?.recurrence_rule)
+  if (hasRule && !currentSeriesId && !scopeSingle) {
+    const startDate = updatedAppointment?.appointment_date
+    if (startDate) {
+      const { data: newSeries, error: seriesError } = await supabaseAdmin
+        .from('appointment_series')
+        .insert({
+          account_id: updatedAppointment.account_id || accountId || null,
+          recurrence_rule: updatedAppointment.recurrence_rule,
+          recurrence_count: recurrenceCountValue,
+          recurrence_until: recurrenceUntilValue,
+          start_date: startDate,
+          start_time: updatedAppointment.appointment_time || null,
+          duration: updatedAppointment.duration ?? null,
+          notes: updatedAppointment.notes ?? null,
+          timezone: recurrenceTimezoneValue || null,
+          status: 'active',
+        })
+        .select('id')
+        .maybeSingle()
+
+      if (seriesError) {
+        console.error('[api] create appointment series error', seriesError)
+        const status = statusFromSupabaseError(seriesError) || 500
+        return res.status(status).json({ error: seriesError.message || 'recurrence_series_create_failed' })
+      }
+
+      currentSeriesId = newSeries?.id || null
+      if (currentSeriesId) {
+        let assignSeriesQuery = supabase
+          .from('appointments')
+          .update({
+            series_id: currentSeriesId,
+            series_occurrence: updatedAppointment.appointment_date,
+          })
+          .eq('id', id)
+        if (accountId) assignSeriesQuery = assignSeriesQuery.eq('account_id', accountId)
+        const { data: assigned, error: assignError } = await assignSeriesQuery
+          .select(APPOINTMENT_RECURRENCE_SELECT)
+          .single()
+        if (assignError) {
+          console.error('[api] assign appointment series error', assignError)
+          const status = statusFromSupabaseError(assignError) || 500
+          return res.status(status).json({ error: assignError.message || 'recurrence_series_assign_failed' })
+        }
+        updatedAppointment = assigned
+      }
+    }
+  }
+
+  const needsRebuild =
+    !scopeSingle &&
+    currentSeriesId &&
+    hasRule &&
+    (recurrenceFieldsChanged ||
+      dateChanged ||
+      timeChanged ||
+      !previousSeriesId ||
+      servicesChanged)
+
+  if (needsRebuild) {
+    const baseDate = updatedAppointment?.appointment_date
+    const baseTime = updatedAppointment?.appointment_time || null
+
+    if (baseDate) {
+      const baseDateObj = new Date(`${baseDate}T00:00:00`)
+      if (!Number.isNaN(baseDateObj.getTime())) {
+        const fromDate = formatLocalDate(addDays(baseDateObj, 1))
+
+        const { error: seriesError } = await supabase
+          .from('appointment_series')
+          .update({
+            recurrence_rule: updatedAppointment.recurrence_rule,
+            recurrence_count: recurrenceCountValue,
+            recurrence_until: recurrenceUntilValue,
+            timezone: recurrenceTimezoneValue,
+            start_date: baseDate,
+            start_time: baseTime,
+            duration: updatedAppointment.duration ?? null,
+            notes: updatedAppointment.notes ?? null,
+            status: 'active',
+          })
+          .eq('id', currentSeriesId)
+
+        if (seriesError) {
+          console.error('[api] update appointment series error', seriesError)
+          const status = statusFromSupabaseError(seriesError) || 500
+          return res.status(status).json({
+            error: seriesError.message || 'recurrence_update_failed',
+          })
+        }
+
+        if (fromDate) {
+          let deleteQuery = supabase
+            .from('appointments')
+            .delete()
+            .eq('series_id', currentSeriesId)
+            .gte('appointment_date', fromDate)
+          if (accountId) deleteQuery = deleteQuery.eq('account_id', accountId)
+          const { error: deleteError } = await deleteQuery
+          if (deleteError) {
+            console.error('[api] delete series occurrences error', deleteError)
+            const status = statusFromSupabaseError(deleteError) || 500
+            return res.status(status).json({ error: deleteError.message })
+          }
+        }
+
+        const recurrenceDates = buildRecurrenceDates({
+          startDate: baseDate,
+          rule: updatedAppointment.recurrence_rule,
+          count: recurrenceCountValue,
+          until: recurrenceUntilValue,
+        })
+        const futureDates = recurrenceDates.slice(1)
+        let appointmentSnapshot = updatedAppointment
+        if (
+          !appointmentSnapshot?.appointment_services ||
+          appointmentSnapshot.appointment_services.length === 0
+        ) {
+          const { data: serviceRows, error: serviceRowsError } = await supabase
+            .from('appointment_services')
+            .select(`
+              id,
+              service_id,
+              pet_id,
+              price_tier_id,
+              price_tier_label,
+              price_tier_price,
+              appointment_service_addons (
+                id,
+                service_addon_id
+              )
+            `)
+            .eq('appointment_id', id)
+          if (serviceRowsError) {
+            console.error('[api] load appointment services error', serviceRowsError)
+          } else if (serviceRows && serviceRows.length > 0) {
+            appointmentSnapshot = {
+              ...(appointmentSnapshot || {}),
+              appointment_services: serviceRows,
+            }
+          }
+        }
+        const futureSelections = normalizeServiceSelections(
+          buildSelectionsFromAppointment(appointmentSnapshot || updatedAppointment)
+        )
+
+        if (futureDates.length > 0 && futureSelections.length > 0) {
+          const insertedAppointmentIds = []
+          const accountingId = updatedAppointment.account_id || accountId || null
+          const serviceIds = Array.from(
+            new Set(futureSelections.map((selection) => selection.service_id).filter(Boolean))
+          )
+
+          try {
+            for (const occurrenceDate of futureDates) {
+                const insertPayload = {
+                  account_id: accountingId,
+                  customer_id: updatedAppointment.customer_id || null,
+                  appointment_date: occurrenceDate,
+                  appointment_time: baseTime,
+                  duration: updatedAppointment.duration ?? null,
+                  notes: updatedAppointment.notes ?? null,
+                  status: 'scheduled',
+                  payment_status: 'unpaid',
+                  amount: updatedAppointment.amount ?? null,
+                  reminder_offsets: Array.isArray(updatedAppointment.reminder_offsets)
+                    ? updatedAppointment.reminder_offsets
+                    : null,
+                  recurrence_rule: updatedAppointment.recurrence_rule,
+                  recurrence_count: recurrenceCountValue,
+                  recurrence_until: recurrenceUntilValue,
+                  recurrence_timezone: recurrenceTimezoneValue,
+                  series_id: currentSeriesId,
+                  series_occurrence: occurrenceDate,
+                }
+
+              const { data: created, error: insertError } = await supabase
+                .from('appointments')
+                .insert(insertPayload)
+                .select('id')
+                .single()
+
+              if (insertError) throw insertError
+              if (!created?.id) continue
+
+              insertedAppointmentIds.push(created.id)
+
+              const appointmentServices = futureSelections.map((selection) => ({
+                appointment_id: created.id,
+                service_id: selection.service_id,
+                pet_id: selection.pet_id || null,
+              }))
+
+              if (appointmentServices.length > 0) {
+                const { error: servicesError } = await supabase
+                  .from('appointment_services')
+                  .insert(appointmentServices)
+
+                if (servicesError) throw servicesError
+
+                await applyServiceSelections({
+                  supabase,
+                  appointmentId: created.id,
+                  selections: futureSelections,
+                })
+              }
+            }
+          } catch (recurrenceError) {
+            if (insertedAppointmentIds.length > 0) {
+              await supabase.from('appointments').delete().in('id', insertedAppointmentIds)
+            }
+            console.error('[api] recreate series occurrences error', recurrenceError)
+            const status = statusFromSupabaseError(recurrenceError) || 500
+            return res.status(status).json({
+              error: recurrenceError?.message || 'recurrence_update_failed',
+            })
+          }
+        }
+      }
+    }
+  } else if (previousSeriesId && !hasRule) {
+    const baseDate = updatedAppointment?.appointment_date || previousAppointment?.appointment_date
+    if (previousSeriesId && baseDate) {
+      const baseDateObj = new Date(`${baseDate}T00:00:00`)
+      if (!Number.isNaN(baseDateObj.getTime())) {
+        const fromDate = formatLocalDate(addDays(baseDateObj, 1))
+        if (fromDate) {
+          let deleteQuery = supabase
+            .from('appointments')
+            .delete()
+            .eq('series_id', previousSeriesId)
+            .gte('appointment_date', fromDate)
+          if (accountId) deleteQuery = deleteQuery.eq('account_id', accountId)
+          const { error: deleteError } = await deleteQuery
+          if (deleteError) {
+            console.error('[api] delete series occurrences error', deleteError)
+            const status = statusFromSupabaseError(deleteError) || 500
+            return res.status(status).json({ error: deleteError.message })
+          }
+        }
+      }
+    }
+
+    let clearSeriesQuery = supabase
+      .from('appointments')
+      .update({
+        series_id: null,
+        series_occurrence: null,
+      })
+      .eq('id', id)
+    if (accountId) clearSeriesQuery = clearSeriesQuery.eq('account_id', accountId)
+    const { error: clearSeriesError } = await clearSeriesQuery
+    if (clearSeriesError) {
+      console.error('[api] clear appointment series reference error', clearSeriesError)
+      const status = statusFromSupabaseError(clearSeriesError) || 500
+      return res.status(status).json({ error: clearSeriesError.message })
+    }
+
+    updatedAppointment = {
+      ...(updatedAppointment || {}),
+      series_id: null,
+      series_occurrence: null,
+    }
+
+    let deleteSeriesQuery = supabase
+      .from('appointment_series')
+      .delete()
+      .eq('id', previousSeriesId)
+    if (accountId) deleteSeriesQuery = deleteSeriesQuery.eq('account_id', accountId)
+    const { error: seriesDeleteError } = await deleteSeriesQuery
+    if (seriesDeleteError) {
+      console.error('[api] delete appointment series error', seriesDeleteError)
+      const status = statusFromSupabaseError(seriesDeleteError) || 500
+      return res.status(status).json({ error: seriesDeleteError.message })
+    }
+  }
+
+  let responseAppointment = updatedAppointment
   let refreshQuery = supabase
     .from('appointments')
     .select(APPOINTMENT_DETAIL_SELECT)
