@@ -13,7 +13,7 @@ const DEFAULT_BRANDING = {
   brand_accent: '#f4d58d',
   brand_accent_soft: '#fdf6de',
   brand_background: '#f6f9f8',
-  brand_gradient: 'linear-gradient(135deg, #1F6FEB, #144FA1)',
+  brand_gradient: 'linear-gradient(135deg, #4fafa9, #f4d58d)',
   logo_url: null,
   portal_image_url: null,
   support_email: null,

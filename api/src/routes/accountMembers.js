@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import crypto from 'crypto'
 import { getSupabaseServiceRoleClient } from '../authClient.js'
+import { parseAvailableRoles, mergeAvailableRoles } from '../utils/user.js'
 import { sanitizeBody } from '../utils/payload.js'
 
 const router = Router()
@@ -279,6 +280,26 @@ router.post('/members/invite', async (req, res) => {
           },
           { onConflict: 'id' }
         )
+    }
+
+    // Ensure invited user has 'provider' in available_roles
+    try {
+      const { data: adminUserData, error: adminUserError } = await supabaseAdmin.auth.admin.getUserById(userId)
+      if (!adminUserError && adminUserData?.user) {
+        const existingMeta = adminUserData.user.user_metadata || {}
+        const currentRoles = parseAvailableRoles(existingMeta.available_roles)
+        const merged = mergeAvailableRoles(currentRoles, 'provider')
+        if (JSON.stringify(merged) !== JSON.stringify(currentRoles)) {
+          await supabaseAdmin.auth.admin.updateUserById(userId, {
+            user_metadata: {
+              ...(existingMeta || {}),
+              available_roles: merged
+            }
+          })
+        }
+      }
+    } catch (err) {
+      console.error('[invite] ensure available_roles error', err)
     }
 
     const { data: existingMember } = await supabaseAdmin
