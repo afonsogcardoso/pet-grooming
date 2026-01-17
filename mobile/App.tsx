@@ -14,6 +14,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import {
   QueryClientProvider,
   useQuery,
+  useQueryClient,
 } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -32,7 +33,7 @@ import AccountBrandingScreen from "./src/screens/account/AccountBrandingScreen";
 import AccountSettingsScreen from "./src/screens/account/AccountSettingsScreen";
 import TeamScreen from "./src/screens/account/TeamScreen";
 import AppointmentsScreen from "./src/screens/AppointmentsScreen";
-import NewAppointmentScreen from "./src/screens/NewAppointmentScreen";
+import NewAppointmentScreen from "./src/screens/appointments/NewAppointmentScreen";
 import AppointmentDetailScreen from "./src/screens/AppointmentDetailScreen";
 import CustomersScreen from "./src/screens/CustomersScreen";
 import CustomerDetailScreen from "./src/screens/CustomerDetailScreen";
@@ -51,8 +52,10 @@ import MarketplaceRequestScreen from "./src/screens/MarketplaceRequestScreen";
 import BillingScreen from "./src/screens/BillingScreen";
 import { useAuthStore } from "./src/state/authStore";
 import { useViewModeStore } from "./src/state/viewModeStore";
-import { Branding, getBranding } from "./src/api/branding";
+import { useAccountStore } from "./src/state/accountStore";
+import { Branding, brandingQueryKey } from "./src/api/branding";
 import { getProfile } from "./src/api/profile";
+import { getSessionBootstrap } from "./src/api/session";
 import {
   clearBrandingCache,
   readBrandingCache,
@@ -120,6 +123,7 @@ function extractAppointmentId(data: any) {
 }
 
 function ProviderTabs() {
+  const queryClient = useQueryClient();
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -127,6 +131,10 @@ function ProviderTabs() {
     queryKey: ["profile"],
     queryFn: getProfile,
     staleTime: 1000 * 60 * 5,
+    enabled: false, // rely on bootstrap to populate cache
+    initialData: () => queryClient.getQueryData(["profile"]),
+    initialDataUpdatedAt: () =>
+      queryClient.getQueryState(["profile"])?.dataUpdatedAt,
   });
   const membershipRole = useMemo(() => {
     const memberships = Array.isArray(profile?.memberships)
@@ -409,12 +417,14 @@ function ConsumerTabs() {
   );
 }
 
-export default function App() {
+function AppContent() {
   const navigationRef = useMemo(() => createNavigationContainerRef(), []);
   const pendingNavigationRef = useRef<{
     route: string;
     params: { id: string };
   } | null>(null);
+  const bootstrapInFlightRef = useRef<Set<string>>(new Set());
+  const lastBootstrapKeyRef = useRef<string | null>(null);
   const [brandingData, setBrandingData] = useState<Branding | null>(null);
   const [previousBranding, setPreviousBranding] = useState<Branding | null>(
     null
@@ -431,12 +441,13 @@ export default function App() {
   const token = useAuthStore((s) => s.token);
   const hydrated = useAuthStore((s) => s.hydrated);
   const storedActiveRole = useAuthStore((s) => s.user?.activeRole);
+  const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const viewMode = useViewModeStore((s) => s.viewMode);
   const viewModeHydrated = useViewModeStore((s) => s.hydrated);
   const brandingFade = useMemo(() => new Animated.Value(0), []);
   const loaderColors = useMemo(() => {
-    const primary = brandingData?.brand_primary || "#1F6FEB";
-    const background = brandingData?.brand_background || "#F6F9FF";
+    const primary = brandingData?.brand_primary || "#4fafa9";
+    const background = brandingData?.brand_background || "#f6f9f8";
     return { primary, background };
   }, [brandingData]);
 
@@ -479,6 +490,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    useAccountStore
+      .getState()
+      .hydrate()
+      .catch((err) => {
+        console.error("Failed to hydrate account store:", err);
+      });
+  }, []);
+
+  useEffect(() => {
     bootstrapLanguage().catch(() => null);
   }, []);
 
@@ -494,108 +514,108 @@ export default function App() {
 
   useEffect(() => {
     if (!hydrated || !token) return;
+    if (!activeAccountId) return;
 
     let cancelled = false;
-    setBrandingData(null);
 
     (async () => {
-      const cached = await readBrandingCache();
-      if (cached && !cancelled) {
-        queryClient.setQueryData(["branding"], cached);
-        setBrandingData(cached);
+      const [cachedBranding, cachedProfile] = await Promise.all([
+        readBrandingCache().catch(() => null),
+        readProfileCache().catch(() => null),
+      ]);
+
+      if (!cancelled && cachedBranding) {
+        const cacheKey = brandingQueryKey(
+          cachedBranding.account_id || cachedBranding.id || activeAccountId
+        );
+        queryClient.setQueryData(cacheKey, cachedBranding);
+        setBrandingData((current) => current ?? cachedBranding);
       }
 
-      try {
-        const fresh = await getBranding();
-        if (cancelled) return;
-        const shouldAnimate =
-          Boolean(brandingData) && !isBrandingEqual(brandingData, fresh);
-        if (shouldAnimate) {
-          setPreviousBranding(brandingData);
-          brandingFade.setValue(1);
-        }
-        queryClient.setQueryData(["branding"], fresh);
-        setBrandingData(fresh);
-        await writeBrandingCache(fresh);
-        if (shouldAnimate) {
-          Animated.timing(brandingFade, {
-            toValue: 0,
-            duration: 350,
-            useNativeDriver: true,
-          }).start(() => {
-            setPreviousBranding(null);
-          });
-        }
-      } catch (err: any) {
-        console.warn("Failed to load branding:", err?.message || err);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hydrated, token, queryClient]);
-
-  useEffect(() => {
-    if (!hydrated || !token) return;
-
-    let cancelled = false;
-    setProfileData(null);
-
-    (async () => {
-      const cached = await readProfileCache();
-      if (cached && !cancelled) {
-        setProfileData(cached);
+      if (!cancelled && cachedProfile) {
+        const cachedWithDefaults = {
+          ...cachedProfile,
+          memberships: (cachedProfile as any).memberships || [],
+        };
+        setProfileData(cachedWithDefaults);
         useAuthStore.getState().setUser({
-          email: cached.email,
-          displayName: cached.displayName,
-          avatarUrl: cached.avatarUrl,
-          firstName: cached.firstName,
-          lastName: cached.lastName,
-          activeRole: cached.activeRole,
+          email: cachedWithDefaults.email,
+          displayName: cachedWithDefaults.displayName,
+          avatarUrl: cachedWithDefaults.avatarUrl,
+          firstName: cachedWithDefaults.firstName,
+          lastName: cachedWithDefaults.lastName,
+          activeRole: cachedWithDefaults.activeRole,
         });
-        queryClient.setQueryData(["profile"], cached);
-        const cachedLocale = (cached as any).locale;
+        queryClient.setQueryData(["profile"], cachedWithDefaults);
+        const cachedLocale = (cachedWithDefaults as any).locale;
         if (cachedLocale) {
           setAppLanguage(cachedLocale);
         }
       }
 
+      const bootstrapKey = `${token}:${activeAccountId}`;
+      if (
+        lastBootstrapKeyRef.current === bootstrapKey &&
+        brandingData &&
+        profileData
+      ) {
+        return;
+      }
+      if (bootstrapInFlightRef.current.has(bootstrapKey)) return;
+      bootstrapInFlightRef.current.add(bootstrapKey);
+
       try {
-        const fresh = await getProfile();
+        const bootstrap = await getSessionBootstrap(activeAccountId || undefined);
         if (cancelled) return;
-        setProfileData(fresh);
-        useAuthStore.getState().setUser({
-          email: fresh.email,
-          displayName: fresh.displayName,
-          avatarUrl: fresh.avatarUrl,
-          firstName: fresh.firstName,
-          lastName: fresh.lastName,
-          activeRole: fresh.activeRole,
-        });
-        queryClient.setQueryData(["profile"], fresh);
-        await writeProfileCache({
-          email: fresh.email,
-          displayName: fresh.displayName,
-          avatarUrl: fresh.avatarUrl,
-          firstName: fresh.firstName,
-          lastName: fresh.lastName,
-          activeRole: fresh.activeRole,
-          availableRoles: fresh.availableRoles,
-        });
-        const freshLocale = (fresh as any).locale;
-        if (freshLocale) {
-          setAppLanguage(freshLocale);
+        const { profile, branding } = bootstrap;
+
+        if (branding) {
+          setBrandingData((current) =>
+            current && isBrandingEqual(current, branding) ? current : branding
+          );
+          queryClient.setQueryData(brandingQueryKey(activeAccountId), branding);
+          writeBrandingCache(branding).catch(() => null);
+        }
+
+        if (profile) {
+          setProfileData(profile as any);
+          useAuthStore.getState().setUser({
+            email: profile.email,
+            displayName: profile.displayName,
+            avatarUrl: profile.avatarUrl,
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            activeRole: profile.activeRole,
+          });
+          queryClient.setQueryData(["profile"], profile);
+          await writeProfileCache({
+            email: profile.email,
+            displayName: profile.displayName,
+            avatarUrl: profile.avatarUrl,
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            activeRole: profile.activeRole,
+            availableRoles: profile.availableRoles,
+            memberships: profile.memberships,
+            locale: (profile as any).locale,
+          });
+          const freshLocale = (profile as any).locale;
+          if (freshLocale) {
+            setAppLanguage(freshLocale);
+          }
         }
       } catch (err: any) {
-        console.warn("Failed to load profile:", err?.message || err);
+        console.warn("Failed to load session bootstrap:", err?.message || err);
+      } finally {
+        lastBootstrapKeyRef.current = bootstrapKey;
+        bootstrapInFlightRef.current.delete(bootstrapKey);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [hydrated, token, queryClient]);
+  }, [hydrated, token, activeAccountId, queryClient]);
 
   const activeRole = storedActiveRole ?? profileData?.activeRole ?? "provider";
   const appMode =
@@ -665,133 +685,137 @@ export default function App() {
     );
   }
 
-  const overlayBackground = previousBranding?.brand_background || "#F6F9FF";
+  const overlayBackground = previousBranding?.brand_background || "#f6f9f8";
   const statusBarBackground =
-    brandingData?.brand_background || overlayBackground || "#F6F9FF";
+    brandingData?.brand_background || overlayBackground || "#f6f9f8";
   const statusBarStyle = isLightColor(statusBarBackground) ? "dark" : "light";
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <NavigationContainer
-            key={appMode}
-            ref={navigationRef}
-            onReady={() => {
-              const pending = pendingNavigationRef.current;
-              if (pending && navigationRef.isReady()) {
-                pendingNavigationRef.current = null;
-                (navigationRef as any).navigate(pending.route, pending.params);
-              }
-            }}
-          >
-            <RootStack.Navigator screenOptions={{ headerShown: false }}>
-              {token ? (
-                appMode === "consumer" ? (
-                  <>
-                    <RootStack.Screen
-                      name="ConsumerTabs"
-                      component={ConsumerTabs}
-                    />
-                    <RootStack.Screen
-                      name="ConsumerAppointmentDetail"
-                      component={ConsumerAppointmentDetailScreen}
-                    />
-                    <RootStack.Screen
-                      name="ConsumerPetForm"
-                      component={ConsumerPetFormScreen}
-                    />
-                    <RootStack.Screen
-                      name="MarketplaceAccount"
-                      component={MarketplaceAccountScreen}
-                    />
-                    <RootStack.Screen
-                      name="MarketplaceRequest"
-                      component={MarketplaceRequestScreen}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <RootStack.Screen
-                      name="ProviderTabs"
-                      component={ProviderTabs}
-                    />
-                    <RootStack.Screen
-                      name="Customers"
-                      component={CustomersScreen}
-                    />
-                    <RootStack.Screen
-                      name="Services"
-                      component={ServicesScreen}
-                    />
-                    <RootStack.Screen
-                      name="Team"
-                      component={TeamScreen}
-                    />
-                    <RootStack.Screen
-                      name="AccountBranding"
-                      component={AccountBrandingScreen}
-                    />
-                    <RootStack.Screen name="Profile" component={ProfileScreen} />
-                    <RootStack.Screen
-                      name="NewAppointment"
-                      component={NewAppointmentScreen}
-                    />
-                    <RootStack.Screen
-                      name="AppointmentDetail"
-                      component={AppointmentDetailScreen}
-                    />
-                    <RootStack.Screen
-                      name="CustomerDetail"
-                      component={CustomerDetailScreen}
-                    />
-                    <RootStack.Screen
-                      name="CustomerForm"
-                      component={CustomerFormScreen}
-                    />
-                    <RootStack.Screen
-                      name="PetForm"
-                      component={PetFormScreen}
-                    />
-                    <RootStack.Screen
-                      name="ServiceForm"
-                      component={ServiceFormScreen}
-                    />
-                    <RootStack.Screen
-                      name="Billing"
-                      component={BillingScreen}
-                    />
-                  </>
-                )
-              ) : (
+        <NavigationContainer
+          key={appMode}
+          ref={navigationRef}
+          onReady={() => {
+            const pending = pendingNavigationRef.current;
+            if (pending && navigationRef.isReady()) {
+              pendingNavigationRef.current = null;
+              (navigationRef as any).navigate(pending.route, pending.params);
+            }
+          }}
+        >
+          <RootStack.Navigator screenOptions={{ headerShown: false }}>
+            {token ? (
+              appMode === "consumer" ? (
                 <>
-                  <RootStack.Screen name="Login" component={LoginScreen} />
                   <RootStack.Screen
-                    name="Register"
-                    component={RegisterScreen}
+                    name="ConsumerTabs"
+                    component={ConsumerTabs}
+                  />
+                  <RootStack.Screen
+                    name="ConsumerAppointmentDetail"
+                    component={ConsumerAppointmentDetailScreen}
+                  />
+                  <RootStack.Screen
+                    name="ConsumerPetForm"
+                    component={ConsumerPetFormScreen}
+                  />
+                  <RootStack.Screen
+                    name="MarketplaceAccount"
+                    component={MarketplaceAccountScreen}
+                  />
+                  <RootStack.Screen
+                    name="MarketplaceRequest"
+                    component={MarketplaceRequestScreen}
                   />
                 </>
-              )}
-            </RootStack.Navigator>
-          </NavigationContainer>
-          <StatusBar
-            style={statusBarStyle}
-            backgroundColor={statusBarBackground}
+              ) : (
+                <>
+                  <RootStack.Screen
+                    name="ProviderTabs"
+                    component={ProviderTabs}
+                  />
+                  <RootStack.Screen
+                    name="Customers"
+                    component={CustomersScreen}
+                  />
+                  <RootStack.Screen
+                    name="Services"
+                    component={ServicesScreen}
+                  />
+                  <RootStack.Screen name="Team" component={TeamScreen} />
+                  <RootStack.Screen
+                    name="AccountBranding"
+                    component={AccountBrandingScreen}
+                  />
+                  <RootStack.Screen
+                    name="Profile"
+                    component={ProfileScreen}
+                  />
+                  <RootStack.Screen
+                    name="NewAppointment"
+                    component={NewAppointmentScreen}
+                  />
+                  <RootStack.Screen
+                    name="AppointmentDetail"
+                    component={AppointmentDetailScreen}
+                  />
+                  <RootStack.Screen
+                    name="CustomerDetail"
+                    component={CustomerDetailScreen}
+                  />
+                  <RootStack.Screen
+                    name="CustomerForm"
+                    component={CustomerFormScreen}
+                  />
+                  <RootStack.Screen
+                    name="PetForm"
+                    component={PetFormScreen}
+                  />
+                  <RootStack.Screen
+                    name="ServiceForm"
+                    component={ServiceFormScreen}
+                  />
+                  <RootStack.Screen
+                    name="Billing"
+                    component={BillingScreen}
+                  />
+                </>
+              )
+            ) : (
+              <>
+                <RootStack.Screen name="Login" component={LoginScreen} />
+                <RootStack.Screen name="Register" component={RegisterScreen} />
+              </>
+            )}
+          </RootStack.Navigator>
+        </NavigationContainer>
+        <StatusBar style={statusBarStyle} backgroundColor={statusBarBackground} />
+        {previousBranding ? (
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+              backgroundColor: overlayBackground,
+              opacity: brandingFade,
+            }}
           />
-          {previousBranding ? (
-            <Animated.View
-              pointerEvents="none"
-              style={{
-                position: "absolute",
-                top: 0,
-                right: 0,
-                bottom: 0,
-                left: 0,
-                backgroundColor: overlayBackground,
-                opacity: brandingFade,
-              }}
-            />
-          ) : null}
+        ) : null}
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+export default function App() {
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <AppContent />
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

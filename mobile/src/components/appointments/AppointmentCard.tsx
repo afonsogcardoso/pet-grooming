@@ -29,6 +29,7 @@ import ImageWithDownload from "../common/ImageWithDownload";
 type Props = {
   appointment: Appointment;
   onPress?: (appointment: Appointment) => void;
+  showDatePrefix?: boolean;
 };
 
 function formatTime(value?: string | null) {
@@ -41,7 +42,25 @@ function formatTime(value?: string | null) {
   return value;
 }
 
-export default function AppointmentCard({ appointment, onPress }: Props) {
+function formatDateShort(value?: string | null) {
+  if (!value) return null;
+  try {
+    const date = new Date(`${value}T00:00:00`);
+    const formatted = date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+    });
+    return formatted.replace(/\s/, "/");
+  } catch {
+    return null;
+  }
+}
+
+export default function AppointmentCard({
+  appointment,
+  onPress,
+  showDatePrefix = false,
+}: Props) {
   const { t } = useTranslation();
   const { colors } = useBrandingTheme();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
@@ -114,6 +133,13 @@ export default function AppointmentCard({ appointment, onPress }: Props) {
   const hasMultiplePets = appointmentPets && appointmentPets.length > 1;
   const hasSinglePhoto = Boolean(primaryPetPhoto);
   const isSinglePlaceholder = !hasMultiplePets && !hasSinglePhoto;
+  const datePrefix =
+    showDatePrefix && appointment.appointment_date
+      ? formatDateShort(appointment.appointment_date)
+      : null;
+  const timeLabel = datePrefix
+    ? `${datePrefix} ${formatTime(appointment.appointment_time)}`
+    : formatTime(appointment.appointment_time);
 
   const petCount = appointmentPets ? appointmentPets.slice(0, 3).length : 0;
   const overlapRatio = 0.25; // overlap as proportion of avatar size
@@ -196,9 +222,7 @@ export default function AppointmentCard({ appointment, onPress }: Props) {
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.time}>
-          {formatTime(appointment.appointment_time)}
-        </Text>
+        <Text style={styles.time}>{timeLabel}</Text>
         <Text style={styles.service} numberOfLines={1}>
           {serviceNames.length > 0
             ? serviceNames.join(", ")

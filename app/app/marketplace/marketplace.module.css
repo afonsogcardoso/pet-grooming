@@ -1,13 +1,17 @@
 .pawmiTheme {
-  --brand-primary: #1f6feb;
+  --brand-primary: #4fafa9;
   --brand-primary-dark: #144fa1;
   --brand-primary-soft: #dce8ff;
   --brand-accent: #82b1ff;
   --brand-accent-soft: #e8f1ff;
   --brand-secondary: #0f172a;
   --brand-secondary-soft: #dce8ff;
-  --brand-surface: #f6f9ff;
-  --brand-gradient: linear-gradient(135deg, rgba(31, 111, 235, 0.95), rgba(20, 79, 161, 0.9));
+  --brand-surface: #f6f9f8;
+  --brand-gradient: linear-gradient(
+    135deg,
+    rgba(31, 111, 235, 0.95),
+    rgba(20, 79, 161, 0.9)
+  );
   --background: var(--brand-surface);
 }
 
@@ -18,14 +22,21 @@
 .page {
   position: relative;
   overflow: hidden;
-  background:
-    radial-gradient(70% 50% at 10% 0%, rgba(31, 111, 235, 0.18), transparent 60%),
-    radial-gradient(55% 45% at 85% 5%, rgba(130, 177, 255, 0.2), transparent 55%),
+  background: radial-gradient(
+      70% 50% at 10% 0%,
+      rgba(31, 111, 235, 0.18),
+      transparent 60%
+    ),
+    radial-gradient(
+      55% 45% at 85% 5%,
+      rgba(130, 177, 255, 0.2),
+      transparent 55%
+    ),
     var(--brand-surface);
 }
 
 .page::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: -20% 0 auto;
   height: 45rem;
@@ -40,11 +51,10 @@
 }
 
 .page::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
-  background-image:
-    linear-gradient(rgba(16, 20, 40, 0.04) 1px, transparent 1px),
+  background-image: linear-gradient(rgba(16, 20, 40, 0.04) 1px, transparent 1px),
     linear-gradient(90deg, rgba(16, 20, 40, 0.04) 1px, transparent 1px);
   background-size: 120px 120px;
   opacity: 0.35;

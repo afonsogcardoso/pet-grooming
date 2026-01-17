@@ -392,6 +392,8 @@
     "filterUnpaid": "Unpaid",
     "filterPending": "Pending confirmation ({{count}})",
     "newAppointment": "New appointment",
+    "searchPlaceholder": "Search appointments",
+    "searchResultsTitle": "Search results ({{count}})",
     "loadError": "Could not load appointments",
     "deleteTitle": "Delete appointment",
     "deleteMessage": "Are you sure?",

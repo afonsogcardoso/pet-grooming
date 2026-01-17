@@ -72,7 +72,7 @@ export function ServicePicker({
     },
     searchField: {
       backgroundColor: colors.background,
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderColor: colors.surfaceBorder,
       borderRadius: 12,
       minHeight: 52,
@@ -182,10 +182,7 @@ export function ServicePicker({
                   return (
                     <TouchableOpacity
                       key={service.id}
-                      style={[
-                        styles.option,
-                        isSelected && styles.optionActive,
-                      ]}
+                      style={[styles.option, isSelected && styles.optionActive]}
                       onPress={() => {
                         if (isSelected && allowClear) {
                           onSelect("");

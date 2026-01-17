@@ -4,7 +4,6 @@ import {
   View,
   Text,
   Image,
-  StyleSheet,
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
@@ -14,7 +13,11 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import Switch from "../components/StyledSwitch";
+import Stepper from "../../components/appointments/Stepper";
+import StepActions from "../../components/appointments/StepActions";
+import { BlurView } from "expo-blur";
+import { createStyles } from "./styles";
+import Switch from "../../components/StyledSwitch";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useRoute } from "@react-navigation/native";
 import {
@@ -24,39 +27,39 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { createAppointment, updateAppointment } from "../api/appointments";
-import { useAppointmentPhotos } from "../hooks/useAppointmentPhotos";
-import { getNotificationPreferences } from "../api/notifications";
-import type { Customer, Pet } from "../api/customers";
+import { createAppointment, updateAppointment } from "../../api/appointments";
+import { useAppointmentPhotos } from "../../hooks/useAppointmentPhotos";
+import { getNotificationPreferences } from "../../api/notifications";
+import type { Customer, Pet } from "../../api/customers";
 import {
   createCustomer,
   createPet,
   getCustomers,
   getPetsByCustomer,
   updateCustomer,
-} from "../api/customers";
+} from "../../api/customers";
 import {
   getServiceAddons,
   getServicePriceTiers,
   getServices,
-} from "../api/services";
-import { useBrandingTheme } from "../theme/useBrandingTheme";
-import { getCardVariants } from "../theme/uiTokens";
+} from "../../api/services";
+import { useBrandingTheme } from "../../theme/useBrandingTheme";
+import { getCardVariants } from "../../theme/uiTokens";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
-import { NewCustomerForm } from "../components/appointment/NewCustomerForm";
-import { ExistingCustomerForm } from "../components/appointment/ExistingCustomerForm";
+import { NewCustomerForm } from "../../components/appointment/NewCustomerForm";
+import { ExistingCustomerForm } from "../../components/appointment/ExistingCustomerForm";
 import {
   PetServiceRow,
   type ServiceRow,
-} from "../components/appointment/PetServiceRow";
-import { AutocompleteSelect } from "../components/common/AutocompleteSelect";
-import { DateTimePickerModal } from "../components/appointment/DateTimePickerModal";
-import { ScheduleSection } from "../components/appointment/ScheduleSection";
-import { ScreenHeader } from "../components/ScreenHeader";
+} from "../../components/appointment/PetServiceRow";
+import { AutocompleteSelect } from "../../components/common/AutocompleteSelect";
+import { DateTimePickerModal } from "../../components/appointment/DateTimePickerModal";
+import { ScheduleSection } from "../../components/appointment/ScheduleSection";
+import { ScreenHeader } from "../../components/ScreenHeader";
 import { useTranslation } from "react-i18next";
-import { hapticError, hapticSuccess } from "../utils/haptics";
-import { getDateLocale } from "../i18n";
-import { buildPhone } from "../utils/phone";
+import { hapticError, hapticSuccess } from "../../utils/haptics";
+import { getDateLocale } from "../../i18n";
+import { buildPhone } from "../../utils/phone";
 import {
   buildRecurrenceRule,
   currentLocalTime,
@@ -66,93 +69,32 @@ import {
   parseAmountInput,
   todayLocalISO,
   type RecurrenceFrequency,
-} from "../utils/appointments";
+} from "../../utils/appointments";
 import {
   formatCustomerAddress,
   formatCustomerName,
   getCustomerFirstName,
-} from "../utils/customer";
-import { getPetBreeds, getPetSpecies } from "../api/petAttributes";
+} from "../../utils/customer";
+import { getPetBreeds, getPetSpecies } from "../../api/petAttributes";
+import PetHeader from "./components/PetHeader";
+import PetCard from "./components/PetCard";
+import PetServices from "./components/PetServices";
+import useAppointmentForm from "./hooks/useAppointmentForm";
+import submitAppointment from "./hooks/useAppointmentSubmit";
+import {
+  isHexLight,
+  normalizeBaseUrl,
+  CONFIRMATION_BASE_URL,
+  buildConfirmationUrl,
+  parseRecurrenceFrequency,
+  createLocalId,
+  createServiceRow,
+  buildRowsFromAppointment,
+  type RowTotals,
+} from "./lib/helpers";
 
 type Props = NativeStackScreenProps<any>;
 
-function isHexLight(color?: string) {
-  if (!color || typeof color !== "string" || !color.startsWith("#"))
-    return false;
-  const hex = color.replace("#", "");
-  const expanded =
-    hex.length === 3
-      ? hex
-          .split("")
-          .map((c) => c + c)
-          .join("")
-      : hex;
-  if (expanded.length !== 6) return false;
-  const r = parseInt(expanded.slice(0, 2), 16);
-  const g = parseInt(expanded.slice(2, 4), 16);
-  const b = parseInt(expanded.slice(4, 6), 16);
-  if ([r, g, b].some((v) => Number.isNaN(v))) return false;
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.65;
-}
-
-function normalizeBaseUrl(value?: string | null) {
-  if (!value) return "";
-  return value.replace(/\/$/, "");
-}
-
-const CONFIRMATION_BASE_URL = (() => {
-  const candidates = [
-    process.env.EXPO_PUBLIC_SITE_URL,
-    process.env.EXPO_PUBLIC_WEB_URL,
-  ];
-  for (const candidate of candidates) {
-    const normalized = normalizeBaseUrl(candidate);
-    if (normalized) return normalized;
-  }
-  const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL;
-  if (apiBase) {
-    try {
-      const parsed = new URL(apiBase);
-      return parsed.origin;
-    } catch {
-      return normalizeBaseUrl(apiBase);
-    }
-  }
-  return "";
-})();
-
-function buildConfirmationUrl(appointment?: {
-  id?: string;
-  public_token?: string | null;
-}) {
-  if (!appointment?.id || !appointment?.public_token || !CONFIRMATION_BASE_URL)
-    return "";
-  const query = `id=${encodeURIComponent(
-    appointment.id
-  )}&token=${encodeURIComponent(appointment.public_token)}`;
-  return `${CONFIRMATION_BASE_URL}/appointments/confirm?${query}`;
-}
-
-function parseRecurrenceFrequency(
-  rule?: string | null
-): RecurrenceFrequency | null {
-  if (!rule) return null;
-  const freqMatch = rule.match(/FREQ=([A-Z]+)/i);
-  const intervalMatch = rule.match(/INTERVAL=(\d+)/i);
-  const freq = freqMatch?.[1]?.toUpperCase();
-  const interval = Number.parseInt(intervalMatch?.[1] || "1", 10);
-  if (freq === "WEEKLY") {
-    return interval === 2 ? "biweekly" : "weekly";
-  }
-  if (freq === "MONTHLY") {
-    return "monthly";
-  }
-  return null;
-}
-
-const REMINDER_PRESETS = [15, 30, 60, 120, 1440];
-const MAX_REMINDER_OFFSETS = 2;
 type DraftPet = {
   id: string;
   name: string;
@@ -160,101 +102,11 @@ type DraftPet = {
   speciesLabel: string;
   breedId: string | null;
   breed: string;
-  weight: string;
-};
-type RowTotals = {
-  price: number;
-  duration: number;
-  requiresTier: boolean;
+  weight?: string | number | null;
 };
 
-function createLocalId(prefix: string) {
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function createServiceRow(initial?: Partial<ServiceRow>): ServiceRow {
-  return {
-    id: initial?.id || createLocalId("row"),
-    serviceId: initial?.serviceId || "",
-    priceTierId: initial?.priceTierId || "",
-    tierSelectionSource: initial?.tierSelectionSource ?? null,
-    addonIds: initial?.addonIds || [],
-  };
-}
-
-function buildRowsFromAppointment(
-  appointmentData: any,
-  fallbackPetId: string | null = null
-): {
-  rowsByPet: Record<string, ServiceRow[]>;
-  petIds: string[];
-  totalsByRowId: Record<string, RowTotals>;
-} {
-  const rowsByPet: Record<string, ServiceRow[]> = {};
-  const petIds = new Set<string>();
-  const totalsByRowId: Record<string, RowTotals> = {};
-
-  if (
-    Array.isArray(appointmentData?.appointment_services) &&
-    appointmentData.appointment_services.length > 0
-  ) {
-    appointmentData.appointment_services.forEach((entry: any) => {
-      const petId = entry?.pet_id || entry?.pets?.id || fallbackPetId;
-      const serviceId = entry?.service_id || entry?.services?.id || "";
-      if (!petId || !serviceId) return;
-
-      petIds.add(petId);
-      const rowId = `${petId}-${serviceId}-${
-        entry?.id || createLocalId("svc")
-      }`;
-      const row = createServiceRow({
-        id: rowId,
-        serviceId,
-        priceTierId: entry?.price_tier_id || "",
-        tierSelectionSource: entry?.price_tier_id ? "stored" : null,
-        addonIds:
-          entry?.appointment_service_addons
-            ?.map((addon: any) => addon?.service_addon_id || addon?.id)
-            .filter(Boolean) || [],
-      });
-      rowsByPet[petId] = [...(rowsByPet[petId] || []), row];
-
-      const addonsTotal = Array.isArray(entry?.appointment_service_addons)
-        ? entry.appointment_service_addons.reduce(
-            (sum: number, addon: any) => sum + (addon?.price || 0),
-            0
-          )
-        : 0;
-      const basePrice = entry?.price_tier_price ?? entry?.services?.price ?? 0;
-      const duration =
-        entry?.duration ?? entry?.services?.default_duration ?? 0;
-      totalsByRowId[rowId] = {
-        price: (basePrice || 0) + (addonsTotal || 0),
-        duration: duration || 0,
-        requiresTier: false,
-      };
-    });
-  } else if (appointmentData?.services?.id) {
-    const petId = appointmentData?.pets?.id || fallbackPetId;
-    if (petId) {
-      petIds.add(petId);
-      rowsByPet[petId] = [
-        createServiceRow({
-          id: `${petId}-${appointmentData.services.id}`,
-          serviceId: appointmentData.services.id,
-          priceTierId: "",
-          tierSelectionSource: null,
-          addonIds: [],
-        }),
-      ];
-    }
-  } else if (fallbackPetId) {
-    petIds.add(fallbackPetId);
-    rowsByPet[fallbackPetId] = [createServiceRow()];
-  }
-
-  return { rowsByPet, petIds: Array.from(petIds), totalsByRowId };
-}
+const REMINDER_PRESETS = [15, 30, 60, 120, 1440];
+const MAX_REMINDER_OFFSETS = 5;
 
 function pickPrimaryPetId(
   appointmentData: any,
@@ -314,12 +166,51 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   );
   const [recurrenceCount, setRecurrenceCount] = useState("6");
   const [recurrenceUntil, setRecurrenceUntil] = useState("");
-  const [selectedCustomer, setSelectedCustomer] = useState("");
-  const [selectedPetIds, setSelectedPetIds] = useState<string[]>([]);
-  const [serviceRowsByPet, setServiceRowsByPet] = useState<
-    Record<string, ServiceRow[]>
-  >({});
-  const [rowTotals, setRowTotals] = useState<Record<string, RowTotals>>({});
+  const {
+    selectedCustomer,
+    setSelectedCustomer,
+    selectedPetIds,
+    setSelectedPetIds,
+    serviceRowsByPet,
+    setServiceRowsByPet,
+    rowTotals,
+    setRowTotals,
+    newPets,
+    setNewPets,
+    existingNewPets,
+    setExistingNewPets,
+    speciesOptions,
+    setSpeciesOptions,
+    defaultSpeciesId,
+    setDefaultSpeciesId,
+    defaultSpeciesLabel,
+    setDefaultSpeciesLabel,
+    loadingSpecies,
+    setLoadingSpecies,
+    breedOptionsBySpecies,
+    setBreedOptionsBySpecies,
+    loadingBreedSpeciesId,
+    setLoadingBreedSpeciesId,
+    showCustomerList,
+    setShowCustomerList,
+    showPetList,
+    setShowPetList,
+    handleSelectCustomer,
+    handleSelectPet,
+    togglePetSelection,
+    handleAddServiceRow,
+    handleRemoveServiceRow,
+    handleUpdateServiceRow,
+    handleRowTotalsChange,
+    handleSelectExistingPetSpecies,
+    handleSelectNewPetSpecies,
+    handleAddExistingPet,
+    handleRemoveExistingPet,
+    handleUpdateExistingPet,
+    handleAddNewPet,
+    handleRemoveNewPet,
+    handleUpdateNewPet,
+  } = useAppointmentForm();
   const [amountInput, setAmountInput] = useState("");
   const [amountEdited, setAmountEdited] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
@@ -336,22 +227,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   const [newCustomerNif, setNewCustomerNif] = useState("");
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const submitLockRef = useRef(false);
-  const [newPets, setNewPets] = useState<DraftPet[]>([createDraftPet()]);
-  const [existingNewPets, setExistingNewPets] = useState<DraftPet[]>([]);
-  const [speciesOptions, setSpeciesOptions] = useState<
-    { id: string; label: string }[]
-  >([]);
-  const [defaultSpeciesId, setDefaultSpeciesId] = useState<string | null>(null);
-  const [defaultSpeciesLabel, setDefaultSpeciesLabel] = useState<string>("");
-  const [loadingSpecies, setLoadingSpecies] = useState(false);
-  const [breedOptionsBySpecies, setBreedOptionsBySpecies] = useState<
-    Record<string, { id: string; label: string }[]>
-  >({});
-  const [loadingBreedSpeciesId, setLoadingBreedSpeciesId] = useState<
-    string | null
-  >(null);
-  const [showCustomerList, setShowCustomerList] = useState(false);
-  const [showPetList, setShowPetList] = useState(false);
+
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
@@ -1123,164 +999,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     setAmountInput(servicesTotal > 0 ? servicesTotal.toFixed(2) : "");
   };
 
-  const handleSelectCustomer = (customerId: string) => {
-    setSelectedCustomer(customerId);
-    setSelectedPetIds([]);
-    setServiceRowsByPet({});
-    setRowTotals({});
-    setExistingNewPets([]);
-    setShowPetList(false);
-    setPetSearch("");
-  };
-
-  const handleSelectPet = (petId: string) => {
-    setSelectedPetIds((prev) =>
-      prev.includes(petId) ? prev : [...prev, petId]
-    );
-  };
-
-  const togglePetSelection = (petId: string) => {
-    setSelectedPetIds((prev) =>
-      prev.includes(petId)
-        ? prev.filter((id) => id !== petId)
-        : [...prev, petId]
-    );
-  };
-
-  const handleAddServiceRow = (petKey: string) => {
-    setServiceRowsByPet((prev) => ({
-      ...prev,
-      [petKey]: [...(prev[petKey] || []), createServiceRow()],
-    }));
-  };
-
-  const handleRemoveServiceRow = (petKey: string, rowId: string) => {
-    setServiceRowsByPet((prev) => {
-      const rows = (prev[petKey] || []).filter((row) => row.id !== rowId);
-      return {
-        ...prev,
-        [petKey]: rows.length > 0 ? rows : [createServiceRow()],
-      };
-    });
-    setRowTotals((prev) => {
-      const next = { ...prev };
-      delete next[rowId];
-      return next;
-    });
-  };
-
-  const handleUpdateServiceRow = (
-    petKey: string,
-    rowId: string,
-    updates: Partial<ServiceRow>
-  ) => {
-    setServiceRowsByPet((prev) => {
-      const rows = prev[petKey] || [];
-      return {
-        ...prev,
-        [petKey]: rows.map((row) => {
-          if (row.id !== rowId) return row;
-          const nextRow = { ...row, ...updates };
-          if (
-            Object.prototype.hasOwnProperty.call(updates, "serviceId") &&
-            updates.serviceId !== row.serviceId
-          ) {
-            nextRow.priceTierId = "";
-            nextRow.tierSelectionSource = null;
-            nextRow.addonIds = [];
-          }
-          return nextRow;
-        }),
-      };
-    });
-  };
-
-  const handleRowTotalsChange = useCallback(
-    (rowId: string, totals: RowTotals) => {
-      setRowTotals((prev) => {
-        const existing = prev[rowId];
-        if (
-          existing &&
-          existing.price === totals.price &&
-          existing.duration === totals.duration &&
-          existing.requiresTier === totals.requiresTier
-        ) {
-          return prev;
-        }
-        return { ...prev, [rowId]: totals };
-      });
-    },
-    []
-  );
-
-  const handleSelectExistingPetSpecies = (
-    petId: string,
-    option: { id: string; label: string } | null
-  ) => {
-    handleUpdateExistingPet(petId, {
-      speciesId: option?.id || null,
-      speciesLabel: option?.label || "",
-      breedId: null,
-      breed: "",
-    });
-    if (option?.id) ensureBreedOptions(option.id).catch(() => null);
-  };
-
-  const handleSelectNewPetSpecies = (
-    petId: string,
-    option: { id: string; label: string } | null
-  ) => {
-    handleUpdateNewPet(petId, {
-      speciesId: option?.id || null,
-      speciesLabel: option?.label || "",
-      breedId: null,
-      breed: "",
-    });
-    if (option?.id) ensureBreedOptions(option.id).catch(() => null);
-  };
-
-  const handleAddExistingPet = () => {
-    setExistingNewPets((prev) => [
-      ...prev,
-      createDraftPet({
-        speciesId: defaultSpeciesId,
-        speciesLabel: defaultSpeciesLabel,
-      }),
-    ]);
-  };
-
-  const handleRemoveExistingPet = (petId: string) => {
-    setExistingNewPets((prev) => prev.filter((pet) => pet.id !== petId));
-  };
-
-  const handleUpdateExistingPet = (
-    petId: string,
-    updates: Partial<DraftPet>
-  ) => {
-    setExistingNewPets((prev) =>
-      prev.map((pet) => (pet.id === petId ? { ...pet, ...updates } : pet))
-    );
-  };
-
-  const handleAddNewPet = () => {
-    setNewPets((prev) => [
-      ...prev,
-      createDraftPet({
-        speciesId: defaultSpeciesId,
-        speciesLabel: defaultSpeciesLabel,
-      }),
-    ]);
-  };
-
-  const handleRemoveNewPet = (petId: string) => {
-    setNewPets((prev) => prev.filter((pet) => pet.id !== petId));
-  };
-
-  const handleUpdateNewPet = (petId: string, updates: Partial<DraftPet>) => {
-    setNewPets((prev) =>
-      prev.map((pet) => (pet.id === petId ? { ...pet, ...updates } : pet))
-    );
-  };
+  // pet/service state and handlers moved to `useAppointmentForm` hook
 
   const handleSubmit = async () => {
     if (isSubmitting || isSubmittingRequest || submitLockRef.current) {
@@ -1367,230 +1086,58 @@ export default function NewAppointmentScreen({ navigation }: Props) {
     submitLockRef.current = true;
     setIsSubmittingRequest(true);
     try {
-      let customerId = selectedCustomer;
-      let createdCustomer: Customer | null = null;
-
-      if (mode === "new") {
-        try {
-          const trimmedFirstName = newCustomerFirstName.trim();
-          const trimmedLastName = newCustomerLastName.trim();
-          createdCustomer = await createCustomer({
-            firstName: trimmedFirstName,
-            lastName: trimmedLastName || undefined,
-            phone: newCustomerPhone.trim() || null,
-            email: newCustomerEmail.trim() || null,
-            address: newCustomerAddress.trim() || null,
-            address2: newCustomerAddress2.trim() || null,
-            nif: newCustomerNif.trim() || null,
-          });
-          customerId = createdCustomer.id;
-        } catch (err: any) {
-          hapticError();
-          const message =
-            err?.response?.data?.error ||
-            err.message ||
-            t("appointmentForm.createCustomerPetError");
-          Alert.alert(t("common.error"), message);
-          return;
-        }
-      } else if (selectedCustomerData) {
-        const hasChanges =
-          customerPhone.trim() !== (selectedCustomerData.phone || "") ||
-          customerAddress.trim() !== (selectedCustomerData.address || "") ||
-          customerAddress2.trim() !== (selectedCustomerData.address2 || "") ||
-          customerNif.trim() !== (selectedCustomerData.nif || "");
-        if (hasChanges) {
-          try {
-            const updated = await updateCustomer(selectedCustomerData.id, {
-              phone: customerPhone.trim() || null,
-              address: customerAddress.trim() || "",
-              address2: customerAddress2.trim() || "",
-              nif: customerNif.trim() || null,
-            });
-            queryClient.setQueryData(
-              ["customers"],
-              (prev: Customer[] | undefined) => {
-                if (!prev) return prev;
-                return prev.map((c) =>
-                  c.id === selectedCustomerData.id
-                    ? { ...c, ...(updated || {}) }
-                    : c
-                );
-              }
-            );
-          } catch (err: any) {
-            hapticError();
-            const message =
-              err?.response?.data?.error ||
-              err.message ||
-              t("appointmentForm.updateCustomerError");
-            Alert.alert(t("common.error"), message);
-            return;
-          }
-        }
-      }
-
-      const petIdMap = new Map<string, string>();
-      let primaryPetId = "";
-
-      if (mode === "new") {
-        try {
-          const createdPets: Pet[] = [];
-          for (const pet of newPets) {
-            const weightValue = parseAmountInput(pet.weight);
-            const createdPet = await createPet(customerId, {
-              name: pet.name.trim(),
-              breed: pet.breed.trim() || null,
-              speciesId: pet.speciesId || null,
-              breedId: pet.breedId || null,
-              weight: weightValue ?? null,
-            });
-            petIdMap.set(pet.id, createdPet.id);
-            createdPets.push(createdPet);
-          }
-          if (createdPets[0]?.id) {
-            primaryPetId = createdPets[0].id;
-          }
-
-          if (createdCustomer) {
-            queryClient.setQueryData(
-              ["customers"],
-              (prev: Customer[] | undefined) => {
-                const next = prev ? [...prev] : [];
-                next.push({ ...createdCustomer, pets: createdPets });
-                return next;
-              }
-            );
-          }
-        } catch (err: any) {
-          hapticError();
-          const message =
-            err?.response?.data?.error ||
-            err.message ||
-            t("appointmentForm.createCustomerPetError");
-          Alert.alert(t("common.error"), message);
-          return;
-        }
-      } else {
-        if (existingNewPets.length > 0) {
-          try {
-            const createdPets: Pet[] = [];
-            for (const pet of existingNewPets) {
-              const weightValue = parseAmountInput(pet.weight);
-              const createdPet = await createPet(customerId, {
-                name: pet.name.trim(),
-                breed: pet.breed.trim() || null,
-                speciesId: pet.speciesId || null,
-                breedId: pet.breedId || null,
-                weight: weightValue ?? null,
-              });
-              petIdMap.set(pet.id, createdPet.id);
-              createdPets.push(createdPet);
-            }
-            if (createdPets.length > 0) {
-              queryClient.setQueryData(
-                ["customers"],
-                (prev: Customer[] | undefined) => {
-                  if (!prev) return prev;
-                  return prev.map((customer) => {
-                    if (customer.id !== customerId) return customer;
-                    const currentPets = customer.pets || [];
-                    const nextPets = [...currentPets, ...createdPets];
-                    const nextCount =
-                      typeof customer.pet_count === "number"
-                        ? customer.pet_count + createdPets.length
-                        : nextPets.length;
-                    return {
-                      ...customer,
-                      pets: nextPets,
-                      pet_count: nextCount,
-                    };
-                  });
-                }
-              );
-            }
-          } catch (err: any) {
-            hapticError();
-            const message =
-              err?.response?.data?.error ||
-              err.message ||
-              t("appointmentForm.createCustomerPetError");
-            Alert.alert(t("common.error"), message);
-            return;
-          }
-        }
-        primaryPetId =
-          selectedPetIds[0] || petIdMap.get(existingNewPets[0]?.id) || "";
-      }
-
-      const serviceSelections = Object.entries(serviceRowsByPet).flatMap(
-        ([petKey, rows]) => {
-          const resolvedPetId = petIdMap.get(petKey) || petKey;
-          if (!resolvedPetId) return [];
-          return rows
-            .filter((row) => row.serviceId)
-            .map((row) => ({
-              pet_id: resolvedPetId,
-              service_id: row.serviceId,
-              price_tier_id: row.priceTierId || null,
-              addon_ids: row.addonIds,
-            }));
-        }
-      );
-
-      const serviceIds = Array.from(
-        new Set(serviceSelections.map((selection) => selection.service_id))
-      );
-      const effectiveDuration =
-        totalDuration > 0 ? totalDuration : duration || null;
-      const reminderPayload = useDefaultReminders
-        ? isEditMode
-          ? { reminder_offsets: null }
-          : {}
-        : { reminder_offsets: effectiveReminderOffsets };
-
-      const recurrencePayload = recurrenceEnabled
-        ? {
-            recurrence_rule: recurrenceRule || undefined,
-            recurrence_count:
-              recurrenceEndMode === "after"
-                ? recurrenceCountNumber || null
-                : null,
-            recurrence_until:
-              recurrenceEndMode === "on" ? recurrenceUntilValue || null : null,
-            recurrence_timezone: recurrenceTimezoneValue
-              ? recurrenceTimezoneValue
-              : undefined,
-          }
-        : {
-            recurrence_rule: null,
-            recurrence_count: null,
-            recurrence_until: null,
-            recurrence_timezone: null,
-          };
-
-      const scopePayload: Record<string, string | undefined> = isEditMode
-        ? { update_scope: editScope ?? "future" }
-        : {};
-
-      const payload = {
-        appointment_date: date,
-        appointment_time: formatHHMM(time).trim(),
-        status: "scheduled",
-        duration: effectiveDuration,
-        amount: amountValue ?? null,
-        notes: notes.trim() || null,
-        customer_id: customerId,
-        service_ids: serviceIds,
-        service_selections: serviceSelections,
-        ...reminderPayload,
-        ...recurrencePayload,
-        ...scopePayload,
-      };
-
-      // payload logged in development during debugging (removed)
-
-      await mutation.mutateAsync(payload);
+      await submitAppointment({
+        mode,
+        newCustomerFirstName,
+        newCustomerLastName,
+        newCustomerPhone,
+        newCustomerEmail,
+        newCustomerAddress,
+        newCustomerAddress2,
+        newCustomerNif,
+        selectedCustomer,
+        selectedCustomerData,
+        newPets,
+        existingNewPets,
+        selectedPetIds,
+        serviceRowsByPet,
+        amountValue,
+        totalDuration,
+        duration,
+        useDefaultReminders,
+        effectiveReminderOffsets,
+        recurrenceEnabled,
+        recurrenceRule,
+        recurrenceCountNumber,
+        recurrenceUntilValue,
+        recurrenceTimezoneValue,
+        isEditMode,
+        editAppointmentId,
+        editScope,
+        sendWhatsapp,
+        canSendWhatsapp,
+        buildConfirmationUrl,
+        openWhatsapp,
+        navigation,
+        queryClient,
+        t,
+        mutation,
+        createCustomer,
+        updateCustomer,
+        createPet,
+        parseAmountInput,
+        formatHHMM,
+        services,
+        petOptions,
+        hapticError,
+        customerPhone,
+        customerAddress,
+        customerAddress2,
+        customerNif,
+        notes,
+        date,
+        time,
+      });
     } finally {
       submitLockRef.current = false;
       setIsSubmittingRequest(false);
@@ -1691,7 +1238,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       const rows = serviceRowsByPet[pet.id] || [];
       const serviceNames =
         rows
-          .map((row) => serviceNameById.get(row.serviceId))
+          .map((row: any) => serviceNameById.get(row.serviceId))
           .filter(Boolean)
           .join(", ") || t("common.noData");
       const petLabel = pet.breed ? `${pet.name} (${pet.breed})` : pet.name;
@@ -1750,8 +1297,8 @@ export default function NewAppointmentScreen({ navigation }: Props) {
   );
   const activeServiceIds = useMemo(() => {
     const ids = new Set<string>();
-    Object.values(serviceRowsByPet).forEach((rows) => {
-      rows.forEach((row) => {
+    Object.values(serviceRowsByPet).forEach((rows: any[]) => {
+      rows.forEach((row: any) => {
         if (row.serviceId) ids.add(row.serviceId);
       });
     });
@@ -1837,9 +1384,9 @@ export default function NewAppointmentScreen({ navigation }: Props) {
 
     return petEntries.map((pet) => {
       const rows = (serviceRowsByPet[pet.id] || []).filter(
-        (row) => row.serviceId
+        (row: any) => row.serviceId
       );
-      const servicesForPet = rows.map((row) => {
+      const servicesForPet = rows.map((row: any) => {
         const serviceName =
           serviceNameById.get(row.serviceId) || t("common.noData");
         const tiers = tiersByServiceId.get(row.serviceId) || [];
@@ -1950,46 +1497,14 @@ export default function NewAppointmentScreen({ navigation }: Props) {
         >
           <View ref={scrollContentRef} style={styles.content}>
             <View style={styles.stepper}>
-              {steps.map((step, index) => {
-                const isActive = index === activeStep;
-                const canAccess = stepAccess[index];
-                return (
-                  <TouchableOpacity
-                    key={step.id}
-                    style={[
-                      styles.stepButton,
-                      isActive && styles.stepButtonActive,
-                      !canAccess && styles.stepButtonDisabled,
-                    ]}
-                    onPress={() => goToStep(index)}
-                    disabled={!canAccess}
-                  >
-                    <View
-                      style={[
-                        styles.stepIndexWrap,
-                        isActive && styles.stepIndexWrapActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.stepIndex,
-                          isActive && styles.stepIndexActive,
-                        ]}
-                      >
-                        {index + 1}
-                      </Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.stepLabel,
-                        isActive && styles.stepLabelActive,
-                      ]}
-                    >
-                      {step.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+              {/* Stepper extracted to component */}
+              <Stepper
+                steps={steps}
+                activeStep={activeStep}
+                stepAccess={stepAccess}
+                goToStep={goToStep}
+                styles={styles}
+              />
             </View>
             {/* Seção: Data e Hora */}
             {activeStep === 0 ? (
@@ -2287,7 +1802,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                     {selectedPetsData.map((pet) => {
                       const rows = serviceRowsByPet[pet.id] || [];
                       const petTotals = rows.reduce(
-                        (acc, row) => {
+                        (acc: any, row: any) => {
                           const totals = rowTotals[row.id];
                           if (totals) {
                             acc.price += totals.price || 0;
@@ -2298,80 +1813,23 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                         { price: 0, duration: 0 }
                       );
                       return (
-                        <View key={pet.id} style={styles.petCard}>
-                          <View style={styles.petHeader}>
-                            <View style={styles.petHeaderLeft}>
-                              {pet.photo_url ? (
-                                <Image
-                                  source={{ uri: pet.photo_url }}
-                                  style={styles.petAvatar}
-                                />
-                              ) : (
-                                <View style={styles.petAvatarPlaceholder}>
-                                  <Text style={styles.petAvatarText}>
-                                    {(pet.name || "?")
-                                      .trim()
-                                      .charAt(0)
-                                      .toUpperCase()}
-                                  </Text>
-                                </View>
-                              )}
-                              <View>
-                                <Text style={styles.petTitle}>{pet.name}</Text>
-                                {pet.breed ? (
-                                  <Text style={styles.petMeta}>
-                                    {pet.breed}
-                                  </Text>
-                                ) : null}
-                                {pet.weight != null ? (
-                                  <Text style={styles.petMeta}>
-                                    {t("appointmentForm.petWeightInline", {
-                                      value: pet.weight,
-                                    })}
-                                  </Text>
-                                ) : null}
-                              </View>
-                            </View>
-                          </View>
-
-                          {rows.map((row, index) => (
-                            <PetServiceRow
-                              key={row.id}
-                              index={index}
-                              row={row}
-                              services={services}
-                              loadingServices={loadingServices}
-                              petWeight={pet.weight ?? null}
-                              onChange={(updates) =>
-                                handleUpdateServiceRow(pet.id, row.id, updates)
-                              }
-                              onRemove={() =>
-                                handleRemoveServiceRow(pet.id, row.id)
-                              }
-                              allowRemove={rows.length > 1}
-                              onTotalsChange={handleRowTotalsChange}
-                            />
-                          ))}
-
-                          {rows.length > 0 ? (
-                            <Text style={styles.petSummary}>
-                              {t("appointmentForm.petTotalsLabel", {
-                                price: petTotals.price.toFixed(2),
-                                duration: petTotals.duration,
-                              })}
-                            </Text>
-                          ) : null}
-
-                          <TouchableOpacity
-                            style={styles.addServiceButton}
-                            onPress={() => handleAddServiceRow(pet.id)}
-                            accessibilityLabel={t("appointmentForm.addService")}
-                          >
-                            <Text style={styles.addServiceText}>
-                              + {t("appointmentForm.addService")}
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
+                        <PetCard
+                          key={pet.id}
+                          pet={pet}
+                          rows={rows}
+                          services={services}
+                          loadingServices={loadingServices}
+                          petWeight={pet.weight ?? null}
+                          onChangeRow={(rowId, updates) =>
+                            handleUpdateServiceRow(pet.id, rowId, updates)
+                          }
+                          onRemoveRow={(rowId) =>
+                            handleRemoveServiceRow(pet.id, rowId)
+                          }
+                          onAddService={() => handleAddServiceRow(pet.id)}
+                          onTotalsChange={handleRowTotalsChange}
+                          styles={styles}
+                        />
                       );
                     })}
 
@@ -2380,7 +1838,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                           const rows = serviceRowsByPet[pet.id] || [];
                           const weightValue = parseAmountInput(pet.weight);
                           const petTotals = rows.reduce(
-                            (acc, row) => {
+                            (acc: any, row: any) => {
                               const totals = rowTotals[row.id];
                               if (totals) {
                                 acc.price += totals.price || 0;
@@ -2392,33 +1850,19 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                           );
                           return (
                             <View key={pet.id} style={styles.petCard}>
-                              <View style={styles.petHeader}>
-                                <View style={styles.petHeaderLeft}>
-                                  <View style={styles.petAvatarPlaceholder}>
-                                    <Text style={styles.petAvatarText}>
-                                      {(pet.name || `${index + 1}`)
-                                        .trim()
-                                        .charAt(0)
-                                        .toUpperCase()}
-                                    </Text>
-                                  </View>
-                                  <Text style={styles.petTitle}>
-                                    {t("appointmentForm.petCardTitle", {
-                                      index: index + 1,
-                                    })}
-                                  </Text>
-                                </View>
-                                <TouchableOpacity
-                                  style={styles.removePetButton}
-                                  onPress={() =>
-                                    handleRemoveExistingPet(pet.id)
+                              <PetHeader
+                                pet={pet}
+                                index={index}
+                                canRemove
+                                onRemove={() => handleRemoveExistingPet(pet.id)}
+                                titleOverride={t(
+                                  "appointmentForm.petCardTitle",
+                                  {
+                                    index: index + 1,
                                   }
-                                >
-                                  <Text style={styles.removePetText}>
-                                    {t("appointmentForm.removePet")}
-                                  </Text>
-                                </TouchableOpacity>
-                              </View>
+                                )}
+                                styles={styles}
+                              />
 
                               <View style={styles.row}>
                                 <View style={[styles.field, { flex: 1 }]}>
@@ -2463,7 +1907,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                                   emptyLabel={t("petForm.speciesEmpty")}
                                   loading={loadingSpecies}
                                   loadingLabel={t("common.loading")}
-                                  containerStyle={[styles.field, { flex: 1 }]}
+                                  containerStyle={[styles.field]}
                                 />
                               </View>
 
@@ -2526,7 +1970,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                                 />
                               </View>
 
-                              {rows.map((row, rowIndex) => (
+                              {rows.map((row: any, rowIndex: number) => (
                                 <PetServiceRow
                                   key={row.id}
                                   index={rowIndex}
@@ -2534,7 +1978,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                                   services={services}
                                   loadingServices={loadingServices}
                                   petWeight={weightValue ?? null}
-                                  onChange={(updates) =>
+                                  onChange={(updates: any) =>
                                     handleUpdateServiceRow(
                                       pet.id,
                                       row.id,
@@ -2592,7 +2036,7 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                       const rows = serviceRowsByPet[pet.id] || [];
                       const weightValue = parseAmountInput(pet.weight);
                       const petTotals = rows.reduce(
-                        (acc, row) => {
+                        (acc: any, row: any) => {
                           const totals = rowTotals[row.id];
                           if (totals) {
                             acc.price += totals.price || 0;
@@ -2604,170 +2048,39 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                       );
                       return (
                         <View key={pet.id} style={styles.petCard}>
-                          <View style={styles.petHeader}>
-                            <View style={styles.petHeaderLeft}>
-                              <View style={styles.petAvatarPlaceholder}>
-                                <Text style={styles.petAvatarText}>
-                                  {(pet.name || `${index + 1}`)
-                                    .trim()
-                                    .charAt(0)
-                                    .toUpperCase()}
-                                </Text>
-                              </View>
-                              <Text style={styles.petTitle}>
-                                {t("appointmentForm.petCardTitle", {
-                                  index: index + 1,
-                                })}
-                              </Text>
-                            </View>
-                            {newPets.length > 1 ? (
-                              <TouchableOpacity
-                                style={styles.removePetButton}
-                                onPress={() => handleRemoveNewPet(pet.id)}
-                              >
-                                <Text style={styles.removePetText}>
-                                  {t("appointmentForm.removePet")}
-                                </Text>
-                              </TouchableOpacity>
-                            ) : null}
-                          </View>
-
-                          <View style={styles.row}>
-                            <View style={[styles.field, { flex: 1 }]}>
-                              <Text style={styles.label}>
-                                {t("newCustomerForm.petNameLabel")}
-                              </Text>
-                              <TextInput
-                                value={pet.name}
-                                onChangeText={(value) =>
-                                  handleUpdateNewPet(pet.id, { name: value })
-                                }
-                                placeholder={t(
-                                  "newCustomerForm.petNamePlaceholder"
-                                )}
-                                placeholderTextColor={colors.muted}
-                                style={styles.input}
-                              />
-                            </View>
-                            <AutocompleteSelect
-                              label={t("petForm.speciesLabel")}
-                              value={pet.speciesLabel}
-                              onChangeText={(value) =>
-                                handleUpdateNewPet(pet.id, {
-                                  speciesLabel: value,
-                                  speciesId: null,
-                                  breedId: null,
-                                  breed: "",
-                                })
-                              }
-                              onSelectOption={(option) => {
-                                if (!option) return;
-                                handleSelectNewPetSpecies(pet.id, option);
-                              }}
-                              options={speciesOptions}
-                              selectedId={pet.speciesId}
-                              placeholder={t("petForm.speciesPlaceholder")}
-                              emptyLabel={t("petForm.speciesEmpty")}
-                              loading={loadingSpecies}
-                              loadingLabel={t("common.loading")}
-                              containerStyle={[styles.field, { flex: 1 }]}
-                            />
-                          </View>
-
-                          <AutocompleteSelect
-                            label={t("petForm.breedLabel")}
-                            value={pet.breed}
-                            onChangeText={(value) =>
-                              handleUpdateNewPet(pet.id, {
-                                breed: value,
-                                breedId: null,
-                              })
-                            }
-                            onSelectOption={(option) => {
-                              if (!option) return;
-                              handleUpdateNewPet(pet.id, {
-                                breedId: option.id,
-                                breed: option.label,
-                              });
-                            }}
-                            options={
-                              pet.speciesId
-                                ? breedOptionsBySpecies[pet.speciesId] || []
-                                : []
-                            }
-                            selectedId={pet.breedId}
-                            placeholder={
-                              pet.speciesId
-                                ? t("petForm.breedPlaceholder")
-                                : t("petForm.breedSelectSpecies")
-                            }
-                            emptyLabel={
-                              pet.speciesId
-                                ? t("petForm.breedEmptyForSpecies")
-                                : t("petForm.breedSelectSpecies")
-                            }
-                            disabled={!pet.speciesId}
-                            loading={loadingBreedSpeciesId === pet.speciesId}
-                            containerStyle={styles.field}
+                          <PetHeader
+                            pet={pet}
+                            index={index}
+                            styles={styles}
+                            titleOverride={t("appointmentForm.petCardTitle", {
+                              index: index + 1,
+                            })}
+                            canRemove={newPets.length > 1}
+                            onRemove={() => handleRemoveNewPet(pet.id)}
                           />
 
-                          <View style={styles.field}>
-                            <Text style={styles.label}>
-                              {t("appointmentForm.petWeightLabel")}
-                            </Text>
-                            <TextInput
-                              value={pet.weight}
-                              onChangeText={(value) =>
-                                handleUpdateNewPet(pet.id, {
-                                  weight: value.replace(/[^0-9.,]/g, ""),
-                                })
-                              }
-                              placeholder={t(
-                                "appointmentForm.petWeightPlaceholder"
-                              )}
-                              placeholderTextColor={colors.muted}
-                              keyboardType="decimal-pad"
-                              style={styles.input}
-                            />
-                          </View>
-
-                          {rows.map((row, rowIndex) => (
-                            <PetServiceRow
-                              key={row.id}
-                              index={rowIndex}
-                              row={row}
-                              services={services}
-                              loadingServices={loadingServices}
-                              petWeight={weightValue ?? null}
-                              onChange={(updates) =>
-                                handleUpdateServiceRow(pet.id, row.id, updates)
-                              }
-                              onRemove={() =>
-                                handleRemoveServiceRow(pet.id, row.id)
-                              }
-                              allowRemove={rows.length > 1}
-                              onTotalsChange={handleRowTotalsChange}
-                            />
-                          ))}
-
-                          {rows.length > 0 ? (
-                            <Text style={styles.petSummary}>
-                              {t("appointmentForm.petTotalsLabel", {
-                                price: petTotals.price.toFixed(2),
-                                duration: petTotals.duration,
-                              })}
-                            </Text>
-                          ) : null}
-
-                          <TouchableOpacity
-                            style={styles.addServiceButton}
-                            onPress={() => handleAddServiceRow(pet.id)}
-                            accessibilityLabel={t("appointmentForm.addService")}
-                          >
-                            <Text style={styles.addServiceText}>
-                              + {t("appointmentForm.addService")}
-                            </Text>
-                          </TouchableOpacity>
+                          <PetServices
+                            pet={pet}
+                            index={index}
+                            rows={rows}
+                            services={services}
+                            loadingServices={loadingServices}
+                            weightValue={weightValue}
+                            speciesOptions={speciesOptions}
+                            loadingSpecies={loadingSpecies}
+                            breedOptionsBySpecies={breedOptionsBySpecies}
+                            loadingBreedSpeciesId={loadingBreedSpeciesId}
+                            styles={styles}
+                            colors={colors}
+                            handleUpdateNewPet={handleUpdateNewPet}
+                            handleSelectNewPetSpecies={
+                              handleSelectNewPetSpecies
+                            }
+                            handleUpdateServiceRow={handleUpdateServiceRow}
+                            handleRemoveServiceRow={handleRemoveServiceRow}
+                            handleRowTotalsChange={handleRowTotalsChange}
+                            handleAddServiceRow={handleAddServiceRow}
+                          />
                         </View>
                       );
                     })}
@@ -2840,10 +2153,11 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                               {t("common.noData")}
                             </Text>
                           ) : (
-                            entry.services.map((service) => {
+                            entry.services.map((service: any) => {
                               const addonLabel = service.addons
                                 .map(
-                                  (addon) => `${addon.name} (€${addon.price})`
+                                  (addon: any) =>
+                                    `${addon.name} (€${addon.price})`
                                 )
                                 .join(", ");
                               return (
@@ -3045,96 +2359,44 @@ export default function NewAppointmentScreen({ navigation }: Props) {
                     onFocus={() => scrollToInput(notesInputRef)}
                     style={[
                       styles.input,
-                      { minHeight: 100, textAlignVertical: "top" },
+                      {
+                        minHeight: 100,
+                        textAlignVertical: "top",
+                        paddingTop: 12,
+                      },
                     ]}
                   />
                 </View>
               </View>
             ) : null}
 
-            <View style={styles.stepActions}>
-              {activeStep > 0 ? (
-                <TouchableOpacity
-                  style={styles.stepSecondary}
-                  onPress={() => goToStep(activeStep - 1)}
-                  accessibilityLabel={t("appointmentForm.previousStep")}
-                >
-                  <Text style={styles.stepSecondaryText}>
-                    {t("appointmentForm.previousStep")}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={{ flex: 1 }} />
-              )}
-
-              {activeStep === steps.length - 1 ? (
-                <TouchableOpacity
-                  style={[
-                    styles.stepPrimary,
-                    (!canSubmit || isSubmitting) && styles.stepPrimaryDisabled,
-                  ]}
-                  onPress={handleSubmit}
-                  disabled={!canSubmit || isSubmitting}
-                  accessibilityLabel={
-                    isEditMode
-                      ? t("appointmentForm.saveAction")
-                      : t("appointmentForm.createAction")
-                  }
-                >
-                  {isSubmitting ? (
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
-                    >
-                      <ActivityIndicator
-                        color={colors.onPrimary}
-                        size="small"
-                      />
-                      <Text style={styles.stepPrimaryText}>
-                        {t("appointmentForm.processing")}
-                      </Text>
-                    </View>
-                  ) : (
-                    <Text
-                      style={[
-                        styles.stepPrimaryText,
-                        (!canSubmit || isSubmitting) &&
-                          styles.stepPrimaryTextDisabled,
-                      ]}
-                    >
-                      {isEditMode
-                        ? t("appointmentForm.saveAction")
-                        : t("appointmentForm.createAction")}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              ) : activeStep < steps.length - 1 ? (
-                <TouchableOpacity
-                  style={[
-                    styles.stepPrimary,
-                    !canGoNext && styles.stepPrimaryDisabled,
-                  ]}
-                  onPress={() => goToStep(activeStep + 1)}
-                  disabled={!canGoNext}
-                  accessibilityLabel={t("appointmentForm.nextStep")}
-                >
-                  <Text
-                    style={[
-                      styles.stepPrimaryText,
-                      !canGoNext && styles.stepPrimaryTextDisabled,
-                    ]}
-                  >
-                    {t("appointmentForm.nextStep")}
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
+            {/* Step actions moved to fixed footer (rendered below) */}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Fixed footer actions so buttons stay in the same place across steps */}
+      <View style={styles.fixedActions} pointerEvents="box-none">
+        <BlurView
+          intensity={25}
+          tint="light"
+          style={styles.fixedActionsBackground}
+        >
+          <StepActions
+            activeStep={activeStep}
+            stepsLength={steps.length}
+            canSubmit={canSubmit}
+            isSubmitting={isSubmitting}
+            canGoNext={canGoNext}
+            goToStep={goToStep}
+            handleSubmit={handleSubmit}
+            isEditMode={isEditMode}
+            styles={styles}
+            t={t}
+            colors={colors}
+          />
+        </BlurView>
+      </View>
 
       {isSubmitting && (
         <View pointerEvents="auto" style={styles.submitBlocker} />
@@ -3153,564 +2415,4 @@ export default function NewAppointmentScreen({ navigation }: Props) {
       />
     </SafeAreaView>
   );
-}
-
-function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
-  const { listItem } = getCardVariants(colors);
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    headerInfo: {
-      paddingHorizontal: 20,
-      paddingTop: 8,
-      paddingBottom: 8,
-    },
-    subtitle: {
-      fontSize: 14,
-      color: colors.muted,
-    },
-    submitBlocker: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: "#00000000",
-      zIndex: 10,
-    },
-    keyboardAvoid: {
-      flex: 1,
-    },
-    content: {
-      paddingHorizontal: 20,
-      paddingTop: 4,
-    },
-    scrollContent: {
-      paddingBottom: 40,
-    },
-    section: {
-      ...listItem,
-      marginBottom: 16,
-      padding: 16,
-    },
-    sectionCard: {
-      ...listItem,
-      padding: 16,
-      marginBottom: 16,
-    },
-    sectionTitle: {
-      fontSize: 17,
-      fontWeight: "700",
-      color: colors.text,
-      marginBottom: 14,
-    },
-    stepper: {
-      flexDirection: "row",
-      gap: 8,
-      marginBottom: 16,
-    },
-    stepButton: {
-      flex: 1,
-      paddingVertical: 10,
-      paddingHorizontal: 6,
-      borderRadius: 12,
-      backgroundColor: colors.surface,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-    },
-    stepButtonActive: {
-      backgroundColor: colors.primarySoft,
-    },
-    stepButtonDisabled: {
-      opacity: 0.5,
-    },
-    stepIndex: {
-      fontSize: 13,
-      fontWeight: "700",
-      color: colors.muted,
-      marginLeft: 2,
-    },
-    stepIndexWrap: {
-      width: 14,
-      height: 14,
-      borderRadius: 16,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.surface,
-    },
-    stepIndexWrapActive: {
-      backgroundColor: colors.primarySoft,
-    },
-    stepIndexActive: {
-      color: colors.primary,
-    },
-    stepLabel: {
-      fontSize: 13,
-      fontWeight: "600",
-      color: colors.text,
-      textAlign: "left",
-      flexShrink: 1,
-    },
-    stepLabelActive: {
-      color: colors.primary,
-    },
-    stepActions: {
-      flexDirection: "row",
-      gap: 12,
-      marginTop: 4,
-      marginBottom: 8,
-    },
-    stepPrimary: {
-      flex: 1,
-      borderRadius: 12,
-      paddingVertical: 12,
-      alignItems: "center",
-      backgroundColor: colors.primary,
-    },
-    stepPrimaryDisabled: {
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      opacity: 0.5,
-    },
-    stepPrimaryText: {
-      color: colors.onPrimary,
-      fontWeight: "700",
-      fontSize: 15,
-    },
-    stepPrimaryTextDisabled: {
-      color: colors.muted,
-    },
-    stepSecondary: {
-      flex: 1,
-      borderColor: colors.primary,
-      borderRadius: 12,
-      paddingVertical: 12,
-      alignItems: "center",
-      backgroundColor: colors.surface,
-    },
-    stepSecondaryText: {
-      color: colors.primary,
-      fontWeight: "700",
-      fontSize: 15,
-    },
-    row: {
-      flexDirection: "row",
-      gap: 12,
-    },
-    field: {
-      marginTop: 8,
-      marginBottom: 8,
-    },
-    label: {
-      color: colors.text,
-      marginBottom: 8,
-      fontWeight: "600",
-      fontSize: 15,
-    },
-    input: {
-      borderWidth: 1,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      color: colors.text,
-      backgroundColor: colors.background,
-      borderColor: colors.surfaceBorder,
-      fontSize: 15,
-      fontWeight: "500",
-    },
-    amountHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-    },
-    amountInput: {
-      fontSize: 18,
-      fontWeight: "700",
-    },
-    amountReset: {
-      color: colors.primary,
-      fontWeight: "600",
-      fontSize: 13,
-    },
-    amountHint: {
-      marginTop: 6,
-      color: colors.muted,
-      fontSize: 13,
-      fontWeight: "500",
-    },
-    select: {
-      borderWidth: 1,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      backgroundColor: colors.background,
-      borderColor: colors.surfaceBorder,
-    },
-    selectText: {
-      color: colors.text,
-      fontWeight: "600",
-      fontSize: 15,
-    },
-    placeholder: {
-      color: colors.muted,
-      fontWeight: "500",
-    },
-    dropdown: {
-      borderWidth: 0,
-      borderRadius: 12,
-      padding: 12,
-      backgroundColor: colors.background,
-      marginBottom: 12,
-      borderColor: colors.primarySoft,
-      width: "96%",
-      alignSelf: "center",
-    },
-    option: {
-      paddingVertical: 10,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.surfaceBorder,
-    },
-    optionTitle: {
-      color: colors.text,
-      fontWeight: "700",
-    },
-    optionSubtitle: {
-      color: colors.muted,
-      marginTop: 2,
-    },
-    searchBar: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: colors.background,
-      borderRadius: 12,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      marginBottom: 10,
-      gap: 8,
-      borderWidth: 1,
-      borderColor: colors.primarySoft,
-    },
-    searchInput: {
-      flex: 1,
-      fontSize: 14,
-      color: colors.text,
-    },
-    checkbox: {
-      width: 24,
-      height: 24,
-      borderRadius: 6,
-      borderWidth: 2,
-      borderColor: colors.surfaceBorder,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: "transparent",
-    },
-    petCard: {
-      ...listItem,
-      padding: 14,
-      marginBottom: 16,
-    },
-    petHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 12,
-    },
-    petHeaderLeft: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-    },
-    petAvatar: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: colors.background,
-    },
-    petAvatarPlaceholder: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: colors.primarySoft,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    petAvatarText: {
-      color: colors.primary,
-      fontWeight: "700",
-      fontSize: 16,
-    },
-    petTitle: {
-      fontSize: 16,
-      fontWeight: "700",
-      color: colors.text,
-    },
-    petMeta: {
-      color: colors.muted,
-      fontSize: 12,
-      marginTop: 4,
-    },
-    petSummary: {
-      color: colors.muted,
-      fontSize: 13,
-      fontWeight: "600",
-      marginBottom: 10,
-    },
-    addServiceButton: {
-      alignSelf: "flex-start",
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 10,
-    },
-    addServiceText: {
-      color: colors.primary,
-      fontWeight: "700",
-      fontSize: 13,
-    },
-    addPetButton: {
-      alignItems: "center",
-      paddingVertical: 12,
-      borderRadius: 12,
-    },
-    addPetText: {
-      color: colors.primary,
-      fontWeight: "700",
-      fontSize: 14,
-    },
-    removePetButton: {
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 8,
-      backgroundColor: colors.primarySoft,
-    },
-    removePetText: {
-      color: colors.primary,
-      fontWeight: "600",
-      fontSize: 12,
-    },
-    summaryRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      paddingVertical: 8,
-    },
-    summaryCard: {
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      backgroundColor: colors.surface,
-      borderRadius: 14,
-      padding: 12,
-      marginBottom: 12,
-    },
-    summaryTitle: {
-      fontSize: 14,
-      fontWeight: "700",
-      color: colors.text,
-      marginBottom: 8,
-    },
-    summaryLine: {
-      marginBottom: 8,
-    },
-    summaryPet: {
-      fontSize: 13,
-      fontWeight: "700",
-      color: colors.text,
-    },
-    summaryServices: {
-      fontSize: 13,
-      color: colors.muted,
-      marginTop: 2,
-    },
-    summaryServiceRow: {
-      marginTop: 6,
-    },
-    summaryServiceName: {
-      fontSize: 13,
-      fontWeight: "600",
-      color: colors.text,
-    },
-    summaryServiceMeta: {
-      fontSize: 12,
-      color: colors.muted,
-      marginTop: 2,
-    },
-    summaryEmpty: {
-      fontSize: 13,
-      color: colors.muted,
-    },
-    summaryLabel: {
-      color: colors.muted,
-      fontWeight: "600",
-    },
-    summaryValue: {
-      color: colors.text,
-      fontWeight: "700",
-      fontSize: 14,
-    },
-    segment: {
-      flexDirection: "row",
-      gap: 8,
-      marginBottom: 20,
-    },
-    segmentButton: {
-      flex: 1,
-      paddingVertical: 12,
-      borderWidth: 1.5,
-      borderColor: colors.surfaceBorder,
-      borderRadius: 12,
-      alignItems: "center",
-      backgroundColor: colors.surface,
-    },
-    segmentText: {
-      fontWeight: "700",
-      fontSize: 15,
-      color: colors.text,
-    },
-    button: {
-      borderRadius: 16,
-      paddingVertical: 16,
-      alignItems: "center",
-      marginTop: 8,
-      backgroundColor: colors.primary,
-    },
-    buttonText: {
-      color: colors.onPrimary,
-      fontWeight: "700",
-      fontSize: 17,
-    },
-    secondary: {
-      borderWidth: 1.5,
-      borderRadius: 16,
-      paddingVertical: 16,
-      alignItems: "center",
-      marginTop: 12,
-      backgroundColor: colors.surface,
-      borderColor: colors.primary,
-    },
-    secondaryText: {
-      color: colors.primary,
-      fontWeight: "700",
-      fontSize: 17,
-    },
-    toggleRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      borderRadius: 12,
-      paddingHorizontal: 16,
-    },
-    reminderToggleLabel: {
-      color: colors.text,
-      fontWeight: "600",
-      fontSize: 13,
-    },
-    reminderDefaultInline: {
-      color: colors.muted,
-      fontSize: 12,
-      marginTop: 4,
-    },
-    reminderChipsRow: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8,
-      marginBottom: 10,
-    },
-    reminderChip: {
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      borderRadius: 16,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      backgroundColor: colors.background,
-    },
-    reminderChipActive: {
-      backgroundColor: colors.primarySoft,
-      borderColor: colors.primary,
-    },
-    reminderChipText: {
-      color: colors.text,
-      fontSize: 12,
-      fontWeight: "600",
-    },
-    reminderChipTextActive: {
-      color: colors.primary,
-    },
-    reminderCustomRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-    },
-    reminderInput: {
-      flex: 1,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      borderRadius: 10,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      color: colors.text,
-      backgroundColor: colors.background,
-    },
-    reminderAddButton: {
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-      borderRadius: 10,
-      backgroundColor: colors.primary,
-    },
-    reminderAddButtonText: {
-      color: colors.onPrimary,
-      fontWeight: "700",
-      fontSize: 12,
-    },
-    helperText: {
-      color: colors.muted,
-      fontSize: 13,
-      marginTop: 4,
-    },
-    serviceMeta: {
-      color: colors.muted,
-      fontSize: 13,
-      marginTop: 6,
-      fontWeight: "600",
-    },
-    pricingCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      padding: 14,
-      marginTop: 12,
-      marginBottom: 8,
-    },
-    pricingTitle: {
-      fontSize: 15,
-      fontWeight: "700",
-      color: colors.text,
-      marginBottom: 10,
-    },
-    optionGroup: {
-      gap: 8,
-      marginBottom: 12,
-    },
-    optionCard: {
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      backgroundColor: colors.background,
-      padding: 12,
-    },
-    optionCardActive: {
-      borderColor: colors.primary,
-      backgroundColor: colors.primarySoft,
-    },
-    optionRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      gap: 8,
-    },
-    optionPrice: {
-      fontWeight: "700",
-      color: colors.text,
-    },
-  });
 }

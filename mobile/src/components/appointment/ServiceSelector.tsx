@@ -368,7 +368,7 @@ export function ServiceSelector({
                               width: 24,
                               height: 24,
                               borderRadius: 6,
-                              borderWidth: 2,
+                              borderWidth: 0,
                               borderColor: isSelected
                                 ? colors.primary
                                 : colors.surfaceBorder,

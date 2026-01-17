@@ -13,12 +13,12 @@ import { clearAuthTokens, getStoredAccessToken } from '@/lib/authTokens'
 const AccountContext = createContext(null)
 
 const DEFAULT_BRANDING = {
-  brand_primary: '#1F6FEB',
+  brand_primary: '#4fafa9',
   brand_primary_soft: '#82B1FF',
   brand_accent: '#144FA1',
   brand_accent_soft: '#DCE8FF',
-  brand_background: '#F6F9FF',
-  brand_gradient: 'linear-gradient(135deg, #1F6FEB, #144FA1)',
+  brand_background: '#f6f9f8',
+  brand_gradient: 'linear-gradient(135deg, #4fafa9, #144FA1)',
   logo_url: null
 }
 

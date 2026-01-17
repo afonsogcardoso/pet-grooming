@@ -7,7 +7,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
@@ -70,8 +73,7 @@ function MiniBarChart({
     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
       <View style={styles.chartRow}>
         {data.map((item) => {
-          const height =
-            max > 0 ? Math.max(12, (item.value / max) * 120) : 12;
+          const height = max > 0 ? Math.max(12, (item.value / max) * 120) : 12;
           return (
             <View key={item.key} style={styles.chartBarWrapper}>
               <Text
@@ -81,10 +83,7 @@ function MiniBarChart({
                 {valueFormatter ? valueFormatter(item.value) : item.value}
               </Text>
               <View
-                style={[
-                  styles.chartBar,
-                  { height, backgroundColor: color },
-                ]}
+                style={[styles.chartBar, { height, backgroundColor: color }]}
               />
               <Text
                 style={[styles.chartLabel, { color: labelColor }]}
@@ -139,11 +138,17 @@ function ListRow({
   return (
     <View style={styles.listRow}>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.listTitle, { color: colors.text }]} numberOfLines={1}>
+        <Text
+          style={[styles.listTitle, { color: colors.text }]}
+          numberOfLines={1}
+        >
           {title}
         </Text>
         {meta ? (
-          <Text style={[styles.listMeta, { color: colors.muted }]} numberOfLines={1}>
+          <Text
+            style={[styles.listMeta, { color: colors.muted }]}
+            numberOfLines={1}
+          >
             {meta}
           </Text>
         ) : null}
@@ -223,10 +228,7 @@ export default function BillingScreen() {
     return items;
   }, [bookingsSeries, data?.topServices, cancelRate, t]);
 
-  const rangeSelectorStyles = useMemo(
-    () => getSegmentStyles(colors),
-    [colors]
-  );
+  const rangeSelectorStyles = useMemo(() => getSegmentStyles(colors), [colors]);
 
   const renderRangeSelector = () => (
     <View
@@ -298,7 +300,10 @@ export default function BillingScreen() {
     >
       <ScreenHeader title={t("billing.title")} />
       <ScrollView
-        contentContainerStyle={stylesWithTheme.content}
+        contentContainerStyle={[
+          stylesWithTheme.content,
+          { flexGrow: 1, paddingBottom: insets.bottom },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={stylesWithTheme.headerRow}>
@@ -353,7 +358,9 @@ export default function BillingScreen() {
 
             <View style={[getCardStyle(colors), stylesWithTheme.sectionCard]}>
               <View style={stylesWithTheme.sectionHeader}>
-                <Text style={[stylesWithTheme.sectionTitle, { color: colors.text }]}>
+                <Text
+                  style={[stylesWithTheme.sectionTitle, { color: colors.text }]}
+                >
                   {t("billing.chart.title")}
                 </Text>
                 {renderChartSelector()}
@@ -395,7 +402,10 @@ export default function BillingScreen() {
               >
                 <View style={stylesWithTheme.sectionHeader}>
                   <Text
-                    style={[stylesWithTheme.sectionTitle, { color: colors.text }]}
+                    style={[
+                      stylesWithTheme.sectionTitle,
+                      { color: colors.text },
+                    ]}
                   >
                     {t("billing.services.title")}
                   </Text>
@@ -426,7 +436,10 @@ export default function BillingScreen() {
               >
                 <View style={stylesWithTheme.sectionHeader}>
                   <Text
-                    style={[stylesWithTheme.sectionTitle, { color: colors.text }]}
+                    style={[
+                      stylesWithTheme.sectionTitle,
+                      { color: colors.text },
+                    ]}
                   >
                     {t("billing.customers.title")}
                   </Text>
@@ -469,7 +482,10 @@ export default function BillingScreen() {
                 insights.map((insight, index) => (
                   <Text
                     key={`${insight}-${index}`}
-                    style={[stylesWithTheme.insightText, { color: colors.text }]}
+                    style={[
+                      stylesWithTheme.insightText,
+                      { color: colors.text },
+                    ]}
                   >
                     • {insight}
                   </Text>
@@ -505,7 +521,7 @@ const styles = StyleSheet.create({
   chartBar: {
     width: "100%",
     borderRadius: 12,
-    backgroundColor: "#1F6FEB",
+    backgroundColor: "#4fafa9",
   },
   chartValue: {
     fontSize: 12,
@@ -563,12 +579,11 @@ const styles = StyleSheet.create({
 function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
   return StyleSheet.create({
     container: {
-      flex: 1,
+      flex: 0,
       backgroundColor: colors.background,
     },
     content: {
       paddingHorizontal: 16,
-      paddingBottom: 18,
       gap: 16,
     },
     headerRow: {

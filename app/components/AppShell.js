@@ -10,6 +10,7 @@ import { clearStoredAccountId } from '@/lib/accountHelpers'
 import { useAccount } from './AccountProvider'
 import AppShellMobile from './AppShellMobile'
 import { clearAuthTokens, getStoredAccessToken } from '@/lib/authTokens'
+import { getCurrentAccountId } from '@/lib/accountHelpers'
 
 const navItems = [
   {
@@ -197,12 +198,15 @@ export default function AppShell({ children }) {
       return
     }
     try {
+      const accountId = getCurrentAccountId({ required: false })
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      }
+      if (accountId) headers['X-Account-Id'] = accountId
       const response = await fetch('/api/v1/profile', {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
+        headers,
         body: JSON.stringify({ activeRole: role })
       })
       const body = await response.json().catch(() => ({}))
@@ -237,11 +241,10 @@ export default function AppShell({ children }) {
           {availableRoles.includes('provider') ? (
             <button
               type="button"
-              className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition ${
-                activeRole === 'provider'
+              className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition ${activeRole === 'provider'
                   ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-brand-primary'
-              } ${roleUpdating ? 'cursor-not-allowed opacity-60' : ''}`}
+                } ${roleUpdating ? 'cursor-not-allowed opacity-60' : ''}`}
               onClick={() => handleRoleSwitch('provider')}
               disabled={roleUpdating}
             >
@@ -251,11 +254,10 @@ export default function AppShell({ children }) {
           {availableRoles.includes('consumer') ? (
             <button
               type="button"
-              className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition ${
-                activeRole === 'consumer'
+              className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition ${activeRole === 'consumer'
                   ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-brand-primary'
-              } ${roleUpdating ? 'cursor-not-allowed opacity-60' : ''}`}
+                } ${roleUpdating ? 'cursor-not-allowed opacity-60' : ''}`}
               onClick={() => handleRoleSwitch('consumer')}
               disabled={roleUpdating}
             >
@@ -378,14 +380,14 @@ export default function AppShell({ children }) {
                         href="/profile"
                         className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50"
                         onClick={() => setCompactProfileMenuOpen(false)}
-                    >
-                      👤 {t('app.profile.viewProfile')}
-                    </Link>
-                  {renderRoleSwitcher()}
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setCompactProfileMenuOpen(false)
+                      >
+                        👤 {t('app.profile.viewProfile')}
+                      </Link>
+                      {renderRoleSwitcher()}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setCompactProfileMenuOpen(false)
                           await handleLogout()
                         }}
                         className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50"
@@ -581,11 +583,11 @@ export default function AppShell({ children }) {
                     >
                       👤 {t('app.profile.viewProfile')}
                     </Link>
-                  {renderRoleSwitcher()}
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setCompactProfileMenuOpen(false)
+                    {renderRoleSwitcher()}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setCompactProfileMenuOpen(false)
                         await handleLogout()
                       }}
                       className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50"

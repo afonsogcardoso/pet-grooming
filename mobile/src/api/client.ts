@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import { useAuthStore } from '../state/authStore';
 import { getCachedToken, setCachedToken } from './tokenCache';
+import { useAccountStore } from '../state/accountStore';
 
 function resolveApiBase() {
   // expoConfig -> dev/Expo Go, manifest/manifest2/manifestExtra -> production builds
@@ -49,11 +50,34 @@ async function resolveToken(): Promise<string | null> {
 
 api.interceptors.request.use(async config => {
   const token = await resolveToken();
-  if (token) {
+  const hasToken = Boolean(token);
+  if (hasToken) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  try {
+    const accountId = useAccountStore.getState().activeAccountId;
+    if (accountId) {
+      config.headers = config.headers || {};
+      if (!config.headers['X-Account-Id'] && !config.headers['x-account-id']) {
+        config.headers['X-Account-Id'] = accountId;
+      }
+    }
+  } catch (err) {
+    // ignore
   }
   if (__DEV__) {
     (config as any)._startedAt = Date.now();
+    const logHeaders = {
+      auth: hasToken,
+      bearer: token ? `${String(token).slice(0, 10)}...` : null,
+      accountHeader: (config.headers || {})['X-Account-Id'] || (config.headers || {})['x-account-id'] || null,
+    };
+    console.debug('[api:req]', {
+      method: config.method,
+      url: config.url,
+      params: config.params,
+      headers: logHeaders,
+    });
   }
   return config;
 });
@@ -74,6 +98,11 @@ async function refreshToken() {
       if (token) {
         await useAuthStore.getState().setTokens({ token, refreshToken: nextRefresh });
         setCachedToken(token);
+        try {
+          if (data?.accountId) {
+            await useAccountStore.getState().setActiveAccount(data.accountId, data.accountSlug || null);
+          }
+        } catch {}
         return token;
       }
       return null;
@@ -102,18 +131,39 @@ function shouldRefreshSession(error: any) {
 
 api.interceptors.response.use(
   response => {
-    // response timing logs removed
+    if (__DEV__) {
+      const started = (response.config as any)._startedAt;
+      const dur = typeof started === 'number' ? Date.now() - started : null;
+      console.debug('[api:res]', {
+        method: response.config?.method,
+        url: response.config?.url,
+        status: response.status,
+        dur,
+      });
+    }
     return response;
   },
   async error => {
-    // error timing logs removed
+    if (__DEV__) {
+      const started = (error?.config as any)?._startedAt;
+      const dur = typeof started === 'number' ? Date.now() - started : null;
+      console.debug('[api:err]', {
+        method: error?.config?.method,
+        url: error?.config?.url,
+        status: error?.response?.status,
+        dur,
+        data: error?.response?.data,
+      });
+    }
     const originalRequest = error?.config || {};
     if (shouldRefreshSession(error) && !originalRequest._retry) {
       originalRequest._retry = true;
       const newToken = await refreshToken();
       if (newToken) {
-        originalRequest.headers = originalRequest.headers || {};
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        originalRequest.headers = {
+          ...(originalRequest.headers || {}),
+          Authorization: `Bearer ${newToken}`,
+        };
         return api(originalRequest);
       }
       await useAuthStore.getState().clear();

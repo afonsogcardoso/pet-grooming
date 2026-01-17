@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
+import createInputStyles from "./inputStyles";
 
 const SEARCH_ICON_SIZE = 16;
 const CLEAR_ICON_SIZE = 18;
@@ -35,7 +36,31 @@ export function SearchField({
   ...inputProps
 }: SearchFieldProps) {
   const { colors } = useBrandingTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const shared = useMemo(() => createInputStyles(colors), [colors]);
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: `${colors.primary}08`,
+          borderRadius: 16,
+          paddingHorizontal: 14,
+          paddingVertical: 8,
+          borderWidth: 0,
+          borderColor: "transparent",
+          gap: 8,
+          minHeight: 44,
+        },
+        input: {
+          ...shared.input,
+        },
+        clearButton: {
+          padding: 2,
+        },
+      }),
+    [shared, colors]
+  );
   const inputRef = useRef<TextInput>(null);
 
   return (
@@ -74,27 +99,4 @@ export function SearchField({
   );
 }
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
-  return StyleSheet.create({
-    container: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: `${colors.primary}08`,
-      borderRadius: 16,
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      borderWidth: 0,
-      borderColor: "transparent",
-      gap: 8,
-      minHeight: 44,
-    },
-    input: {
-      flex: 1,
-      fontSize: 15,
-      color: colors.text,
-    },
-    clearButton: {
-      padding: 2,
-    },
-  });
-}
+// styles constructed above to reuse shared input styles

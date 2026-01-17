@@ -4,12 +4,10 @@ import { useTranslation } from "react-i18next";
 import ProfileMarketplace from "../../components/profile/ProfileMarketplace";
 import ProfileLayout from "../profile/ProfileLayout";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
-import createStyles from "../profileStyles";
 import { useAccountBranding } from "./useAccountBranding";
 
 export default function AccountBrandingScreen() {
   const { colors } = useBrandingTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
   const { t } = useTranslation();
   const {
     accountActive,
@@ -90,11 +88,11 @@ export default function AccountBrandingScreen() {
   ) : undefined;
 
   return (
-    <ProfileLayout title={t("accountSettings.brandingTitle")} rightElement={rightHeaderElement}>
+    <ProfileLayout
+      title={t("accountSettings.brandingTitle")}
+      rightElement={rightHeaderElement}
+    >
       <ProfileMarketplace
-        styles={styles}
-        colors={colors}
-        t={t}
         accountActive={accountActive}
         handleToggleAccountActive={handleToggleAccountActive}
         accountName={accountName}

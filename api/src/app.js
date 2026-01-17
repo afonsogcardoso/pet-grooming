@@ -1,4 +1,7 @@
 import express from 'express'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import fs from 'fs'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import compression from 'compression'
@@ -20,6 +23,8 @@ import accountMembersRouter from './routes/accountMembers.js'
 import marketplaceRouter from './routes/marketplace.js'
 import petAttributesRouter from './routes/petAttributes.js'
 import analyticsRouter from './routes/analytics.js'
+import sessionRouter from './routes/session.js'
+import { getSupabaseServiceRoleClient } from './authClient.js'
 
 const envResult = dotenv.config({ path: '.env.local' })
 if (envResult.error) {
@@ -27,6 +32,25 @@ if (envResult.error) {
 }
 
 const app = express()
+
+// Serve static public assets (e.g. bundled fallback icon)
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+app.use(express.static(path.join(__dirname, '..', 'public')))
+
+// Debug endpoint to inspect static path and file existence
+app.get('/_debug/assets', (_req, res) => {
+  const staticPath = path.join(__dirname, '..', 'public')
+  const assetPath = path.join(staticPath, 'assets', 'icon.png')
+  const exists = fs.existsSync(assetPath)
+  let stat = null
+  try {
+    stat = exists ? fs.statSync(assetPath) : null
+  } catch (e) {
+    // ignore
+  }
+  res.json({ staticPath, assetPath, exists, size: stat ? stat.size : null })
+})
 
 app.use((req, res, next) => {
   const start = process.hrtime.bigint()
@@ -175,13 +199,53 @@ app.use(apiKeyAuth)
 
 // Resolve tenant from bearer token if accountId not already set (e.g., from API key)
 app.use(async (req, _res, next) => {
-  if (req.accountId || !supabaseAdmin) return next()
+  // If API already provided an account id (api key middleware or previous middleware), prefer that
+  if (req.accountId) {
+    if (process.env.NODE_ENV !== 'production') console.debug('[account-resolver] request already has accountId', req.accountId)
+    return next()
+  }
+
+  // Allow quick path when no supabase admin client is available
+  if (!supabaseAdmin) {
+    if (process.env.NODE_ENV !== 'production') console.debug('[account-resolver] no supabase admin client available')
+    return next()
+  }
+
+  // Respect explicit X-Account-Id header if provided by clients
+  const headerAccount = req.headers['x-account-id'] || req.headers['X-Account-Id'] || req.headers['x-accountid']
+  if (headerAccount) {
+    // do not log full header in production
+    if (process.env.NODE_ENV !== 'production') console.debug('[account-resolver] using X-Account-Id header', headerAccount)
+    req.accountId = String(headerAccount)
+    return next()
+  }
+
+  // Fallback to resolving from Bearer token membership
   const auth = req.headers.authorization || ''
   const token = typeof auth === 'string' && auth.startsWith('Bearer ') ? auth.slice('Bearer '.length) : null
-  if (!token) return next()
+  if (!token) {
+    if (process.env.NODE_ENV !== 'production') console.debug('[account-resolver] no bearer token present')
+    return next()
+  }
+
   try {
     const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token)
-    if (userError || !userData?.user?.id) return next()
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        const masked = typeof token === 'string' && token.length > 12 ? `${token.slice(0, 6)}...${token.slice(-6)}` : token
+        console.debug('[account-resolver] supabase.getUser call; token(masked)=', masked)
+        console.debug('[account-resolver] supabase.getUser result=', {
+          userId: userData?.user?.id || null,
+          user_metadata: userData?.user?.user_metadata || null
+        })
+      } catch (e) {
+        // ignore
+      }
+    }
+    if (userError || !userData?.user?.id) {
+      if (process.env.NODE_ENV !== 'production') console.debug('[account-resolver] bearer token did not resolve to user', userError)
+      return next()
+    }
     const userId = userData.user.id
     const { data: membership } = await supabaseAdmin
       .from('account_members')
@@ -193,6 +257,9 @@ app.use(async (req, _res, next) => {
       .maybeSingle()
     if (membership?.account_id) {
       req.accountId = membership.account_id
+      if (process.env.NODE_ENV !== 'production') console.debug('[account-resolver] resolved account from membership', { userId, accountId: membership.account_id })
+    } else {
+      if (process.env.NODE_ENV !== 'production') console.debug('[account-resolver] no accepted membership found for user', userId)
     }
   } catch (err) {
     console.error('[account-resolver] error', err)
@@ -1809,6 +1876,117 @@ app.get('/api/docs', (_req, res) => {
 </html>`)
 })
 
+// Homepage for the API root. Attempts to resolve tenant branding by Host
+async function fetchBrandingForHost(host) {
+  const supabase = getSupabaseServiceRoleClient()
+  if (!supabase || !host) return null
+
+  // strip port if present
+  const hostname = host.split(':')[0]
+
+  // try to resolve custom domain -> account
+  try {
+    const { data: domainRow, error: domainErr } = await supabase
+      .from('custom_domains')
+      .select('account_id')
+      .eq('domain', hostname)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (domainErr) return null
+    const accountId = domainRow?.account_id || null
+    if (!accountId) return null
+
+    const { data: accountRow, error: accErr } = await supabase
+      .from('accounts')
+      .select('id, name, brand_primary, brand_primary_soft, brand_accent, brand_accent_soft, brand_background, brand_gradient, logo_url, portal_image_url, support_email, support_phone')
+      .eq('id', accountId)
+      .maybeSingle()
+
+    if (accErr || !accountRow) return null
+    return {
+      account_name: accountRow.name || 'Pawmi',
+      brand_primary: accountRow.brand_primary || '#4fafa9',
+      brand_primary_soft: accountRow.brand_primary_soft || '#ebf5f4',
+      brand_accent: accountRow.brand_accent || '#f4d58d',
+      brand_accent_soft: accountRow.brand_accent_soft || '#fdf6de',
+      brand_background: accountRow.brand_background || '#f6f9f8',
+      brand_gradient: accountRow.brand_gradient || 'linear-gradient(135deg, #4fafa9, #f4d58d)',
+      logo_url: accountRow.logo_url || null,
+      portal_image_url: accountRow.portal_image_url || null,
+      support_email: accountRow.support_email || null,
+      support_phone: accountRow.support_phone || null
+    }
+  } catch (e) {
+    return null
+  }
+}
+
+const DEFAULT_BRANDING = {
+  account_name: 'Pawmi',
+  brand_primary: '#4fafa9',
+  brand_primary_soft: '#ebf5f4',
+  brand_accent: '#f4d58d',
+  brand_accent_soft: '#fdf6de',
+  brand_background: '#f6f9f8',
+  brand_gradient: 'linear-gradient(135deg, #4fafa9, #f4d58d)',
+  logo_url: null,
+  portal_image_url: null,
+  support_email: null,
+  support_phone: null
+}
+
+app.get('/', async (req, res) => {
+  const host = req.headers.host || ''
+  const branding = (await fetchBrandingForHost(host)) || DEFAULT_BRANDING
+
+  const primary = branding.brand_primary || DEFAULT_BRANDING.brand_primary
+  const accent = branding.brand_accent || DEFAULT_BRANDING.brand_accent
+  const bg = branding.brand_background || DEFAULT_BRANDING.brand_background
+  // use bundled API icon as fallback when branding has no logo
+  const publicFallback = 'assets/icon.png'
+  const logo = branding.logo_url || publicFallback
+  const title = 'Pawmi API'
+
+  res.type('html').send(`<!doctype html>
+<html lang="pt">
+  <head>
+    <meta charset="utf-8" />
+    <title>${title}</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+      body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:${bg}}
+      .card{background:#fff;padding:28px;border-radius:10px;box-shadow:0 6px 18px rgba(15,23,42,0.08);max-width:620px;text-align:center}
+      .brand{display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+      .logo{height:64px;border-radius:8px;object-fit:contain}
+      .logo-placeholder{width:64px;height:64px;border-radius:8px;background:${primary};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:24px}
+      h1{margin:0 0 8px;font-size:20px}
+      p{color:#334155;margin:0 0 18px}
+      .btn{display:inline-block;padding:10px 16px;background:${primary};color:#fff;border-radius:8px;text-decoration:none;margin:6px}
+      .btn-accent{background:${accent};color:#111}
+      .link{color:${primary};text-decoration:none;margin:6px}
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="brand">
+        ${logo ? `<img src="${logo}" alt="logo" class="logo"/>` : `<div class="logo-placeholder">${(title || 'P')[0]}</div>`}
+      </div>
+      <h1>${title}</h1>
+      <p>Bem-vindo à API. A documentação interativa está disponível abaixo.</p>
+      <div>
+        <a class="btn" href="/api/docs">Abrir documentação (Swagger)</a>
+        <a class="btn btn-accent" href="/api/docs.json">Ver spec JSON</a>
+      </div>
+      <div style="margin-top:12px">
+        <a class="link" href="/api/v1/health">Health check</a>
+        <a class="link" href="/docs">Legacy /docs</a>
+      </div>
+    </div>
+  </body>
+</html>`)
+})
+
 app.get('/api/docs.json', (_req, res) => res.json(swaggerSpec))
 // Backwards compatibility: old /docs path now redirects to /api/docs
 app.get('/docs', (_req, res) => res.redirect(301, '/api/docs'))
@@ -1826,6 +2004,7 @@ app.use('/api/v1/customers', customersRouter)
 app.use('/api/v1/pet-attributes', petAttributesRouter)
 app.use('/api/v1/services', servicesRouter)
 app.use('/api/v1/branding', brandingRouter)
+app.use('/api/v1/session', sessionRouter)
 app.use('/api/v1/account', accountMembersRouter)
 app.use('/api/v1/admin', adminRouter)
 app.use('/api/v1/public', publicRouter)

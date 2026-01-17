@@ -13,6 +13,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
+import createInputStyles from "./inputStyles";
 
 export type AutocompleteOption = {
   id: string;
@@ -62,7 +63,7 @@ export const AutocompleteSelect = forwardRef<
   ref
 ) {
   const { colors } = useBrandingTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = useMemo(() => createInputStyles(colors), [colors]);
   const inputRef = useRef<TextInput | null>(null);
   const setRef = (r: TextInput | null) => {
     inputRef.current = r;
@@ -189,84 +190,4 @@ export const AutocompleteSelect = forwardRef<
   );
 });
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
-  return StyleSheet.create({
-    container: {
-      marginBottom: 16,
-    },
-    label: {
-      fontSize: 14,
-      fontWeight: "600",
-      color: colors.text,
-      marginBottom: 8,
-    },
-    inputWrapper: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: colors.background,
-      borderRadius: 12,
-      borderWidth: 1.5,
-      borderColor: colors.surfaceBorder,
-      paddingHorizontal: 16,
-      height: 52,
-    },
-    inputWrapperError: {
-      borderColor: colors.danger,
-    },
-    inputWrapperDisabled: {
-      opacity: 0.6,
-    },
-    input: {
-      flex: 1,
-      fontSize: 15,
-      color: colors.text,
-      padding: 0,
-    },
-    error: {
-      fontSize: 13,
-      color: colors.danger,
-      marginTop: 6,
-      marginLeft: 4,
-    },
-    suggestionsContainer: {
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      borderWidth: 1.5,
-      borderColor: colors.surfaceBorder,
-      marginTop: 4,
-      overflow: "hidden",
-    },
-    suggestionItem: {
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.surfaceBorder,
-      backgroundColor: colors.surface,
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    suggestionText: {
-      fontSize: 15,
-      color: colors.text,
-      fontWeight: "500",
-      flex: 1,
-    },
-    suggestionActive: {
-      color: colors.primary,
-      fontWeight: "700",
-    },
-    suggestionHint: {
-      color: colors.muted,
-      fontWeight: "500",
-    },
-    suggestionWithIcon: {
-      marginLeft: 8,
-    },
-    suggestionDescription: {
-      color: colors.muted,
-      fontSize: 13,
-      flex: 1,
-      marginTop: 2,
-    },
-  });
-}
+// styles moved to shared inputStyles.ts

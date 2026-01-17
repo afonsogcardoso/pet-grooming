@@ -1,5 +1,11 @@
 import { useMemo } from "react";
-import { View, Text, TouchableOpacity, TextInput, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  StyleSheet,
+} from "react-native";
 import Switch from "../StyledSwitch";
 import { getCardVariants } from "../../theme/uiTokens";
 import type { RecurrenceFrequency } from "../../utils/appointments";
@@ -62,13 +68,19 @@ export function ScheduleSection({
       <View style={styles.row}>
         <View style={[styles.field, { flex: 1 }]}>
           <Text style={styles.label}>{t("appointmentForm.dateLabel")}</Text>
-          <TouchableOpacity style={[styles.input, styles.pickInput]} onPress={onPressDate}>
+          <TouchableOpacity
+            style={[styles.input, styles.pickInput]}
+            onPress={onPressDate}
+          >
             <Text style={styles.pickText}>{date}</Text>
           </TouchableOpacity>
         </View>
         <View style={[styles.field, { flex: 1 }]}>
           <Text style={styles.label}>{t("appointmentForm.timeLabel")}</Text>
-          <TouchableOpacity style={[styles.input, styles.pickInput]} onPress={onPressTime}>
+          <TouchableOpacity
+            style={[styles.input, styles.pickInput]}
+            onPress={onPressTime}
+          >
             <Text style={[styles.pickText, !displayTime && styles.placeholder]}>
               {displayTime || t("appointmentForm.timePlaceholder")}
             </Text>
@@ -76,9 +88,11 @@ export function ScheduleSection({
         </View>
       </View>
 
-      <View style={styles.sectionCard}>
+      <View style={styles.recurrenceContainer}>
         <View style={styles.recurrenceHeader}>
-          <Text style={styles.label}>{t("appointmentForm.recurrenceTitle")}</Text>
+          <Text style={styles.label}>
+            {t("appointmentForm.recurrenceTitle")}
+          </Text>
           <Switch
             value={recurrenceEnabled}
             onValueChange={onToggleRecurrence}
@@ -89,9 +103,13 @@ export function ScheduleSection({
 
         {recurrenceEnabled ? (
           <>
-            <Text style={styles.helperText}>{t("appointmentForm.recurrenceHint")}</Text>
+            <Text style={styles.helperText}>
+              {t("appointmentForm.recurrenceHint")}
+            </Text>
 
-            <Text style={styles.label}>{t("appointmentForm.recurrenceFrequencyLabel")}</Text>
+            <Text style={styles.label}>
+              {t("appointmentForm.recurrenceFrequencyLabel")}
+            </Text>
             <View style={styles.recurrenceOptions}>
               {recurrenceOptions.map((option) => {
                 const isActive = recurrenceFrequency === option.id;
@@ -99,7 +117,10 @@ export function ScheduleSection({
                   <TouchableOpacity
                     key={option.id}
                     onPress={() => onChangeFrequency(option.id)}
-                    style={[styles.recurrenceChip, isActive && styles.recurrenceChipActive]}
+                    style={[
+                      styles.recurrenceChip,
+                      isActive && styles.recurrenceChipActive,
+                    ]}
                   >
                     <Text
                       style={[
@@ -114,18 +135,28 @@ export function ScheduleSection({
               })}
             </View>
 
-            <Text style={styles.label}>{t("appointmentForm.recurrenceEndsLabel")}</Text>
+            <Text style={styles.label}>
+              {t("appointmentForm.recurrenceEndsLabel")}
+            </Text>
             <View style={styles.recurrenceOptions}>
-              {([
-                { id: "after", label: t("appointmentForm.recurrenceEndsAfter") },
-                { id: "on", label: t("appointmentForm.recurrenceEndsOn") },
-              ] as const).map((option) => {
+              {(
+                [
+                  {
+                    id: "after",
+                    label: t("appointmentForm.recurrenceEndsAfter"),
+                  },
+                  { id: "on", label: t("appointmentForm.recurrenceEndsOn") },
+                ] as const
+              ).map((option) => {
                 const isActive = recurrenceEndMode === option.id;
                 return (
                   <TouchableOpacity
                     key={option.id}
                     onPress={() => onChangeEndMode(option.id)}
-                    style={[styles.recurrenceChip, isActive && styles.recurrenceChipActive]}
+                    style={[
+                      styles.recurrenceChip,
+                      isActive && styles.recurrenceChipActive,
+                    ]}
                   >
                     <Text
                       style={[
@@ -142,7 +173,9 @@ export function ScheduleSection({
 
             {recurrenceEndMode === "after" ? (
               <View style={styles.field}>
-                <Text style={styles.label}>{t("appointmentForm.recurrenceCountLabel")}</Text>
+                <Text style={styles.label}>
+                  {t("appointmentForm.recurrenceCountLabel")}
+                </Text>
                 <TextInput
                   value={recurrenceCount}
                   onChangeText={onChangeCount}
@@ -154,7 +187,9 @@ export function ScheduleSection({
               </View>
             ) : (
               <View style={styles.field}>
-                <Text style={styles.label}>{t("appointmentForm.recurrenceUntilLabel")}</Text>
+                <Text style={styles.label}>
+                  {t("appointmentForm.recurrenceUntilLabel")}
+                </Text>
                 <TextInput
                   value={recurrenceUntil}
                   onChangeText={onChangeUntil}
@@ -179,10 +214,13 @@ function createStyles(colors: Colors) {
       marginBottom: 16,
       padding: 16,
     },
-    sectionCard: {
-      ...listItem,
-      padding: 16,
+    recurrenceContainer: {
+      // keep layout inline with parent section: transparent background and consistent spacing
+      paddingTop: 8,
+      paddingBottom: 8,
       marginBottom: 8,
+      backgroundColor: "transparent",
+      borderWidth: 0,
     },
     sectionTitle: {
       fontSize: 17,
@@ -245,7 +283,7 @@ function createStyles(colors: Colors) {
       borderRadius: 10,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
-      backgroundColor: colors.background,
+      backgroundColor: colors.surface,
     },
     recurrenceChipActive: {
       backgroundColor: colors.primarySoft,

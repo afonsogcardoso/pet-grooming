@@ -52,7 +52,12 @@ export default function CustomersScreen({ navigation }: Props) {
   const customersListRef = useRef<FlatList<Customer>>(null);
   const petsListRef = useRef<FlatList<PetListItem>>(null);
 
-  const { data: customers = [], isLoading } = useQuery({
+  const {
+    data: customers = [],
+    isLoading,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ["customers"],
     queryFn: getCustomers,
   });
@@ -350,6 +355,8 @@ export default function CustomersScreen({ navigation }: Props) {
               )}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              refreshing={!!isFetching}
+              onRefresh={() => refetch()}
             />
           )
         ) : allPets.length === 0 ? (
@@ -422,6 +429,8 @@ export default function CustomersScreen({ navigation }: Props) {
             ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            refreshing={!!isFetching}
+            onRefresh={() => refetch()}
           />
         )}
       </View>

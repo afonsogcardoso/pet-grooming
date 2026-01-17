@@ -31,6 +31,9 @@ import {
   resetPassword,
   Profile,
 } from "../api/profile";
+import { brandingQueryKey, getBranding } from "../api/branding";
+import { writeBrandingCache } from "../theme/brandingCache";
+import { useAccountStore } from "../state/accountStore";
 import {
   getNotificationPreferences,
   registerPushToken,
@@ -199,10 +202,46 @@ export default function ProfileScreen({ navigation, route }: Props) {
       ? data?.memberships
       : [];
     if (!memberships.length) return null;
+    const activeAccountId = useAccountStore.getState().activeAccountId;
     const selected =
-      memberships.find((member: any) => member?.is_default) || memberships[0];
+      (activeAccountId
+        ? memberships.find(
+            (m: any) =>
+              (m.account_id || m.account?.id || m.account?.account_id) ===
+              activeAccountId
+          )
+        : null) ||
+      memberships.find((member: any) => member?.is_default) ||
+      memberships[0];
     return selected?.role || null;
   }, [data?.memberships]);
+  const memberships = useMemo(
+    () => (Array.isArray(data?.memberships) ? data?.memberships : []),
+    [data?.memberships]
+  );
+  const selectedMembership = useMemo(() => {
+    if (!memberships || memberships.length === 0) return null;
+    const activeAccountId = useAccountStore.getState().activeAccountId;
+    const byActive = activeAccountId
+      ? memberships.find(
+          (m: any) =>
+            (m.account_id || m.account?.id || m.account?.account_id) ===
+            activeAccountId
+        )
+      : null;
+    return (
+      byActive ||
+      memberships.find((m: any) => m?.is_default) ||
+      memberships[0] ||
+      null
+    );
+  }, [memberships]);
+  const currentAccountName =
+    selectedMembership?.account?.name ||
+    selectedMembership?.account_name ||
+    selectedMembership?.account?.displayName ||
+    selectedMembership?.account?.slug ||
+    null;
   const setUser = useAuthStore((s) => s.setUser);
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
@@ -292,6 +331,111 @@ export default function ProfileScreen({ navigation, route }: Props) {
       setRefreshing(false);
     }
   }, [queryClient]);
+
+  const applyAccountSelection = useCallback(
+    async (member: any) => {
+      if (!member) return;
+      const accountId =
+        member.account_id ||
+        member.account?.id ||
+        member.account?.account_id ||
+        null;
+      if (!accountId) {
+        Alert.alert(t("common.error"));
+        return;
+      }
+      try {
+        const branding = await getBranding(accountId);
+        queryClient.setQueryData(brandingQueryKey(accountId), branding);
+        await writeBrandingCache(branding);
+        // persist active account selection so future requests include it
+        await useAccountStore
+          .getState()
+          .setActiveAccount(
+            accountId,
+            member?.account?.name || member?.account_name || null
+          );
+        // update local profile cache to mark selected membership as default
+        queryClient.setQueryData(["profile"], (current: any) => {
+          if (!current) return current;
+          const next = { ...current };
+          if (Array.isArray(next.memberships)) {
+            next.memberships = next.memberships.map((m: any) => ({
+              ...m,
+              is_default:
+                (m.account_id || m.account?.id || m.account?.account_id) ===
+                accountId,
+            }));
+          }
+          return next;
+        });
+        // Invalidate queries that depend on account context so they refetch for the new account
+        await Promise.all([
+          queryClient
+            .invalidateQueries({ queryKey: ["appointments"] })
+            .catch(() => null),
+          queryClient
+            .invalidateQueries({ queryKey: ["customers"] })
+            .catch(() => null),
+          queryClient
+            .invalidateQueries({ queryKey: ["marketplace"] })
+            .catch(() => null),
+          queryClient
+            .invalidateQueries({ queryKey: ["branding"] })
+            .catch(() => null),
+          queryClient
+            .invalidateQueries({ queryKey: ["profile"] })
+            .catch(() => null),
+          queryClient
+            .invalidateQueries({ queryKey: ["notificationPreferences"] })
+            .catch(() => null),
+        ]);
+        hapticSuccess();
+      } catch (err) {
+        hapticError();
+        Alert.alert(t("common.error"));
+      }
+    },
+    [queryClient, t]
+  );
+
+  const handleSelectAccount = useCallback(() => {
+    if (!memberships || memberships.length <= 1) return;
+    const options = memberships.map(
+      (m: any) =>
+        m.account?.name ||
+        m.account_name ||
+        m.account?.displayName ||
+        m.account?.slug ||
+        m.account_id ||
+        "Untitled"
+    );
+    const cancelIndex = options.length;
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: [...options, t("common.cancel")],
+          cancelButtonIndex: cancelIndex,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === cancelIndex) return;
+          const selected = memberships[buttonIndex];
+          applyAccountSelection(selected);
+        }
+      );
+    } else {
+      const buttons: any[] = options.map((label, idx) => ({
+        text: label,
+        onPress: () => applyAccountSelection(memberships[idx]),
+      }));
+      buttons.push({ text: t("common.cancel"), style: "cancel" as any });
+      Alert.alert(
+        t("profile.selectAccount") || t("profile.viewAccount"),
+        undefined as any,
+        buttons
+      );
+    }
+  }, [memberships, applyAccountSelection, t]);
   const availableRoles = useMemo(() => {
     const roles = Array.isArray(data?.availableRoles)
       ? data.availableRoles
@@ -1145,6 +1289,9 @@ export default function ProfileScreen({ navigation, route }: Props) {
         t={t}
         emailValue={emailValue}
         createdAtValue={createdAtValue}
+        memberships={memberships}
+        currentAccountName={currentAccountName}
+        onSelectAccount={handleSelectAccount}
       />
 
       {isLoading || isRefetching ? (
@@ -1162,31 +1309,31 @@ export default function ProfileScreen({ navigation, route }: Props) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.sectionTabs}
       >
-          {(
-            [
-              { key: "info", label: t("profile.sectionInfo") },
-              { key: "security", label: t("profile.security") },
-              { key: "notifications", label: t("profile.notificationsTitle") },
-            ] as const
-          ).map((section) => {
-            const isActive = activeSection === section.key;
-            return (
-              <TouchableOpacity
-                key={section.key}
-                style={[styles.sectionTab, isActive && styles.sectionTabActive]}
-                onPress={() => handleSectionChange(section.key)}
+        {(
+          [
+            { key: "info", label: t("profile.sectionInfo") },
+            { key: "security", label: t("profile.security") },
+            { key: "notifications", label: t("profile.notificationsTitle") },
+          ] as const
+        ).map((section) => {
+          const isActive = activeSection === section.key;
+          return (
+            <TouchableOpacity
+              key={section.key}
+              style={[styles.sectionTab, isActive && styles.sectionTabActive]}
+              onPress={() => handleSectionChange(section.key)}
+            >
+              <Text
+                style={[
+                  styles.sectionTabText,
+                  isActive && styles.sectionTabTextActive,
+                ]}
               >
-                <Text
-                  style={[
-                    styles.sectionTabText,
-                    isActive && styles.sectionTabTextActive,
-                  ]}
-                >
-                  {section.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+                {section.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
       {activeSection === "info" ? (

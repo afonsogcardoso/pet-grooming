@@ -11,6 +11,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
+import createInputStyles from "./inputStyles";
 import { COUNTRY_CODES } from "../../constants/countryCodes";
 import {
   buildPhone,
@@ -85,14 +86,13 @@ export function PhoneInput({
       .slice(0, 8);
   }, [code, options]);
 
+  const shared = createInputStyles(colors);
   const styles = StyleSheet.create({
     field: {
       marginBottom: 16,
     },
     label: {
-      color: colors.text,
-      marginBottom: 8,
-      fontWeight: "600",
+      ...shared.label,
       fontSize: 15,
     },
     row: {

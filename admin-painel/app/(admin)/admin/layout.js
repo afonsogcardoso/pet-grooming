@@ -46,12 +46,12 @@ export default async function AdminLayout({ children }) {
   const token = readAccessToken(cookieStore)
 
   if (!token) {
-    redirect('/admin/login?adminError=no_session')
+    redirect('/login?adminError=no_session')
   }
 
   const profile = await fetchProfile(token)
   if (!profile?.platformAdmin) {
-    redirect('/admin/login?adminError=forbidden')
+    redirect('/login?adminError=forbidden')
   }
 
   const user = {

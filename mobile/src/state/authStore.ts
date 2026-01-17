@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { clearProfileCache } from './profileCache';
 import { useViewModeStore } from './viewModeStore';
-import { resetTokenCache } from '../api/tokenCache';
+import { resetTokenCache, setCachedToken } from '../api/tokenCache';
 import { resetQueryClient } from './queryClient';
 
 type AuthState = {
@@ -42,6 +42,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
   hydrated: false,
   user: null,
   setTokens: async ({ token, refreshToken }) => {
+    setCachedToken(token);
     await SecureStore.setItemAsync('authToken', token);
     if (refreshToken) {
       await SecureStore.setItemAsync('refreshToken', refreshToken);
@@ -63,6 +64,9 @@ export const useAuthStore = create<AuthState>()((set) => ({
       SecureStore.getItemAsync('authToken'),
       SecureStore.getItemAsync('refreshToken'),
     ]);
+    if (token) {
+      setCachedToken(token);
+    }
     set({ token, refreshToken, hydrated: true });
   },
 }));

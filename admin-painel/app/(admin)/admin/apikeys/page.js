@@ -7,10 +7,10 @@ export const dynamic = 'force-dynamic'
 export default async function ApiKeysPage() {
   const cookieStore = await cookies()
   const token = readAccessToken(cookieStore)
-  if (!token) redirect('/admin/login?adminError=no_session')
+  if (!token) redirect('/login?adminError=no_session')
 
   const profile = await fetchProfile(token)
-  if (!profile?.platformAdmin) redirect('/admin/login?adminError=forbidden')
+  if (!profile?.platformAdmin) redirect('/login?adminError=forbidden')
 
   return <ApiKeysClient currentUserEmail={profile?.email || ''} />
 }

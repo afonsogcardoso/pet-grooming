@@ -536,10 +536,12 @@ export default function ServiceFormScreen({ route, navigation }: Props) {
                 }
               >
                 <Text
-                  style={[
-                    segment.text,
-                    activeTab === tab.id && segment.textActive,
-                  ]}
+                  style={
+                    [
+                      segment.text,
+                      activeTab === tab.id && segment.textActive,
+                    ] as any
+                  }
                 >
                   {tab.label}
                 </Text>
@@ -1191,7 +1193,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       alignItems: "center",
       backgroundColor: colors.surface,
       borderRadius: 12,
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderColor: colors.surfaceBorder,
       paddingHorizontal: 12,
       height: 52,

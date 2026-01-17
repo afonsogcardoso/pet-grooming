@@ -85,15 +85,20 @@ function formatBrandingRow(row) {
 }
 
 async function resolveContext(req, supabase) {
-  const accountIdParam = typeof req.query.accountId === 'string' ? req.query.accountId : null
-  if (!supabase) return { accountId: accountIdParam, membership: null, userId: null, token: null }
+  const resolvedAccountId = req.accountId || null
+
+  // If supabase not available, prefer any account id we already have (from header or query)
+  if (!supabase) return { accountId: resolvedAccountId, membership: null, userId: null, token: getBearer(req) }
 
   const token = getBearer(req)
-  if (!token) return { accountId: accountIdParam, membership: null, userId: null, token: null }
+  if (!token) {
+    if (process.env.NODE_ENV !== 'production') console.debug('[branding.resolveContext] no bearer token; req.accountId=', req.accountId)
+    return { accountId: resolvedAccountId, membership: null, userId: null, token: null }
+  }
 
   const { data: userData } = await supabase.auth.getUser(token)
   const userId = userData?.user?.id || null
-  if (!userId) return { accountId: accountIdParam, membership: null, userId: null, token }
+  if (!userId) return { accountId: resolvedAccountId, membership: null, userId: null, token }
 
   const membershipQuery = supabase
     .from('account_members')
@@ -104,14 +109,26 @@ async function resolveContext(req, supabase) {
     .limit(1)
     .maybeSingle()
 
-  if (accountIdParam) {
-    membershipQuery.eq('account_id', accountIdParam)
+  if (resolvedAccountId) {
+    membershipQuery.eq('account_id', resolvedAccountId)
   }
 
   const { data: membership } = await membershipQuery
 
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      console.debug('[branding.resolveContext]', {
+        accountId: resolvedAccountId,
+        userId,
+        membership
+      })
+    } catch (e) {
+      // ignore logging errors
+    }
+  }
+
   return {
-    accountId: accountIdParam || membership?.account_id || null,
+    accountId: resolvedAccountId || membership?.account_id || null,
     membership,
     userId,
     token
@@ -140,22 +157,44 @@ async function updateBrandingRow(supabase, accountId, updates) {
 
 router.get('/', async (req, res) => {
   const supabase = getSupabaseServiceRoleClient()
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      const hasAuth = Boolean(req.headers.authorization);
+      const hasApiKey = Boolean(req.headers['x-api-key']);
+      const headerAccount = req.headers['x-account-id'] || req.headers['X-Account-Id'] || req.headers['x-accountid'];
+      console.debug('[branding.request] raw query=', req.query, 'hasAuth=', hasAuth, 'hasApiKey=', hasApiKey, 'headerAccount=', headerAccount, 'preReqAccountId=', req.accountId);
+    } catch (e) {
+      // ignore
+    }
+  }
   const context = await resolveContext(req, supabase)
   const accountId = context.accountId
 
+  if (process.env.NODE_ENV !== 'production') console.debug('[branding] request for branding, resolved accountId=', accountId)
+
   if (!supabase || !accountId) {
+    if (process.env.NODE_ENV !== 'production') console.debug('[branding] returning DEFAULT_BRANDING (no supabase or accountId)')
     return res.json({ data: DEFAULT_BRANDING })
   }
 
   const { data, error } = await fetchBrandingRow(supabase, accountId)
 
   if (error) {
-    console.error('[api] branding error', error)
+    console.error('[branding] branding error', error)
     return res.json({ data: DEFAULT_BRANDING })
   }
 
   if (!data) {
+    if (process.env.NODE_ENV !== 'production') console.debug('[branding] no account row found, returning DEFAULT_BRANDING for accountId=', accountId)
     return res.json({ data: DEFAULT_BRANDING })
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.debug('[branding] returning branding for accountId=', accountId, {
+      id: data.id,
+      brand_primary: data.brand_primary || null,
+      logo_url: data.logo_url ? 'present' : 'empty'
+    })
   }
 
   return res.json({ data: formatBrandingRow(data) })
@@ -165,8 +204,23 @@ router.patch('/', async (req, res) => {
   const supabase = getSupabaseServiceRoleClient()
   const context = await resolveContext(req, supabase)
   const accountId = context.accountId
+  if (process.env.NODE_ENV !== 'production') {
+    console.debug('[branding.patch] context', {
+      accountId,
+      userId: context.userId,
+      membership: context.membership,
+      token: context.token ? `${String(context.token).slice(0, 10)}...` : null
+    })
+  }
 
   if (!supabase || !accountId || !context.userId) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('[branding.patch] unauthorized', {
+        hasSupabase: Boolean(supabase),
+        accountId,
+        userId: context.userId
+      })
+    }
     return res.status(401).json({ error: 'Unauthorized' })
   }
 

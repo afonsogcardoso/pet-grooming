@@ -1075,10 +1075,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                       ]}
                     />
                     <Text
-                      style={[
-                        styles.statusBadgeText,
-                        { color: statusColor },
-                      ]}
+                      style={[styles.statusBadgeText, { color: statusColor }]}
                     >
                       {statusLabel}
                     </Text>
@@ -1089,7 +1086,7 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                       onPress={openRecurrenceActions}
                       activeOpacity={0.7}
                     >
-                      {seriesMutation.isLoading ? (
+                      {(seriesMutation as any).isLoading ? (
                         <ActivityIndicator
                           size="small"
                           color={colors.primary}

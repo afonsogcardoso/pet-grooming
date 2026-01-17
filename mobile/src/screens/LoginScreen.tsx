@@ -22,9 +22,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useTranslation } from "react-i18next";
 import { login } from "../api/auth";
-import { getBranding } from "../api/branding";
+import { brandingQueryKey, getBranding } from "../api/branding";
 import { getProfile } from "../api/profile";
 import { useAuthStore } from "../state/authStore";
+import { useAccountStore } from "../state/accountStore";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
 import { resolveSupabaseAnonKey, resolveSupabaseUrl } from "../config/supabase";
 import { formatVersionLabel } from "../utils/version";
@@ -144,14 +145,38 @@ export default function LoginScreen({ navigation }: Props) {
         address2: profile.address2,
         activeRole: profile.activeRole,
       });
+      try {
+        // if profile contains memberships, set default account
+        if (Array.isArray(profile.memberships) && profile.memberships.length) {
+          const selected =
+            profile.memberships.find((m: any) => m?.is_default) ||
+            profile.memberships[0];
+          const accountId =
+            selected?.account_id || selected?.account?.id || null;
+          const accountName =
+            selected?.account?.name ||
+            selected?.account_name ||
+            selected?.account?.displayName ||
+            null;
+          if (accountId) {
+            await useAccountStore
+              .getState()
+              .setActiveAccount(accountId, accountName);
+          }
+        }
+      } catch {}
     } catch {
       if (fallbackUser) {
         setUser(fallbackUser);
       }
     }
 
+    const accountId = useAccountStore.getState().activeAccountId;
     await queryClient
-      .fetchQuery({ queryKey: ["branding"], queryFn: () => getBranding() })
+      .fetchQuery({
+        queryKey: brandingQueryKey(accountId),
+        queryFn: () => getBranding(accountId ?? undefined),
+      })
       .catch(() => null);
 
     if (pendingLinkProvider && token) {
@@ -259,6 +284,13 @@ export default function LoginScreen({ navigation }: Props) {
           lastName: data.lastName,
         },
       });
+      try {
+        if (data.accountId) {
+          await useAccountStore
+            .getState()
+            .setActiveAccount(data.accountId, data.accountSlug || null);
+        }
+      } catch {}
       hapticSuccess();
     },
     onError: (err: any) => {

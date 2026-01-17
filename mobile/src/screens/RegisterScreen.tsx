@@ -21,9 +21,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useTranslation } from "react-i18next";
 import { oauthSignup, signup } from "../api/auth";
-import { getBranding } from "../api/branding";
+import { brandingQueryKey, getBranding } from "../api/branding";
 import { getProfile } from "../api/profile";
 import { useAuthStore } from "../state/authStore";
+import { useAccountStore } from "../state/accountStore";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
 import { PhoneInput } from "../components/common/PhoneInput";
 import { resolveSupabaseUrl } from "../config/supabase";
@@ -184,8 +185,12 @@ export default function RegisterScreen({ navigation }: Props) {
       }
     }
 
+    const accountId = useAccountStore.getState().activeAccountId;
     await queryClient
-      .fetchQuery({ queryKey: ["branding"], queryFn: () => getBranding() })
+      .fetchQuery({
+        queryKey: brandingQueryKey(accountId),
+        queryFn: () => getBranding(accountId ?? undefined),
+      })
       .catch(() => null);
   };
 

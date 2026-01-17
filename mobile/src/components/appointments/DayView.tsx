@@ -249,6 +249,15 @@ export function DayView({
     return (offsetMinutes / 60) * HOUR_HEIGHT;
   }, [isToday, nowMinutes]);
 
+  const currentTimeStr = useMemo(() => {
+    if (nowMinutes == null) return null;
+    const hh = Math.floor(nowMinutes / 60)
+      .toString()
+      .padStart(2, "0");
+    const mm = (nowMinutes % 60).toString().padStart(2, "0");
+    return `${hh}:${mm}`;
+  }, [nowMinutes]);
+
   useEffect(() => {
     if (currentTimeTop == null) return;
     const scrollY = Math.max(currentTimeTop - 180, 0);
@@ -371,6 +380,22 @@ export function DayView({
       height: 10,
       borderRadius: 5,
       backgroundColor: "#ff5a5f",
+    },
+    currentTimeBadge: {
+      position: "absolute",
+      left: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 8,
+      backgroundColor: "#ff5a5f",
+      zIndex: 3,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    currentTimeBadgeText: {
+      color: "#fff",
+      fontSize: 11,
+      fontWeight: "700",
     },
     appointmentBlock: {
       position: "absolute",
@@ -536,6 +561,16 @@ export function DayView({
                 <Text style={styles.hourText}>{`${hour}:00`}</Text>
               </View>
             ))}
+            {currentTimeTop != null && currentTimeStr ? (
+              <View
+                pointerEvents="none"
+                style={[styles.currentTimeBadge, { top: currentTimeTop - 10 }]}
+              >
+                <Text style={styles.currentTimeBadgeText}>
+                  {currentTimeStr}
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           {/* Day column */}

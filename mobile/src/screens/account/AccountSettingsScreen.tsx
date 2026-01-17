@@ -1,4 +1,5 @@
-import { ScrollView, Text, SafeAreaView } from "react-native";
+import { ScrollView, Text, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -127,107 +128,108 @@ export default function AccountSettingsScreen() {
   const billingStatus = t("accountSettings.billingStatusDefault");
 
   return (
-    <SafeAreaView
-      style={[
-        styles.container,
-        { paddingTop: Math.max(insets.top, 16), paddingBottom: insets.bottom },
-      ]}
-    >
-      <ScreenHeader title={t("accountSettings.title")} />
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={
+          Platform.OS === "ios" ? Math.max(insets.top - 8, 0) : 0
+        }
       >
-        <Text style={styles.introText}>{t("accountSettings.intro")}</Text>
+        <ScreenHeader title={t("accountSettings.title")} />
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.introText}>{t("accountSettings.intro")}</Text>
 
-        <AccountSectionCard
-          title={t("accountSettings.clientsTitle")}
-          subtitle={t("accountSettings.clientsSubtitle")}
-          badge={t("accountSettings.clientsBadge", { total: customers.length })}
-          colors={colors}
-          actions={[
-            {
-              label: t("accountSettings.actions.viewClients"),
-              onPress: handleViewClients,
-            },
-            {
-              label: t("accountSettings.actions.addClient"),
-              onPress: handleAddClient,
-              variant: "primary",
-            },
-          ]}
-        ></AccountSectionCard>
+          <AccountSectionCard
+            title={t("accountSettings.clientsTitle")}
+            subtitle={t("accountSettings.clientsSubtitle")}
+            badge={t("accountSettings.clientsBadge", {
+              total: customers.length,
+            })}
+            colors={colors}
+            actions={[
+              {
+                label: t("accountSettings.actions.viewClients"),
+                onPress: handleViewClients,
+              },
+              {
+                label: t("accountSettings.actions.addClient"),
+                onPress: handleAddClient,
+                variant: "primary",
+              },
+            ]}
+          ></AccountSectionCard>
 
-        <AccountSectionCard
-          title={t("accountSettings.servicesTitle")}
-          subtitle={t("accountSettings.servicesSubtitle")}
-          badge={t("accountSettings.servicesBadge", {
-            active: activeServices,
-          })}
-          colors={colors}
-          actions={[
-            {
-              label: t("accountSettings.actions.reviewServices"),
-              onPress: handleViewServices,
-            },
-            {
-              label: t("accountSettings.actions.addService"),
-              onPress: handleAddService,
-              variant: "primary",
-            },
-          ]}
-        ></AccountSectionCard>
+          <AccountSectionCard
+            title={t("accountSettings.servicesTitle")}
+            subtitle={t("accountSettings.servicesSubtitle")}
+            badge={t("accountSettings.servicesBadge", {
+              active: activeServices,
+            })}
+            colors={colors}
+            actions={[
+              {
+                label: t("accountSettings.actions.reviewServices"),
+                onPress: handleViewServices,
+              },
+              {
+                label: t("accountSettings.actions.addService"),
+                onPress: handleAddService,
+                variant: "primary",
+              },
+            ]}
+          ></AccountSectionCard>
 
-        <AccountSectionCard
-          title={t("accountSettings.billingTitle")}
-          subtitle={t("accountSettings.billingSubtitle")}
-          badge={t("accountSettings.billingBadge", { status: billingStatus })}
-          colors={colors}
-          actions={[
-            {
-              label: t("accountSettings.actions.viewBilling"),
-              onPress: handleBilling,
-              variant: "primary",
-            },
-            {
-              label: t("accountSettings.actions.updateCard"),
-              onPress: handleBilling,
-            },
-          ]}
-        ></AccountSectionCard>
+          <AccountSectionCard
+            title={t("accountSettings.billingTitle")}
+            subtitle={t("accountSettings.billingSubtitle")}
+            badge={t("accountSettings.billingBadge", { status: billingStatus })}
+            colors={colors}
+            actions={[
+              {
+                label: t("accountSettings.actions.viewBilling"),
+                onPress: handleBilling,
+                variant: "primary",
+              },
+            ]}
+          ></AccountSectionCard>
 
-        <AccountSectionCard
-          title={t("accountSettings.teamTitle")}
-          subtitle={t("accountSettings.teamSubtitle")}
-          badge={t("accountSettings.teamBadge", {
-            count: accountMembers.length,
-          })}
-          colors={colors}
-          actions={[
-            {
-              label: t("accountSettings.actions.manageTeam"),
-              onPress: handleTeam,
-              variant: "primary",
-            },
-          ]}
-        ></AccountSectionCard>
+          <AccountSectionCard
+            title={t("accountSettings.teamTitle")}
+            subtitle={t("accountSettings.teamSubtitle")}
+            badge={t("accountSettings.teamBadge", {
+              count: accountMembers.length,
+            })}
+            colors={colors}
+            actions={[
+              {
+                label: t("accountSettings.actions.manageTeam"),
+                onPress: handleTeam,
+                variant: "primary",
+              },
+            ]}
+          ></AccountSectionCard>
 
-        <AccountSectionCard
-          title={t("accountSettings.brandingTitle")}
-          subtitle={t("accountSettings.brandingSubtitle")}
-          badge={badgeLabel}
-          badgeStyle={badgeStyle}
-          badgeTextStyle={badgeTextStyle}
-          colors={colors}
-          actions={[
-            {
-              label: t("accountSettings.actions.viewBranding"),
-              onPress: handleBranding,
-              variant: "primary",
-            },
-          ]}
-        />
-      </ScrollView>
+          <AccountSectionCard
+            title={t("accountSettings.brandingTitle")}
+            subtitle={t("accountSettings.brandingSubtitle")}
+            badge={badgeLabel}
+            badgeStyle={badgeStyle}
+            badgeTextStyle={badgeTextStyle}
+            colors={colors}
+            actions={[
+              {
+                label: t("accountSettings.actions.viewBranding"),
+                onPress: handleBranding,
+                variant: "primary",
+              },
+            ]}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

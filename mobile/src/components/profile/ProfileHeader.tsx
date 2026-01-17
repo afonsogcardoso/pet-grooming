@@ -1,5 +1,12 @@
 import React from "react";
-import { View, Text, Image, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  Image,
+  ActivityIndicator,
+  TouchableOpacity,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import ImageWithDownload from "../common/ImageWithDownload";
 import { Branding } from "../../api/branding";
 
@@ -15,6 +22,9 @@ type Props = {
   t: (key: string, opts?: any) => string;
   emailValue: string;
   createdAtValue: string;
+  memberships?: any[];
+  currentAccountName?: string | null;
+  onSelectAccount?: () => void;
 };
 
 export default function ProfileHeader({
@@ -29,6 +39,9 @@ export default function ProfileHeader({
   t,
   emailValue,
   createdAtValue,
+  memberships,
+  currentAccountName,
+  onSelectAccount,
 }: Props) {
   return (
     <View style={styles.headerCard}>
@@ -64,6 +77,18 @@ export default function ProfileHeader({
           <Text style={styles.headerMeta}>
             {t("profile.createdAt")}: {createdAtValue}
           </Text>
+          {Array.isArray(memberships) && memberships.length > 1 ? (
+            <TouchableOpacity
+              onPress={onSelectAccount}
+              style={styles.accountSwitcher}
+              accessibilityLabel={t("profile.viewAccount")}
+            >
+              <Text style={styles.accountSwitcherText} numberOfLines={1}>
+                {currentAccountName || t("profile.viewAccount")}
+              </Text>
+              <Ionicons name="chevron-down" size={16} color={colors.muted} />
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
     </View>

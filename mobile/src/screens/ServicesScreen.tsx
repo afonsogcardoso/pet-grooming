@@ -48,7 +48,12 @@ export default function ServicesScreen({ navigation }: Props) {
     useSwipeDeleteIndicator();
   const pendingDeleteRef = useRef<DeletePayload | null>(null);
 
-  const { data: services = [], isLoading } = useQuery({
+  const {
+    data: services = [],
+    isLoading,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ["services", "all"],
     queryFn: getAllServices,
   });
@@ -328,6 +333,8 @@ export default function ServicesScreen({ navigation }: Props) {
             contentContainerStyle={styles.listContent}
             ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
             keyboardShouldPersistTaps="handled"
+            refreshing={!!isFetching}
+            onRefresh={() => refetch()}
           />
         )}
       </View>

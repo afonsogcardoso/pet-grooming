@@ -69,7 +69,7 @@ export default function AdminAccountsPage() {
         })
         const body = await response.json().catch(() => ({}))
         if (response.status === 401 || response.status === 403) {
-          window.location.assign('/admin/login?adminError=invalid_session')
+          window.location.assign('/login?adminError=invalid_session')
           return
         }
         if (!response.ok) {
@@ -156,7 +156,7 @@ export default function AdminAccountsPage() {
       })
       const body = await response.json().catch(() => ({}))
       if (response.status === 401 || response.status === 403) {
-        window.location.assign('/admin/login?adminError=invalid_session')
+        window.location.assign('/login?adminError=invalid_session')
         return
       }
       if (!response.ok) {
@@ -205,7 +205,7 @@ export default function AdminAccountsPage() {
       })
       const body = await response.json().catch(() => ({}))
       if (response.status === 401 || response.status === 403) {
-        window.location.assign('/admin/login?adminError=invalid_session')
+        window.location.assign('/login?adminError=invalid_session')
         return
       }
       if (!response.ok) {
@@ -541,7 +541,7 @@ function NewAccountModal({ open, onClose, onCreated }) {
       })
       const body = await response.json().catch(() => ({}))
       if (response.status === 401 || response.status === 403) {
-        window.location.assign('/admin/login?adminError=invalid_session')
+        window.location.assign('/login?adminError=invalid_session')
         return
       }
       if (!response.ok) {

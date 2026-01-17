@@ -52,7 +52,7 @@ export default function AdminAccountMembersPage() {
       .then(({ ok, body }) => {
         if (!isMounted) return
         if (!ok && (body?.status === 401 || body?.status === 403)) {
-          router.replace('/admin/login?adminError=invalid_session')
+          router.replace('/login?adminError=invalid_session')
           return
         }
         if (!ok) {
@@ -91,7 +91,7 @@ export default function AdminAccountMembersPage() {
       })
       const body = await response.json().catch(() => ({}))
       if (response.status === 401 || response.status === 403) {
-        router.replace('/admin/login?adminError=invalid_session')
+        router.replace('/login?adminError=invalid_session')
         return
       }
       if (!response.ok) {
@@ -122,7 +122,7 @@ export default function AdminAccountMembersPage() {
       })
       const body = await response.json().catch(() => ({}))
       if (response.status === 401 || response.status === 403) {
-        router.replace('/admin/login?adminError=invalid_session')
+        router.replace('/login?adminError=invalid_session')
         return
       }
       if (!response.ok) {
@@ -148,7 +148,7 @@ export default function AdminAccountMembersPage() {
       })
       const body = await response.json().catch(() => ({}))
       if (response.status === 401 || response.status === 403) {
-        router.replace('/admin/login?adminError=invalid_session')
+        router.replace('/login?adminError=invalid_session')
         return
       }
       if (!response.ok) {
@@ -176,7 +176,7 @@ export default function AdminAccountMembersPage() {
       })
       const body = await response.json().catch(() => ({}))
       if (response.status === 401 || response.status === 403) {
-        router.replace('/admin/login?adminError=invalid_session')
+        router.replace('/login?adminError=invalid_session')
         return
       }
       if (!response.ok) {
@@ -205,7 +205,7 @@ export default function AdminAccountMembersPage() {
       })
       const body = await response.json().catch(() => ({}))
       if (response.status === 401 || response.status === 403) {
-        router.replace('/admin/login?adminError=invalid_session')
+        router.replace('/login?adminError=invalid_session')
         return
       }
       if (!response.ok) {
@@ -239,7 +239,7 @@ export default function AdminAccountMembersPage() {
       })
       const body = await response.json().catch(() => ({}))
       if (response.status === 401 || response.status === 403) {
-        router.replace('/admin/login?adminError=invalid_session')
+        router.replace('/login?adminError=invalid_session')
         return
       }
       if (!response.ok) {
@@ -276,7 +276,7 @@ export default function AdminAccountMembersPage() {
       })
       const body = await response.json().catch(() => ({}))
       if (response.status === 401 || response.status === 403) {
-        router.replace('/admin/login?adminError=invalid_session')
+        router.replace('/login?adminError=invalid_session')
         return
       }
       if (!response.ok) {
@@ -428,11 +428,10 @@ function MembersTable({
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
-                      member.status === 'accepted'
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-amber-200 bg-amber-50 text-amber-700'
-                    }`}
+                    className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${member.status === 'accepted'
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      : 'border-amber-200 bg-amber-50 text-amber-700'
+                      }`}
                   >
                     {member.status}
                   </span>
@@ -581,9 +580,8 @@ function InvitePanel({ form, onChange, onSubmit, loading, message }) {
       </form>
       {message && (
         <div
-          className={`mt-3 rounded-lg px-3 py-2 text-sm ${
-            message.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-          }`}
+          className={`mt-3 rounded-lg px-3 py-2 text-sm ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+            }`}
         >
           <p>{message.text}</p>
           {message.link && (

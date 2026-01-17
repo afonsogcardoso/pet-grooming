@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from '@/components/TranslationProvider'
+import { getCurrentAccountId } from '@/lib/accountHelpers'
 import { formatCustomerName } from '@/lib/customerName'
 import { formatDate, formatTime } from '@/utils/dateUtils'
 import ConfirmationPetPhoto from './ConfirmationPetPhoto'
@@ -90,18 +91,24 @@ export default function ConfirmationPage({ appointment }) {
     if (!hasAppointment || !appointment?.id || !appointment?.public_token) return
     // Fire-and-forget beacon to mark open
     if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+      const accountId = getCurrentAccountId({ required: false })
+      const body = { id: appointment.id, token: appointment.public_token }
+      if (accountId) body.accountId = accountId
       navigator.sendBeacon(
         '/api/v1/appointments/confirm-open',
-        new Blob([JSON.stringify({ id: appointment.id, token: appointment.public_token })], {
+        new Blob([JSON.stringify(body)], {
           type: 'application/json'
         })
       )
     } else {
+      const accountId = getCurrentAccountId({ required: false })
+      const headers = { 'Content-Type': 'application/json' }
+      if (accountId) headers['X-Account-Id'] = accountId
       fetch('/api/v1/appointments/confirm-open', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ id: appointment.id, token: appointment.public_token })
-      }).catch(() => {})
+      }).catch(() => { })
     }
   }, [appointment, hasAppointment])
 
@@ -117,9 +124,11 @@ export default function ConfirmationPage({ appointment }) {
       form.append('token', appointment.public_token)
       form.append('file', compressed)
 
+      const accountId = getCurrentAccountId({ required: false })
       const response = await fetch('/api/v1/appointments/pet-photo', {
         method: 'POST',
-        body: form
+        body: form,
+        headers: accountId ? { 'X-Account-Id': accountId } : undefined
       })
       const result = await response.json()
       if (!response.ok || !result?.ok) {

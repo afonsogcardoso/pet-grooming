@@ -48,13 +48,25 @@ export type BrandingUpdatePayload = {
   marketplace_enabled?: boolean;
 };
 
-function buildAccountQuery(accountId?: string | null) {
-  return accountId ? `?accountId=${encodeURIComponent(accountId)}` : '';
-}
-
 export async function getBranding(accountId?: string): Promise<Branding> {
-  const query = buildAccountQuery(accountId);
-  const { data } = await api.get<BrandingResponse>(`/branding${query}`);
+  const headers = accountId ? { 'X-Account-Id': accountId } : undefined;
+  console.debug('[branding] GET', { accountId: accountId ?? null });
+  const { data } = await api.get<BrandingResponse>('/branding', { headers });
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    try {
+      const b = data.data;
+      const summary = {
+        id: b?.id,
+        account_id: b?.account_id,
+        brand_primary: !!b?.brand_primary,
+        logo: !!b?.logo_url,
+      };
+      // eslint-disable-next-line no-console
+      console.debug('branding carregado do servidor', summary);
+    } catch (e) {
+      // ignore logging errors
+    }
+  }
   return data.data;
 }
 
@@ -62,20 +74,30 @@ export async function updateBranding(
   payload: BrandingUpdatePayload,
   accountId?: string | null,
 ): Promise<Branding> {
-  const query = buildAccountQuery(accountId);
-  const { data } = await api.patch<BrandingResponse>(`/branding${query}`, payload);
+  const headers = accountId ? { 'X-Account-Id': accountId } : undefined;
+  console.debug('[branding] PATCH', {
+    accountId: accountId ?? null,
+    keys: Object.keys(payload || {}),
+  });
+  const { data } = await api.patch<BrandingResponse>('/branding', payload, { headers });
   return data.data;
 }
 
 type BrandingUploadResponse = { url: string; data?: Branding };
 
+export function brandingQueryKey(accountId?: string | null) {
+  return ["branding", accountId ?? "default"] as const;
+}
+
 export async function uploadBrandLogo(
   formData: FormData,
   accountId?: string | null,
 ): Promise<BrandingUploadResponse> {
-  const query = buildAccountQuery(accountId);
-  const { data } = await api.post<BrandingUploadResponse>(`/branding/logo${query}`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+  const headers: Record<string, string> = { 'Content-Type': 'multipart/form-data' };
+  if (accountId) headers['X-Account-Id'] = accountId;
+  console.debug('[branding] POST logo', { accountId: accountId ?? null });
+  const { data } = await api.post<BrandingUploadResponse>('/branding/logo', formData, {
+    headers,
   });
   return data;
 }
@@ -84,25 +106,25 @@ export async function uploadPortalImage(
   formData: FormData,
   accountId?: string | null,
 ): Promise<BrandingUploadResponse> {
-  const query = buildAccountQuery(accountId);
-  const { data } = await api.post<BrandingUploadResponse>(
-    `/branding/portal-image${query}`,
-    formData,
-    {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    },
-  );
+  const headers: Record<string, string> = { 'Content-Type': 'multipart/form-data' };
+  if (accountId) headers['X-Account-Id'] = accountId;
+  console.debug('[branding] POST portal-image', { accountId: accountId ?? null });
+  const { data } = await api.post<BrandingUploadResponse>('/branding/portal-image', formData, {
+    headers,
+  });
   return data;
 }
 
 export async function deleteBrandLogo(accountId?: string | null): Promise<Branding> {
-  const query = buildAccountQuery(accountId)
-  const { data } = await api.delete<BrandingResponse>(`/branding/logo${query}`)
+  const headers = accountId ? { 'X-Account-Id': accountId } : undefined;
+  console.debug('[branding] DELETE logo', { accountId: accountId ?? null });
+  const { data } = await api.delete<BrandingResponse>('/branding/logo', { headers })
   return data.data
 }
 
 export async function deletePortalImage(accountId?: string | null): Promise<Branding> {
-  const query = buildAccountQuery(accountId)
-  const { data } = await api.delete<BrandingResponse>(`/branding/portal-image${query}`)
+  const headers = accountId ? { 'X-Account-Id': accountId } : undefined;
+  console.debug('[branding] DELETE portal-image', { accountId: accountId ?? null });
+  const { data } = await api.delete<BrandingResponse>('/branding/portal-image', { headers })
   return data.data
 }

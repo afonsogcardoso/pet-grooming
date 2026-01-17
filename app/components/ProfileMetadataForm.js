@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { compressImage } from '@/utils/image'
 import { useTranslation } from '@/components/TranslationProvider'
+import { getCurrentAccountId } from '@/lib/accountHelpers'
 import PhoneInput from '@/components/PhoneInput'
 
 const DEFAULT_NOTIFICATION_PREFERENCES = {
@@ -120,7 +121,9 @@ export default function ProfileMetadataForm({
       if (avatarFile) {
         const formData = new FormData()
         formData.append('file', avatarFile)
-        const uploadResp = await fetch('/api/v1/profile/avatar', { method: 'POST', body: formData })
+        const accountId = getCurrentAccountId({ required: false })
+        const uploadHeaders = accountId ? { 'X-Account-Id': accountId } : undefined
+        const uploadResp = await fetch('/api/v1/profile/avatar', { method: 'POST', body: formData, headers: uploadHeaders })
         const uploadBody = await uploadResp.json().catch(() => ({}))
         if (!uploadResp.ok) {
           throw new Error(uploadBody.error || t('profile.form.errors.update'))
@@ -128,9 +131,11 @@ export default function ProfileMetadataForm({
         uploadedAvatarUrl = uploadBody.url || ''
       }
 
+      const headers = { 'Content-Type': 'application/json' }
+      if (accountId) headers['X-Account-Id'] = accountId
       const response = await fetch('/api/v1/profile', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ ...form, avatarUrl: uploadedAvatarUrl })
       })
       const body = await response.json().catch(() => ({}))
@@ -140,7 +145,7 @@ export default function ProfileMetadataForm({
 
       const notificationsResponse = await fetch('/api/v1/notifications/preferences', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ preferences: notificationPreferences })
       })
       const notificationsBody = await notificationsResponse.json().catch(() => ({}))
@@ -441,9 +446,8 @@ export default function ProfileMetadataForm({
       </div>
       {status && (
         <p
-          className={`rounded-lg px-3 py-2 text-sm ${
-            status.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-          }`}
+          className={`rounded-lg px-3 py-2 text-sm ${status.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+            }`}
         >
           {status.text}
         </p>

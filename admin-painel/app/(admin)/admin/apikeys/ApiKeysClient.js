@@ -55,7 +55,7 @@ export default function ApiKeysClient({ currentUserEmail }) {
     })
     const body = await res.json()
     if (res.status === 401 || res.status === 403) {
-      window.location.assign('/admin/login?adminError=invalid_session')
+      window.location.assign('/login?adminError=invalid_session')
       return
     }
     if (!res.ok) {
@@ -81,7 +81,7 @@ export default function ApiKeysClient({ currentUserEmail }) {
     })
     const body = await res.json()
     if (res.status === 401 || res.status === 403) {
-      window.location.assign('/admin/login?adminError=invalid_session')
+      window.location.assign('/login?adminError=invalid_session')
       return
     }
     if (!res.ok) {
@@ -117,7 +117,7 @@ export default function ApiKeysClient({ currentUserEmail }) {
     })
     const body = await res.json().catch(() => ({}))
     if (res.status === 401 || res.status === 403) {
-      window.location.assign('/admin/login?adminError=invalid_session')
+      window.location.assign('/login?adminError=invalid_session')
       return
     }
     if (!res.ok) {
@@ -167,12 +167,12 @@ export default function ApiKeysClient({ currentUserEmail }) {
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <label className="text-xs font-semibold text-slate-500">Search</label>
           <div className="mt-1 flex gap-2">
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm placeholder:text-slate-600"
-            placeholder="Name or prefix"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm placeholder:text-slate-600"
+              placeholder="Name or prefix"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
             <button
               onClick={() => fetchKeys(1)}
               className="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm font-semibold"
@@ -255,9 +255,8 @@ export default function ApiKeysClient({ currentUserEmail }) {
                 <p className="text-xs text-slate-500">
                   Status:{' '}
                   <span
-                    className={`font-semibold ${
-                      key.status === 'active' ? 'text-emerald-700' : 'text-rose-700'
-                    }`}
+                    className={`font-semibold ${key.status === 'active' ? 'text-emerald-700' : 'text-rose-700'
+                      }`}
                   >
                     {key.status}
                   </span>

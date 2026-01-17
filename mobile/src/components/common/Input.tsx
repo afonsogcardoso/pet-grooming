@@ -8,6 +8,7 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
+import createInputStyles from "./inputStyles";
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -42,7 +43,7 @@ export const Input = forwardRef<TextInput | null, InputProps>(function Input(
   ref
 ) {
   const { colors } = useBrandingTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = useMemo(() => createInputStyles(colors), [colors]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const inputRef = useRef<TextInput | null>(null);
 
@@ -136,79 +137,4 @@ export const Input = forwardRef<TextInput | null, InputProps>(function Input(
   );
 });
 
-function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
-  return StyleSheet.create({
-    container: {
-      marginBottom: 16,
-    },
-    label: {
-      fontSize: 14,
-      fontWeight: "400",
-      color: colors.text,
-      marginBottom: 8,
-    },
-    inputWrapper: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: colors.background,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      paddingHorizontal: 16,
-      height: 52,
-    },
-    inputWrapperMultiline: {
-      height: "auto",
-      minHeight: 52,
-      alignItems: "flex-start",
-      paddingVertical: 12,
-    },
-    inputWrapperError: {
-      borderColor: colors.danger,
-    },
-    input: {
-      flex: 1,
-      fontSize: 15,
-      color: colors.text,
-      padding: 0,
-    },
-    inputWithLeftIcon: {
-      marginLeft: 8,
-    },
-    leftIcon: {
-      fontSize: 20,
-    },
-    leftIconMultiline: {
-      marginTop: 2,
-    },
-    rightIcon: {
-      marginLeft: 8,
-    },
-    error: {
-      fontSize: 13,
-      color: colors.danger,
-      marginTop: 6,
-      marginLeft: 4,
-    },
-    suggestionsContainer: {
-      backgroundColor: "#FFFFFF",
-      borderRadius: 12,
-      borderWidth: 1.5,
-      borderColor: colors.primary,
-      marginTop: 4,
-      overflow: "hidden",
-    },
-    suggestionItem: {
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.surfaceBorder,
-      backgroundColor: "#FFFFFF",
-    },
-    suggestionText: {
-      fontSize: 15,
-      color: colors.text,
-      fontWeight: "500",
-    },
-  });
-}
+// styles moved to shared inputStyles.ts

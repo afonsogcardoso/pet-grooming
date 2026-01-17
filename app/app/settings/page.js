@@ -11,6 +11,7 @@ import { useAccount } from '@/components/AccountProvider'
 import { useTranslation } from '@/components/TranslationProvider'
 import { compressImage } from '@/utils/image'
 import { getStoredAccessToken } from '@/lib/authTokens'
+import { getCurrentAccountId } from '@/lib/accountHelpers'
 import { buildPhone, DEFAULT_COUNTRY_CODE, normalizeCountryCode, splitPhone } from '@/lib/phone'
 import { COUNTRY_CODES } from '@/lib/countryCodes'
 
@@ -22,12 +23,12 @@ const ROLE_OPTIONS = [
 
 const BRANDING_BUCKET = 'account-branding'
 const DEFAULT_BRANDING = {
-  brand_primary: '#1F6FEB',
-  brand_primary_soft: '#82B1FF',
-  brand_accent: '#144FA1',
-  brand_accent_soft: '#DCE8FF',
-  brand_background: '#F6F9FF',
-  brand_gradient: 'linear-gradient(135deg, #1F6FEB, #144FA1)'
+  brand_primary: '#4fafa9',
+  brand_primary_soft: '#ebf5f4',
+  brand_accent: '#f4d58d',
+  brand_accent_soft: '#fdf6de',
+  brand_background: '#f6f9f8',
+  brand_gradient: 'linear-gradient(135deg, #4fafa9, #ebf5f4)',
 }
 
 const normalizeBrandingData = (data = {}) => ({
@@ -152,11 +153,10 @@ export default function SettingsPage() {
     const url = apiBase
       ? `${apiBase}/api/v1/account/members?accountId=${account.id}`
       : `/api/v1/account/members?accountId=${account.id}`
-    const response = await fetch(url, {
-      headers: {
-        Authorization: token ? `Bearer ${token}` : ''
-      }
-    })
+    const accountId = getCurrentAccountId({ required: false })
+    const headers = { Authorization: token ? `Bearer ${token}` : '' }
+    if (accountId) headers['X-Account-Id'] = accountId
+    const response = await fetch(url, { headers })
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({}))
@@ -181,11 +181,10 @@ export default function SettingsPage() {
     setDomainsError(null)
     const token = getStoredAccessToken()
 
-    const response = await fetch(`/api/v1/domains?accountId=${account.id}`, {
-      headers: {
-        Authorization: token ? `Bearer ${token}` : ''
-      }
-    })
+    const accountId = getCurrentAccountId({ required: false })
+    const headers = { Authorization: token ? `Bearer ${token}` : '' }
+    if (accountId) headers['X-Account-Id'] = accountId
+    const response = await fetch(`/api/v1/domains?accountId=${account.id}`, { headers })
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({}))
@@ -254,12 +253,15 @@ export default function SettingsPage() {
       : `/api/v1/branding?accountId=${account.id}`
 
     try {
+      const accountId = getCurrentAccountId({ required: false })
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      }
+      if (accountId) headers['X-Account-Id'] = accountId
       const response = await fetch(brandingUrl, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
+        headers,
         body: JSON.stringify({
           name: branding.account_name,
           logo_url: branding.logo_url,
@@ -320,12 +322,15 @@ export default function SettingsPage() {
     const apiBase = (process.env.NEXT_PUBLIC_API_URL || process.env.API_BASE_URL || '').replace(/\/$/, '')
     const url = apiBase ? `${apiBase}/api/v1/account/members` : '/api/v1/account/members'
 
+    const accountId = getCurrentAccountId({ required: false })
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: token ? `Bearer ${token}` : ''
+    }
+    if (accountId) headers['X-Account-Id'] = accountId
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: token ? `Bearer ${token}` : ''
-      },
+      headers,
       body: JSON.stringify({
         accountId: account.id,
         email: inviteForm.email,
@@ -385,11 +390,12 @@ export default function SettingsPage() {
     formData.append('file', compressedBlob, 'logo.jpg')
 
     try {
+      const accountId = getCurrentAccountId({ required: false })
+      const headers = { Authorization: `Bearer ${token}` }
+      if (accountId) headers['X-Account-Id'] = accountId
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
+        headers,
         body: formData
       })
       const body = await response.json().catch(() => ({}))
@@ -436,11 +442,12 @@ export default function SettingsPage() {
     formData.append('file', compressedBlob, 'portal-image.jpg')
 
     try {
+      const accountId = getCurrentAccountId({ required: false })
+      const headers = { Authorization: `Bearer ${token}` }
+      if (accountId) headers['X-Account-Id'] = accountId
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
+        headers,
         body: formData
       })
       const body = await response.json().catch(() => ({}))
@@ -471,12 +478,15 @@ export default function SettingsPage() {
 
     const token = getStoredAccessToken()
 
+    const accountId = getCurrentAccountId({ required: false })
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: token ? `Bearer ${token}` : ''
+    }
+    if (accountId) headers['X-Account-Id'] = accountId
     const response = await fetch('/api/v1/domains', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: token ? `Bearer ${token}` : ''
-      },
+      headers,
       body: JSON.stringify({
         accountId: account.id,
         domain: domainValue,
@@ -513,12 +523,15 @@ export default function SettingsPage() {
     setDomainMessage(null)
     const token = getStoredAccessToken()
 
+    const accountId = getCurrentAccountId({ required: false })
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: token ? `Bearer ${token}` : ''
+    }
+    if (accountId) headers['X-Account-Id'] = accountId
     const response = await fetch('/api/v1/domains', {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: token ? `Bearer ${token}` : ''
-      },
+      headers,
       body: JSON.stringify({
         accountId: account.id,
         domainId
@@ -562,12 +575,15 @@ export default function SettingsPage() {
 
     const token = getStoredAccessToken()
 
+    const accountId = getCurrentAccountId({ required: false })
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: token ? `Bearer ${token}` : ''
+    }
+    if (accountId) headers['X-Account-Id'] = accountId
     const response = await fetch('/api/v1/domains/verify', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: token ? `Bearer ${token}` : ''
-      },
+      headers,
       body: JSON.stringify({
         accountId: account.id,
         domainId

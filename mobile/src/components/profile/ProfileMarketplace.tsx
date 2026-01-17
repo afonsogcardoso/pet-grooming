@@ -5,15 +5,15 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
+  StyleSheet,
 } from "react-native";
+import { useTranslation } from "react-i18next";
+import { useBrandingTheme } from "../../theme/useBrandingTheme";
 import Switch from "../StyledSwitch";
 import { Input } from "../common/Input";
 import ImageWithDownload from "../common/ImageWithDownload";
 
 type Props = {
-  styles: any;
-  colors: any;
-  t: any;
   accountActive: boolean;
   handleToggleAccountActive: (v: boolean) => void;
   accountName: string;
@@ -54,23 +54,170 @@ type Props = {
   deleteAccountHero: () => void;
 };
 
-type ColorFieldProps = {
-  styles: any;
-  colors: any;
-  label: string;
-  value: string;
-  placeholder: string;
-  setter: (value: string) => void;
-};
+function createLocalStyles(
+  colors: ReturnType<typeof useBrandingTheme>["colors"]
+) {
+  return StyleSheet.create({
+    section: {
+      padding: 18,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      marginTop: 12,
+    },
+    inputGroup: {
+      flex: 1,
+      marginBottom: 10,
+    },
+    inputLabel: {
+      color: colors.muted,
+      fontSize: 11,
+      letterSpacing: 0.6,
+      textTransform: "uppercase",
+      marginBottom: 6,
+    },
+    inputField: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: "400",
+      marginTop: 4,
+    },
+    toggleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    toggleTextGroup: {},
+    toggleLabel: {
+      color: colors.muted,
+      fontSize: 14,
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontWeight: "700",
+      marginBottom: 12,
+    },
+    colorGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 12,
+    },
+    colorCell: {
+      width: "48%",
+    },
+    colorLabel: {
+      color: colors.muted,
+      fontSize: 12,
+      marginBottom: 4,
+    },
+    colorInputRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    colorSwatch: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+    },
+    colorInput: {
+      flex: 1,
+      height: 40,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 10,
+      color: colors.text,
+      fontSize: 14,
+    },
+    marketplaceMediaGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 12,
+      marginBottom: 12,
+    },
+    marketplaceMediaCard: {
+      padding: 12,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      flex: 1,
+      minWidth: 150,
+    },
+    marketplaceMediaTitle: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: 8,
+    },
+    marketplaceLogo: {
+      height: 96,
+      borderRadius: 12,
+      backgroundColor: colors.background,
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+      position: "relative",
+    },
+    marketplaceLogoImage: { width: "100%", height: "100%" },
+    marketplaceLogoFallback: {
+      fontSize: 24,
+      fontWeight: "800",
+      color: colors.primary,
+    },
+    marketplaceHero: {
+      height: 96,
+      borderRadius: 12,
+      backgroundColor: colors.background,
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+      position: "relative",
+    },
+    marketplaceHeroImage: { width: "100%", height: "100%" },
+    marketplaceHeroPlaceholder: { paddingHorizontal: 8 },
+    marketplaceHeroPlaceholderText: {
+      color: colors.muted,
+      fontSize: 12,
+      textAlign: "center",
+    },
+    marketplaceMediaOverlay: {
+      position: "absolute",
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      backgroundColor: "rgba(0,0,0,0.35)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    marketplaceMediaButton: {
+      marginTop: 10,
+      borderRadius: 10,
+      paddingVertical: 10,
+      alignItems: "center",
+      backgroundColor: colors.primarySoft,
+    },
+  });
+}
 
 function ColorField({
-  styles,
-  colors,
   label,
   value,
   placeholder,
   setter,
-}: ColorFieldProps) {
+  styles,
+  colors,
+}: any) {
   const swatchColor = value || placeholder;
 
   return (
@@ -97,9 +244,6 @@ function ColorField({
 }
 
 export default function ProfileMarketplace({
-  styles,
-  colors,
-  t,
   accountActive,
   handleToggleAccountActive,
   accountName,
@@ -137,6 +281,9 @@ export default function ProfileMarketplace({
   deleteAccountLogo,
   deleteAccountHero,
 }: Props) {
+  const { t } = useTranslation();
+  const { colors } = useBrandingTheme();
+  const styles = createLocalStyles(colors);
   const coloringFields = [
     {
       key: "primary",
@@ -272,7 +419,9 @@ export default function ProfileMarketplace({
                       ? undefined
                       : () => pickAccountImage(accountUploadLogoFromUri)
                   }
-                  onDelete={uploadingAccountLogo ? undefined : deleteAccountLogo}
+                  onDelete={
+                    uploadingAccountLogo ? undefined : deleteAccountLogo
+                  }
                 />
                 {uploadingAccountLogo ? (
                   <View style={styles.marketplaceMediaOverlay}>

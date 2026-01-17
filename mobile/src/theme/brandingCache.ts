@@ -7,7 +7,22 @@ export async function readBrandingCache(): Promise<Branding | null> {
   try {
     const raw = await AsyncStorage.getItem(BRANDING_CACHE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as Branding;
+    const branding = JSON.parse(raw) as Branding;
+    if (typeof __DEV__ !== 'undefined' && __DEV__) {
+      try {
+        const summary = {
+          id: branding.id,
+          account_id: branding.account_id,
+          brand_primary: !!branding.brand_primary,
+          logo: !!branding.logo_url,
+        };
+        // eslint-disable-next-line no-console
+        console.debug('branding carregado da cache', summary);
+      } catch (e) {
+        // ignore logging errors
+      }
+    }
+    return branding;
   } catch (err) {
     console.warn('Falha ao ler cache de branding:', err);
     return null;

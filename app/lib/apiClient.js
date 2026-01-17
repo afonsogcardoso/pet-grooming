@@ -35,6 +35,18 @@ function buildHeaders(token, extra = {}) {
 export async function apiGet(path, { token, headers = {}, apiVersion } = {}) {
   const url = buildUrl(path, apiVersion)
   if (!url) return null
+  // Try to add active account id header automatically when available
+  try {
+    if (!headers['X-Account-Id'] && !headers['x-account-id']) {
+      // lazy import to avoid circular issues in some environments
+      const { getCurrentAccountId } = await import('./accountHelpers')
+      const accountId = await getCurrentAccountId({ required: false }).catch(() => null)
+      if (accountId) headers['X-Account-Id'] = accountId
+    }
+  } catch (err) {
+    // ignore
+  }
+
   const resp = await fetch(url, {
     headers: buildHeaders(token, headers)
   })
@@ -46,6 +58,14 @@ export async function apiGet(path, { token, headers = {}, apiVersion } = {}) {
 export async function apiPost(path, payload, { token, headers = {}, apiVersion } = {}) {
   const url = buildUrl(path, apiVersion)
   if (!url) return null
+  try {
+    if (!headers['X-Account-Id'] && !headers['x-account-id']) {
+      const { getCurrentAccountId } = await import('./accountHelpers')
+      const accountId = await getCurrentAccountId({ required: false }).catch(() => null)
+      if (accountId) headers['X-Account-Id'] = accountId
+    }
+  } catch (err) { }
+
   const resp = await fetch(url, {
     method: 'POST',
     headers: buildHeaders(token, { 'Content-Type': 'application/json', ...headers }),
@@ -59,6 +79,14 @@ export async function apiPost(path, payload, { token, headers = {}, apiVersion }
 export async function apiPatch(path, payload, { token, headers = {}, apiVersion } = {}) {
   const url = buildUrl(path, apiVersion)
   if (!url) return null
+  try {
+    if (!headers['X-Account-Id'] && !headers['x-account-id']) {
+      const { getCurrentAccountId } = await import('./accountHelpers')
+      const accountId = await getCurrentAccountId({ required: false }).catch(() => null)
+      if (accountId) headers['X-Account-Id'] = accountId
+    }
+  } catch (err) { }
+
   const resp = await fetch(url, {
     method: 'PATCH',
     headers: buildHeaders(token, { 'Content-Type': 'application/json', ...headers }),
@@ -72,6 +100,14 @@ export async function apiPatch(path, payload, { token, headers = {}, apiVersion 
 export async function apiDelete(path, { token, headers = {}, apiVersion } = {}) {
   const url = buildUrl(path, apiVersion)
   if (!url) return null
+  try {
+    if (!headers['X-Account-Id'] && !headers['x-account-id']) {
+      const { getCurrentAccountId } = await import('./accountHelpers')
+      const accountId = await getCurrentAccountId({ required: false }).catch(() => null)
+      if (accountId) headers['X-Account-Id'] = accountId
+    }
+  } catch (err) { }
+
   const resp = await fetch(url, {
     method: 'DELETE',
     headers: buildHeaders(token, headers)

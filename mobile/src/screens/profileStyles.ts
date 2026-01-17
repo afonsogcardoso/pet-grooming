@@ -10,9 +10,9 @@ export default function createStyles(colors: any) {
       backgroundColor: colors.background,
     },
     scrollContent: {
+      flexGrow: 1,
       padding: 24,
-      paddingTop: 12,
-      paddingBottom: 20,
+      paddingTop: 12
     },
     headerCard: {
       ...cardBase,
@@ -63,6 +63,30 @@ export default function createStyles(colors: any) {
       color: colors.text,
       fontSize: 22,
       fontWeight: "700",
+    },
+    accountSwitcher: {
+      flexDirection: "row",
+      alignItems: "center",
+      alignSelf: "flex-start",
+      marginTop: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 10,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.surfaceBorder,
+      shadowColor: "#000",
+      shadowOpacity: 0.03,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 2,
+    },
+    accountSwitcherText: {
+      color: colors.muted,
+      marginRight: 6,
+      maxWidth: 160,
+      fontSize: 13,
+      fontWeight: "600",
     },
     headerSubtitle: {
       color: colors.muted,

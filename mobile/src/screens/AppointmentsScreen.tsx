@@ -13,6 +13,11 @@ import {
   TouchableOpacity,
   Animated,
   Alert,
+  TextInput,
+  Modal,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -20,6 +25,8 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import {
   getAppointments,
   Appointment,
@@ -42,6 +49,13 @@ import {
 } from "../utils/haptics";
 import { useSwipeDeleteIndicator } from "../hooks/useSwipeDeleteIndicator";
 import { getSegmentStyles } from "../theme/uiTokens";
+import { matchesSearchQuery } from "../utils/textHelpers";
+import { formatCustomerName } from "../utils/customer";
+import {
+  getAppointmentPetNames,
+  formatServiceLabels,
+} from "../utils/appointmentSummary";
+import AppointmentCard from "../components/appointments/AppointmentCard";
 
 type Props = NativeStackScreenProps<any>;
 type ViewMode = "list" | "day" | "week" | "month";
@@ -51,10 +65,10 @@ type DeletePayload = {
   affectedQueries: Array<{ key: readonly unknown[]; index: number }>;
 };
 const UNDO_TIMEOUT_MS = 4000;
+const BLUR_INTENSITY = 5;
 
 function todayLocalISO() {
-  // YYYY-MM-DD usando timezone local (evita “pular” para amanhã em UTC)
-  return new Date().toLocaleDateString("sv-SE"); // sv-SE => 2024-07-01
+  return new Date().toLocaleDateString("sv-SE");
 }
 
 type AppointmentRouteParams = Partial<{
@@ -68,10 +82,10 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
   const routeParams = route?.params as AppointmentRouteParams | undefined;
   const today = todayLocalISO();
   const [filterMode, setFilterMode] = useState<FilterMode>(
-    routeParams?.filterMode || "upcoming"
+    routeParams?.filterMode || "upcoming",
   );
   const [viewMode, setViewMode] = useState<ViewMode>(
-    routeParams?.viewMode || "list"
+    routeParams?.viewMode || "list",
   );
   const [selectedDate, setSelectedDate] = useState(() => {
     if (routeParams?.selectedDate) {
@@ -81,8 +95,11 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
     return new Date();
   });
   const [pendingOnly, setPendingOnly] = useState(
-    Boolean(routeParams?.pendingOnly)
+    Boolean(routeParams?.pendingOnly),
   );
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<TextInput | null>(null);
 
   const { branding: brandingData, colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -92,10 +109,8 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
   const undoBottomOffset = tabBarHeight > 0 ? tabBarHeight : insets.bottom + 16;
   const scrollY = useRef(new Animated.Value(0)).current;
   const [headerHeight, setHeaderHeight] = useState(0);
-  const [isCompactHeader, setIsCompactHeader] = useState(false);
-
-  // For list/day view: fetch appointments based on filter mode
-  // For week/month view: fetch a broader range
+  const isCompactHeader = false;
+  const searchQueryTrimmed = searchQuery.trim();
   const dateRange = useMemo(() => {
     if (viewMode === "list") {
       return {
@@ -104,8 +119,8 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
           filterMode === "past"
             ? today
             : filterMode === "unpaid"
-            ? today
-            : undefined,
+              ? today
+              : undefined,
       };
     }
 
@@ -115,7 +130,6 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
     }
 
     if (viewMode === "week") {
-      // Calculate Sunday as start of week (like in WeekView)
       const day = selectedDate.getDay();
       const startOfWeek = new Date(selectedDate);
       startOfWeek.setDate(selectedDate.getDate() - day);
@@ -132,12 +146,12 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
       const startOfMonth = new Date(
         selectedDate.getFullYear(),
         selectedDate.getMonth(),
-        1
+        1,
       );
       const endOfMonth = new Date(
         selectedDate.getFullYear(),
         selectedDate.getMonth() + 1,
-        0
+        0,
       );
 
       return {
@@ -169,7 +183,7 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
       const apptDate = new Date(`${dayKey}T${hh}:${mm}:00`);
       return apptDate < now;
     },
-    [today]
+    [today],
   );
 
   const PAGE_SIZE = 20;
@@ -211,12 +225,12 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
 
   const appointments: Appointment[] =
     (appointmentsData?.pages?.flatMap(
-      (page: any) => page.items
+      (page: any) => page.items,
     ) as Appointment[]) || [];
   const pendingAppointments = useMemo(
     () =>
       appointments.filter((appointment) => appointment.status === "pending"),
-    [appointments]
+    [appointments],
   );
   const pendingCount = pendingAppointments.length;
   const hasPendingAppointments = pendingCount > 0;
@@ -224,11 +238,10 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
     if (isLoading) return false;
     const now = new Date();
     return appointments.some((appointment) =>
-      isUnpaidPastOrCompleted(appointment, now)
+      isUnpaidPastOrCompleted(appointment, now),
     );
   }, [appointments, isLoading, isUnpaidPastOrCompleted]);
 
-  // Lightweight server check: only if local pages found none; keep tiny page for speed.
   const { data: unpaidCheckData } = useQuery({
     queryKey: ["appointments-unpaid-check", today],
     queryFn: () => getAppointments({ to: today, limit: 10 }),
@@ -241,16 +254,41 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
     const items = unpaidCheckData?.items || [];
     const now = new Date();
     return items.some((appointment) =>
-      isUnpaidPastOrCompleted(appointment, now)
+      isUnpaidPastOrCompleted(appointment, now),
     );
   }, [isUnpaidPastOrCompleted, unpaidCheckData]);
 
-  const displayAppointments = useMemo(() => {
+  const applySearchFilter = useCallback(
+    (items: Appointment[], query: string) => {
+      if (!query) return items;
+      const q = query.trim();
+      return items.filter((appointment) => {
+        const customer = formatCustomerName(appointment.customers) || "";
+        const appointmentServices = appointment.appointment_services || [];
+        const serviceNames =
+          formatServiceLabels(appointmentServices).join(" ") || "";
+        const petNames =
+          getAppointmentPetNames(appointment, appointmentServices).join(" ") ||
+          "";
+        const combined = [
+          customer,
+          serviceNames,
+          petNames,
+          appointment.appointment_date || "",
+          appointment.appointment_time || "",
+        ].join(" ");
+        return matchesSearchQuery(combined, q);
+      });
+    },
+    [],
+  );
+
+  const filteredAppointments = useMemo(() => {
     const now = new Date();
     let base = appointments;
     if (filterMode === "unpaid") {
       base = appointments.filter((appointment) =>
-        isUnpaidPastOrCompleted(appointment, now)
+        isUnpaidPastOrCompleted(appointment, now),
       );
     }
     if (pendingOnly) {
@@ -258,6 +296,19 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
     }
     return base;
   }, [appointments, filterMode, isUnpaidPastOrCompleted, pendingOnly]);
+
+  const searchResults = useMemo(
+    () =>
+      searchQueryTrimmed
+        ? applySearchFilter(filteredAppointments, searchQueryTrimmed)
+        : filteredAppointments,
+    [applySearchFilter, filteredAppointments, searchQueryTrimmed],
+  );
+
+  const displayAppointments = useMemo(
+    () => filteredAppointments,
+    [filteredAppointments],
+  );
 
   const showUnpaidTab =
     hasUnpaidAppointments ||
@@ -276,7 +327,7 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
           if (!old || !Array.isArray(old.items)) return old;
           if (
             old.items.some(
-              (item: Appointment) => item.id === payload.appointment.id
+              (item: Appointment) => item.id === payload.appointment.id,
             )
           )
             return old;
@@ -287,7 +338,7 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
         });
       });
     },
-    [queryClient]
+    [queryClient],
   );
 
   const deleteMutation = useMutation({
@@ -311,7 +362,7 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
         t("common.error"),
         err?.response?.data?.error ||
           err.message ||
-          t("appointments.deleteError")
+          t("appointments.deleteError"),
       );
     },
   });
@@ -338,7 +389,7 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
           const items = (data as any)?.items;
           if (!Array.isArray(items)) return;
           const index = items.findIndex(
-            (item: Appointment) => item.id === appointment.id
+            (item: Appointment) => item.id === appointment.id,
           );
           if (index !== -1) {
             affectedQueries.push({ key, index });
@@ -352,7 +403,7 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
         return {
           ...old,
           items: old.items.filter(
-            (item: Appointment) => item.id !== appointment.id
+            (item: Appointment) => item.id !== appointment.id,
           ),
         };
       });
@@ -360,7 +411,7 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
       pendingDeleteRef.current = { appointment, affectedQueries };
       setUndoVisible(true);
     },
-    [commitPendingDelete, queryClient]
+    [commitPendingDelete, queryClient],
   );
 
   const handleUndo = useCallback(() => {
@@ -373,7 +424,6 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
   }, [clearDeletingId, restoreAppointment]);
 
   useEffect(() => {
-    // Expose a simple global hook used by ListView's SwipeableRow
     (globalThis as any).onDeleteAppointment = (appointment: Appointment) => {
       Alert.alert(
         t("appointments.deleteTitle"),
@@ -386,11 +436,11 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
             onPress: () => {
               hapticWarning();
               beginDelete(appointment.id, () =>
-                startOptimisticDelete(appointment)
+                startOptimisticDelete(appointment),
               );
             },
           },
-        ]
+        ],
       );
     };
     return () => {
@@ -443,9 +493,6 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
       scrollY.setValue(0);
     }
   }, [viewMode, scrollY]);
-  const primary = colors.primary;
-  const surface = colors.surface;
-  const primarySoft = colors.primarySoft;
 
   const baseHeaderHeight = headerHeight || 150;
   const collapseDistance = Math.min(Math.max(baseHeaderHeight - 60, 50), 160);
@@ -459,14 +506,6 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
     outputRange: [0, -14],
     extrapolate: "clamp",
   });
-
-  const handleListScroll = useCallback(
-    (y: number) => {
-      const nextCompact = y > collapseDistance * 0.15;
-      setIsCompactHeader((prev) => (prev === nextCompact ? prev : nextCompact));
-    },
-    [collapseDistance]
-  );
 
   const handleViewChange = useCallback((nextView: ViewMode) => {
     hapticSelection();
@@ -483,7 +522,7 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
     (appointment: Appointment) => {
       navigation.navigate("AppointmentDetail", { id: appointment.id });
     },
-    [navigation]
+    [navigation],
   );
 
   const handleLoadMore = useCallback(() => {
@@ -491,11 +530,13 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
     fetchNextPage();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
+  const searchOverlayVisible = showSearch;
+
   const handleNewAppointment = useCallback(
     (date?: string, time?: string) => {
       navigation.navigate("NewAppointment", { date, time });
     },
-    [navigation]
+    [navigation],
   );
 
   return (
@@ -503,13 +544,46 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
       <ScreenHeader
         title={t("appointments.title")}
         rightElement={
-          <TouchableOpacity
-            onPress={() => handleNewAppointment()}
-            style={[styles.actionButton, { backgroundColor: colors.primary }]}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.actionButtonText}>+</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+            <BlurView
+              intensity={5}
+              tint="light"
+              style={styles.headerActionsBlur}
+            >
+              <View style={styles.headerActions}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowSearch((s) => {
+                      const next = !s;
+                      if (!next) setSearchQuery("");
+                      return next;
+                    });
+                    if (searchInputRef.current) {
+                      setTimeout(() => searchInputRef.current?.focus(), 50);
+                    }
+                  }}
+                  style={[
+                    styles.iconButton,
+                    { backgroundColor: colors.surface },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="search" size={20} color={colors.text} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => handleNewAppointment()}
+                  style={[
+                    styles.actionButton,
+                    { backgroundColor: colors.primary },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.actionButtonText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </BlurView>
+          </View>
         }
       />
       <Animated.View
@@ -523,7 +597,6 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
         }}
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
-        {/* View Mode Selector */}
         <Animated.View
           style={{
             transform: [{ scale: isCompactHeader ? 0.86 : 1 }],
@@ -537,7 +610,6 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
           />
         </Animated.View>
 
-        {/* Filter for List view only */}
         {viewMode === "list" && (
           <Animated.View
             style={{
@@ -626,7 +698,6 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
         )}
       </Animated.View>
 
-      {/* Loading State */}
       {isLoading && !isRefetching ? (
         <ActivityIndicator
           color={colors.primary}
@@ -634,7 +705,6 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
         />
       ) : null}
 
-      {/* Error State */}
       {error ? (
         <Text style={styles.error}>
           {t("appointments.loadError")}
@@ -645,7 +715,6 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
         </Text>
       ) : null}
 
-      {/* View Content */}
       {!isLoading && !error && (
         <>
           {viewMode === "list" && (
@@ -657,7 +726,6 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
               onRefresh={refetch}
               isRefreshing={isRefetching}
               deletingId={deletingId}
-              onScrollYChange={handleListScroll}
               scrollY={scrollY}
               onLoadMore={handleLoadMore}
               hasMore={Boolean(hasNextPage)}
@@ -705,6 +773,143 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
         </>
       )}
 
+      <Modal
+        visible={searchOverlayVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowSearch(false)}
+      >
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <View style={styles.searchOverlay}>
+            <TouchableOpacity
+              style={styles.searchBackdrop}
+              activeOpacity={1}
+              onPress={() => setShowSearch(false)}
+            />
+            <View
+              style={[
+                styles.searchPanel,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.primarySoft,
+                },
+              ]}
+            >
+              <View style={styles.searchPanelHeader}>
+                <View style={styles.searchField}>
+                  <Ionicons
+                    name="search"
+                    size={18}
+                    color={colors.muted}
+                    style={styles.searchFieldIcon}
+                  />
+                  <TextInput
+                    ref={searchInputRef}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    placeholder={t("appointments.searchPlaceholder")}
+                    placeholderTextColor={colors.muted}
+                    style={[
+                      styles.searchFieldInput,
+                      { color: colors.text, backgroundColor: colors.surface },
+                    ]}
+                    returnKeyType="search"
+                    autoFocus
+                  />
+                  {searchQuery.length > 0 ? (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSearchQuery("");
+                        searchInputRef.current?.focus();
+                      }}
+                      style={styles.clearButton}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                      <Ionicons name="close" size={16} color={colors.muted} />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+                <BlurView
+                  style={styles.searchPanelHeaderRight}
+                  intensity={5}
+                  tint="light"
+                >
+                  <View style={styles.searchPanelHeaderRight}>
+                    <Text
+                      style={[styles.searchPanelTitle, { color: colors.text }]}
+                    >
+                      {t("appointments.searchResultsTitle", {
+                        count: searchResults.length,
+                      })}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setShowSearch(false)}
+                      style={styles.closeButton}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                      <Ionicons name="close" size={18} color={colors.text} />
+                    </TouchableOpacity>
+                  </View>
+                </BlurView>
+                <View
+                  pointerEvents="none"
+                  style={[
+                    styles.searchHeaderFade,
+                    { backgroundColor: colors.surface },
+                  ]}
+                />
+              </View>
+
+              <View style={styles.searchPanelBody}>
+                {searchResults.length === 0 ? (
+                  <View style={styles.searchEmpty}>
+                    <Text style={[styles.emptyText, { color: colors.text }]}>
+                      {t("listView.noSearchResults")}
+                    </Text>
+                    <Text
+                      style={[styles.emptySubtext, { color: colors.muted }]}
+                    >
+                      {t("listView.noSearchResultsSubtitle")}
+                    </Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    data={searchResults}
+                    keyExtractor={(item) => item.id.toString()}
+                    renderItem={({ item }) => (
+                      <View style={styles.searchResultCard}>
+                        <AppointmentCard
+                          appointment={item}
+                          showDatePrefix
+                          onPress={(appointment) => {
+                            setShowSearch(false);
+                            handleAppointmentPress(appointment);
+                          }}
+                        />
+                      </View>
+                    )}
+                    ItemSeparatorComponent={() => (
+                      <View style={{ height: 12 }} />
+                    )}
+                    contentContainerStyle={{
+                      paddingTop: 16,
+                      paddingHorizontal: 12,
+                      paddingBottom: 18,
+                    }}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    style={styles.searchList}
+                  />
+                )}
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       <UndoToast
         visible={undoVisible}
         message={t("appointments.deleteUndoMessage")}
@@ -740,6 +945,130 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       color: "#ffffff",
       lineHeight: 28,
     },
+    iconButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 10,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    iconText: { fontSize: 18 },
+    headerActionsBlur: {
+      borderRadius: 14,
+      overflow: "hidden",
+    },
+    headerActions: {
+      flexDirection: "row",
+      gap: 8,
+      alignItems: "center",
+      padding: 2,
+    },
+    searchOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.25)",
+      justifyContent: "flex-start",
+      padding: 16,
+    },
+    searchBackdrop: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    searchPanel: {
+      marginTop: 40,
+      width: "100%",
+      flex: 1,
+      borderRadius: 18,
+      borderWidth: 1,
+      overflow: "hidden",
+      shadowColor: "#000000",
+      shadowOpacity: 0.14,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 8 },
+      // elevation: 5,
+    },
+    searchPanelHeader: {
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.primarySoft,
+      backgroundColor: colors.surface,
+      zIndex: 2,
+      position: "relative",
+    },
+    searchPanelTitle: {
+      fontSize: 16,
+      fontWeight: "800",
+    },
+    searchPanelHeaderRight: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+    },
+    closeButton: {
+      padding: 6,
+      borderRadius: 10,
+    },
+    searchHeaderFade: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: -1,
+      height: 16,
+      opacity: 0.55,
+    },
+    searchField: {
+      flexDirection: "row",
+      alignItems: "center",
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.primarySoft,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 10,
+      flex: 1,
+      minHeight: 44,
+      gap: 8,
+    },
+    searchFieldIcon: {
+      marginTop: 1,
+    },
+    searchFieldInput: {
+      flex: 1,
+      fontSize: 14,
+      paddingVertical: 10,
+      paddingHorizontal: 0,
+    },
+    clearButton: {
+      padding: 6,
+      borderRadius: 10,
+    },
+    searchResultCard: {
+      borderRadius: 16,
+      overflow: "hidden",
+    },
+    searchPanelBody: {
+      flex: 1,
+      paddingTop: 8,
+      backgroundColor: colors.surface,
+    },
+    searchList: {
+      flexGrow: 1,
+    },
+    searchEmpty: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 26,
+      paddingHorizontal: 18,
+      gap: 6,
+    },
+    emptyText: {
+      fontSize: 16,
+      fontWeight: "700",
+    },
+    emptySubtext: {
+      fontSize: 14,
+      textAlign: "center",
+    },
     headerInfo: {
       paddingHorizontal: 16,
       paddingTop: 6,
@@ -747,7 +1076,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     },
     segment: {
       ...segment.container,
-      marginBottom: 10,
       marginHorizontal: 16,
       paddingVertical: 2,
     },

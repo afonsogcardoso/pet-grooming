@@ -532,9 +532,9 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
 
   const hasNextAppointment = Boolean(nextAppointment);
   const nextAppointmentLabel = hasNextAppointment
-    ? `${formatDateLabel(nextAppointment!.appointment_date)} • ${formatTimeLabel(
-        nextAppointment!.appointment_time
-      )}`
+    ? `${formatDateLabel(
+        nextAppointment!.appointment_date
+      )} • ${formatTimeLabel(nextAppointment!.appointment_time)}`
     : t("customerDetail.nextAppointmentEmpty");
 
   const headerRightElement = (
@@ -542,7 +542,9 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
       onPress={handleEditCustomer}
       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >
-      <Text style={[styles.editIcon, { color: colors.primary }]}>✏️</Text>
+      <Text style={[(styles as any).editIcon, { color: colors.primary }]}>
+        ✏️
+      </Text>
     </TouchableOpacity>
   );
 
@@ -625,7 +627,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
 
         {activeSection === "overview" && (
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
+            <View style={(styles as any).sectionHeader}>
               <Text style={styles.sectionTitle}>
                 {t("customerDetail.sectionOverview")}
               </Text>
@@ -647,11 +649,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
             {customerAddress ? (
               <>
                 <View style={styles.mapWrapper}>
-                  <MiniMap
-                    address={customerAddress}
-                    height={150}
-                    borderless
-                  />
+                  <MiniMap address={customerAddress} height={150} borderless />
                 </View>
                 <Text style={styles.mapCaption}>{customerAddress}</Text>
               </>
@@ -699,7 +697,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
 
         {activeSection === "pets" && (
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
+            <View style={(styles as any).sectionHeader}>
               <Text style={styles.sectionTitle}>
                 {t("customerDetail.petsTitle", { count: pets.length })}
               </Text>
@@ -753,7 +751,7 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
 
         {activeSection === "appointments" && (
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
+            <View style={(styles as any).sectionHeader}>
               <Text style={styles.sectionTitle}>
                 {t("customerDetail.sectionAppointments")}
                 {appointmentCount ? ` (${appointmentCount})` : ""}

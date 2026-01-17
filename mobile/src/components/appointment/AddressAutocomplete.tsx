@@ -113,8 +113,9 @@ export function AddressAutocomplete({
           textContentType: "none",
           spellCheck: false,
           returnKeyType: "done",
-          onFocus: () => setListVisible("auto"),
-          onChangeText: () => setListVisible("auto"),
+          onFocus: () => Promise.resolve().then(() => setListVisible("auto")),
+          onChangeText: () =>
+            Promise.resolve().then(() => setListVisible("auto")),
         }}
         query={{
           key: placesKey,
@@ -123,18 +124,34 @@ export function AddressAutocomplete({
         }}
         onPress={(data, details = null) => {
           const address = details?.formatted_address || data.description || "";
-          onSelect(address);
-          setListVisible(false);
-          Keyboard.dismiss();
+          // Defer parent updates to avoid setState during render errors
+          Promise.resolve()
+            .then(() => onSelect(address))
+            .catch(() => null);
+
+          Promise.resolve()
+            .then(() => setListVisible(false))
+            .catch(() => null);
+
+          Promise.resolve()
+            .then(() => Keyboard.dismiss())
+            .catch(() => null);
 
           // Usar coordenadas dos details se disponíveis
           if (details?.geometry?.location) {
-            setCoordinates({
-              latitude: details.geometry.location.lat,
-              longitude: details.geometry.location.lng,
-            });
+            Promise.resolve()
+              .then(() =>
+                setCoordinates({
+                  latitude: details.geometry.location.lat,
+                  longitude: details.geometry.location.lng,
+                })
+              )
+              .catch(() => null);
           } else {
-            geocodeAddress(address);
+            // geocodeAddress is async already; call but don't await here
+            Promise.resolve()
+              .then(() => geocodeAddress(address))
+              .catch(() => null);
           }
         }}
         keepResultsAfterBlur={false}
@@ -155,10 +172,10 @@ export function AddressAutocomplete({
             borderWidth: 1,
             borderColor: colors.surfaceBorder,
             color: colors.text,
-          fontWeight: "400",
-          fontSize: 15,
-          height: 44,
-        },
+            fontWeight: "400",
+            fontSize: 15,
+            height: 44,
+          },
           listView: {
             backgroundColor: "#FFFFFF",
             borderWidth: 1.5,

@@ -119,6 +119,8 @@ export function WeekView({
   } | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const [nowMinutes, setNowMinutes] = useState<number | null>(null);
 
   useEffect(() => {
     return () => {
@@ -135,6 +137,40 @@ export function WeekView({
 
   const weekDays = getWeekDays(selectedDate);
   const today = new Date().toLocaleDateString("sv-SE");
+
+  useEffect(() => {
+    const updateNow = () => {
+      const now = new Date();
+      setNowMinutes(now.getHours() * 60 + now.getMinutes());
+    };
+    updateNow();
+    const id = setInterval(updateNow, 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  const currentTimeTop = useMemo(() => {
+    if (nowMinutes == null) return null;
+    const offsetMinutes = nowMinutes - START_HOUR * 60;
+    if (offsetMinutes < 0 || nowMinutes > END_HOUR * 60) return null;
+    return (offsetMinutes / 60) * HOUR_HEIGHT;
+  }, [nowMinutes]);
+
+  const currentTimeStr = useMemo(() => {
+    if (nowMinutes == null) return null;
+    const hh = Math.floor(nowMinutes / 60)
+      .toString()
+      .padStart(2, "0");
+    const mm = (nowMinutes % 60).toString().padStart(2, "0");
+    return `${hh}:${mm}`;
+  }, [nowMinutes]);
+
+  useEffect(() => {
+    if (currentTimeTop == null) return;
+    const scrollY = Math.max(currentTimeTop - 180, 0);
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: scrollY, animated: false });
+    });
+  }, [currentTimeTop]);
 
   const getAvailableSlotDuration = (
     dayAppointments: Appointment[],
@@ -389,6 +425,22 @@ export function WeekView({
       width: TIME_COLUMN_WIDTH,
       paddingTop: 0,
     },
+    currentTimeBadge: {
+      position: "absolute",
+      left: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 8,
+      backgroundColor: "#ff5a5f",
+      zIndex: 3,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    currentTimeBadgeText: {
+      color: "#fff",
+      fontSize: 11,
+      fontWeight: "700",
+    },
     hourRow: {
       height: HOUR_HEIGHT,
       justifyContent: "flex-start",
@@ -418,6 +470,24 @@ export function WeekView({
       right: 0,
       height: 1,
       backgroundColor: `${colors.text}10`,
+    },
+    currentTimeLine: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      height: 1,
+      backgroundColor: "#ff5a5f",
+      zIndex: 5,
+      pointerEvents: "none",
+    },
+    currentTimeDot: {
+      position: "absolute",
+      left: -5,
+      top: -5,
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: "#ff5a5f",
     },
     tapHighlight: {
       position: "absolute",
@@ -538,7 +608,7 @@ export function WeekView({
       </View>
 
       {/* Grid with Hours and Appointments */}
-      <ScrollView style={styles.gridContainer}>
+      <ScrollView style={styles.gridContainer} ref={scrollRef}>
         <View style={styles.gridContent}>
           {/* Time Column (Left Side) */}
           <View style={styles.timeColumn}>
@@ -547,6 +617,16 @@ export function WeekView({
                 <Text style={styles.hourText}>{`${hour}:00`}</Text>
               </View>
             ))}
+            {currentTimeTop != null && currentTimeStr ? (
+              <View
+                pointerEvents="none"
+                style={[styles.currentTimeBadge, { top: currentTimeTop - 10 }]}
+              >
+                <Text style={styles.currentTimeBadgeText}>
+                  {currentTimeStr}
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           {/* Days Columns */}
@@ -581,6 +661,13 @@ export function WeekView({
                       style={[styles.hourLine, { top: index * HOUR_HEIGHT }]}
                     />
                   ))}
+                  {dayStr === today && currentTimeTop != null ? (
+                    <View
+                      style={[styles.currentTimeLine, { top: currentTimeTop }]}
+                    >
+                      <View style={styles.currentTimeDot} />
+                    </View>
+                  ) : null}
                   {tapHighlight && tapHighlight.day === dayStr ? (
                     <View
                       pointerEvents="none"

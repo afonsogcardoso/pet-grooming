@@ -84,7 +84,7 @@ export default function ImageWithDownload({
             (i) => i === 1 && onReplace()
           );
         } else {
-          Alert.alert(undefined, undefined, [
+          Alert.alert("", "", [
             { text: t("common.cancel"), style: "cancel" },
             { text: t("common.replace"), onPress: onReplace },
           ]);
@@ -135,7 +135,7 @@ export default function ImageWithDownload({
       buttons.push({ text: options[idx], onPress: h });
     });
     buttons.push({ text: options[options.length - 1], style: "cancel" });
-    Alert.alert(undefined, undefined, buttons);
+    Alert.alert("", "", buttons);
   };
 
   const handlePress = () => {

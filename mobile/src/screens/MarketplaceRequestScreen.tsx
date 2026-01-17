@@ -7,9 +7,13 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import Switch from "../components/StyledSwitch";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -65,6 +69,7 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
   const { t } = useTranslation();
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
 
   const { accountSlug, accountName, serviceId, serviceName } = route.params as {
@@ -274,217 +279,229 @@ export default function MarketplaceRequestScreen({ route, navigation }: Props) {
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={["top", "left", "right"]}
     >
-      <ScreenHeader title={t("marketplaceRequest.title")} />
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={
+          Platform.OS === "ios" ? Math.max(insets.top - 8, 0) : 0
+        }
       >
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>{accountName}</Text>
-          <Text style={styles.summarySubtitle}>{serviceName}</Text>
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>
-            {t("marketplaceRequest.scheduleTitle")}
-          </Text>
-          <View style={styles.dateRow}>
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={openDatePicker}
-            >
-              <Text style={styles.dateButtonLabel}>
-                {t("marketplaceRequest.date")}
-              </Text>
-              <Text style={styles.dateButtonValue}>{date}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={openTimePicker}
-            >
-              <Text style={styles.dateButtonLabel}>
-                {t("marketplaceRequest.time")}
-              </Text>
-              <Text style={styles.dateButtonValue}>{time}</Text>
-            </TouchableOpacity>
+        <ScreenHeader title={t("marketplaceRequest.title")} />
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>{accountName}</Text>
+            <Text style={styles.summarySubtitle}>{serviceName}</Text>
           </View>
-        </View>
 
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>
-            {t("marketplaceRequest.contactTitle")}
-          </Text>
-          <View style={styles.nameRow}>
-            <View style={styles.nameColumn}>
-              <Input
-                label={t("marketplaceRequest.firstNameLabel")}
-                value={contactFirstName}
-                onChangeText={setContactFirstName}
-                placeholder={t("marketplaceRequest.firstNamePlaceholder")}
-              />
-            </View>
-            <View style={styles.nameColumn}>
-              <Input
-                label={t("marketplaceRequest.lastNameLabel")}
-                value={contactLastName}
-                onChangeText={setContactLastName}
-                placeholder={t("marketplaceRequest.lastNamePlaceholder")}
-              />
-            </View>
-          </View>
-          <Input
-            label={t("common.email")}
-            value={contactEmail}
-            onChangeText={setContactEmail}
-            placeholder={t("common.email")}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          <PhoneInput
-            label={t("common.phone")}
-            value={contactPhone}
-            onChange={setContactPhone}
-            placeholder={t("common.phone")}
-          />
-          <View style={styles.addressField}>
-            <Text style={styles.inputLabel}>
-              {t("marketplaceRequest.addressLabel")}
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>
+              {t("marketplaceRequest.scheduleTitle")}
             </Text>
-            <AddressAutocomplete
-              value={contactAddress}
-              onSelect={setContactAddress}
-              placeholder={t("marketplaceRequest.addressPlaceholder")}
-            />
+            <View style={styles.dateRow}>
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={openDatePicker}
+              >
+                <Text style={styles.dateButtonLabel}>
+                  {t("marketplaceRequest.date")}
+                </Text>
+                <Text style={styles.dateButtonValue}>{date}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={openTimePicker}
+              >
+                <Text style={styles.dateButtonLabel}>
+                  {t("marketplaceRequest.time")}
+                </Text>
+                <Text style={styles.dateButtonValue}>{time}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
 
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>
-            {t("marketplaceRequest.petTitle")}
-          </Text>
-          {hasProfilePets ? (
-            <View style={styles.petToggleRow}>
-              <TouchableOpacity
-                style={[
-                  styles.petToggleButton,
-                  useProfilePet && styles.petToggleButtonActive,
-                ]}
-                onPress={() => setUseProfilePet(true)}
-              >
-                <Text
-                  style={[
-                    styles.petToggleText,
-                    useProfilePet && styles.petToggleTextActive,
-                  ]}
-                >
-                  {t("marketplaceRequest.useProfilePet")}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.petToggleButton,
-                  !useProfilePet && styles.petToggleButtonActive,
-                ]}
-                onPress={() => setUseProfilePet(false)}
-              >
-                <Text
-                  style={[
-                    styles.petToggleText,
-                    !useProfilePet && styles.petToggleTextActive,
-                  ]}
-                >
-                  {t("marketplaceRequest.addNewPet")}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-
-          {useProfilePet && hasProfilePets ? (
-            <View style={styles.petOptions}>
-              {profilePets.map((pet) => {
-                const isSelected = pet.id === selectedPetId;
-                return (
-                  <TouchableOpacity
-                    key={pet.id}
-                    style={[
-                      styles.petOptionCard,
-                      isSelected && styles.petOptionCardActive,
-                    ]}
-                    onPress={() => setSelectedPetId(pet.id)}
-                  >
-                    <Text style={styles.petOptionName}>{pet.name}</Text>
-                    {pet.breed ? (
-                      <Text style={styles.petOptionMeta}>{pet.breed}</Text>
-                    ) : null}
-                    {pet.weight !== undefined && pet.weight !== null ? (
-                      <Text style={styles.petOptionMeta}>
-                        {pet.weight} {t("marketplaceRequest.weightUnit")}
-                      </Text>
-                    ) : null}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ) : (
-            <>
-              <Input
-                label={t("marketplaceRequest.petName")}
-                value={petName}
-                onChangeText={setPetName}
-                placeholder={t("marketplaceRequest.petName")}
-              />
-              <Input
-                label={t("marketplaceRequest.petBreed")}
-                value={petBreed}
-                onChangeText={setPetBreed}
-                placeholder={t("marketplaceRequest.petBreed")}
-              />
-              <Input
-                label={t("marketplaceRequest.petWeight")}
-                value={petWeight}
-                onChangeText={setPetWeight}
-                placeholder={t("marketplaceRequest.petWeight")}
-                keyboardType={Platform.OS === "ios" ? "decimal-pad" : "numeric"}
-              />
-              <View style={styles.savePetRow}>
-                <Text style={styles.savePetLabel}>
-                  {t("marketplaceRequest.savePet")}
-                </Text>
-                <Switch
-                  value={savePetProfile}
-                  onValueChange={setSavePetProfile}
-                  trackColor={{
-                    false: colors.surfaceBorder,
-                    true: colors.switchTrack,
-                  }}
-                  thumbColor={savePetProfile ? colors.primary : colors.surface}
-                  ios_backgroundColor={colors.surface}
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>
+              {t("marketplaceRequest.contactTitle")}
+            </Text>
+            <View style={styles.nameRow}>
+              <View style={styles.nameColumn}>
+                <Input
+                  label={t("marketplaceRequest.firstNameLabel")}
+                  value={contactFirstName}
+                  onChangeText={setContactFirstName}
+                  placeholder={t("marketplaceRequest.firstNamePlaceholder")}
                 />
               </View>
-              <Text style={styles.savePetHint}>
-                {t("marketplaceRequest.savePetHint")}
+              <View style={styles.nameColumn}>
+                <Input
+                  label={t("marketplaceRequest.lastNameLabel")}
+                  value={contactLastName}
+                  onChangeText={setContactLastName}
+                  placeholder={t("marketplaceRequest.lastNamePlaceholder")}
+                />
+              </View>
+            </View>
+            <Input
+              label={t("common.email")}
+              value={contactEmail}
+              onChangeText={setContactEmail}
+              placeholder={t("common.email")}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <PhoneInput
+              label={t("common.phone")}
+              value={contactPhone}
+              onChange={setContactPhone}
+              placeholder={t("common.phone")}
+            />
+            <View style={styles.addressField}>
+              <Text style={styles.inputLabel}>
+                {t("marketplaceRequest.addressLabel")}
               </Text>
-            </>
-          )}
-          <Input
-            label={t("marketplaceRequest.notes")}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder={t("marketplaceRequest.notes")}
-            multiline
-            style={styles.notesInput}
-          />
-        </View>
+              <AddressAutocomplete
+                value={contactAddress}
+                onSelect={setContactAddress}
+                placeholder={t("marketplaceRequest.addressPlaceholder")}
+              />
+            </View>
+          </View>
 
-        <Button
-          title={t("marketplaceRequest.submit")}
-          onPress={handleSubmit}
-          loading={mutation.isPending}
-          size="large"
-          style={styles.submitButton}
-        />
-      </ScrollView>
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>
+              {t("marketplaceRequest.petTitle")}
+            </Text>
+            {hasProfilePets ? (
+              <View style={styles.petToggleRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.petToggleButton,
+                    useProfilePet && styles.petToggleButtonActive,
+                  ]}
+                  onPress={() => setUseProfilePet(true)}
+                >
+                  <Text
+                    style={[
+                      styles.petToggleText,
+                      useProfilePet && styles.petToggleTextActive,
+                    ]}
+                  >
+                    {t("marketplaceRequest.useProfilePet")}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.petToggleButton,
+                    !useProfilePet && styles.petToggleButtonActive,
+                  ]}
+                  onPress={() => setUseProfilePet(false)}
+                >
+                  <Text
+                    style={[
+                      styles.petToggleText,
+                      !useProfilePet && styles.petToggleTextActive,
+                    ]}
+                  >
+                    {t("marketplaceRequest.addNewPet")}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {useProfilePet && hasProfilePets ? (
+              <View style={styles.petOptions}>
+                {profilePets.map((pet) => {
+                  const isSelected = pet.id === selectedPetId;
+                  return (
+                    <TouchableOpacity
+                      key={pet.id}
+                      style={[
+                        styles.petOptionCard,
+                        isSelected && styles.petOptionCardActive,
+                      ]}
+                      onPress={() => setSelectedPetId(pet.id)}
+                    >
+                      <Text style={styles.petOptionName}>{pet.name}</Text>
+                      {pet.breed ? (
+                        <Text style={styles.petOptionMeta}>{pet.breed}</Text>
+                      ) : null}
+                      {pet.weight !== undefined && pet.weight !== null ? (
+                        <Text style={styles.petOptionMeta}>
+                          {pet.weight} {t("marketplaceRequest.weightUnit")}
+                        </Text>
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
+              <>
+                <Input
+                  label={t("marketplaceRequest.petName")}
+                  value={petName}
+                  onChangeText={setPetName}
+                  placeholder={t("marketplaceRequest.petName")}
+                />
+                <Input
+                  label={t("marketplaceRequest.petBreed")}
+                  value={petBreed}
+                  onChangeText={setPetBreed}
+                  placeholder={t("marketplaceRequest.petBreed")}
+                />
+                <Input
+                  label={t("marketplaceRequest.petWeight")}
+                  value={petWeight}
+                  onChangeText={setPetWeight}
+                  placeholder={t("marketplaceRequest.petWeight")}
+                  keyboardType={
+                    Platform.OS === "ios" ? "decimal-pad" : "numeric"
+                  }
+                />
+                <View style={styles.savePetRow}>
+                  <Text style={styles.savePetLabel}>
+                    {t("marketplaceRequest.savePet")}
+                  </Text>
+                  <Switch
+                    value={savePetProfile}
+                    onValueChange={setSavePetProfile}
+                    trackColor={{
+                      false: colors.surfaceBorder,
+                      true: colors.switchTrack,
+                    }}
+                    thumbColor={
+                      savePetProfile ? colors.primary : colors.surface
+                    }
+                    ios_backgroundColor={colors.surface}
+                  />
+                </View>
+                <Text style={styles.savePetHint}>
+                  {t("marketplaceRequest.savePetHint")}
+                </Text>
+              </>
+            )}
+            <Input
+              label={t("marketplaceRequest.notes")}
+              value={notes}
+              onChangeText={setNotes}
+              placeholder={t("marketplaceRequest.notes")}
+              multiline
+              style={styles.notesInput}
+            />
+          </View>
+
+          <Button
+            title={t("marketplaceRequest.submit")}
+            onPress={handleSubmit}
+            loading={mutation.isPending}
+            size="large"
+            style={styles.submitButton}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <DateTimePickerModal
         visible={showPicker}

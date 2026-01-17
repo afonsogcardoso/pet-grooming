@@ -1,9 +1,10 @@
 import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Branding, getBranding } from '../api/branding';
+import { Branding, brandingQueryKey, getBranding } from '../api/branding';
 import { writeBrandingCache } from './brandingCache';
 import { useAuthStore } from '../state/authStore';
 import { useViewModeStore } from '../state/viewModeStore';
+import { useAccountStore } from '../state/accountStore';
 
 type ThemeColors = {
   primary: string;
@@ -68,19 +69,20 @@ function withAlpha(color: string, alpha: number) {
 
 export function useBrandingTheme() {
   const queryClient = useQueryClient();
-  const primedBranding = queryClient.getQueryData<Branding>(['branding']);
-  const accountId = primedBranding?.account_id || primedBranding?.id;
+  const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const activeRole = useAuthStore((state) => state.user?.activeRole);
   const viewMode = useViewModeStore((state) => state.viewMode);
+  const accountId = activeAccountId;
+  const key = brandingQueryKey(accountId);
   const query = useQuery({
-    queryKey: ['branding'],
-    // Query should already be primed by App bootstrap; keep fetch here as safety.
-    queryFn: () => getBranding(accountId),
+    queryKey: key,
+    // Query should already be primed by App bootstrap; fetch only if cache is empty.
+    queryFn: () => getBranding(accountId ?? undefined),
     staleTime: 1000 * 60 * 5,
     refetchOnMount: false,
-    enabled: Boolean(queryClient.getQueryData<Branding>(['branding'])), // avoid firing before bootstrap
-    initialData: () => queryClient.getQueryData<Branding>(['branding']),
-    placeholderData: () => queryClient.getQueryData<Branding>(['branding']),
+    enabled: !queryClient.getQueryData<Branding>(key),
+    initialData: () => queryClient.getQueryData<Branding>(key),
+    placeholderData: () => queryClient.getQueryData<Branding>(key),
   });
 
   const colors: ThemeColors = useMemo(() => {
@@ -107,7 +109,7 @@ export function useBrandingTheme() {
           ? '#f6f9f8'
           : '#0F172A';
 
-    const text = backgroundIsLight ? '#1E1E1E' : '#F6F9FF';
+    const text = backgroundIsLight ? '#1E1E1E' : '#f6f9f8';
     const muted = backgroundIsLight ? '#6F6F6F' : '#82B1FF';
     const surfaceBorder = withAlpha(text, backgroundIsLight ? 0.12 : 0.2);
     const onPrimary = isLightColor(primary) ? '#111827' : '#ffffff';

@@ -46,27 +46,7 @@ function getBearer(req) {
 }
 
 async function resolveAccountId(req, supabaseAdmin) {
-  if (req.accountId) return req.accountId
-  if (!supabaseAdmin) return req.query.accountId || null
-
-  const token = getBearer(req)
-  if (!token) return req.query.accountId || null
-
-  const { data: userData } = await supabaseAdmin.auth.getUser(token)
-  const userId = userData?.user?.id
-  if (!userId) return req.query.accountId || null
-
-  const { data: membership } = await supabaseAdmin
-    .from('account_members')
-    .select('account_id')
-    .eq('user_id', userId)
-    .eq('status', 'accepted')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  if (membership?.account_id) return membership.account_id
-  return req.query.accountId || null
+  return req.accountId || null
 }
 
 async function requireOwnerOrAdmin(req, res) {

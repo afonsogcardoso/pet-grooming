@@ -75,13 +75,17 @@ export default function TeamScreen({ navigation }: Props) {
     mutationFn: ({ memberId, role }: { memberId: string; role: InviteRole }) =>
       updateAccountMemberRole(memberId, role),
     onSuccess: (member: AccountMember) => {
-      queryClient.setQueryData(["accountMembers"], (old: AccountMember[] | undefined) => {
-        if (!old) return old;
-        return old.map((item) => (item.id === member.id ? member : item));
-      });
+      queryClient.setQueryData(
+        ["accountMembers"],
+        (old: AccountMember[] | undefined) => {
+          if (!old) return old;
+          return old.map((item) => (item.id === member.id ? member : item));
+        }
+      );
     },
     onError: (err: any) => {
-      const message = err?.response?.data?.error || err?.message || t("team.updateRoleError");
+      const message =
+        err?.response?.data?.error || err?.message || t("team.updateRoleError");
       Alert.alert(t("common.error"), message);
     },
   });
@@ -89,13 +93,17 @@ export default function TeamScreen({ navigation }: Props) {
   const removeMemberMutation = useMutation({
     mutationFn: (memberId: string) => removeAccountMember(memberId),
     onSuccess: (_data, memberId) => {
-      queryClient.setQueryData(["accountMembers"], (old: AccountMember[] | undefined) => {
-        if (!old) return old;
-        return old.filter((item) => item.id !== memberId);
-      });
+      queryClient.setQueryData(
+        ["accountMembers"],
+        (old: AccountMember[] | undefined) => {
+          if (!old) return old;
+          return old.filter((item) => item.id !== memberId);
+        }
+      );
     },
     onError: (err: any) => {
-      const message = err?.response?.data?.error || err?.message || t("team.removeError");
+      const message =
+        err?.response?.data?.error || err?.message || t("team.removeError");
       Alert.alert(t("common.error"), message);
     },
   });
@@ -138,9 +146,11 @@ export default function TeamScreen({ navigation }: Props) {
           ]
         );
       } else {
-        Alert.alert(t("team.inviteSuccessTitle"), t("team.inviteSuccessMessage"), [
-          { text: t("common.ok") },
-        ]);
+        Alert.alert(
+          t("team.inviteSuccessTitle"),
+          t("team.inviteSuccessMessage"),
+          [{ text: t("common.ok") }]
+        );
       }
       setInviteModalVisible(false);
       refetch();
@@ -170,8 +180,10 @@ export default function TeamScreen({ navigation }: Props) {
       : null;
     const isOwner = roleKey === "owner";
     const nextRole: InviteRole = roleKey === "admin" ? "member" : "admin";
-    const isUpdating = updatingMemberId === item.id && updateRoleMutation.isLoading;
-    const isRemoving = removingMemberId === item.id && removeMemberMutation.isLoading;
+    const isUpdating =
+      updatingMemberId === item.id && (updateRoleMutation as any).isLoading;
+    const isRemoving =
+      removingMemberId === item.id && (removeMemberMutation as any).isLoading;
 
     const handleChangeRole = () => {
       if (isOwner) return;
@@ -272,7 +284,9 @@ export default function TeamScreen({ navigation }: Props) {
                 {isUpdating ? (
                   <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
-                  <Text style={[styles.actionPillLabel, { color: colors.primary }]}>
+                  <Text
+                    style={[styles.actionPillLabel, { color: colors.primary }]}
+                  >
                     {roleKey === "admin"
                       ? t("team.setMemberAction")
                       : t("team.setAdminAction")}
@@ -293,7 +307,9 @@ export default function TeamScreen({ navigation }: Props) {
                 {isRemoving ? (
                   <ActivityIndicator size="small" color={colors.danger} />
                 ) : (
-                  <Text style={[styles.actionPillLabel, { color: colors.danger }]}>
+                  <Text
+                    style={[styles.actionPillLabel, { color: colors.danger }]}
+                  >
                     {t("team.removeAction")}
                   </Text>
                 )}
@@ -330,13 +346,13 @@ export default function TeamScreen({ navigation }: Props) {
       edges={["left", "right", "bottom"]}
       style={[
         styles.container,
-        { paddingTop: Math.max(insets.top, 12), backgroundColor: colors.background },
+        {
+          paddingTop: Math.max(insets.top, 12),
+          backgroundColor: colors.background,
+        },
       ]}
     >
-      <ScreenHeader
-        title={t("team.title")}
-        rightElement={rightAction}
-      />
+      <ScreenHeader title={t("team.title")} rightElement={rightAction} />
       <FlatList
         data={members}
         keyExtractor={(item, index) =>
@@ -396,9 +412,7 @@ export default function TeamScreen({ navigation }: Props) {
                   </Text>
                 </TouchableOpacity>
               </View>
-              <Text
-                style={[styles.modalDescription, { color: colors.muted }]}
-              >
+              <Text style={[styles.modalDescription, { color: colors.muted }]}>
                 {t("team.inviteModalDescription")}
               </Text>
               <Input
@@ -460,10 +474,15 @@ export default function TeamScreen({ navigation }: Props) {
                   onPress={() => Share.share({ message: lastInviteLink })}
                   style={[
                     styles.copyPill,
-                    { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+                    {
+                      borderColor: colors.primary,
+                      backgroundColor: colors.primarySoft,
+                    },
                   ]}
                 >
-                  <Text style={[styles.copyPillText, { color: colors.primary }]}>
+                  <Text
+                    style={[styles.copyPillText, { color: colors.primary }]}
+                  >
                     {t("team.copyInviteLink")}
                   </Text>
                 </TouchableOpacity>

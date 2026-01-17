@@ -79,7 +79,7 @@ router.get('/', async (req, res) => {
   const user = await getAuthenticatedUser(req)
   if (!user) return res.status(401).json({ error: 'Unauthorized' })
 
-  const { accountId } = req.query
+  const accountId = req.accountId || null
   if (!accountId) return res.status(400).json({ error: 'Missing accountId' })
 
   const allowed = await assertAccountAdmin(user.id, accountId)
@@ -102,8 +102,8 @@ router.post('/', async (req, res) => {
   const user = await getAuthenticatedUser(req)
   if (!user) return res.status(401).json({ error: 'Unauthorized' })
 
-  const { accountId, domain, slug, dnsRecordType = 'txt', verificationTarget = null } =
-    sanitizeBody(req.body || {})
+  const { domain, slug, dnsRecordType = 'txt', verificationTarget = null } = sanitizeBody(req.body || {})
+  const accountId = req.accountId || null
   if (!accountId || !domain) {
     return res.status(400).json({ error: 'Missing accountId or domain' })
   }
@@ -164,7 +164,8 @@ router.post('/', async (req, res) => {
 router.delete('/', async (req, res) => {
   const user = await getAuthenticatedUser(req)
   if (!user) return res.status(401).json({ error: 'Unauthorized' })
-  const { accountId, domainId } = req.body || {}
+  const { domainId } = req.body || {}
+  const accountId = req.accountId || null
   if (!accountId || !domainId) {
     return res.status(400).json({ error: 'Missing accountId or domainId' })
   }
@@ -186,7 +187,8 @@ router.delete('/', async (req, res) => {
 router.post('/verify', async (req, res) => {
   const user = await getAuthenticatedUser(req)
   if (!user) return res.status(401).json({ error: 'Unauthorized' })
-  const { accountId, domainId } = req.body || {}
+  const { domainId } = req.body || {}
+  const accountId = req.accountId || null
   if (!accountId || !domainId) {
     return res.status(400).json({ error: 'Missing accountId or domainId' })
   }

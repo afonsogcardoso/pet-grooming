@@ -71,11 +71,14 @@ export async function apiKeyAuth(req, res, next) {
     }
 
     if (!data) {
+      console.error('[api-key] invalid key prefix=', keyPrefix)
       return res.status(401).json({ error: 'Invalid API key' })
     }
 
+    // Attach api key metadata to request (no sensitive values logged)
     req.apiKeyId = data.id
     req.accountId = data.account_id
+    if (process.env.NODE_ENV !== 'production') console.debug('[api-key] matched api key', { keyPrefix, accountId: data.account_id })
 
     // Best-effort last_used_at update (non-blocking)
     supabaseAdmin

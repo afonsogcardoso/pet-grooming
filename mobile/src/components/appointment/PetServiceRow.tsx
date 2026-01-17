@@ -259,7 +259,7 @@ export function PetServiceRow({
       width: 20,
       height: 20,
       borderRadius: 5,
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderColor: colors.surfaceBorder,
       alignItems: "center",
       justifyContent: "center",
