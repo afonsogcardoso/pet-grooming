@@ -42,7 +42,6 @@ export async function bootstrapLanguage() {
       await i18n.changeLanguage(normalized);
     }
   } catch {
-    // ignore storage issues
   }
 }
 
@@ -52,7 +51,6 @@ export async function setAppLanguage(language: string) {
   try {
     await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, normalized);
   } catch {
-    // ignore storage issues
   }
   return normalized;
 }

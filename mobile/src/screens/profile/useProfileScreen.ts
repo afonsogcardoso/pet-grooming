@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useCallback, useEffect } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getProfile, updateProfile } from "../../api/profile";
 import { getNotificationPreferences } from "../../api/notifications";
@@ -210,7 +210,7 @@ export function useProfileScreen() {
       await setAppLanguage(normalized);
       return { previousProfile, previousLanguage, normalized };
     },
-    onSuccess: (updated: any, _language: any, context: any) => {
+    onSuccess: (updated: any) => {
       hapticSuccess();
       if (updated?.locale) {
         queryClient.setQueryData(["profile"], (current: any) => (current ? { ...current, locale: updated.locale } : current));

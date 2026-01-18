@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   SectionList,
-  Image,
   StyleSheet,
   Linking,
   Platform,
@@ -19,24 +18,12 @@ import SwipeableRow from "../common/SwipeableRow";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
-import { getCardVariants } from "../../theme/uiTokens";
 import { getDateLocale } from "../../i18n";
-import {
-  formatCustomerAddress,
-  formatCustomerName,
-  getCustomerFirstName,
-} from "../../utils/customer";
+import { formatCustomerAddress, getCustomerFirstName } from "../../utils/customer";
 import type { Appointment } from "../../api/appointments";
-import { getStatusColor, getStatusLabel } from "../../utils/appointmentStatus";
-import {
-  formatPetLabel,
-  formatServiceLabels,
-  getAppointmentPetNames,
-  getAppointmentServiceEntries,
-} from "../../utils/appointmentSummary";
 import AppointmentCard from "./AppointmentCard";
 import { Button } from "../common";
-import { meta } from "zod/v4/core";
+import { toDayKey } from "../../utils/appointmentFilters";
 
 const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || "";
 
@@ -74,110 +61,15 @@ function formatDateLabel(
   }
 }
 
-function toDayKey(value?: string | null) {
-  if (!value) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-  const date = new Date(value + "T00:00:00");
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString("sv-SE");
-}
-
 function todayLocalISO() {
   return new Date().toLocaleDateString("sv-SE");
-}
-
-function getAppointmentDateTime(appointment: Appointment, dayKey: string) {
-  const timeValue = appointment.appointment_time;
-  if (!timeValue) return null;
-  const match = String(timeValue).match(/(\d{1,2}):(\d{2})/);
-  if (!match) return null;
-  const [, hh, mm] = match;
-  return new Date(`${dayKey}T${hh.padStart(2, "0")}:${mm}:00`);
 }
 
 type ThemeColors = ReturnType<typeof useBrandingTheme>["colors"];
 
 function createStyles(colors: ThemeColors) {
-  const { listItem } = getCardVariants(colors);
   return StyleSheet.create({
-    list: {
-      flex: 1,
-    },
-    card: {
-      ...listItem,
-      flexDirection: "row",
-      gap: 14,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      borderRadius: 18,
-    },
-    petThumb: {
-      width: 54,
-      height: 54,
-      borderRadius: 18,
-      backgroundColor: `${colors.primary}12`,
-      borderWidth: 0,
-      justifyContent: "center",
-      alignItems: "center",
-      overflow: "hidden",
-    },
-    petImage: {
-      width: "100%",
-      height: "100%",
-    },
-    petInitial: {
-      fontSize: 24,
-      fontWeight: "700",
-      color: colors.primary,
-    },
-    content: {
-      flex: 1,
-      gap: 4,
-    },
-    time: {
-      fontSize: 18,
-      fontWeight: "800",
-      color: colors.text,
-    },
-    service: {
-      fontSize: 15,
-      color: colors.text,
-      fontWeight: "700",
-    },
-    meta: {
-      fontSize: 13,
-      color: colors.muted,
-      fontWeight: "500",
-    },
-    badges: {
-      gap: 8,
-      alignItems: "flex-end",
-    },
-    pill: {
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 14,
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    pillText: {
-      fontSize: 12,
-      fontWeight: "700",
-      color: colors.text,
-    },
-    paymentAmount: {
-      fontSize: 12,
-      fontWeight: "600",
-      marginTop: 4,
-      marginRight: 4,
-      alignSelf: "flex-end",
-      color: colors.muted,
-    },
-    actions: {
-      flexDirection: "row",
-      gap: 6,
-      marginTop: 4,
-    },
+    list: { flex: 1 },
     actionContainerLeft: {
       flexDirection: "row",
       alignItems: "center",
@@ -199,10 +91,6 @@ function createStyles(colors: ThemeColors) {
       justifyContent: "center",
       alignItems: "center",
       paddingVertical: 60,
-    },
-    emptyIcon: {
-      fontSize: 64,
-      marginBottom: 16,
     },
     emptyText: {
       fontSize: 17,
@@ -280,38 +168,8 @@ const AppointmentRow = React.memo(function AppointmentRow({
   onSwipeOpen,
   onSwipeClose,
 }: AppointmentRowProps) {
-  const appointmentServices = getAppointmentServiceEntries(item);
-  const petNames = getAppointmentPetNames(item, appointmentServices);
-  const petLabel = formatPetLabel(petNames);
-  const primaryPetName = petNames[0] || "";
-  const petInitial = primaryPetName
-    ? primaryPetName.charAt(0).toUpperCase()
-    : "🐾";
-  const servicesTotal =
-    appointmentServices.length > 0
-      ? appointmentServices.reduce((sum, entry) => {
-          const basePrice =
-            entry.price_tier_price ?? entry.services?.price ?? 0;
-          const addonsTotal = Array.isArray(entry.appointment_service_addons)
-            ? entry.appointment_service_addons.reduce(
-                (addonSum, addon) => addonSum + (addon.price || 0),
-                0,
-              )
-            : 0;
-          return sum + basePrice + addonsTotal;
-        }, 0)
-      : (item.services?.price ?? null);
-  const amount = item.amount ?? servicesTotal;
-  const serviceNames = formatServiceLabels(appointmentServices);
   const address = formatCustomerAddress(item.customers);
   const phone = item.customers?.phone;
-  const statusColor = getStatusColor(item.status);
-  const statusLabel = getStatusLabel(item.status);
-  const paymentStatus = item.payment_status ?? null;
-  const paymentColor =
-    paymentStatus === "paid" ? colors.success : colors.warning;
-  const paymentLabel =
-    paymentStatus === "paid" ? t("listView.paid") : t("listView.unpaid");
 
   const renderLeftActions = (_progress?: any, _dragX?: any) => (
     <View style={styles.actionContainerLeft}>
@@ -394,7 +252,6 @@ const AppointmentRow = React.memo(function AppointmentRow({
             (globalThis as any).onDeleteAppointment(item);
           }
         } catch {
-          // ignore
         }
       }}
       onOpen={onSwipeOpen}
@@ -431,47 +288,11 @@ export function ListView({
   const dateLocale = getDateLocale();
   const today = todayLocalISO();
 
-  const filteredAppointments = React.useMemo(() => {
-    return appointments;
-  }, [appointments]);
-
-  // Group appointments by day
   const sections = React.useMemo<Section[]>(() => {
-    const now = new Date();
     const todayKey = today;
-    const source = filteredAppointments.filter((item) => {
-      if (filterMode === "unpaid") {
-        return (item.payment_status || "unpaid") !== "paid";
-      }
-
-      const dayKey = toDayKey(item.appointment_date);
-      if (!dayKey) return false;
-
-      if (filterMode === "upcoming") {
-        if (item.status === "completed" || item.status === "cancelled")
-          return false;
-        if (dayKey > todayKey) return true;
-        if (dayKey < todayKey) {
-          return item.status === "in_progress" || item.status === "confirmed";
-        }
-        const dateTime = getAppointmentDateTime(item, dayKey);
-        if (!dateTime) return true;
-        return dateTime >= now || item.status === "in_progress";
-      }
-
-      if (filterMode === "past") {
-        if (dayKey < todayKey) return true;
-        if (dayKey > todayKey) return false;
-        const dateTime = getAppointmentDateTime(item, dayKey);
-        if (!dateTime) return false;
-        return dateTime < now;
-      }
-
-      return true;
-    });
 
     const grouped: Record<string, Appointment[]> = {};
-    for (const item of source) {
+    for (const item of appointments) {
       const dayKey = toDayKey(item.appointment_date);
       if (dayKey) {
         grouped[dayKey] = grouped[dayKey] ? [...grouped[dayKey], item] : [item];
@@ -499,7 +320,7 @@ export function ListView({
     }
 
     return entries.sort((a, b) => a.dayKey.localeCompare(b.dayKey));
-  }, [filteredAppointments, filterMode, t, dateLocale, today]);
+  }, [appointments, filterMode, t, dateLocale, today]);
 
   const renderAppointmentItem = React.useCallback(
     ({ item }: { item: Appointment }) => (

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { View, Text, Image, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
 import ImageWithDownload from "./ImageWithDownload";
 
@@ -43,7 +43,7 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     container: {
       borderRadius: 999,
       backgroundColor: colors.primarySoft,
-      borderWidth: 2,
+      borderWidth: 1,
       borderColor: colors.primary,
       alignItems: "center",
       justifyContent: "center",

@@ -64,7 +64,6 @@ export async function getBranding(accountId?: string): Promise<Branding> {
       // eslint-disable-next-line no-console
       console.debug('branding carregado do servidor', summary);
     } catch (e) {
-      // ignore logging errors
     }
   }
   return data.data;

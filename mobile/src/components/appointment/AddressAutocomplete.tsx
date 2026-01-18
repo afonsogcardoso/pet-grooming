@@ -99,6 +99,7 @@ export function AddressAutocomplete({
         listViewDisplayed={listVisible}
         debounce={300}
         disableScroll={true}
+        keyboardShouldPersistTaps="always"
         renderRow={(data) => (
           <View style={{ padding: 12 }}>
             <Text style={{ color: colors.text, fontSize: 12 }}>

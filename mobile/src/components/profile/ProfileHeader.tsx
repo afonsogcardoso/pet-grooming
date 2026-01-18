@@ -2,13 +2,11 @@ import React from "react";
 import {
   View,
   Text,
-  Image,
   ActivityIndicator,
   TouchableOpacity,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import ImageWithDownload from "../common/ImageWithDownload";
-import { Branding } from "../../api/branding";
 
 type Props = {
   styles: any;

@@ -1124,14 +1124,6 @@ const swaggerDefinition = {
         responses: { 200: { description: 'Scheduled' } }
       }
     },
-    '/appointments/overdue-count': {
-      get: {
-        tags: ['Appointments'],
-        summary: 'Count overdue confirmations',
-        security: [{ ApiKeyAuth: [] }, { SupabaseBearer: [] }],
-        responses: { 200: { description: 'Counts' } }
-      }
-    },
     '/customers': {
       get: {
         tags: ['Customers'],

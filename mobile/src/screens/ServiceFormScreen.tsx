@@ -12,7 +12,6 @@ import {
   ActivityIndicator,
   ActionSheetIOS,
   PermissionsAndroid,
-  TextStyle,
 } from "react-native";
 import Switch from "../components/StyledSwitch";
 import { SafeAreaView } from "react-native-safe-area-context";

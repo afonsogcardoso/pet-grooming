@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TextInput,
-  StyleSheet,
   TextInputProps,
   TouchableWithoutFeedback,
 } from "react-native";
@@ -136,5 +135,3 @@ export const Input = forwardRef<TextInput | null, InputProps>(function Input(
     </View>
   );
 });
-
-// styles moved to shared inputStyles.ts

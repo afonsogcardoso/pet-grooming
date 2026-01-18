@@ -8,7 +8,6 @@ export async function hapticSelection() {
   try {
     await Haptics.selectionAsync();
   } catch {
-    // Ignore if haptics are unavailable.
   }
 }
 
@@ -17,7 +16,6 @@ export async function hapticLight() {
   try {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   } catch {
-    // Ignore if haptics are unavailable.
   }
 }
 
@@ -26,7 +24,6 @@ export async function hapticMedium() {
   try {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   } catch {
-    // Ignore if haptics are unavailable.
   }
 }
 
@@ -35,7 +32,6 @@ export async function hapticSuccess() {
   try {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   } catch {
-    // Ignore if haptics are unavailable.
   }
 }
 
@@ -44,7 +40,6 @@ export async function hapticWarning() {
   try {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
   } catch {
-    // Ignore if haptics are unavailable.
   }
 }
 
@@ -53,6 +48,5 @@ export async function hapticError() {
   try {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
   } catch {
-    // Ignore if haptics are unavailable.
   }
 }

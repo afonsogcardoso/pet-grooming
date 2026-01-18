@@ -435,13 +435,17 @@ router.post('/pets/:id/photo', upload.single('file'), async (req, res) => {
 
   if (uploadError) return res.status(500).json({ error: uploadError.message })
 
-  const { data: signedUrlData, error: signedError } = await supabaseAdmin.storage
-    .from(PET_PHOTO_BUCKET)
-    .createSignedUrl(path, 604800)
+  // Preferir URL pública estável (caso o bucket seja público); senão fallback para signed
+  const { data: publicData } = supabaseAdmin.storage.from(PET_PHOTO_BUCKET).getPublicUrl(path)
+  let url = publicData?.publicUrl || null
+  if (!url) {
+    const { data: signedUrlData, error: signedError } = await supabaseAdmin.storage
+      .from(PET_PHOTO_BUCKET)
+      .createSignedUrl(path, 604800)
 
-  if (signedError) return res.status(500).json({ error: signedError.message })
-
-  const url = signedUrlData?.signedUrl || null
+    if (signedError) return res.status(500).json({ error: signedError.message })
+    url = signedUrlData?.signedUrl || null
+  }
 
   if (url) {
     await supabaseAdmin

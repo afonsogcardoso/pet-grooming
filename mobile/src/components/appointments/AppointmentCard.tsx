@@ -1,25 +1,13 @@
 import React from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Image,
-  StyleSheet,
-  Dimensions,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
 import { getCardVariants } from "../../theme/uiTokens";
-import {
-  formatCustomerAddress,
-  formatCustomerName,
-  getCustomerFirstName,
-} from "../../utils/customer";
+import { formatCustomerName } from "../../utils/customer";
 import type { Appointment } from "../../api/appointments";
 import { getStatusColor, getStatusLabel } from "../../utils/appointmentStatus";
 import {
-  formatPetLabel,
   formatServiceLabels,
   getAppointmentPetNames,
   getAppointmentServiceEntries,
@@ -67,11 +55,9 @@ export default function AppointmentCard({
   const [multiHeight, setMultiHeight] = React.useState<number | null>(null);
 
   const {
-    appointmentServices,
     petNames,
     serviceNames,
     servicesTotal,
-    address,
     statusColor,
     statusLabel,
     appointmentPets,
@@ -79,7 +65,6 @@ export default function AppointmentCard({
     const appointmentServices = getAppointmentServiceEntries(appointment);
     const petNames = getAppointmentPetNames(appointment, appointmentServices);
     const serviceNames = formatServiceLabels(appointmentServices);
-    const address = formatCustomerAddress(appointment.customers);
     const statusColor = getStatusColor(appointment.status);
     const statusLabel = getStatusLabel(appointment.status);
     const servicesTotal =
@@ -103,11 +88,9 @@ export default function AppointmentCard({
             .filter(Boolean)
         : []) || (appointment.pets ? [appointment.pets] : []);
     return {
-      appointmentServices,
       petNames,
       serviceNames,
       servicesTotal,
-      address,
       statusColor,
       statusLabel,
       appointmentPets,
@@ -304,11 +287,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       ? colors.primarySoft
       : colors.primary
       ? `${colors.primary}12`
-      : colors.surfaceBorder;
-
-  const placeholderBgSolid =
-    colors.primarySoft && colors.primarySoft !== colors.surface
-      ? colors.primarySoft
       : colors.surfaceBorder;
 
   return StyleSheet.create({

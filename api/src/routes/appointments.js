@@ -12,6 +12,7 @@ import {
 
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
+const LONG_SIGN_TTL = 60 * 60 * 24 * 30 // 30 days keeps links stable while bucket stays private
 const APPOINTMENT_CONFIRM_SELECT = `
   id,
   appointment_date,
@@ -135,6 +136,54 @@ const ALLOWED_APPOINTMENT_FIELDS = new Set([
   'series_id',
   'series_occurrence'
 ])
+
+function extractStoragePath(urlOrPath) {
+  if (!urlOrPath) return null
+  const raw = urlOrPath.toString()
+  const signedMatch = raw.match(/\/object\/(?:sign|public)\/[^/]+\/(.+?)(?:\\?|$)/)
+  if (signedMatch?.[1]) return signedMatch[1]
+  if (!raw.startsWith('http')) return raw.replace(/^\/+/, '')
+  return null
+}
+
+async function signPhotoUrl({ supabase, bucket, value }) {
+  const path = extractStoragePath(value)
+  if (!path) return value || null
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, LONG_SIGN_TTL)
+  if (error) {
+    console.error('[api] sign photo url error', error)
+    return null
+  }
+  return data?.signedUrl || null
+}
+
+async function signAppointmentPetPhotos({ supabase, appointment }) {
+  if (!appointment) return appointment
+  const cloned = { ...appointment }
+  if (cloned.pets?.photo_url) {
+    cloned.pets = {
+      ...cloned.pets,
+      photo_url: await signPhotoUrl({ supabase, bucket: 'pets', value: cloned.pets.photo_url })
+    }
+  }
+  if (Array.isArray(cloned.appointment_services)) {
+    cloned.appointment_services = await Promise.all(
+      cloned.appointment_services.map(async (entry) => {
+        if (entry?.pets?.photo_url) {
+          return {
+            ...entry,
+            pets: {
+              ...entry.pets,
+              photo_url: await signPhotoUrl({ supabase, bucket: 'pets', value: entry.pets.photo_url })
+            }
+          }
+        }
+        return entry
+      })
+    )
+  }
+  return cloned
+}
 
 function formatAppointmentDateTime(appointment) {
   if (!appointment) return ''
@@ -475,7 +524,14 @@ router.get('/', async (req, res) => {
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
   if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
 
-  const { date_from: dateFrom, date_to: dateTo, limit: limitParam, status, offset: offsetParam } = req.query
+  const {
+    date_from: dateFrom,
+    date_to: dateTo,
+    limit: limitParam,
+    status,
+    payment_status: paymentStatus,
+    offset: offsetParam
+  } = req.query
   const limit = Math.min(Math.max(Number(limitParam) || 50, 1), 500)
   const offset = Math.max(Number(offsetParam) || 0, 0)
   const start = offset
@@ -529,6 +585,9 @@ router.get('/', async (req, res) => {
   if (status) {
     query = query.eq('status', status)
   }
+  if (paymentStatus) {
+    query = query.eq('payment_status', paymentStatus)
+  }
 
   const { data, error } = await query
 
@@ -540,7 +599,10 @@ router.get('/', async (req, res) => {
 
   const nextOffset = data.length === limit ? offset + limit : null
 
-  res.json({ data: (data || []).map(mapAppointmentForApi), meta: { nextOffset } })
+  const signed = await Promise.all(
+    (data || []).map((appt) => signAppointmentPetPhotos({ supabase, appointment: appt }))
+  )
+  res.json({ data: signed.map(mapAppointmentForApi), meta: { nextOffset } })
 })
 
 // List occurrences for a given series
@@ -567,7 +629,10 @@ router.get('/series/:seriesId/occurrences', async (req, res) => {
       const status = statusFromSupabaseError(error)
       return res.status(status).json({ error: error.message })
     }
-    return res.json({ data: (data || []).map(mapAppointmentForApi) })
+    const signed = await Promise.all(
+      (data || []).map((appt) => signAppointmentPetPhotos({ supabase, appointment: appt }))
+    )
+    return res.json({ data: signed.map(mapAppointmentForApi) })
   } catch (err) {
     console.error('[api] list series occurrences unexpected', err)
     return res.status(500).json({ error: 'internal_error' })
@@ -775,36 +840,6 @@ router.delete('/photos/:photoId', async (req, res) => {
   res.status(204).send()
 })
 
-// Lightweight count of overdue/unpaid completed appointments
-router.get('/overdue-count', async (req, res) => {
-  const accountId = req.accountId
-  const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
-  if (!supabase) return res.status(401).json({ error: 'Unauthorized' })
-
-  try {
-    const today = formatLocalDate(new Date())
-
-    let query = supabase.from('appointments').select('id', { count: 'exact', head: true })
-
-    if (accountId) query = query.eq('account_id', accountId)
-    query = query.eq('status', 'completed')
-    query = query.neq('payment_status', 'paid')
-    query = query.lte('appointment_date', today)
-
-    const { error, count } = await query
-    if (error) {
-      console.error('[api] overdue-count error', error)
-      const status = statusFromSupabaseError(error)
-      return res.status(status).json({ error: error.message })
-    }
-
-    return res.json({ count: Number(count || 0) })
-  } catch (err) {
-    console.error('[api] overdue-count unexpected error', err)
-    return res.status(500).json({ error: 'internal_error' })
-  }
-})
-
 router.post('/', async (req, res) => {
   const accountId = req.accountId
   const supabase = accountId ? getSupabaseServiceRoleClient() : getSupabaseClientWithAuth(req)
@@ -967,8 +1002,10 @@ router.post('/', async (req, res) => {
     }
   }
 
+  const signedAppointment = await signAppointmentPetPhotos({ supabase, appointment: responseAppointment })
+
   res.status(201).json({
-    data: mapAppointmentForApi(responseAppointment),
+    data: mapAppointmentForApi(signedAppointment),
     meta: { created: createdAppointments.length, series_id: seriesId }
   })
 })
@@ -986,7 +1023,9 @@ router.get('/confirm', async (req, res) => {
     return res.status(404).json({ error: 'not_found' })
   }
 
-  return res.json({ appointment: mapAppointmentForApi(appointment) })
+  const supabase = getSupabaseServiceRoleClient()
+  const signed = supabase ? await signAppointmentPetPhotos({ supabase, appointment }) : appointment
+  return res.json({ appointment: mapAppointmentForApi(signed) })
 })
 
 // Get single appointment
@@ -1017,7 +1056,8 @@ router.get('/:id', async (req, res) => {
     return res.status(404).json({ error: 'Not found' })
   }
 
-  res.json({ data: mapAppointmentForApi(data) })
+  const signed = await signAppointmentPetPhotos({ supabase, appointment: data })
+  res.json({ data: mapAppointmentForApi(signed) })
 })
 
 router.patch('/:id/status', async (req, res) => {
@@ -1094,7 +1134,13 @@ router.patch('/:id/status', async (req, res) => {
     }
   }
 
-  res.json({ data: Array.isArray(data) ? data.map(mapAppointmentForApi) : mapAppointmentForApi(data) })
+  const signed = Array.isArray(data)
+    ? await Promise.all(data.map((appt) => signAppointmentPetPhotos({ supabase, appointment: appt })))
+    : await signAppointmentPetPhotos({ supabase, appointment: data })
+
+  res.json({
+    data: Array.isArray(signed) ? signed.map(mapAppointmentForApi) : mapAppointmentForApi(signed)
+  })
 })
 
 router.patch('/:id', async (req, res) => {
@@ -1563,7 +1609,8 @@ router.patch('/:id', async (req, res) => {
     return res.status(404).json({ error: 'Not found' })
   }
 
-  res.json({ data: mapAppointmentForApi(responseAppointment) })
+  const signed = await signAppointmentPetPhotos({ supabase, appointment: responseAppointment })
+  res.json({ data: mapAppointmentForApi(signed) })
 })
 
 router.delete('/:id', async (req, res) => {
@@ -1723,10 +1770,9 @@ router.post('/pet-photo', upload.single('file'), async (req, res) => {
     return res.status(500).json({ ok: false, error: 'upload_failed' })
   }
 
-  // Gerar signed URL (7 dias)
   const { data: signedUrlData, error: signedError } = await supabase.storage
     .from('pets')
-    .createSignedUrl(path, 604800)
+    .createSignedUrl(path, LONG_SIGN_TTL)
 
   if (signedError) {
     console.error('[api] pet photo signed URL error', signedError)
@@ -1735,7 +1781,7 @@ router.post('/pet-photo', upload.single('file'), async (req, res) => {
   const publicUrl = signedUrlData?.signedUrl || null
 
   if (publicUrl) {
-    await supabase.from('pets').update({ photo_url: publicUrl }).eq('id', petId)
+    await supabase.from('pets').update({ photo_url: path }).eq('id', petId) // guardar caminho; assinamos em leitura
   }
 
   return res.json({ ok: true, url: publicUrl })

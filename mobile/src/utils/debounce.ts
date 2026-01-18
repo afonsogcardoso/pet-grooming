@@ -1,4 +1,3 @@
-// Simple debounce implementation for React/JS
 export function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
   let timeout: ReturnType<typeof setTimeout>;
   return (...args: Parameters<T>) => {

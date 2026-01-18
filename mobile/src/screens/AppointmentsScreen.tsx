@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-  useInfiniteQuery,
-} from "@tanstack/react-query";
+import { useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import {
   View,
   Text,
@@ -56,16 +51,29 @@ import {
   formatServiceLabels,
 } from "../utils/appointmentSummary";
 import AppointmentCard from "../components/appointments/AppointmentCard";
+import {
+  AppointmentFilterMode,
+  filterAppointmentsByMode,
+  sortAppointmentsByDateTimeAsc,
+} from "../utils/appointmentFilters";
+
+function useDebouncedValue(value: string, delay = 350) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
 
 type Props = NativeStackScreenProps<any>;
 type ViewMode = "list" | "day" | "week" | "month";
-type FilterMode = "upcoming" | "past" | "unpaid";
+type FilterMode = AppointmentFilterMode;
 type DeletePayload = {
   appointment: Appointment;
   affectedQueries: Array<{ key: readonly unknown[]; index: number }>;
 };
 const UNDO_TIMEOUT_MS = 4000;
-const BLUR_INTENSITY = 5;
 
 function todayLocalISO() {
   return new Date().toLocaleDateString("sv-SE");
@@ -101,7 +109,7 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<TextInput | null>(null);
 
-  const { branding: brandingData, colors } = useBrandingTheme();
+  const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -111,6 +119,8 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
   const [headerHeight, setHeaderHeight] = useState(0);
   const isCompactHeader = false;
   const searchQueryTrimmed = searchQuery.trim();
+  const debouncedSearchQuery = useDebouncedValue(searchQueryTrimmed);
+  const searchOverlayVisible = showSearch;
   const dateRange = useMemo(() => {
     if (viewMode === "list") {
       return {
@@ -187,6 +197,7 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
   );
 
   const PAGE_SIZE = 20;
+  const SEARCH_PAGE_SIZE = 100;
 
   const {
     data: appointmentsData,
@@ -204,12 +215,15 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
       filterMode,
       dateRange.from,
       dateRange.to,
+      filterMode === "unpaid" ? "unpaid" : null,
     ],
     queryFn: (context: any) => {
       const pageParam = context?.pageParam ?? 0;
+      const paymentStatus = filterMode === "unpaid" ? "unpaid" : undefined;
       return getAppointments({
         from: dateRange.from,
         to: dateRange.to,
+        paymentStatus,
         limit: PAGE_SIZE,
         offset: pageParam,
       });
@@ -227,36 +241,24 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
     (appointmentsData?.pages?.flatMap(
       (page: any) => page.items,
     ) as Appointment[]) || [];
-  const pendingAppointments = useMemo(
+  const filteredAppointments = useMemo(
     () =>
-      appointments.filter((appointment) => appointment.status === "pending"),
-    [appointments],
+      filterAppointmentsByMode({
+        items: appointments,
+        mode: filterMode,
+        today,
+        isUnpaidPastOrCompleted,
+        pendingOnly,
+      }),
+    [appointments, filterMode, isUnpaidPastOrCompleted, pendingOnly, today],
+  );
+
+  const pendingAppointments = useMemo(
+    () => filteredAppointments.filter((appointment) => appointment.status === "pending"),
+    [filteredAppointments],
   );
   const pendingCount = pendingAppointments.length;
   const hasPendingAppointments = pendingCount > 0;
-  const hasUnpaidAppointments = useMemo(() => {
-    if (isLoading) return false;
-    const now = new Date();
-    return appointments.some((appointment) =>
-      isUnpaidPastOrCompleted(appointment, now),
-    );
-  }, [appointments, isLoading, isUnpaidPastOrCompleted]);
-
-  const { data: unpaidCheckData } = useQuery({
-    queryKey: ["appointments-unpaid-check", today],
-    queryFn: () => getAppointments({ to: today, limit: 10 }),
-    staleTime: 1000 * 60 * 10,
-    retry: 1,
-    enabled: !hasUnpaidAppointments,
-  });
-
-  const hasUnpaidServer = useMemo(() => {
-    const items = unpaidCheckData?.items || [];
-    const now = new Date();
-    return items.some((appointment) =>
-      isUnpaidPastOrCompleted(appointment, now),
-    );
-  }, [isUnpaidPastOrCompleted, unpaidCheckData]);
 
   const applySearchFilter = useCallback(
     (items: Appointment[], query: string) => {
@@ -283,37 +285,9 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
     [],
   );
 
-  const filteredAppointments = useMemo(() => {
-    const now = new Date();
-    let base = appointments;
-    if (filterMode === "unpaid") {
-      base = appointments.filter((appointment) =>
-        isUnpaidPastOrCompleted(appointment, now),
-      );
-    }
-    if (pendingOnly) {
-      base = base.filter((appointment) => appointment.status === "pending");
-    }
-    return base;
-  }, [appointments, filterMode, isUnpaidPastOrCompleted, pendingOnly]);
+  const displayAppointments = useMemo(() => filteredAppointments, [filteredAppointments]);
 
-  const searchResults = useMemo(
-    () =>
-      searchQueryTrimmed
-        ? applySearchFilter(filteredAppointments, searchQueryTrimmed)
-        : filteredAppointments,
-    [applySearchFilter, filteredAppointments, searchQueryTrimmed],
-  );
-
-  const displayAppointments = useMemo(
-    () => filteredAppointments,
-    [filteredAppointments],
-  );
-
-  const showUnpaidTab =
-    hasUnpaidAppointments ||
-    hasUnpaidServer ||
-    routeParams?.filterMode === "unpaid";
+  const showUnpaidTab = true;
   const queryClient = useQueryClient();
   const [undoVisible, setUndoVisible] = useState(false);
   const { deletingId, beginDelete, clearDeletingId } =
@@ -529,8 +503,71 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
     if (!hasNextPage || isFetchingNextPage) return;
     fetchNextPage();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+  const {
+    data: searchAppointmentsData,
+    isFetching: isFetchingSearchAppointments,
+    fetchNextPage: fetchNextSearchPage,
+    hasNextPage: hasNextSearchPage,
+    isFetchingNextPage: isFetchingNextSearchPage,
+  } = useInfiniteQuery<any, Error, any, any>({
+    queryKey: ["appointments", "search", debouncedSearchQuery],
+    queryFn: (context: any) => {
+      const pageParam = context?.pageParam ?? 0;
+      return getAppointments({
+        search: debouncedSearchQuery,
+        limit: SEARCH_PAGE_SIZE,
+        offset: pageParam,
+      });
+    },
+    getNextPageParam: (lastPage: any) => lastPage.nextOffset ?? null,
+    initialPageParam: 0,
+    enabled: searchOverlayVisible && Boolean(debouncedSearchQuery),
+    staleTime: 1000 * 60 * 5,
+  });
 
-  const searchOverlayVisible = showSearch;
+  const searchAppointments: Appointment[] =
+    (searchAppointmentsData?.pages?.flatMap(
+      (page: any) => page.items,
+    ) as Appointment[]) || [];
+
+  const searchResults = useMemo(
+    () =>
+      debouncedSearchQuery && searchAppointments.length > 0
+        ? applySearchFilter(searchAppointments, debouncedSearchQuery)
+        : debouncedSearchQuery
+          ? []
+          : [],
+    [applySearchFilter, debouncedSearchQuery, searchAppointments],
+  );
+
+  const searchSuggestions = useMemo(() => {
+    if (!searchOverlayVisible) return [];
+    const upcoming = filterAppointmentsByMode({
+      items: appointments,
+      mode: "upcoming",
+      today,
+      isUnpaidPastOrCompleted,
+    });
+    return sortAppointmentsByDateTimeAsc(upcoming).slice(0, 30);
+  }, [
+    isUnpaidPastOrCompleted,
+    appointments,
+    searchOverlayVisible,
+    today,
+  ]);
+
+  const searchListData = debouncedSearchQuery ? searchResults : searchSuggestions;
+
+  const handleSearchLoadMore = useCallback(() => {
+    if (!hasNextSearchPage || isFetchingNextSearchPage) return;
+    fetchNextSearchPage();
+  }, [fetchNextSearchPage, hasNextSearchPage, isFetchingNextSearchPage]);
+
+  const handleRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
+
+  const isRefreshingCombined = isRefetching;
 
   const handleNewAppointment = useCallback(
     (date?: string, time?: string) => {
@@ -723,8 +760,8 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
               filterMode={filterMode}
               onAppointmentPress={handleAppointmentPress}
               onNewAppointment={handleNewAppointment}
-              onRefresh={refetch}
-              isRefreshing={isRefetching}
+              onRefresh={handleRefresh}
+              isRefreshing={isRefreshingCombined}
               deletingId={deletingId}
               scrollY={scrollY}
               onLoadMore={handleLoadMore}
@@ -740,8 +777,6 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
               onDateChange={setSelectedDate}
               onAppointmentPress={handleAppointmentPress}
               onNewAppointment={handleNewAppointment}
-              onRefresh={refetch}
-              isRefreshing={isRefetching}
             />
           )}
 
@@ -752,8 +787,6 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
               onDateChange={setSelectedDate}
               onAppointmentPress={handleAppointmentPress}
               onNewAppointment={handleNewAppointment}
-              onRefresh={refetch}
-              isRefreshing={isRefetching}
             />
           )}
 
@@ -766,8 +799,6 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
                 setSelectedDate(date);
                 setViewMode("day");
               }}
-              onRefresh={refetch}
-              isRefreshing={isRefetching}
             />
           )}
         </>
@@ -842,7 +873,7 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
                       style={[styles.searchPanelTitle, { color: colors.text }]}
                     >
                       {t("appointments.searchResultsTitle", {
-                        count: searchResults.length,
+                        count: searchListData.length,
                       })}
                     </Text>
                     <TouchableOpacity
@@ -864,7 +895,16 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
               </View>
 
               <View style={styles.searchPanelBody}>
-                {searchResults.length === 0 ? (
+                {isFetchingSearchAppointments && searchListData.length === 0 ? (
+                  <View style={styles.searchLoading}>
+                    <ActivityIndicator color={colors.primary} />
+                    <Text
+                      style={[styles.emptySubtext, { color: colors.muted }]}
+                    >
+                      {t("common.loading")}
+                    </Text>
+                  </View>
+                ) : searchListData.length === 0 ? (
                   <View style={styles.searchEmpty}>
                     <Text style={[styles.emptyText, { color: colors.text }]}>
                       {t("listView.noSearchResults")}
@@ -877,7 +917,7 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
                   </View>
                 ) : (
                   <FlatList
-                    data={searchResults}
+                    data={searchListData}
                     keyExtractor={(item) => item.id.toString()}
                     renderItem={({ item }) => (
                       <View style={styles.searchResultCard}>
@@ -894,6 +934,17 @@ export default function AppointmentsScreen({ navigation, route }: Props) {
                     ItemSeparatorComponent={() => (
                       <View style={{ height: 12 }} />
                     )}
+                    onEndReached={handleSearchLoadMore}
+                    onEndReachedThreshold={0.4}
+                    ListFooterComponent={
+                      hasNextSearchPage ? (
+                        <View style={{ paddingVertical: 10 }}>
+                          {isFetchingNextSearchPage ? (
+                            <ActivityIndicator color={colors.primary} />
+                          ) : null}
+                        </View>
+                      ) : null
+                    }
                     contentContainerStyle={{
                       paddingTop: 16,
                       paddingHorizontal: 12,
@@ -983,7 +1034,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       shadowOpacity: 0.14,
       shadowRadius: 14,
       shadowOffset: { width: 0, height: 8 },
-      // elevation: 5,
     },
     searchPanelHeader: {
       gap: 10,
@@ -1053,6 +1103,13 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
     },
     searchList: {
       flexGrow: 1,
+    },
+    searchLoading: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 26,
+      paddingHorizontal: 18,
+      gap: 6,
     },
     searchEmpty: {
       alignItems: "center",

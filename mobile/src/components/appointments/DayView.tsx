@@ -36,8 +36,6 @@ type DayViewProps = {
   onDateChange: (date: Date) => void;
   onAppointmentPress: (appointment: Appointment) => void;
   onNewAppointment: (date?: string, time?: string) => void;
-  onRefresh: () => void;
-  isRefreshing: boolean;
 };
 
 function formatTime(value?: string | null) {
@@ -122,8 +120,6 @@ export function DayView({
   onDateChange,
   onAppointmentPress,
   onNewAppointment,
-  onRefresh,
-  isRefreshing,
 }: DayViewProps) {
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();

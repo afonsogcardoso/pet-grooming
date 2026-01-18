@@ -1,17 +1,13 @@
 .pawmiTheme {
   --brand-primary: #4fafa9;
   --brand-primary-dark: #144fa1;
-  --brand-primary-soft: #dce8ff;
-  --brand-accent: #82b1ff;
-  --brand-accent-soft: #e8f1ff;
+  --brand-primary-soft: #ebf5f4;
+  --brand-accent: #f4d58d;
+  --brand-accent-soft: #fdf6de;
   --brand-secondary: #0f172a;
   --brand-secondary-soft: #dce8ff;
   --brand-surface: #f6f9f8;
-  --brand-gradient: linear-gradient(
-    135deg,
-    rgba(31, 111, 235, 0.95),
-    rgba(20, 79, 161, 0.9)
-  );
+  --brand-gradient: linear-gradient(135deg, #4fafa9,#dce8ff);
   --background: var(--brand-surface);
 }
 
@@ -80,11 +76,25 @@
 }
 
 .ctaPanel {
-  background: linear-gradient(
-    120deg,
-    rgba(31, 111, 235, 0.95),
-    rgba(20, 79, 161, 0.9)
-  );
+  background: var(--brand-gradient)
+}
+
+.storeCard {
+  position: relative;
+  background: linear-gradient(125deg, rgba(79, 175, 169, 0.12), rgba(20, 79, 161, 0.04));
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 18px 40px rgba(16, 20, 40, 0.08);
+  overflow: hidden;
+}
+
+.storeCard::after {
+  content: "";
+  position: absolute;
+  inset: -25% 55% auto -15%;
+  height: 160%;
+  background: radial-gradient(42% 42% at 50% 30%, rgba(255, 255, 255, 0.85), transparent 70%);
+  opacity: 0.6;
+  pointer-events: none;
 }
 
 @keyframes fadeUp {

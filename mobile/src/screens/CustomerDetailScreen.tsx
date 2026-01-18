@@ -503,9 +503,6 @@ export default function CustomerDetailScreen({ navigation, route }: Props) {
 
   const displayName = formatCustomerName(customer);
   const customerAddress = formatCustomerAddress(customer);
-  const customerAddressMultiline = customerAddress
-    ? formatCustomerAddress(customer, "\n")
-    : undefined;
   const petCount = pets.length;
   const appointmentCount = customerAppointments.length;
 

@@ -16,8 +16,6 @@ type MonthViewProps = {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
   onDayPress: (date: Date) => void;
-  onRefresh: () => void;
-  isRefreshing: boolean;
 };
 
 const SWIPE_THRESHOLD = 60;
@@ -78,8 +76,6 @@ export function MonthView({
   selectedDate,
   onDateChange,
   onDayPress,
-  onRefresh,
-  isRefreshing,
 }: MonthViewProps) {
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();

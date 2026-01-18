@@ -22,13 +22,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { launchCamera, launchImageLibrary } from "react-native-image-picker";
 import { cameraOptions, galleryOptions } from "../utils/imageOptions";
-import { compressImage } from "../utils/imageCompression";
 import { useTranslation } from "react-i18next";
 import {
-  getAppointment,
   updateAppointment,
   deleteAppointment,
-  uploadAppointmentPhoto,
   deleteSeriesOccurrences,
 } from "../api/appointments";
 import useAppointmentPhotos from "../hooks/useAppointmentPhotos";
@@ -109,9 +106,6 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     type: "before" | "after";
     appointmentServiceId?: string;
   } | null>(null);
-  const [savingPhoto, setSavingPhoto] = useState<"before" | "after" | null>(
-    null
-  );
 
   // Use centralized hook to avoid duplicate GET /appointments/:id calls
   const {
@@ -379,42 +373,36 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
   }, [customerPets]);
   const appointmentPets = useMemo(() => {
     if (!appointment) return [];
-    const collected: Array<any> = [];
+    const seen = new Set<string>();
+    const collected: Array<Pet> = [];
+    const pushPet = (pet: Pet | null | undefined) => {
+      if (!pet) return;
+      const key = pet.id
+        ? String(pet.id)
+        : `${pet.name || "pet"}-${pet.breed || ""}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      collected.push(pet);
+    };
+
     appointmentServiceEntries.forEach((entry: any) => {
       const petId = entry?.pet_id || entry?.pets?.id;
       const mappedPet = petId ? customerPetsById.get(petId) : null;
-
-      if (mappedPet) {
-        collected.push(mappedPet);
-        return;
-      }
-
-      if (entry?.pets) {
-        collected.push(entry.pets);
-        return;
-      }
-
-      if (entry?.pet_id) {
-        const match = customerPetsById.get(entry.pet_id);
-        if (match) collected.push(match);
-      }
+      const entryPet = entry?.pets
+        ? { ...entry.pets, photo_url: entry.pets.photo_url ?? mappedPet?.photo_url }
+        : null;
+      pushPet(entryPet || mappedPet);
     });
-    const unique = new Map<string, any>();
-    collected.forEach((entry, index) => {
-      if (!entry) return;
-      const key = entry.id
-        ? String(entry.id)
-        : `${entry.name || "pet"}-${entry.breed || ""}-${index}`;
-      if (!unique.has(key)) unique.set(key, entry);
-    });
-    return Array.from(unique.values());
-  }, [appointment, appointmentServiceEntries, customerPetsById]);
-  const primaryPetName = useMemo(() => {
-    if (appointmentPets.length > 0 && appointmentPets[0]?.name) {
-      return appointmentPets[0].name as string;
+
+    if (collected.length === 0 && appointment.pets) {
+      const topLevelPet =
+        (appointment.pets.id && customerPetsById.get(appointment.pets.id)) ||
+        appointment.pets;
+      pushPet(topLevelPet as Pet);
     }
-    return "Pet";
-  }, [appointmentPets]);
+
+    return collected;
+  }, [appointment, appointmentServiceEntries, customerPetsById]);
   const paymentStatus = appointment?.payment_status || "unpaid";
   const paymentColor =
     paymentStatus === "paid" ? colors.success : colors.warning;
@@ -477,39 +465,6 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     serviceDetails.length > 0 &&
     (serviceDetails.length > 1 ||
       serviceDetails.some((detail) => detail.hasTier || detail.hasAddons));
-
-  const openMaps = async () => {
-    const address = formatCustomerAddress(customer);
-    if (!address) return;
-
-    try {
-      const GOOGLE_MAPS_API_KEY =
-        process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY || "";
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-          address
-        )}&key=${GOOGLE_MAPS_API_KEY}`
-      );
-      const data = await response.json();
-
-      if (data.results && data.results.length > 0) {
-        const location = data.results[0].geometry.location;
-        const url = Platform.select({
-          ios: `maps:0,0?q=${location.lat},${location.lng}`,
-          android: `geo:0,0?q=${location.lat},${location.lng}`,
-          default: `https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`,
-        });
-        Linking.openURL(url).catch(() =>
-          Alert.alert(t("common.error"), t("appointmentDetail.mapOpenError"))
-        );
-      } else {
-        Alert.alert(t("common.error"), t("appointmentDetail.addressNotFound"));
-      }
-    } catch (error) {
-      console.error("Geocoding error:", error);
-      Alert.alert(t("common.error"), t("appointmentDetail.geocodeError"));
-    }
-  };
 
   const callCustomer = () => {
     const phone = customer?.phone;
@@ -861,7 +816,6 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
     if (!photoUrl) return;
 
     try {
-      setSavingPhoto(type);
       const extFromUrl = photoUrl.split(".").pop()?.split("?")[0] || "jpg";
       const extension = extFromUrl.length <= 5 ? extFromUrl : "jpg";
       const filename = `appointment-${appointmentId}-${type}-${Date.now()}.${extension}`;
@@ -881,8 +835,6 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
         console.error("Erro ao guardar foto:", error);
         Alert.alert(t("common.error"), t("appointmentDetail.photoSaveError"));
       }
-    } finally {
-      setSavingPhoto(null);
     }
   };
 
@@ -1427,112 +1379,100 @@ export default function AppointmentDetailScreen({ route, navigation }: Props) {
                       🐾 {t("appointmentDetail.pet")}
                     </Text>
                     {appointmentPets.length === 1 ? (
-                      <>
-                        <TouchableOpacity
-                          style={styles.singlePetRow}
-                          activeOpacity={0.8}
-                          onPress={(e) => {
-                            e.stopPropagation?.();
-                            const pet = appointmentPets[0];
-                            if (!pet) return;
-                            if (pet.id) {
-                              navigation.navigate("PetForm", {
-                                mode: "edit",
-                                customerId,
-                                petId: pet.id,
-                                pet,
-                              });
-                            }
-                          }}
+                      <TouchableOpacity
+                        style={styles.singlePetRow}
+                        activeOpacity={0.8}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          const pet = appointmentPets[0];
+                          if (!pet) return;
+                          if (pet.id) {
+                            navigation.navigate("PetForm", {
+                              mode: "edit",
+                              customerId,
+                              petId: pet.id,
+                              pet,
+                            });
+                          }
+                      }}
+                    >
+                      {appointmentPets[0].photo_url ? (
+                        <Image
+                          source={{ uri: appointmentPets[0].photo_url }}
+                          style={[styles.petThumbnail, styles.singlePetAvatar]}
+                        />
+                      ) : (
+                        <View
+                          style={[
+                            styles.petThumbnail,
+                            styles.singlePetAvatar,
+                            styles.petThumbnailPlaceholder,
+                          ]}
                         >
-                          {appointmentPets[0].photo_url ? (
-                            <Image
-                              source={{ uri: appointmentPets[0].photo_url }}
-                              style={[
-                                styles.petThumbnail,
-                                styles.singlePetAvatar,
-                              ]}
-                            />
-                          ) : (
-                            <View
-                              style={[
-                                styles.petThumbnailPlaceholder,
-                                styles.singlePetAvatar,
-                              ]}
-                            >
-                              <Text style={styles.petThumbnailInitials}>
-                                {String(appointmentPets[0].name || "")
-                                  .slice(0, 1)
-                                  .toUpperCase() || "🐾"}
-                              </Text>
-                            </View>
-                          )}
-                          <View style={styles.singlePetInfo}>
-                            <Text style={styles.singlePetName}>
-                              {appointmentPets[0].name}
+                          <Text style={styles.petThumbnailInitials}>🐾</Text>
+                        </View>
+                      )}
+                      <View style={styles.singlePetInfo}>
+                        <Text style={styles.singlePetName}>
+                          {appointmentPets[0].name}
+                        </Text>
+                        {appointmentPets[0].breed ? (
+                            <Text style={styles.singlePetBreed}>
+                              {appointmentPets[0].breed}
                             </Text>
-                            {appointmentPets[0].breed ? (
-                              <Text style={styles.singlePetBreed}>
-                                {appointmentPets[0].breed}
-                              </Text>
-                            ) : null}
-                          </View>
-                        </TouchableOpacity>
-                      </>
+                          ) : null}
+                        </View>
+                      </TouchableOpacity>
                     ) : (
                       <View style={styles.petList}>
-                        {appointmentPets.map((entry, index) => {
-                          const key = entry.id
-                            ? String(entry.id)
-                            : `${entry.name || "pet"}-${index}`;
+                        {appointmentPets.map((pet, index) => {
+                          const key = pet.id
+                            ? String(pet.id)
+                            : `${pet.name || "pet"}-${index}`;
                           return (
                             <TouchableOpacity
                               key={key}
                               activeOpacity={0.8}
                               onPress={(e) => {
                                 e.stopPropagation?.();
-                                if (entry.id) {
+                                if (pet.id) {
                                   navigation.navigate("PetForm", {
                                     mode: "edit",
                                     customerId,
-                                    petId: entry.id,
-                                    pet: entry,
+                                    petId: pet.id,
+                                    pet,
                                   });
                                 }
                               }}
                               style={[
-                                styles.petRow,
-                                index === appointmentPets.length - 1 &&
-                                  styles.petRowLast,
-                              ]}
-                            >
-                              {entry.photo_url ? (
-                                <Image
-                                  source={{ uri: entry.photo_url }}
-                                  style={styles.petRowImage}
-                                />
-                              ) : (
-                                <View style={styles.petRowPlaceholder}>
-                                  <Text style={styles.petRowInitials}>
-                                    {String(entry.name || "")
-                                      .slice(0, 1)
-                                      .toUpperCase() || "🐾"}
-                                  </Text>
-                                </View>
-                              )}
-                              <View style={styles.petRowInfo}>
-                                <Text
-                                  style={styles.petRowName}
-                                  numberOfLines={1}
-                                >
-                                  {entry.name}
+                              styles.petRow,
+                              index === appointmentPets.length - 1 &&
+                                styles.petRowLast,
+                            ]}
+                          >
+                            {pet.photo_url ? (
+                              <Image
+                                source={{ uri: pet.photo_url }}
+                                style={styles.petRowImage}
+                              />
+                            ) : (
+                              <View style={styles.petRowPlaceholder}>
+                                <Text style={styles.petRowInitials}>🐾</Text>
+                              </View>
+                            )}
+                            <View style={styles.petRowInfo}>
+                              <Text
+                                style={styles.petRowName}
+                                numberOfLines={1}
+                              >
+                                  {pet.name}
                                 </Text>
-                                {entry.breed ? (
+                                {pet.breed ? (
                                   <Text
                                     style={styles.petRowBreed}
                                     numberOfLines={1}
                                   >
-                                    {entry.breed}
+                                    {pet.breed}
                                   </Text>
                                 ) : null}
                               </View>
@@ -2077,13 +2017,9 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       color: colors.text,
     },
     petThumbnailPlaceholder: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
       backgroundColor: placeholderBg,
       alignItems: "center",
       justifyContent: "center",
-      marginBottom: 8,
     },
     petThumbnailInitials: {
       fontSize: 20,

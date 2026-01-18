@@ -221,6 +221,9 @@ export function createStyles(colors: any) {
       color: colors.muted,
       fontWeight: "500",
     },
+    modalList: {
+      maxHeight: 260,
+    },
     dropdown: {
       borderWidth: 0,
       borderRadius: 12,
@@ -265,7 +268,7 @@ export function createStyles(colors: any) {
       width: 24,
       height: 24,
       borderRadius: 6,
-      borderWidth: 2,
+      borderWidth: 1,
       borderColor: colors.surfaceBorder,
       alignItems: "center",
       justifyContent: "center",
@@ -381,6 +384,11 @@ export function createStyles(colors: any) {
       fontSize: 13,
       fontWeight: "700",
       color: colors.text,
+    },
+    summaryPetRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
     },
     summaryServices: {
       fontSize: 13,

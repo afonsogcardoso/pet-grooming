@@ -6,7 +6,6 @@ import { AddressAutocomplete } from "../appointment/AddressAutocomplete";
 
 type Props = {
   styles: any;
-  colors: any;
   t: any;
   editFirstName: string;
   editLastName: string;
@@ -29,7 +28,6 @@ type Props = {
 
 export default function ProfileInfo({
   styles,
-  colors,
   t,
   editFirstName,
   editLastName,

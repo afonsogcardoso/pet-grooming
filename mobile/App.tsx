@@ -425,10 +425,9 @@ function AppContent() {
   } | null>(null);
   const bootstrapInFlightRef = useRef<Set<string>>(new Set());
   const lastBootstrapKeyRef = useRef<string | null>(null);
-  const [brandingData, setBrandingData] = useState<Branding | null>(null);
-  const [previousBranding, setPreviousBranding] = useState<Branding | null>(
-    null
-  );
+  const [brandingData, setBrandingData] = useState<
+    Branding | null | undefined
+  >(undefined);
   const [profileData, setProfileData] = useState<{
     email?: string | null;
     displayName?: string | null;
@@ -444,7 +443,6 @@ function AppContent() {
   const activeAccountId = useAccountStore((s) => s.activeAccountId);
   const viewMode = useViewModeStore((s) => s.viewMode);
   const viewModeHydrated = useViewModeStore((s) => s.hydrated);
-  const brandingFade = useMemo(() => new Animated.Value(0), []);
   const loaderColors = useMemo(() => {
     const primary = brandingData?.brand_primary || "#4fafa9";
     const background = brandingData?.brand_background || "#f6f9f8";
@@ -505,7 +503,7 @@ function AppContent() {
   useEffect(() => {
     // Reset branding gating on auth changes and clear cache on logout to avoid mixing tenants.
     if (!hydrated) return;
-    setBrandingData(null);
+    setBrandingData(undefined);
     setProfileData(null);
     if (!token) {
       clearBrandingCache();
@@ -514,7 +512,6 @@ function AppContent() {
 
   useEffect(() => {
     if (!hydrated || !token) return;
-    if (!activeAccountId) return;
 
     let cancelled = false;
 
@@ -556,7 +553,7 @@ function AppContent() {
       const bootstrapKey = `${token}:${activeAccountId}`;
       if (
         lastBootstrapKeyRef.current === bootstrapKey &&
-        brandingData &&
+        brandingData !== undefined &&
         profileData
       ) {
         return;
@@ -569,15 +566,45 @@ function AppContent() {
         if (cancelled) return;
         const { profile, branding } = bootstrap;
 
+        const brandingToSet = branding ?? null;
+        setBrandingData((current) => {
+          if (!brandingToSet) return current ?? null;
+          return current && isBrandingEqual(current, brandingToSet)
+            ? current
+            : brandingToSet;
+        });
         if (branding) {
-          setBrandingData((current) =>
-            current && isBrandingEqual(current, branding) ? current : branding
-          );
           queryClient.setQueryData(brandingQueryKey(activeAccountId), branding);
           writeBrandingCache(branding).catch(() => null);
         }
 
         if (profile) {
+          if (!activeAccountId) {
+            try {
+              const memberships = Array.isArray(profile.memberships)
+                ? profile.memberships
+                : [];
+              if (memberships.length) {
+                const selected =
+                  memberships.find((m: any) => m?.is_default) || memberships[0];
+                const nextAccountId =
+                  selected?.account_id || selected?.account?.id || null;
+                const nextAccountName =
+                  selected?.account?.name ||
+                  selected?.account_name ||
+                  selected?.account?.displayName ||
+                  null;
+                if (nextAccountId) {
+                  await useAccountStore
+                    .getState()
+                    .setActiveAccount(nextAccountId, nextAccountName);
+                }
+              }
+            } catch {
+              // ignore store errors here; fallback to bootstrap data
+            }
+          }
+
           setProfileData(profile as any);
           useAuthStore.getState().setUser({
             email: profile.email,
@@ -607,6 +634,9 @@ function AppContent() {
       } catch (err: any) {
         console.warn("Failed to load session bootstrap:", err?.message || err);
       } finally {
+        if (brandingData === undefined && !cancelled) {
+          setBrandingData((current) => current ?? null);
+        }
         lastBootstrapKeyRef.current = bootstrapKey;
         bootstrapInFlightRef.current.delete(bootstrapKey);
       }
@@ -666,9 +696,10 @@ function AppContent() {
     return () => subscription.remove();
   }, [handleNotificationResponse]);
 
+  const brandingLoaded = brandingData !== undefined;
   const showLoader =
     !hydrated ||
-    (token && (!brandingData || !profileData || !viewModeHydrated));
+    (token && (!profileData || !viewModeHydrated || !brandingLoaded));
 
   if (showLoader) {
     return (
@@ -685,7 +716,7 @@ function AppContent() {
     );
   }
 
-  const overlayBackground = previousBranding?.brand_background || "#f6f9f8";
+  const overlayBackground = brandingData?.brand_background || "#f6f9f8";
   const statusBarBackground =
     brandingData?.brand_background || overlayBackground || "#f6f9f8";
   const statusBarStyle = isLightColor(statusBarBackground) ? "dark" : "light";
@@ -791,20 +822,6 @@ function AppContent() {
           </RootStack.Navigator>
         </NavigationContainer>
         <StatusBar style={statusBarStyle} backgroundColor={statusBarBackground} />
-        {previousBranding ? (
-          <Animated.View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              top: 0,
-              right: 0,
-              bottom: 0,
-              left: 0,
-              backgroundColor: overlayBackground,
-              opacity: brandingFade,
-            }}
-          />
-        ) : null}
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

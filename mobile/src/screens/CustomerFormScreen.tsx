@@ -73,7 +73,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
 
   const createMutation = useMutation({
     mutationFn: createCustomer,
-    onSuccess: (data) => {
+    onSuccess: () => {
       hapticSuccess();
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       navigation.goBack();
@@ -182,7 +182,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
     return true;
   };
 
-  const uploadPhoto = async (uri: string, fileName?: string | null) => {
+  const uploadPhoto = async (uri: string) => {
     if (mode === "create" || !customerId) {
       Alert.alert(t("common.warning"), t("customerForm.saveFirstWarning"));
       return;
@@ -220,8 +220,6 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
     }
     try {
       setUploadingPhoto(true);
-      // attempt to nullify photo via updateCustomer; API may accept photo_url null
-      // call server endpoint to remove storage objects and clear DB field
       await deleteCustomerPhoto(customerId!);
       setPhotoUrl("");
       queryClient.invalidateQueries({ queryKey: ["customers"] });
@@ -256,7 +254,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
         return;
       }
       if (response.assets && response.assets[0]) {
-        await uploadPhoto(response.assets[0].uri!, response.assets[0].fileName);
+        await uploadPhoto(response.assets[0].uri!);
       }
     });
   };
@@ -270,7 +268,7 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
         return;
       }
       if (response.assets && response.assets[0]) {
-        await uploadPhoto(response.assets[0].uri!, response.assets[0].fileName);
+        await uploadPhoto(response.assets[0].uri!);
       }
     });
   };
@@ -340,7 +338,6 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.form}>
-            {/* Avatar Section */}
             <View style={styles.avatarSection}>
               <View style={styles.avatarContainer}>
                 <Avatar
@@ -348,9 +345,6 @@ export default function CustomerFormScreen({ navigation, route }: Props) {
                   imageUrl={photoUrl}
                   size="large"
                   onPress={mode === "edit" ? handleAvatarPress : undefined}
-                  // allow deletion via avatar component
-                  // Avatar -> ImageWithDownload will forward onDelete to show delete option
-                  // pass handler only when editing
                   {...(mode === "edit" ? { onDelete: handleDeleteAvatar } : {})}
                 />
                 {uploadingPhoto && (

@@ -6,11 +6,12 @@ import {
   ScrollView,
   ActivityIndicator,
   StyleSheet,
+  TextInput,
   Keyboard,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
-import { SearchField } from "../common/SearchField";
+import { Ionicons } from "@expo/vector-icons";
 
 type Service = {
   id: string;
@@ -66,24 +67,39 @@ export function ServicePicker({
     setSearchQuery(selectedService?.name || "");
   }, [selectedService]);
 
+  const fieldPlaceholder =
+    placeholder || t("serviceSelector.placeholder") || t("serviceSelector.searchPlaceholder");
+
   const styles = StyleSheet.create({
     field: {
       marginBottom: 12,
-    },
-    searchField: {
-      backgroundColor: colors.background,
-      borderWidth: 1,
-      borderColor: colors.surfaceBorder,
-      borderRadius: 12,
-      minHeight: 52,
-      paddingVertical: 8,
-      paddingHorizontal: 12,
     },
     label: {
       color: colors.text,
       marginBottom: 8,
       fontWeight: "600",
       fontSize: 15,
+    },
+    select: {
+      borderWidth: 1,
+      borderRadius: 12,
+      borderColor: colors.surfaceBorder,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    selectText: {
+      color: colors.text,
+      fontWeight: "600",
+      flex: 1,
+    },
+    placeholderText: {
+      color: colors.muted,
+      fontWeight: "600",
+      flex: 1,
     },
     dropdown: {
       borderWidth: 1,
@@ -93,6 +109,13 @@ export function ServicePicker({
       marginTop: 6,
       borderColor: colors.surfaceBorder,
       overflow: "hidden",
+    },
+    dropdownSearch: {
+      borderBottomWidth: 1,
+      borderBottomColor: colors.surfaceBorder,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      color: colors.text,
     },
     option: {
       width: "100%",
@@ -134,32 +157,44 @@ export function ServicePicker({
   return (
     <View style={styles.field}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
-      <SearchField
-        value={searchQuery}
-        onChangeText={(text) => {
-          setSearchQuery(text);
-          setOpen(true);
-          if (allowClear && !text) {
-            onSelect("");
+      <TouchableOpacity
+        style={styles.select}
+        onPress={() => setOpen((prev) => !prev)}
+        activeOpacity={0.8}
+      >
+        <Text
+          style={
+            selectedService ? styles.selectText : styles.placeholderText
           }
-        }}
-        placeholder={
-          placeholder ||
-          selectedService?.name ||
-          t("serviceSelector.searchPlaceholder")
-        }
-        containerStyle={[styles.searchField, { marginBottom: 10 }]}
-        inputStyle={{ fontSize: 15 }}
-        autoCapitalize="none"
-        autoCorrect={false}
-        onFocus={() => setOpen(true)}
-        returnKeyType="search"
-      />
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {selectedService?.name || fieldPlaceholder}
+        </Text>
+        <Ionicons
+          name={open ? "chevron-up" : "chevron-down"}
+          size={18}
+          color={colors.muted}
+        />
+      </TouchableOpacity>
 
       {open ? (
         <View style={styles.dropdown}>
+          <TextInput
+            style={[styles.dropdownSearch, { fontSize: 15 }]}
+            value={searchQuery}
+            onChangeText={(text) => {
+              setSearchQuery(text);
+            }}
+            placeholder={t("serviceSelector.searchPlaceholder")}
+            placeholderTextColor={colors.muted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            autoFocus
+          />
           {loading ? (
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 12 }} />
           ) : (
             <ScrollView
               style={{ maxHeight: 240 }}

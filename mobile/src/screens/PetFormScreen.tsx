@@ -8,7 +8,6 @@ import {
   Platform,
   Alert,
   TouchableOpacity,
-  Image,
   ActionSheetIOS,
   PermissionsAndroid,
   ActivityIndicator,
@@ -78,7 +77,6 @@ export default function PetFormScreen({ navigation, route }: Props) {
     enabled: Boolean(speciesId),
   });
 
-  // Prefill species as dog to reduce friction when required
   useEffect(() => {
     if (speciesId || speciesLabel) return;
     const dog = speciesOptions.find((item) => {
@@ -114,7 +112,6 @@ export default function PetFormScreen({ navigation, route }: Props) {
       weight?: number | null;
     }) => createPet(customerId, data),
     onSuccess: async (createdPet) => {
-      // Se há uma foto selecionada, faz upload após criar o pet
       if (photoUri && !photoUri.startsWith("http")) {
         try {
           setUploadingPhoto(true);
@@ -153,7 +150,6 @@ export default function PetFormScreen({ navigation, route }: Props) {
       weight?: number | null;
     }) => updatePet(customerId, petId!, data),
     onSuccess: async (updatedPet) => {
-      // Refresh cached list immediately to avoid stale UI until invalidate refetches
       queryClient.setQueryData<Pet[] | undefined>(
         ["customer-pets", customerId],
         (old) =>
@@ -162,7 +158,6 @@ export default function PetFormScreen({ navigation, route }: Props) {
           ) || old
       );
 
-      // Se há uma foto nova selecionada, faz upload
       if (photoUri && !photoUri.startsWith("http")) {
         try {
           setUploadingPhoto(true);
@@ -243,7 +238,6 @@ export default function PetFormScreen({ navigation, route }: Props) {
   };
 
   const uploadPhoto = async (uri: string) => {
-    // Se estamos editando, faz upload imediatamente
     if (mode === "edit" && petId) {
       try {
         setUploadingPhoto(true);

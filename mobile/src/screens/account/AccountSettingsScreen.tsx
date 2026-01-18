@@ -10,7 +10,6 @@ import { useQuery } from "@tanstack/react-query";
 import { getAccountMembers } from "../../api/accountMembers";
 import { getAllServices } from "../../api/services";
 import { getCustomers } from "../../api/customers";
-import { getProfile } from "../../api/profile";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
 import createStyles from "./styles";
 import AccountSectionCard from "./components/AccountSectionCard";
@@ -36,11 +35,6 @@ export default function AccountSettingsScreen() {
   const rootNavigation = navigation.getParent<NativeStackNavigationProp<any>>();
   const insets = useSafeAreaInsets();
 
-  const profileQuery = useQuery({
-    queryKey: ["profile"],
-    queryFn: getProfile,
-  });
-
   const servicesQuery = useQuery({
     queryKey: ["services", "all"],
     queryFn: getAllServices,
@@ -57,23 +51,11 @@ export default function AccountSettingsScreen() {
   });
 
   const services = servicesQuery.data || [];
-  const totalServices = services.length;
   const activeServices = services.filter(
     (service) => service.active !== false
   ).length;
 
   const customers = customersQuery.data || [];
-  const missingContacts = customers.filter(
-    (customer) => !customer.email && !customer.phone
-  ).length;
-
-  const recentCustomers = customers
-    .slice()
-    .reverse()
-    .slice(0, 3)
-    .map(
-      (customer) => customer.firstName || customer.lastName || customer.email
-    );
 
   const navigateRoot = (route: string, params?: object) => {
     if (!rootNavigation) return;

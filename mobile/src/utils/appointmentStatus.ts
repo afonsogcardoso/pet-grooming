@@ -2,29 +2,23 @@ import i18n from '../i18n';
 
 export type AppointmentStatus = 'scheduled' | 'pending' | 'in_progress' | 'completed' | 'cancelled';
 
-/**
- * Retorna a cor associada a cada estado de marcação
- */
 export function getStatusColor(status?: string | null): string {
   switch (status) {
     case 'scheduled':
-      return '#4fafa9'; // azul principal
+      return '#4fafa9';
     case 'pending':
-      return '#82B1FF'; // pendente
+      return '#82B1FF';
     case 'in_progress':
-      return '#144FA1'; // em progresso
+      return '#144FA1';
     case 'completed':
-      return '#10b981'; // verde
+      return '#10b981';
     case 'cancelled':
-      return '#ef4444'; // vermelho
+      return '#ef4444';
     default:
-      return '#6F6F6F'; // cinza para estados desconhecidos
+      return '#6F6F6F';
   }
 }
 
-/**
- * Retorna a etiqueta em português para cada estado
- */
 export function getStatusLabel(status?: string | null): string {
   switch (status) {
     case 'scheduled':
@@ -42,9 +36,6 @@ export function getStatusLabel(status?: string | null): string {
   }
 }
 
-/**
- * Retorna a etiqueta para o botão de ação (antes de ser clicado)
- */
 export function getStatusButtonLabel(status?: string | null): string {
   switch (status) {
     case 'scheduled':

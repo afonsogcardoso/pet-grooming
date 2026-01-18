@@ -11,9 +11,9 @@ type PetCardProps = {
   loadingServices: boolean;
   petWeight: number | null;
   onChangeRow: (rowId: string, updates: any) => void;
-  onRemoveRow: (rowId: string) => void;
-  onAddService: () => void;
   onTotalsChange: (id: string, totals: any) => void;
+  servicesError?: unknown;
+  refetchServices: () => Promise<unknown>;
   styles: any;
 };
 
@@ -24,9 +24,9 @@ export default function PetCard({
   loadingServices,
   petWeight,
   onChangeRow,
-  onRemoveRow,
-  onAddService,
   onTotalsChange,
+  servicesError,
+  refetchServices,
   styles,
 }: PetCardProps) {
   const { t } = useTranslation();
@@ -35,20 +35,22 @@ export default function PetCard({
     <View style={styles.petCard}>
       <PetHeader pet={pet} styles={styles} />
 
-      {rows.map((row, index) => (
+      {rows[0] ? (
         <PetServiceRow
-          key={row.id}
-          index={index}
-          row={row}
+          key={rows[0].id}
+          index={0}
+          row={rows[0]}
           services={services}
           loadingServices={loadingServices}
+          servicesError={servicesError}
+          refetchServices={refetchServices}
           petWeight={petWeight}
-          onChange={(updates: any) => onChangeRow(row.id, updates)}
-          onRemove={() => onRemoveRow(row.id)}
-          allowRemove={rows.length > 1}
+          onChange={(updates: any) => onChangeRow(rows[0].id, updates)}
+          onRemove={() => undefined}
+          allowRemove={false}
           onTotalsChange={onTotalsChange}
         />
-      ))}
+      ) : null}
 
       {rows.length > 0 ? (
         <Text style={styles.petSummary}>
@@ -62,15 +64,6 @@ export default function PetCard({
         </Text>
       ) : null}
 
-      <TouchableOpacity
-        style={styles.addServiceButton}
-        onPress={onAddService}
-        accessibilityLabel={t("appointmentForm.addService")}
-      >
-        <Text style={styles.addServiceText}>
-          + {t("appointmentForm.addService")}
-        </Text>
-      </TouchableOpacity>
     </View>
   );
 }

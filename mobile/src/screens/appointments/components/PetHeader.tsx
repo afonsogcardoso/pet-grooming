@@ -26,12 +26,13 @@ export default function PetHeader({
     (index != null
       ? t("appointmentForm.petCardTitle", { index: index + 1 })
       : "");
+  const photoUrl = pet.photo_url;
 
   return (
     <View style={styles.petHeader}>
       <View style={styles.petHeaderLeft}>
-        {pet.photo_url ? (
-          <Image source={{ uri: pet.photo_url }} style={styles.petAvatar} />
+        {photoUrl ? (
+          <Image source={{ uri: photoUrl }} style={styles.petAvatar} />
         ) : (
           <View style={styles.petAvatarPlaceholder}>
             <Text style={styles.petAvatarText}>

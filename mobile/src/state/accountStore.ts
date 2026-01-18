@@ -10,21 +10,20 @@ type AccountState = {
   hydrate: () => Promise<void>;
 };
 
-export const useAccountStore = create<AccountState>()((set, get) => ({
+export const useAccountStore = create<AccountState>()((set) => ({
   activeAccountId: null,
   activeAccountName: null,
-  setActiveAccount: async (id: string | null, name?: string | null) => {
-    try {
-      if (id) {
-        await AsyncStorage.setItem(ACCOUNT_CACHE_KEY, JSON.stringify({ id, name: name ?? null }));
-      } else {
-        await AsyncStorage.removeItem(ACCOUNT_CACHE_KEY);
+    setActiveAccount: async (id: string | null, name?: string | null) => {
+      try {
+        if (id) {
+          await AsyncStorage.setItem(ACCOUNT_CACHE_KEY, JSON.stringify({ id, name: name ?? null }));
+        } else {
+          await AsyncStorage.removeItem(ACCOUNT_CACHE_KEY);
+        }
+      } catch (err) {
       }
-    } catch (err) {
-      // ignore
-    }
-    set({ activeAccountId: id, activeAccountName: name ?? null });
-  },
+      set({ activeAccountId: id, activeAccountName: name ?? null });
+    },
   hydrate: async () => {
     try {
       const raw = await AsyncStorage.getItem(ACCOUNT_CACHE_KEY);

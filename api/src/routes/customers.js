@@ -9,6 +9,28 @@ import { mapCustomerForApi } from '../utils/customer.js'
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
 const PET_PHOTO_BUCKET = 'pets'
+const LONG_SIGN_TTL = 60 * 60 * 24 * 30 // 30 days keeps links stable without being truly public
+
+function extractStoragePath(urlOrPath) {
+  if (!urlOrPath) return null
+  const raw = urlOrPath.toString()
+  const signedMatch = raw.match(/\/object\/(?:sign|public)\/[^/]+\/(.+?)(?:\\?|$)/)
+  if (signedMatch?.[1]) return signedMatch[1]
+  // If it already looks like a storage path (no scheme), return as-is
+  if (!raw.startsWith('http')) return raw.replace(/^\/+/, '')
+  return null
+}
+
+async function signPhotoUrl({ supabase, bucket, value }) {
+  const path = extractStoragePath(value)
+  if (!path) return value || null
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, LONG_SIGN_TTL)
+  if (error) {
+    console.error('[api] sign photo url error', error)
+    return null
+  }
+  return data?.signedUrl || null
+}
 
 function applyPhonePayload(payload) {
   if (Object.prototype.hasOwnProperty.call(payload, 'phone_country_code')) {
@@ -175,15 +197,31 @@ router.get('/', async (req, res) => {
   }
 
   const enriched =
-    data?.map((customer) => ({
-      ...customer,
-      pet_count: Array.isArray(customer.pets) ? customer.pets.length : 0,
-      appointment_count: Array.isArray(customer.appointments)
-        ? customer.appointments[0]?.count ?? 0
-        : typeof customer.appointments?.count === 'number'
-          ? customer.appointments.count
-          : 0
-    })) || []
+    (await Promise.all(
+      (data || []).map(async (customer) => {
+        const photoUrl = await signPhotoUrl({ supabase, bucket: 'customers', value: customer.photo_url })
+        const pets =
+          Array.isArray(customer.pets) && customer.pets.length > 0
+            ? await Promise.all(
+                customer.pets.map(async (pet) => ({
+                  ...pet,
+                  photo_url: await signPhotoUrl({ supabase, bucket: PET_PHOTO_BUCKET, value: pet.photo_url })
+                }))
+              )
+            : []
+        return {
+          ...customer,
+          photo_url: photoUrl,
+          pets,
+          pet_count: pets.length,
+          appointment_count: Array.isArray(customer.appointments)
+            ? customer.appointments[0]?.count ?? 0
+            : typeof customer.appointments?.count === 'number'
+              ? customer.appointments.count
+              : 0
+        }
+      })
+    )) || []
 
   res.json({ data: (enriched || []).map(mapCustomerForApi) })
 })
@@ -508,20 +546,17 @@ router.post('/:id/photo', upload.single('file'), async (req, res) => {
 
   if (uploadError) return res.status(500).json({ error: uploadError.message })
 
-  // Gerar signed URL (7 dias)
   const { data: signedUrlData, error: signedError } = await supabase.storage
     .from('customers')
-    .createSignedUrl(path, 604800) // 7 dias
-
+    .createSignedUrl(path, LONG_SIGN_TTL)
   if (signedError) return res.status(500).json({ error: signedError.message })
-
   const url = signedUrlData?.signedUrl || null
 
   // Guardar URL na BD
   if (url) {
     await supabase
       .from('customers')
-      .update({ photo_url: url })
+      .update({ photo_url: path }) // guardar caminho; assinamos em leitura
       .eq('id', req.params.id)
       .eq('account_id', accountId)
   }
@@ -568,17 +603,16 @@ router.post('/:petId/pet-photo', upload.single('file'), async (req, res) => {
     })
   if (uploadError) return res.status(500).json({ error: uploadError.message })
 
-  // Gerar signed URL (7 dias)
   const { data: signedUrlData, error: signedError } = await supabase.storage
     .from(PET_PHOTO_BUCKET)
-    .createSignedUrl(path, 604800)
+    .createSignedUrl(path, LONG_SIGN_TTL)
 
   if (signedError) return res.status(500).json({ error: signedError.message })
   const url = signedUrlData?.signedUrl || null
   if (url) {
     await supabase
       .from('pets')
-      .update({ photo_url: url })
+      .update({ photo_url: path }) // guardar caminho; assinamos em leitura
       .eq('id', req.params.petId)
       .eq('account_id', accountId)
   }
@@ -696,4 +730,3 @@ router.delete('/:petId/pet-photo', async (req, res) => {
     return res.status(500).json({ error: 'internal_error' })
   }
 })
-

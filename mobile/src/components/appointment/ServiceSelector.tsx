@@ -29,7 +29,6 @@ type ServiceSelectorProps = {
   showServiceList: boolean;
   setShowServiceList: (value: boolean) => void;
   setSelectedServices: (ids: string[]) => void;
-  setDuration: (duration: number) => void;
 };
 
 export function ServiceSelector({
@@ -40,7 +39,6 @@ export function ServiceSelector({
   showServiceList,
   setShowServiceList,
   setSelectedServices,
-  setDuration,
 }: ServiceSelectorProps) {
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();

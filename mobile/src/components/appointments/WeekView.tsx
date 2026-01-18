@@ -29,8 +29,6 @@ type WeekViewProps = {
   onDateChange: (date: Date) => void;
   onAppointmentPress: (appointment: Appointment) => void;
   onNewAppointment: (date?: string, time?: string) => void;
-  onRefresh: () => void;
-  isRefreshing: boolean;
 };
 
 const HOUR_HEIGHT = 56; // Height of each hour slot
@@ -106,8 +104,6 @@ export function WeekView({
   onDateChange,
   onAppointmentPress,
   onNewAppointment,
-  onRefresh,
-  isRefreshing,
 }: WeekViewProps) {
   const { colors } = useBrandingTheme();
   const { t } = useTranslation();

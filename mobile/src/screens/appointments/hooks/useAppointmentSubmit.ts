@@ -14,7 +14,6 @@ export async function submitAppointment(ctx: any) {
     selectedCustomerData,
     newPets,
     existingNewPets,
-    selectedPetIds,
     serviceRowsByPet,
     amountValue,
     totalDuration,
@@ -27,13 +26,7 @@ export async function submitAppointment(ctx: any) {
     recurrenceUntilValue,
     recurrenceTimezoneValue,
     isEditMode,
-    editAppointmentId,
     editScope,
-    sendWhatsapp,
-    canSendWhatsapp,
-    buildConfirmationUrl,
-    openWhatsapp,
-    navigation,
     queryClient,
     t,
     mutation,
@@ -42,8 +35,6 @@ export async function submitAppointment(ctx: any) {
     createPet,
     parseAmountInput,
     formatHHMM,
-    services,
-    petOptions,
     hapticError,
   } = ctx;
 
@@ -98,7 +89,6 @@ export async function submitAppointment(ctx: any) {
   }
 
   const petIdMap = new Map<string, string>();
-  let primaryPetId = "";
 
   if (mode === "new") {
     try {
@@ -115,10 +105,6 @@ export async function submitAppointment(ctx: any) {
         petIdMap.set(pet.id, createdPet.id);
         createdPets.push(createdPet);
       }
-      if (createdPets[0]?.id) {
-        primaryPetId = createdPets[0].id;
-      }
-
       if (createdCustomer) {
         queryClient.setQueryData(["customers"], (prev: any[] | undefined) => {
           const next = prev ? [...prev] : [];
@@ -167,7 +153,6 @@ export async function submitAppointment(ctx: any) {
         return;
       }
     }
-    primaryPetId = selectedPetIds[0] || petIdMap.get(existingNewPets[0]?.id) || "";
   }
 
   const serviceSelections = Object.entries(serviceRowsByPet).flatMap(([petKey, rows]: [string, unknown]) => {

@@ -5,10 +5,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
 import createStyles from "../profileStyles";
 import { ScreenHeader } from "../../components/ScreenHeader";
@@ -32,7 +29,6 @@ export default function ProfileLayout({
 }: Props) {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
 
   return (
     <SafeAreaView style={styles.container}>

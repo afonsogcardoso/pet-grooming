@@ -128,6 +128,9 @@ export async function getAppointments(params?: {
   limit?: number;
   offset?: number;
   customerId?: string;
+  status?: string | null;
+  paymentStatus?: string | null;
+  search?: string;
 }): Promise<{ items: Appointment[]; nextOffset: number | null }> {
   const query = new URLSearchParams();
   const from = normalizeDate(params?.from);
@@ -138,6 +141,9 @@ export async function getAppointments(params?: {
   if (params?.limit) query.set('limit', String(params.limit));
   if (params?.offset !== undefined) query.set('offset', String(params.offset));
   if (params?.customerId) query.set('customer_id', params.customerId);
+  if (params?.status) query.set('status', params.status);
+  if (params?.paymentStatus) query.set('payment_status', params.paymentStatus);
+  if (params?.search) query.set('search', params.search);
 
   const search = query.toString();
   const url = search ? `/appointments?${search}` : '/appointments';
@@ -152,7 +158,7 @@ export async function createAppointment(payload: CreateAppointmentPayload): Prom
     ...cleanPayload,
     duration: payload.duration ?? null,
     notes: payload.notes ?? null,
-    service_ids, // Keep this separate so backend can process it
+    service_ids,
     service_selections,
   };
   const { data } = await api.post<CreateAppointmentResponse>('/appointments', body);
@@ -162,11 +168,6 @@ export async function createAppointment(payload: CreateAppointmentPayload): Prom
 export async function getAppointment(id: string): Promise<Appointment> {
   const { data } = await api.get<{ data: Appointment }>(`/appointments/${id}`);
   return data.data || ({} as Appointment);
-}
-
-export async function getOverdueCount(): Promise<number> {
-  const { data } = await api.get<{ count: number }>(`/appointments/overdue-count`);
-  return Number(data?.count || 0);
 }
 
 export async function updateAppointment(
@@ -198,13 +199,11 @@ export async function uploadAppointmentPhoto(
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 
-  // Backend may return { url } or { data: insertedRow }
   if (!data) return { url: '' };
   if (data.url) return { url: data.url };
   const inserted = data.data || data;
   if (inserted && inserted.url) return { url: inserted.url };
   if (Array.isArray(inserted) && inserted[0] && inserted[0].url) return { url: inserted[0].url };
-  // fallback: return raw payload
   return data;
 }
 

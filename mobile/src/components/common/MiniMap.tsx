@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { View, StyleSheet, Dimensions, ActivityIndicator, Linking, TouchableOpacity, Text, Platform } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Linking, TouchableOpacity, Text, Platform } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { useTranslation } from 'react-i18next';
 import { useBrandingTheme } from '../../theme/useBrandingTheme';
@@ -122,8 +122,6 @@ function createStyles(
   colors: ReturnType<typeof useBrandingTheme>['colors'],
   borderless: boolean
 ) {
-  const { width } = Dimensions.get('window');
-
   return StyleSheet.create({
     container: {
       width: '100%',

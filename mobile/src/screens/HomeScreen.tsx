@@ -14,22 +14,10 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  getAppointments,
-  getOverdueCount,
-  Appointment,
-} from "../api/appointments";
+import { getAppointments } from "../api/appointments";
 import { useAuthStore } from "../state/authStore";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
 import { getCardStyle } from "../theme/uiTokens";
-import { getStatusColor, getStatusLabel } from "../utils/appointmentStatus";
-import { formatCustomerName } from "../utils/customer";
-import {
-  getAppointmentServiceEntries,
-  getAppointmentPetNames,
-  formatPetLabel,
-  formatServiceLabels,
-} from "../utils/appointmentSummary";
 import AppointmentCard from "../components/appointments/AppointmentCard";
 
 type Props = NativeStackScreenProps<any>;
@@ -44,16 +32,6 @@ function addDaysISO(days: number) {
   return date.toLocaleDateString("sv-SE");
 }
 
-function parseAppointmentDateTime(appointment: Appointment) {
-  if (!appointment.appointment_date) return null;
-  const time = appointment.appointment_time
-    ? appointment.appointment_time.slice(0, 5)
-    : "00:00";
-  const dateTime = new Date(`${appointment.appointment_date}T${time}:00`);
-  if (Number.isNaN(dateTime.getTime())) return null;
-  return dateTime;
-}
-
 export default function HomeScreen({ navigation }: Props) {
   const user = useAuthStore((s) => s.user);
   const { t } = useTranslation();
@@ -64,14 +42,12 @@ export default function HomeScreen({ navigation }: Props) {
   const primary = colors.primary;
   const primarySoft = colors.primarySoft;
   const background = colors.background;
-  const accountName = branding?.account_name || "Pawmi";
   const firstName =
     user?.firstName ||
     user?.displayName?.split(" ")[0] ||
     user?.email?.split("@")[0] ||
     t("common.user");
   const avatarUrl = user?.avatarUrl || null;
-  const heroImage = branding?.portal_image_url || branding?.logo_url || null;
   const today = todayLocalISO();
   const upcomingTo = addDaysISO(30);
   const pastFrom = addDaysISO(-365);
@@ -91,109 +67,53 @@ export default function HomeScreen({ navigation }: Props) {
       }),
   });
 
-  const { data: overdueCountData, refetch: refetchOverdueCount } = useQuery({
-    queryKey: ["appointments", "overdueCount"],
-    queryFn: () => getOverdueCount(),
-  });
-
-  const {
-    data: overdueListData,
-    isLoading: loadingOverdueList,
-    refetch: refetchOverdueList,
-  } = useQuery({
-    queryKey: ["appointments", "overdueList", pastFrom, today],
+  const { data: overdueListData, refetch: refetchOverdueList } = useQuery({
+    queryKey: ["appointments", "overdueList", pastFrom, today, "unpaid"],
     queryFn: () =>
       getAppointments({
         from: pastFrom,
         to: today,
+        paymentStatus: "unpaid",
         limit: 500,
         offset: 0,
       }),
   });
 
   const upcomingAppointments = upcomingData?.items || [];
-  // Marcações do dia atual (todas)
   const todayAppointments = useMemo(
     () =>
       upcomingAppointments.filter(
-        (appointment) => appointment.appointment_date === today
+        (appointment) => appointment.appointment_date === today,
       ),
-    [today, upcomingAppointments]
+    [today, upcomingAppointments],
   );
 
-  // Próximas marcações: do dia atual, exceto completas
   const nextAppointments = useMemo(
     () =>
       todayAppointments.filter(
-        (appointment) => appointment.status !== "completed"
+        (appointment) => appointment.status !== "completed",
       ),
-    [todayAppointments]
+    [todayAppointments],
   );
 
-  // Pagamentos em falta: concluídas e por pagar
   const unpaidCompletedAppointments = useMemo(() => {
     const items = overdueListData?.items || [];
     return items.filter((appointment) => {
       const unpaid = (appointment.payment_status || "unpaid") !== "paid";
-      return unpaid && appointment.status === "completed";
+      const isPastOrToday = appointment.appointment_date
+        ? appointment.appointment_date <= today
+        : false;
+      return unpaid && isPastOrToday;
     });
-  }, [overdueListData]);
+  }, [overdueListData, today]);
   const pendingCount = useMemo(
     () =>
       todayAppointments.filter(
-        (appointment) => appointment.status === "pending"
+        (appointment) => appointment.status === "pending",
       ).length,
-    [todayAppointments]
+    [todayAppointments],
   );
-  const unpaidCount = overdueCountData ?? 0;
-  const nextAppointment = useMemo(() => {
-    const now = new Date();
-    return (
-      upcomingAppointments
-        .map((appointment) => ({
-          appointment,
-          dateTime: parseAppointmentDateTime(appointment),
-        }))
-        .filter((entry) => entry.dateTime && entry.dateTime >= now)
-        .sort(
-          (a, b) => (a.dateTime?.getTime() || 0) - (b.dateTime?.getTime() || 0)
-        )[0]?.appointment || null
-    );
-  }, [upcomingAppointments]);
-  const inProgressAppointments = useMemo(() => {
-    const now = new Date();
-    return upcomingAppointments
-      .map((appointment) => ({
-        appointment,
-        dateTime: parseAppointmentDateTime(appointment),
-      }))
-      .filter((entry) => {
-        const { appointment, dateTime } = entry;
-        if (appointment.status === "in_progress") return true;
-        if (appointment.status === "confirmed" && dateTime && dateTime < now)
-          return true;
-        return false;
-      })
-      .sort(
-        (a, b) => (a.dateTime?.getTime() || 0) - (b.dateTime?.getTime() || 0)
-      )
-      .map((e) => e.appointment);
-  }, [upcomingAppointments]);
-  const nextDateTime = nextAppointment
-    ? parseAppointmentDateTime(nextAppointment)
-    : null;
-  const nextTimeLabel = nextDateTime
-    ? nextDateTime.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "—";
-  const nextCustomer = nextAppointment
-    ? formatCustomerName(nextAppointment.customers)
-    : "";
-  const nextStatusColor = nextAppointment
-    ? getStatusColor(nextAppointment.status)
-    : colors.muted;
+  const unpaidCount = overdueListData?.items?.length ?? 0;
 
   const handleNavigateToAppointments = useCallback(
     (params?: {
@@ -204,7 +124,7 @@ export default function HomeScreen({ navigation }: Props) {
     }) => {
       navigation.navigate("Appointments", params || {});
     },
-    [navigation]
+    [navigation],
   );
 
   const overviewCards = useMemo(() => {
@@ -269,15 +189,11 @@ export default function HomeScreen({ navigation }: Props) {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([
-        refetchUpcoming(),
-        refetchOverdueCount(),
-        refetchOverdueList(),
-      ]);
+      await Promise.all([refetchUpcoming(), refetchOverdueList()]);
     } finally {
       setRefreshing(false);
     }
-  }, [refetchUpcoming, refetchOverdueCount, refetchOverdueList]);
+  }, [refetchUpcoming, refetchOverdueList]);
 
   return (
     <SafeAreaView
@@ -297,10 +213,10 @@ export default function HomeScreen({ navigation }: Props) {
         {brandingLoading ? (
           <ActivityIndicator color={primary} />
         ) : (
-        <TouchableOpacity
-          style={[styles.profileButton, { borderColor: primarySoft }]}
-          onPress={() => navigation.navigate("Profile")}
-        >
+          <TouchableOpacity
+            style={[styles.profileButton, { borderColor: primarySoft }]}
+            onPress={() => navigation.navigate("Profile")}
+          >
             {avatarUrl ? (
               <Image source={{ uri: avatarUrl }} style={styles.profileImage} />
             ) : (
@@ -331,29 +247,6 @@ export default function HomeScreen({ navigation }: Props) {
           />
         }
       >
-        {/* Hero Card */}
-        <View style={[styles.heroCard, { backgroundColor: primary }]}>
-          {heroImage ? (
-            <Image
-              source={{ uri: heroImage }}
-              style={styles.heroImage}
-              resizeMode="cover"
-            />
-          ) : null}
-          <View style={styles.heroOverlay}>
-            <View
-              style={[
-                styles.heroBadge,
-                { backgroundColor: "rgba(255,255,255,0.25)" },
-              ]}
-            >
-              <Text style={styles.heroBadgeText}>✨ {accountName}</Text>
-            </View>
-            <Text style={styles.heroTitle}>{t("home.welcomeBack")}</Text>
-            <Text style={styles.heroSubtitle}>{t("home.heroSubtitle")}</Text>
-          </View>
-        </View>
-
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t("home.overviewTitle")}</Text>
@@ -532,47 +425,6 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       fontSize: 18,
       fontWeight: "800",
       color: colors.text,
-    },
-    heroCard: {
-      marginHorizontal: 20,
-      borderRadius: 16,
-      height: 130,
-      overflow: "hidden",
-      marginBottom: 16,
-    },
-    heroImage: {
-      position: "absolute",
-      width: "100%",
-      height: "100%",
-      opacity: 0.3,
-    },
-    heroOverlay: {
-      flex: 1,
-      padding: 16,
-      justifyContent: "center",
-    },
-    heroBadge: {
-      alignSelf: "flex-start",
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 16,
-      marginBottom: 8,
-    },
-    heroBadgeText: {
-      color: "#fff",
-      fontWeight: "700",
-      fontSize: 13,
-    },
-    heroTitle: {
-      fontSize: 20,
-      fontWeight: "800",
-      color: "#fff",
-      marginBottom: 4,
-    },
-    heroSubtitle: {
-      fontSize: 13,
-      color: "rgba(255,255,255,0.9)",
-      fontWeight: "500",
     },
     section: {
       paddingHorizontal: 20,

@@ -1,10 +1,8 @@
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
   StyleSheet,
 } from "react-native";
 import { useTranslation } from "react-i18next";
@@ -16,6 +14,8 @@ import { SearchField } from "../common/SearchField";
 import type { Customer, Pet } from "../../api/customers";
 import { useEffect, useState } from "react";
 import { formatCustomerName } from "../../utils/customer";
+import { BottomSheetModal } from "../common/BottomSheetModal";
+import { Avatar } from "../common/Avatar";
 
 type ExistingCustomerFormProps = {
   customerSearch: string;
@@ -132,6 +132,14 @@ export function ExistingCustomerForm({
       color: colors.muted,
       marginTop: 2,
     },
+    optionRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    optionContent: {
+      flex: 1,
+    },
     customerCard: {
       marginTop: 12,
       padding: 14,
@@ -205,6 +213,83 @@ export function ExistingCustomerForm({
     },
   });
 
+  const renderCustomerList = () => (
+    <BottomSheetModal
+      visible={showCustomerList}
+      onClose={() => setShowCustomerList(false)}
+      title={t("existingCustomerForm.selectCustomer")}
+      contentStyle={{ width: "100%" }}
+    >
+      <SearchField
+        value={customerSearch}
+        onChangeText={setCustomerSearch}
+        placeholder={t("existingCustomerForm.searchPlaceholder")}
+        autoFocus
+        blurOnSubmit={false}
+        containerStyle={[{ marginBottom: 10 }, styles.searchField]}
+      />
+      <ScrollView
+        style={{ maxHeight: 240 }}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
+      >
+        {searchResults.map((result) => {
+          const key =
+            result.type === "customer"
+              ? `customer-${result.customer.id}`
+              : `pet-${result.pet.id}`;
+          const name =
+            result.type === "customer"
+              ? formatCustomerName(result.customer)
+              : result.pet.name;
+          const imageUrl =
+            result.type === "customer"
+              ? result.customer.photo_url
+              : result.pet.photo_url;
+          return (
+            <TouchableOpacity
+              key={key}
+              style={styles.option}
+              onPress={() => {
+                setSelectedCustomer(result.customer.id);
+                if (result.type === "pet") {
+                  onSelectPet(result.pet.id);
+                }
+                setShowCustomerList(false);
+                setCustomerSearch("");
+              }}
+            >
+              <View style={styles.optionRow}>
+                <Avatar name={name} imageUrl={imageUrl} size="small" />
+                <View style={styles.optionContent}>
+                  <Text style={styles.optionTitle}>
+                    {result.label}
+                    {result.type === "pet"
+                      ? ` ${t("existingCustomerForm.petSuffix")}`
+                      : ""}
+                  </Text>
+                  {result.subtitle ? (
+                    <Text style={styles.optionSubtitle}>{result.subtitle}</Text>
+                  ) : null}
+                  {result.type === "pet" && result.customer.phone ? (
+                    <Text style={styles.optionSubtitle}>
+                      {result.customer.phone}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+        {!loadingCustomers && searchResults.length === 0 ? (
+          <Text style={styles.optionSubtitle}>
+            {t("existingCustomerForm.noResults")}
+          </Text>
+        ) : null}
+      </ScrollView>
+    </BottomSheetModal>
+  );
+
   return (
     <>
       <View style={styles.field}>
@@ -213,7 +298,7 @@ export function ExistingCustomerForm({
           <>
             <TouchableOpacity
               style={styles.select}
-              onPress={() => setShowCustomerList(!showCustomerList)}
+              onPress={() => setShowCustomerList(true)}
             >
               <Text style={[styles.selectText, styles.placeholder]}>
                 {loadingCustomers
@@ -221,65 +306,7 @@ export function ExistingCustomerForm({
                   : t("existingCustomerForm.selectCustomer")}
               </Text>
             </TouchableOpacity>
-
-            {showCustomerList ? (
-              <View style={[styles.dropdown, { borderColor: primarySoft }]}>
-                <SearchField
-                  value={customerSearch}
-                  onChangeText={setCustomerSearch}
-                  placeholder={t("existingCustomerForm.searchPlaceholder")}
-                  autoFocus
-                  containerStyle={[{ marginBottom: 10 }, styles.searchField]}
-                />
-                <ScrollView
-                  style={{ maxHeight: 200 }}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  {searchResults.map((result) => {
-                    const key =
-                      result.type === "customer"
-                        ? `customer-${result.customer.id}`
-                        : `pet-${result.pet.id}`;
-                    return (
-                      <TouchableOpacity
-                        key={key}
-                        style={styles.option}
-                        onPress={() => {
-                          setSelectedCustomer(result.customer.id);
-                          if (result.type === "pet") {
-                            onSelectPet(result.pet.id);
-                          }
-                          setShowCustomerList(false);
-                          setCustomerSearch("");
-                        }}
-                      >
-                        <Text style={styles.optionTitle}>
-                          {result.label}
-                          {result.type === "pet"
-                            ? ` ${t("existingCustomerForm.petSuffix")}`
-                            : ""}
-                        </Text>
-                        {result.subtitle ? (
-                          <Text style={styles.optionSubtitle}>
-                            {result.subtitle}
-                          </Text>
-                        ) : null}
-                        {result.type === "pet" && result.customer.phone ? (
-                          <Text style={styles.optionSubtitle}>
-                            {result.customer.phone}
-                          </Text>
-                        ) : null}
-                      </TouchableOpacity>
-                    );
-                  })}
-                  {!loadingCustomers && searchResults.length === 0 ? (
-                    <Text style={styles.optionSubtitle}>
-                      {t("existingCustomerForm.noResults")}
-                    </Text>
-                  ) : null}
-                </ScrollView>
-              </View>
-            ) : null}
+            {renderCustomerList()}
           </>
         ) : (
           // Modo selecionado: mostrar dados do cliente com opção de trocar
@@ -349,7 +376,7 @@ export function ExistingCustomerForm({
               <TouchableOpacity
                 style={styles.changeButton}
                 onPress={() => {
-                  setShowCustomerList(!showCustomerList);
+                  setShowCustomerList(true);
                 }}
               >
                 <Text style={styles.changeButtonText}>
@@ -357,69 +384,7 @@ export function ExistingCustomerForm({
                 </Text>
               </TouchableOpacity>
             </View>
-            {showCustomerList ? (
-              <View
-                style={[
-                  styles.dropdown,
-                  { borderColor: primarySoft, marginTop: 12 },
-                ]}
-              >
-                <SearchField
-                  value={customerSearch}
-                  onChangeText={setCustomerSearch}
-                  placeholder={t("existingCustomerForm.searchPlaceholder")}
-                  containerStyle={[{ marginBottom: 10 }, styles.searchField]}
-                  autoFocus
-                />
-                <ScrollView
-                  style={{ maxHeight: 200 }}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  {searchResults.map((result) => {
-                    const key =
-                      result.type === "customer"
-                        ? `customer-${result.customer.id}`
-                        : `pet-${result.pet.id}`;
-                    return (
-                      <TouchableOpacity
-                        key={key}
-                        style={styles.option}
-                        onPress={() => {
-                          setSelectedCustomer(result.customer.id);
-                          if (result.type === "pet") {
-                            onSelectPet(result.pet.id);
-                          }
-                          setShowCustomerList(false);
-                          setCustomerSearch("");
-                        }}
-                      >
-                        <Text style={styles.optionTitle}>
-                          {result.label}
-                          {result.type === "pet"
-                            ? ` ${t("existingCustomerForm.petSuffix")}`
-                            : ""}
-                        </Text>
-                        {result.subtitle ? (
-                          <Text style={styles.optionSubtitle}>
-                            {result.subtitle}
-                          </Text>
-                        ) : null}
-                        {result.type === "pet" && result.customer.phone ? (
-                          <Text style={styles.optionSubtitle}>
-                            {result.customer.phone}
-                          </Text>
-                        ) : null}
-                      </TouchableOpacity>
-                    );
-                  })}
-                  {!loadingCustomers && searchResults.length === 0 ? (
-                    <Text style={styles.optionSubtitle}>
-                      {t("existingCustomerForm.noResults")}
-                    </Text>
-                  ) : null}
-                </ScrollView>
-              </View>
-            ) : null}
+            {renderCustomerList()}
           </View>
         )}
       </View>

@@ -9,6 +9,8 @@ export type CachedProfile = {
   lastName?: string | null;
   activeRole?: 'consumer' | 'provider' | null;
   availableRoles?: Array<'consumer' | 'provider'>;
+  memberships?: any[] | null;
+  locale?: string | null;
 };
 
 const PROFILE_CACHE_BASE_KEY = 'profile_cache_v2';
@@ -32,7 +34,6 @@ export async function writeProfileCache(data: CachedProfile) {
   try {
     await AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(data));
   } catch {
-    // ignore cache write errors
   }
 }
 
@@ -44,6 +45,5 @@ export async function clearProfileCache() {
         : [PROFILE_CACHE_BASE_KEY, PROFILE_CACHE_KEY];
     await AsyncStorage.multiRemove(keys);
   } catch {
-    // ignore
   }
 }

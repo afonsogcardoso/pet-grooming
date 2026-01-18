@@ -90,6 +90,11 @@ const stats = [
   { value: '4.9/5', label: 'rating médio' }
 ]
 
+const downloadOptions = [
+  { name: 'App Store', platform: 'iOS e iPadOS', icon: '/icons/apple.svg' },
+  { name: 'Google Play', platform: 'Android', icon: '/icons/google.svg' }
+]
+
 export default async function MarketplacePage({ searchParams }) {
   const searchQuery = normalizeSearchParam(searchParams?.q)
   const categoryFilter = normalizeSearchParam(searchParams?.category)
@@ -409,6 +414,50 @@ export default async function MarketplacePage({ searchParams }) {
                     <p className="text-[15px] font-semibold text-slate-900">{step.title}</p>
                   </div>
                   <p className="mt-3 text-sm text-slate-600">{step.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="app" className="px-6 py-12">
+          <div className="mx-auto max-w-6xl">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-brand-primary">
+                  App Pawmi
+                </p>
+                <h2 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
+                  Marketplace também no telemóvel.
+                </h2>
+                <p className="mt-3 text-sm text-slate-600">
+                  Prepara a tua conta para quando as apps móveis forem lançadas e garante que os
+                  clientes encontram o teu espaço em qualquer lugar.
+                </p>
+              </div>
+              <Link href="#destaques" className="text-sm font-semibold text-brand-primary">
+                Ver contas
+              </Link>
+            </div>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {downloadOptions.map((store, index) => (
+                <div
+                  key={store.name}
+                  className={`${styles.stagger} ${styles.storeCard} flex items-center justify-between gap-4 rounded-2xl p-5`}
+                  style={{ '--delay': `${index * 120}ms` }}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/70 bg-white/80 shadow-sm">
+                      <Image src={store.icon} alt={store.name} width={26} height={26} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{store.name}</p>
+                      <p className="text-xs text-slate-500">Comming Soon</p>
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-slate-900 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white shadow-brand-glow">
+                    {store.platform}
+                  </span>
                 </div>
               ))}
             </div>

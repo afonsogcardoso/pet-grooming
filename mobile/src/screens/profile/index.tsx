@@ -6,7 +6,7 @@ import { useProfileScreen } from "./useProfileScreen";
 // rendering to the existing `ProfileScreen`. This allows incremental migration
 // without breaking the app.
 export default function ProfileScreenWrapper(props: any) {
-  const profile = useProfileScreen();
+  useProfileScreen();
   // For now we do not pass the hook into the legacy screen to avoid changing
   // its API; future work will remove duplication and have `ProfileScreen` be
   // a thin composition of components using the hook.

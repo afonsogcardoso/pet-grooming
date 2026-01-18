@@ -1,23 +1,17 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-// ...existing code...
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   View,
   Text,
-  StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
   ScrollView,
-  Image,
   TextInput,
   Alert,
   Platform,
   ActionSheetIOS,
   PermissionsAndroid,
 } from "react-native";
-import Switch from "../components/StyledSwitch";
-// SafeAreaView is provided by ProfileLayout
-// import { useCallback } from "react"; // duplicado
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { launchCamera, launchImageLibrary } from "react-native-image-picker";
 import * as AuthSession from "expo-auth-session";
@@ -36,8 +30,6 @@ import { writeBrandingCache } from "../theme/brandingCache";
 import { useAccountStore } from "../state/accountStore";
 import {
   getNotificationPreferences,
-  registerPushToken,
-  unregisterPushToken,
   updateNotificationPreferences,
   NotificationPreferences,
   NotificationPreferencesPayload,
@@ -45,24 +37,19 @@ import {
 import { useAuthStore } from "../state/authStore";
 import { useViewModeStore, ViewMode } from "../state/viewModeStore";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
-import { getCardStyle, getSegmentStyles } from "../theme/uiTokens";
-import { ScreenHeader } from "../components/ScreenHeader";
 import { getDateLocale, normalizeLanguage, setAppLanguage } from "../i18n";
-import { Input } from "../components/common";
-import { buildPhone, splitPhone } from "../utils/phone";
 import { resolveSupabaseAnonKey, resolveSupabaseUrl } from "../config/supabase";
 import { formatVersionLabel } from "../utils/version";
 import { hapticError, hapticSelection, hapticSuccess } from "../utils/haptics";
-import { registerForPushNotifications } from "../utils/pushNotifications";
-import * as Notifications from "expo-notifications";
 import { cameraOptions, galleryOptions } from "../utils/imageOptions";
 import { compressImage } from "../utils/imageCompression";
+import { evaluatePasswordRules, isPasswordValid } from "../utils/passwordRules";
 import createStyles from "./profileStyles";
 import ProfileLayout from "./profile/ProfileLayout";
 import ProfileHeader from "../components/profile/ProfileHeader";
 import ProfileInfo from "../components/profile/ProfileInfo";
 import ProfileNotifications from "../components/profile/ProfileNotifications";
-import ProfileSecurity from "../components/profile/ProfileSecurity";
+import { PasswordChecklist } from "../components/common/PasswordChecklist";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -180,7 +167,7 @@ function mergeNotificationPreferences(
 
 export default function ProfileScreen({ navigation, route }: Props) {
   // Fetch branding and profile data
-  const { branding, colors } = useBrandingTheme();
+  const { colors } = useBrandingTheme();
   const { data } = useQuery({
     queryKey: ["profile"],
     queryFn: getProfile,
@@ -285,6 +272,22 @@ export default function ProfileScreen({ navigation, route }: Props) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const passwordRuleResults = useMemo(
+    () => evaluatePasswordRules(newPassword, t),
+    [newPassword, t]
+  );
+  const passwordMeetsRules =
+    newPassword.length > 0 &&
+    isPasswordValid(newPassword) &&
+    passwordRuleResults.every((rule) => rule.satisfied);
+  const passwordsMatch =
+    newPassword.length > 0 &&
+    confirmPassword.length > 0 &&
+    newPassword === confirmPassword;
+  const showPasswordMatchCheck =
+    Boolean(newPassword) || Boolean(confirmPassword);
   const [linkingProvider, setLinkingProvider] = useState<
     "google" | "apple" | null
   >(null);
@@ -369,7 +372,11 @@ export default function ProfileScreen({ navigation, route }: Props) {
           }
           return next;
         });
-        // Invalidate queries that depend on account context so they refetch for the new account
+        // Drop old account data immediately, then invalidate to refetch for the new account
+        queryClient.removeQueries({ queryKey: ["customers"] });
+        queryClient.removeQueries({ queryKey: ["customer-pets"] });
+        queryClient.removeQueries({ queryKey: ["services"] });
+        queryClient.removeQueries({ queryKey: ["appointments"] });
         await Promise.all([
           queryClient
             .invalidateQueries({ queryKey: ["appointments"] })
@@ -378,7 +385,19 @@ export default function ProfileScreen({ navigation, route }: Props) {
             .invalidateQueries({ queryKey: ["customers"] })
             .catch(() => null),
           queryClient
+            .invalidateQueries({ queryKey: ["customer-pets"] })
+            .catch(() => null),
+          queryClient
             .invalidateQueries({ queryKey: ["marketplace"] })
+            .catch(() => null),
+          queryClient
+            .invalidateQueries({ queryKey: ["services"] })
+            .catch(() => null),
+          queryClient
+            .invalidateQueries({ queryKey: ["pet-species"] })
+            .catch(() => null),
+          queryClient
+            .invalidateQueries({ queryKey: ["pet-breeds"] })
             .catch(() => null),
           queryClient
             .invalidateQueries({ queryKey: ["branding"] })
@@ -897,10 +916,7 @@ export default function ProfileScreen({ navigation, route }: Props) {
         return;
       }
       if (response.assets && response.assets[0]) {
-        await uploadAvatarFromUri(
-          response.assets[0].uri!,
-          response.assets[0].fileName
-        );
+        await uploadAvatarFromUri(response.assets[0].uri!);
       }
     });
   };
@@ -916,15 +932,12 @@ export default function ProfileScreen({ navigation, route }: Props) {
         return;
       }
       if (response.assets && response.assets[0]) {
-        await uploadAvatarFromUri(
-          response.assets[0].uri!,
-          response.assets[0].fileName
-        );
+        await uploadAvatarFromUri(response.assets[0].uri!);
       }
     });
   };
 
-  const uploadAvatarFromUri = async (uri: string, fileName?: string | null) => {
+  const uploadAvatarFromUri = async (uri: string) => {
     try {
       setUploadingAvatar(true);
       const compressedUri = await compressImage(uri);
@@ -1147,64 +1160,13 @@ export default function ProfileScreen({ navigation, route }: Props) {
     setCustomReminderInput("");
   };
 
-  const handleTogglePushNotifications = async (value: boolean) => {
-    if (preferencesMutation.isPending) return;
-    if (value) {
-      const result = await registerForPushNotifications();
-      if (!result.token) {
-        const message =
-          result.status === "unavailable"
-            ? t("profile.notificationsUnavailableMessage")
-            : t("profile.notificationsPermissionMessage");
-        Alert.alert(t("common.warning"), message);
-        return;
-      }
-      try {
-        await registerPushToken({
-          pushToken: result.token,
-          platform: Platform.OS,
-        });
-      } catch {
-        Alert.alert(t("common.error"), t("profile.notificationsRegisterError"));
-        return;
-      }
-      try {
-        await preferencesMutation.mutateAsync({ push: { enabled: true } });
-      } catch (err) {
-        // If updating preferences failed after registering token, try to unregister the token to avoid orphaned tokens
-        try {
-          await unregisterPushToken({ pushToken: result.token });
-        } catch {}
-        Alert.alert(t("common.error"), t("profile.notificationsUpdateError"));
-      }
-      return;
-    }
-
-    // disabling notifications: attempt to unregister current expo token then update preferences
-    try {
-      const tokenData = await Notifications.getExpoPushTokenAsync();
-      const token = tokenData?.data;
-      if (token) {
-        await unregisterPushToken({ pushToken: token });
-      }
-    } catch (err) {
-      // ignore unregister failures
-    }
-
-    try {
-      await preferencesMutation.mutateAsync({ push: { enabled: false } });
-    } catch (err) {
-      Alert.alert(t("common.error"), t("profile.notificationsUpdateError"));
-    }
-  };
-
   const handlePasswordSave = () => {
     if (resetPasswordMutation.isPending) return;
-    if (newPassword.length < 8) {
-      setPasswordError(t("profile.passwordMinLength"));
+    if (!passwordMeetsRules) {
+      setPasswordError(t("common.passwordRequirements"));
       return;
     }
-    if (newPassword !== confirmPassword) {
+    if (!passwordsMatch) {
       setPasswordError(t("profile.passwordMismatch"));
       return;
     }
@@ -1222,11 +1184,6 @@ export default function ProfileScreen({ navigation, route }: Props) {
     data?.createdAt,
     dateLocale,
     t("common.noData")
-  );
-  const phoneParts = splitPhone(data?.phone);
-  const phoneDisplay = buildPhone(
-    data?.phoneCountryCode || phoneParts.phoneCountryCode,
-    data?.phoneNumber || phoneParts.phoneNumber
   );
   const avatarUrl = data?.avatarUrl || user?.avatarUrl || null;
   const avatarFallback = displayName.charAt(0).toUpperCase() || "?";
@@ -1339,7 +1296,6 @@ export default function ProfileScreen({ navigation, route }: Props) {
       {activeSection === "info" ? (
         <ProfileInfo
           styles={styles}
-          colors={colors}
           t={t}
           editFirstName={editFirstName}
           editLastName={editLastName}
@@ -1436,23 +1392,57 @@ export default function ProfileScreen({ navigation, route }: Props) {
             </Text>
             {showPasswordForm ? (
               <>
-                <TextInput
-                  style={styles.inputField}
-                  value={newPassword}
-                  onChangeText={handleNewPasswordChange}
-                  placeholder={t("profile.newPassword")}
-                  placeholderTextColor={colors.muted}
-                  autoCapitalize="none"
-                  secureTextEntry
-                />
-                <TextInput
-                  style={styles.inputField}
-                  value={confirmPassword}
-                  onChangeText={handleConfirmPasswordChange}
-                  placeholder={t("profile.confirmPassword")}
-                  placeholderTextColor={colors.muted}
-                  autoCapitalize="none"
-                  secureTextEntry
+                <View style={styles.passwordInputRow}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    value={newPassword}
+                    onChangeText={handleNewPasswordChange}
+                    placeholder={t("profile.newPassword")}
+                    placeholderTextColor={colors.muted}
+                    autoCapitalize="none"
+                    secureTextEntry={!showNewPassword}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowNewPassword((prev) => !prev)}
+                    hitSlop={8}
+                  >
+                    <Ionicons
+                      name={showNewPassword ? "eye-off" : "eye"}
+                      size={18}
+                      color={colors.muted}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.passwordInputRow}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    value={confirmPassword}
+                    onChangeText={handleConfirmPasswordChange}
+                    placeholder={t("profile.confirmPassword")}
+                    placeholderTextColor={colors.muted}
+                    autoCapitalize="none"
+                    secureTextEntry={!showConfirmPassword}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowConfirmPassword((prev) => !prev)}
+                    hitSlop={8}
+                  >
+                    <Ionicons
+                      name={showConfirmPassword ? "eye-off" : "eye"}
+                      size={18}
+                      color={colors.muted}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <PasswordChecklist
+                  rules={passwordRuleResults}
+                  matchStatus={{
+                    visible: showPasswordMatchCheck,
+                    satisfied: passwordsMatch,
+                    label: passwordsMatch
+                      ? t("common.passwordsMatch")
+                      : t("profile.passwordMismatch"),
+                  }}
                 />
                 {passwordError ? (
                   <Text style={[styles.error, { marginTop: 6 }]}>

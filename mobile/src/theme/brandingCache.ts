@@ -19,7 +19,6 @@ export async function readBrandingCache(): Promise<Branding | null> {
         // eslint-disable-next-line no-console
         console.debug('branding carregado da cache', summary);
       } catch (e) {
-        // ignore logging errors
       }
     }
     return branding;
@@ -42,6 +41,5 @@ export async function clearBrandingCache() {
   try {
     await AsyncStorage.removeItem(BRANDING_CACHE_KEY);
   } catch {
-    // ignore
   }
 }

@@ -17,7 +17,6 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
@@ -34,10 +33,9 @@ import {
 } from "../../api/accountMembers";
 import { Avatar } from "../../components/common/Avatar";
 
-type Props = NativeStackScreenProps<any>;
 type InviteRole = "member" | "admin";
 
-export default function TeamScreen({ navigation }: Props) {
+export default function TeamScreen() {
   const { colors } = useBrandingTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t } = useTranslation();

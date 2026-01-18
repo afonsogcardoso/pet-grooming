@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState, forwardRef } from "react";
 import {
   ActivityIndicator,
-  StyleSheet,
   Text,
   TextInput,
   Keyboard,

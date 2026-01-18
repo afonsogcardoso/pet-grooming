@@ -20,6 +20,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { oauthSignup, signup } from "../api/auth";
 import { brandingQueryKey, getBranding } from "../api/branding";
 import { getProfile } from "../api/profile";
@@ -27,37 +28,61 @@ import { useAuthStore } from "../state/authStore";
 import { useAccountStore } from "../state/accountStore";
 import { useBrandingTheme } from "../theme/useBrandingTheme";
 import { PhoneInput } from "../components/common/PhoneInput";
+import { PasswordChecklist } from "../components/common/PasswordChecklist";
 import { resolveSupabaseUrl } from "../config/supabase";
 import { hapticError, hapticSuccess } from "../utils/haptics";
+import { evaluatePasswordRules } from "../utils/passwordRules";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const baseSchema = {
-  registerAs: z.enum(["consumer", "provider"]),
-  accountName: z.string().min(2).optional().or(z.literal("")),
-  phone: z.string().optional().or(z.literal("")),
+const createRegisterSchema = (t: TFunction) => {
+  const baseSchema = {
+    registerAs: z.enum(["consumer", "provider"]),
+    accountName: z.string().min(2).optional().or(z.literal("")),
+    phone: z.string().optional().or(z.literal("")),
+  };
+
+  const passwordSchema = z
+    .string()
+    .min(8, { message: t("profile.passwordMinLength") })
+    .refine((value) => /[A-Z]/.test(value), {
+      message: t("common.passwordRuleUpper"),
+    })
+    .refine((value) => /[a-z]/.test(value), {
+      message: t("common.passwordRuleLower"),
+    })
+    .refine((value) => /\d/.test(value), {
+      message: t("common.passwordRuleNumber"),
+    });
+
+  return z.discriminatedUnion("signupMethod", [
+    z.object({
+      signupMethod: z.literal("google"),
+      ...baseSchema,
+      firstName: z.string().optional().or(z.literal("")),
+      lastName: z.string().optional().or(z.literal("")),
+      email: z.string().optional().or(z.literal("")),
+      password: z.string().optional().or(z.literal("")),
+      confirmPassword: z.string().optional().or(z.literal("")),
+    }),
+    z
+      .object({
+        signupMethod: z.literal("email"),
+        ...baseSchema,
+        firstName: z.string().min(1),
+        lastName: z.string().min(1),
+        email: z.string().email(),
+        password: passwordSchema,
+        confirmPassword: z.string().min(1),
+      })
+      .refine((data) => data.password === data.confirmPassword, {
+        path: ["confirmPassword"],
+        message: t("profile.passwordMismatch"),
+      }),
+  ]);
 };
 
-const schema = z.discriminatedUnion("signupMethod", [
-  z.object({
-    signupMethod: z.literal("google"),
-    ...baseSchema,
-    firstName: z.string().optional().or(z.literal("")),
-    lastName: z.string().optional().or(z.literal("")),
-    email: z.string().optional().or(z.literal("")),
-    password: z.string().optional().or(z.literal("")),
-  }),
-  z.object({
-    signupMethod: z.literal("email"),
-    ...baseSchema,
-    firstName: z.string().min(1),
-    lastName: z.string().min(1),
-    email: z.string().email(),
-    password: z.string().min(8),
-  }),
-]);
-
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<ReturnType<typeof createRegisterSchema>>;
 type Props = NativeStackScreenProps<any>;
 
 const OAUTH_REDIRECT_PATH = "auth/callback";
@@ -105,6 +130,7 @@ export default function RegisterScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const { colors, branding } = useBrandingTheme();
+  const schema = useMemo(() => createRegisterSchema(t), [t]);
   const styles = useMemo(() => createStyles(colors), [colors]);
   const logoSource = useMemo(() => {
     if (!branding?.logo_url || brandingLogoFailed) {
@@ -132,6 +158,7 @@ export default function RegisterScreen({ navigation }: Props) {
       phone: "",
       email: "",
       password: "",
+      confirmPassword: "",
     },
     resolver: zodResolver(schema),
     mode: "onChange",
@@ -139,9 +166,23 @@ export default function RegisterScreen({ navigation }: Props) {
   const signupMethod = watch("signupMethod");
   const registerAs = watch("registerAs");
   const accountName = watch("accountName");
+  const passwordValue = watch("password") || "";
+  const confirmPasswordValue = watch("confirmPassword") || "";
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const isProvider = registerAs === "provider";
   const trimmedAccountName = accountName?.trim() || "";
   const isEmailSignup = signupMethod === "email";
+  const passwordRuleResults = useMemo(
+    () => evaluatePasswordRules(passwordValue || "", t),
+    [passwordValue, t]
+  );
+  const passwordsMatch =
+    passwordValue.length > 0 &&
+    confirmPasswordValue.length > 0 &&
+    passwordValue === confirmPasswordValue;
+  const showPasswordMatchCheck =
+    Boolean(passwordValue) || Boolean(confirmPasswordValue);
 
   const completeLogin = async ({
     token,
@@ -231,7 +272,14 @@ export default function RegisterScreen({ navigation }: Props) {
     setValue("signupMethod", method, { shouldValidate: true });
     setApiError(null);
     if (method === "google") {
-      clearErrors(["firstName", "lastName", "email", "password", "phone"]);
+      clearErrors([
+        "firstName",
+        "lastName",
+        "email",
+        "password",
+        "phone",
+        "confirmPassword",
+      ]);
     }
   };
 
@@ -625,16 +673,71 @@ export default function RegisterScreen({ navigation }: Props) {
                       <Text style={styles.inputIcon}>🔒</Text>
                       <TextInput
                         style={[styles.input, error ? styles.inputError : null]}
-                        secureTextEntry
+                        secureTextEntry={!showPassword}
                         value={value}
                         onChangeText={onChange}
                         placeholder={t("register.passwordPlaceholder")}
                         placeholderTextColor={colors.muted}
                       />
+                      <TouchableOpacity
+                        onPress={() => setShowPassword((prev) => !prev)}
+                        hitSlop={8}
+                      >
+                        <Ionicons
+                          name={showPassword ? "eye-off" : "eye"}
+                          size={18}
+                          color={colors.muted}
+                        />
+                      </TouchableOpacity>
                     </View>
                     {error && <Text style={styles.error}>{error.message}</Text>}
                   </View>
                 )}
+              />
+              <Controller
+                control={control}
+                name="confirmPassword"
+                render={({
+                  field: { onChange, value },
+                  fieldState: { error },
+                }) => (
+                  <View style={styles.field}>
+                    <View style={styles.inputWrapper}>
+                      <Text style={styles.inputIcon}>✅</Text>
+                      <TextInput
+                        style={[styles.input, error ? styles.inputError : null]}
+                        secureTextEntry={!showConfirmPassword}
+                        value={value}
+                        onChangeText={onChange}
+                        placeholder={t("profile.confirmPassword")}
+                        placeholderTextColor={colors.muted}
+                      />
+                      <TouchableOpacity
+                        onPress={() =>
+                          setShowConfirmPassword((prev) => !prev)
+                        }
+                        hitSlop={8}
+                      >
+                        <Ionicons
+                          name={showConfirmPassword ? "eye-off" : "eye"}
+                          size={18}
+                          color={colors.muted}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    {error && <Text style={styles.error}>{error.message}</Text>}
+                  </View>
+                )}
+              />
+              <PasswordChecklist
+                rules={passwordRuleResults}
+                matchStatus={{
+                  visible: showPasswordMatchCheck,
+                  satisfied: passwordsMatch,
+                  label: passwordsMatch
+                    ? t("common.passwordsMatch")
+                    : t("profile.passwordMismatch"),
+                }}
               />
             </>
           ) : null}
@@ -823,7 +926,8 @@ function createStyles(colors: ReturnType<typeof useBrandingTheme>["colors"]) {
       borderRadius: 16,
       borderWidth: 1,
       borderColor: colors.surfaceBorder,
-      paddingHorizontal: 14,
+      paddingLeft: 14,
+      paddingRight: 10,
       paddingVertical: 12,
     },
     inputIcon: {

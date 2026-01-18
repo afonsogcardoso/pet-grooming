@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, PermissionsAndroid, Platform } from "react-native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Branding, BrandingUpdatePayload, brandingQueryKey, deleteBrandLogo, deletePortalImage, updateBranding, uploadBrandLogo, uploadPortalImage } from "../../api/branding";
+import { Branding, BrandingUpdatePayload, deleteBrandLogo, deletePortalImage, updateBranding, uploadBrandLogo, uploadPortalImage } from "../../api/branding";
 import { useBrandingTheme } from "../../theme/useBrandingTheme";
 import { debounce } from "../../utils/debounce";
 import { hapticError, hapticSuccess } from "../../utils/haptics";
@@ -16,7 +16,6 @@ export function useAccountBranding() {
   const { t } = useTranslation();
   const { branding } = useBrandingTheme();
   const queryClient = useQueryClient();
-  const [accountDirty, setAccountDirty] = useState(false);
   const [accountName, setAccountNameState] = useState("");
   const [accountRegion, setAccountRegionState] = useState("");
   const [accountDescription, setAccountDescriptionState] = useState("");
@@ -43,19 +42,14 @@ export function useAccountBranding() {
   }, [branding?.marketplace_enabled]);
 
   const brandingAccountId = branding?.id || branding?.account_id || null;
-  const brandingKey = brandingQueryKey(brandingAccountId);
-
   const createMarketplaceSetter = useCallback(
     <T extends keyof BrandingUpdatePayload>(
       stateSetter: (value: string) => void,
-      brandingKey: keyof Branding,
+      _brandingKey: keyof Branding,
       _payloadKey: T
     ) => {
-      return (value: string, fromBranding = false) => {
+      return (value: string, _fromBranding = false) => {
         stateSetter(value);
-        if (!fromBranding && value !== (branding?.[brandingKey] || "")) {
-          setAccountDirty(true);
-        }
       };
     },
     [branding]
@@ -155,7 +149,6 @@ export function useAccountBranding() {
       setBrandBackground(data.brand_background || "", true);
       setAccountLogoUrl(data.logo_url || null);
       setAccountHeroUrl(data.portal_image_url || null);
-      setAccountDirty(false);
       setAccountInitialized(true);
     },
     [
@@ -179,9 +172,8 @@ export function useAccountBranding() {
       updateBranding(payload, brandingAccountId),
     onSuccess: (updated) => {
       hapticSuccess();
-      queryClient.setQueryData(brandingKey, updated);
+      queryClient.invalidateQueries({ queryKey: ["branding"] });
       applyAccountBranding(updated);
-      setAccountDirty(false);
     },
     onError: () => {
       hapticError();
@@ -193,7 +185,6 @@ export function useAccountBranding() {
     if (!accountInitialized && branding) {
       applyAccountBranding(branding);
       setAccountInitialized(true);
-      setAccountDirty(false);
     }
   }, [accountInitialized, applyAccountBranding, branding]);
 
@@ -294,7 +285,7 @@ export function useAccountBranding() {
           brandingResponse ||
           (branding ? { ...branding, logo_url: url } : undefined);
         if (updated) {
-          queryClient.setQueryData(brandingKey, updated);
+          queryClient.invalidateQueries({ queryKey: ["branding"] });
           applyAccountBranding(updated);
         }
       } catch (err) {
@@ -328,7 +319,7 @@ export function useAccountBranding() {
           brandingResponse ||
           (branding ? { ...branding, portal_image_url: url } : undefined);
         if (updated) {
-          queryClient.setQueryData(brandingKey, updated);
+          queryClient.invalidateQueries({ queryKey: ["branding"] });
           applyAccountBranding(updated);
         }
       } catch (err) {
@@ -346,7 +337,7 @@ export function useAccountBranding() {
     try {
       setUploadingAccountLogo(true);
       const updated = await deleteBrandLogo(brandingAccountId);
-      queryClient.setQueryData(brandingKey, updated);
+      queryClient.invalidateQueries({ queryKey: ["branding"] });
       applyAccountBranding(updated);
     } catch (err) {
       hapticError();
@@ -361,7 +352,7 @@ export function useAccountBranding() {
     try {
       setUploadingAccountHero(true);
       const updated = await deletePortalImage(brandingAccountId);
-      queryClient.setQueryData(brandingKey, updated);
+      queryClient.invalidateQueries({ queryKey: ["branding"] });
       applyAccountBranding(updated);
     } catch (err) {
       hapticError();
@@ -500,7 +491,6 @@ export function useAccountBranding() {
     if (!branding) return;
     setAccountInitialized(false);
     applyAccountBranding(branding);
-    setAccountDirty(false);
   }, [applyAccountBranding, branding]);
 
   return {

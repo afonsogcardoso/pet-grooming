@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import ProfileMarketplace from "../../components/profile/ProfileMarketplace";

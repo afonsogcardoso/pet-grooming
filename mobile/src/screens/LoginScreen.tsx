@@ -146,7 +146,6 @@ export default function LoginScreen({ navigation }: Props) {
         activeRole: profile.activeRole,
       });
       try {
-        // if profile contains memberships, set default account
         if (Array.isArray(profile.memberships) && profile.memberships.length) {
           const selected =
             profile.memberships.find((m: any) => m?.is_default) ||

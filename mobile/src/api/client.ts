@@ -6,7 +6,6 @@ import { getCachedToken, setCachedToken } from './tokenCache';
 import { useAccountStore } from '../state/accountStore';
 
 function resolveApiBase() {
-  // expoConfig -> dev/Expo Go, manifest/manifest2/manifestExtra -> production builds
   const extra =
     (Constants as any).expoConfig?.extra ||
     (Constants as any).manifest?.extra ||
@@ -30,7 +29,6 @@ const api = axios.create({
   baseURL: baseWithVersion,
 });
 
-// Axios instance without interceptors for refresh flow
 const rawApi = axios.create({
   baseURL: baseWithVersion,
 });
@@ -63,7 +61,6 @@ api.interceptors.request.use(async config => {
       }
     }
   } catch (err) {
-    // ignore
   }
   if (__DEV__) {
     (config as any)._startedAt = Date.now();

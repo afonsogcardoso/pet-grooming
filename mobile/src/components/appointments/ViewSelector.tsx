@@ -52,7 +52,6 @@ export function ViewSelector({
     },
     activeButton: {
       backgroundColor: colors.surface,
-      // backgroundColor: '#F123D2',
     },
     buttonText: {
       marginBottom: compact ? 0 : 4,

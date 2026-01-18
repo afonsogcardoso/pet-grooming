@@ -1,6 +1,4 @@
 import { CameraOptions, ImageLibraryOptions } from 'react-native-image-picker';
-
-// Shared picker options to keep uploads reasonably sized
 export const IMAGE_MAX_DIMENSION = 1400;
 export const IMAGE_QUALITY = 0.72;
 

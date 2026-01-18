@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 
 type Step = { id: string; label: string };
 
-export function useAppointmentForm(initial?: any) {
+export function useAppointmentForm() {
   const [activeStep, setActiveStep] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -18,12 +18,11 @@ export function useAppointmentForm(initial?: any) {
     setActiveStep(index);
   }, []);
 
-  const canSubmit = true; // placeholder, wire real validation here
+  const canSubmit = true;
 
   const handleSubmit = useCallback(async () => {
     setIsSubmitting(true);
     try {
-      // TODO: implement submit logic (API calls, validation, navigation)
       await new Promise((r) => setTimeout(r, 400));
     } finally {
       setIsSubmitting(false);

@@ -9,7 +9,6 @@ import { PetServiceRow } from "../../../components/appointment/PetServiceRow";
 
 type Props = {
   pet: any;
-  index?: number;
   rows: any[];
   services: any[];
   loadingServices: boolean;
@@ -23,14 +22,13 @@ type Props = {
   handleUpdateNewPet: (petId: string, updates: any) => void;
   handleSelectNewPetSpecies: (petId: string, option: any) => void;
   handleUpdateServiceRow: (petId: string, rowId: string, updates: any) => void;
-  handleRemoveServiceRow: (petId: string, rowId: string) => void;
   handleRowTotalsChange: (id: string, totals: any) => void;
-  handleAddServiceRow: (petId: string) => void;
+  servicesError?: unknown;
+  refetchServices: () => Promise<unknown>;
 };
 
 export default function PetServices({
   pet,
-  index,
   rows,
   services,
   loadingServices,
@@ -44,9 +42,9 @@ export default function PetServices({
   handleUpdateNewPet,
   handleSelectNewPetSpecies,
   handleUpdateServiceRow,
-  handleRemoveServiceRow,
   handleRowTotalsChange,
-  handleAddServiceRow,
+  servicesError,
+  refetchServices,
 }: Props) {
   const { t } = useTranslation();
 
@@ -138,22 +136,24 @@ export default function PetServices({
         />
       </View>
 
-      {rows.map((row: any, rowIndex: number) => (
+      {rows[0] ? (
         <PetServiceRow
-          key={row.id}
-          index={rowIndex}
-          row={row}
+          key={rows[0].id}
+          index={0}
+          row={rows[0]}
           services={services}
           loadingServices={loadingServices}
+          servicesError={servicesError}
+          refetchServices={refetchServices}
           petWeight={weightValue ?? null}
           onChange={(updates: any) =>
-            handleUpdateServiceRow(pet.id, row.id, updates)
+            handleUpdateServiceRow(pet.id, rows[0].id, updates)
           }
-          onRemove={() => handleRemoveServiceRow(pet.id, row.id)}
-          allowRemove={rows.length > 1}
+          onRemove={() => undefined}
+          allowRemove={false}
           onTotalsChange={handleRowTotalsChange}
         />
-      ))}
+      ) : null}
 
       {rows.length > 0 ? (
         <Text style={styles.petSummary}>
@@ -169,15 +169,6 @@ export default function PetServices({
         </Text>
       ) : null}
 
-      <TouchableOpacity
-        style={styles.addServiceButton}
-        onPress={() => handleAddServiceRow(pet.id)}
-        accessibilityLabel={t("appointmentForm.addService")}
-      >
-        <Text style={styles.addServiceText}>
-          + {t("appointmentForm.addService")}
-        </Text>
-      </TouchableOpacity>
     </>
   );
 }
